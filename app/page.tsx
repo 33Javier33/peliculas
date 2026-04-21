@@ -1,6 +1,7 @@
 import { getTrendingMovies, getPopularMovies } from '@/lib/tmdb'
 import HeroSection from '@/components/HeroSection'
 import MovieGrid from '@/components/MovieGrid'
+import MusicForYouSection from '@/components/MusicForYouSection'
 import type { Movie, MoviesResponse } from '@/types/tmdb'
 
 export const revalidate = 3600
@@ -22,6 +23,8 @@ export default async function HomePage() {
       {heroMovie && <HeroSection movie={heroMovie} />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 space-y-16">
+        <MusicForYouSection />
+
         <section>
           <div className="flex items-center gap-3 mb-8">
             <div className="w-1 h-8 bg-amber-400 rounded-full" />

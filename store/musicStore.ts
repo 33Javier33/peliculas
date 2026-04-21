@@ -10,6 +10,15 @@ export interface SavedTrack extends MusicVideo {
   artist?: string
 }
 
+export interface HistoryEntry extends MusicVideo {
+  playedAt: number
+  plays: number
+  artist?: string
+  album?: string
+}
+
+const MAX_HISTORY = 80
+
 interface MusicState {
   queue: MusicVideo[]
   currentIndex: number
@@ -22,6 +31,12 @@ interface MusicState {
   isQueueOpen: boolean
   seekCallback: ((fraction: number) => void) | null
   saved: SavedTrack[]
+  history: HistoryEntry[]
+  audioBoost: boolean
+  // Populated after zustand rehydrates from localStorage on the client.
+  // Used by the player bar to resume the previous playback position.
+  resumeAt: number
+  hasHydrated: boolean
 }
 
 interface MusicActions {
@@ -46,6 +61,11 @@ interface MusicActions {
   toggleSaved: (video: MusicVideo) => void
   isSaved: (id: string) => boolean
   playSaved: (startIndex?: number) => void
+  recordPlay: (video: MusicVideo) => void
+  clearHistory: () => void
+  setAudioBoost: (v: boolean) => void
+  consumeResume: () => number
+  setHasHydrated: (v: boolean) => void
 }
 
 type MusicStore = MusicState & MusicActions
@@ -58,7 +78,6 @@ export function parseTrackMeta(video: MusicVideo): { artist: string; album?: str
   const rawTitle = video.title || ''
   const channel = (video.channelTitle || '').replace(/\s*-?\s*(Topic|VEVO|Official)\s*$/i, '').trim()
 
-  // Try to pull a bracketed album like [Album Name] or (Album: Name)
   let album: string | undefined
   const bracket = rawTitle.match(/\[([^\]]+)\]/)
   if (bracket) {
@@ -72,7 +91,6 @@ export function parseTrackMeta(video: MusicVideo): { artist: string; album?: str
     if (albumTag) album = albumTag[1].trim()
   }
 
-  // Infer artist: prefer "Artist - Song" prefix, fall back to channel name
   let artist = channel
   const dashSplit = rawTitle.split(/\s[-–—|]\s/)
   if (dashSplit.length >= 2) {
@@ -98,14 +116,22 @@ export const useMusicStore = create<MusicStore>()(
       isQueueOpen: false,
       seekCallback: null,
       saved: [],
+      history: [],
+      audioBoost: false,
+      resumeAt: 0,
+      hasHydrated: false,
 
-      play: (videos, startIndex = 0) =>
-        set({ queue: videos, currentIndex: startIndex, isPlaying: true, isVisible: true, played: 0, duration: 0 }),
+      play: (videos, startIndex = 0) => {
+        const start = videos[startIndex]
+        set({ queue: videos, currentIndex: startIndex, isPlaying: true, isVisible: true, played: 0, duration: 0, resumeAt: 0 })
+        if (start) get().recordPlay(start)
+      },
 
       addToQueue: (video) => {
         const { queue, isVisible } = get()
         if (!isVisible) {
-          set({ queue: [video], currentIndex: 0, isPlaying: true, isVisible: true, played: 0, duration: 0 })
+          set({ queue: [video], currentIndex: 0, isPlaying: true, isVisible: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(video)
         } else {
           set({ queue: [...queue, video] })
         }
@@ -127,26 +153,31 @@ export const useMusicStore = create<MusicStore>()(
       playIndex: (index) => {
         const { queue } = get()
         if (index >= 0 && index < queue.length) {
-          set({ currentIndex: index, isPlaying: true, played: 0, duration: 0 })
+          set({ currentIndex: index, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(queue[index])
         }
       },
 
       playNext: () => {
         const { currentIndex, queue } = get()
         if (currentIndex < queue.length - 1) {
-          set({ currentIndex: currentIndex + 1, isPlaying: true, played: 0, duration: 0 })
+          const nextIdx = currentIndex + 1
+          set({ currentIndex: nextIdx, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(queue[nextIdx])
         } else {
           set({ isPlaying: false })
         }
       },
 
       playPrev: () => {
-        const { currentIndex, played, seekCallback } = get()
+        const { currentIndex, played, seekCallback, queue } = get()
         if (played > 0.05) {
           seekCallback?.(0)
           set({ played: 0 })
         } else if (currentIndex > 0) {
-          set({ currentIndex: currentIndex - 1, isPlaying: true, played: 0, duration: 0 })
+          const prevIdx = currentIndex - 1
+          set({ currentIndex: prevIdx, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(queue[prevIdx])
         }
       },
 
@@ -169,7 +200,7 @@ export const useMusicStore = create<MusicStore>()(
       toggleQueue: () => set((s) => ({ isQueueOpen: !s.isQueueOpen })),
 
       dismiss: () =>
-        set({ isVisible: false, isPlaying: false, queue: [], currentIndex: 0, played: 0, duration: 0, isQueueOpen: false }),
+        set({ isVisible: false, isPlaying: false, queue: [], currentIndex: 0, played: 0, duration: 0, isQueueOpen: false, resumeAt: 0 }),
 
       saveTrack: (video) => {
         const { saved } = get()
@@ -199,20 +230,72 @@ export const useMusicStore = create<MusicStore>()(
       playSaved: (startIndex = 0) => {
         const { saved } = get()
         if (saved.length === 0) return
+        const queue = saved.map(({ savedAt: _savedAt, artist: _artist, album: _album, ...v }) => v)
         set({
-          queue: saved.map(({ savedAt: _savedAt, artist: _artist, album: _album, ...v }) => v),
+          queue,
           currentIndex: Math.min(Math.max(0, startIndex), saved.length - 1),
           isPlaying: true,
           isVisible: true,
           played: 0,
           duration: 0,
+          resumeAt: 0,
         })
+        const start = queue[Math.min(Math.max(0, startIndex), queue.length - 1)]
+        if (start) get().recordPlay(start)
       },
+
+      recordPlay: (video) => {
+        const meta = parseTrackMeta(video)
+        const { history } = get()
+        const existing = history.find((h) => h.id === video.id)
+        const entry: HistoryEntry = {
+          ...video,
+          artist: meta.artist,
+          album: meta.album,
+          playedAt: Date.now(),
+          plays: (existing?.plays ?? 0) + 1,
+        }
+        const rest = history.filter((h) => h.id !== video.id)
+        set({ history: [entry, ...rest].slice(0, MAX_HISTORY) })
+      },
+
+      clearHistory: () => set({ history: [] }),
+
+      setAudioBoost: (v) => set({ audioBoost: v }),
+
+      consumeResume: () => {
+        const { resumeAt } = get()
+        if (resumeAt > 0) set({ resumeAt: 0 })
+        return resumeAt
+      },
+
+      setHasHydrated: (v) => set({ hasHydrated: v }),
     }),
     {
       name: 'carlospn-music-store',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ saved: state.saved, volume: state.volume, isMuted: state.isMuted }),
+      version: 2,
+      partialize: (state) => ({
+        saved: state.saved,
+        volume: state.volume,
+        isMuted: state.isMuted,
+        queue: state.queue,
+        currentIndex: state.currentIndex,
+        isVisible: state.isVisible,
+        played: state.played,
+        history: state.history,
+        audioBoost: state.audioBoost,
+      }),
+      onRehydrateStorage: () => (state) => {
+        // Browsers block autoplay on cold load; keep paused and remember the
+        // position so the player can seek back when the user hits play.
+        if (state) {
+          state.isPlaying = false
+          state.resumeAt = state.played || 0
+          state.duration = 0
+          state.hasHydrated = true
+        }
+      },
     }
   )
 )

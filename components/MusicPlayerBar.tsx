@@ -17,6 +17,7 @@ import {
   PictureInPicture2,
   Plus,
   Heart,
+  Sparkles,
 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
@@ -47,6 +48,8 @@ export default function MusicPlayerBar() {
     isVisible,
     isQueueOpen,
     saved,
+    audioBoost,
+    hasHydrated,
     playNext,
     playPrev,
     togglePlay,
@@ -61,10 +64,56 @@ export default function MusicPlayerBar() {
     playIndex,
     removeFromQueue,
     toggleSaved,
+    setAudioBoost,
+    consumeResume,
   } = useMusicStore()
 
   const currentVideo = queue[currentIndex]
   const isCurrentSaved = currentVideo ? saved.some((t) => t.id === currentVideo.id) : false
+  const hasResumedRef = useRef(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const gainRef = useRef<GainNode | null>(null)
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null)
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
+
+  const attachAudioGraph = useCallback(() => {
+    const el = playerRef.current
+    if (!el) return false
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+        if (!Ctx) return false
+        const ctx = new Ctx()
+        const source = ctx.createMediaElementSource(el)
+        const compressor = ctx.createDynamicsCompressor()
+        compressor.threshold.value = -24
+        compressor.knee.value = 30
+        compressor.ratio.value = 3
+        compressor.attack.value = 0.003
+        compressor.release.value = 0.25
+        const gain = ctx.createGain()
+        gain.gain.value = 1
+        source.connect(compressor)
+        compressor.connect(gain)
+        gain.connect(ctx.destination)
+        audioCtxRef.current = ctx
+        compressorRef.current = compressor
+        gainRef.current = gain
+        sourceRef.current = source
+      }
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {})
+      }
+      return true
+    } catch {
+      // CORS or already-connected element: fall back silently.
+      return false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (gainRef.current) gainRef.current.gain.value = audioBoost ? 1.35 : 1
+  }, [audioBoost])
 
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
@@ -106,8 +155,32 @@ export default function MusicPlayerBar() {
   )
 
   const handleEnded = useCallback(() => playNext(), [playNext])
-  const handlePlay = useCallback(() => setIsPlaying(true), [setIsPlaying])
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true)
+    attachAudioGraph()
+  }, [setIsPlaying, attachAudioGraph])
   const handlePause = useCallback(() => setIsPlaying(false), [setIsPlaying])
+
+  const handleLoadedMetadata = useCallback(
+    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      const el = e.currentTarget
+      if (hasResumedRef.current) return
+      const resume = consumeResume()
+      if (resume > 0 && isFinite(el.duration) && el.duration > 0) {
+        el.currentTime = resume * el.duration
+        setPlayed(resume)
+        setLocalPlayed(resume)
+      }
+      hasResumedRef.current = true
+    },
+    [consumeResume, setPlayed]
+  )
+
+  useEffect(() => {
+    // Reset resume flag whenever the active track changes so future songs
+    // don't inherit the previous song's seek position.
+    hasResumedRef.current = false
+  }, [currentVideo?.id])
 
   const handleSeekMouseDown = () => setIsSeeking(true)
 
@@ -143,7 +216,7 @@ export default function MusicPlayerBar() {
     ? `https://www.youtube.com/watch?v=${currentVideo.id}`
     : ''
 
-  if (!isVisible || !currentVideo) return null
+  if (!hasHydrated || !isVisible || !currentVideo) return null
 
   const progressPercent = localPlayed * 100
   const isLastInQueue = currentIndex >= queue.length - 1
@@ -155,6 +228,7 @@ export default function MusicPlayerBar() {
     volume: isMuted ? 0 : volume,
     onTimeUpdate: handleTimeUpdate,
     onDurationChange: handleDurationChange,
+    onLoadedMetadata: handleLoadedMetadata,
     onEnded: handleEnded,
     onPlay: handlePlay,
     onPause: handlePause,
@@ -166,6 +240,9 @@ export default function MusicPlayerBar() {
         iv_load_policy: 3,
         hl: 'es',
         disablekb: 0,
+        // Hint YouTube to pick a high-definition stream (audio bitrate improves alongside video quality on YT)
+        vq: 'hd720',
+        hd: 1,
       },
     },
   }
@@ -299,6 +376,21 @@ export default function MusicPlayerBar() {
                 aria-pressed={isCurrentSaved}
               >
                 <Heart className={`w-4 h-4 ${isCurrentSaved ? 'fill-pink-500' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => {
+                  const next = !audioBoost
+                  setAudioBoost(next)
+                  if (next) attachAudioGraph()
+                }}
+                className={`p-1.5 transition-colors hidden sm:flex ${
+                  audioBoost ? 'text-amber-400' : 'text-slate-500 hover:text-white'
+                }`}
+                title={audioBoost ? 'Audio mejorado activado' : 'Mejorar audio (compresor + boost)'}
+                aria-pressed={audioBoost}
+              >
+                <Sparkles className="w-4 h-4" />
               </button>
 
               <button
