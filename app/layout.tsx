@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
 import './globals.css'
 import Header from '@/components/Header'
 
@@ -36,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={inter.variable}>
       <body className="min-h-screen bg-[#0f172a] text-white font-sans">
-        <Header />
+        <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-[#0f172a]" />}>
+          <Header />
+        </Suspense>
         <main className="min-h-screen pb-20">{children}</main>
         <footer className="bg-[#1e293b] border-t border-[#2d3748] py-10 mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

@@ -3,6 +3,8 @@ import { searchMovies } from '@/lib/tmdb'
 import MovieGrid from '@/components/MovieGrid'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 interface SearchPageProps {
   searchParams: { q?: string; page?: string }
 }
@@ -45,7 +47,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     )
   }
 
-  const data = await searchMovies(query, currentPage)
+  const data = await searchMovies(query, currentPage).catch(() => ({ page: 1, results: [], total_pages: 0, total_results: 0 }))
   const { results, total_pages, total_results } = data
   const hasNextPage = currentPage < total_pages
   const hasPrevPage = currentPage > 1

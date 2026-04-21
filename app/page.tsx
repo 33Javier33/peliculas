@@ -1,16 +1,19 @@
 import { getTrendingMovies, getPopularMovies } from '@/lib/tmdb'
 import HeroSection from '@/components/HeroSection'
 import MovieGrid from '@/components/MovieGrid'
+import type { Movie, MoviesResponse } from '@/types/tmdb'
 
 export const revalidate = 3600
 
+const emptyResponse: MoviesResponse = { page: 1, results: [], total_pages: 0, total_results: 0 }
+
 export default async function HomePage() {
   const [trendingData, popularData] = await Promise.all([
-    getTrendingMovies(),
-    getPopularMovies(1),
+    getTrendingMovies().catch(() => emptyResponse),
+    getPopularMovies(1).catch(() => emptyResponse),
   ])
 
-  const heroMovie = trendingData.results[0]
+  const heroMovie: Movie | undefined = trendingData.results[0]
   const trendingMovies = trendingData.results.slice(1, 13)
   const popularMovies = popularData.results.slice(0, 12)
 
