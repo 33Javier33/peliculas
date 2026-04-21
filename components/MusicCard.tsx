@@ -12,7 +12,8 @@ interface MusicCardProps {
 }
 
 export default function MusicCard({ video, allVideos, index }: MusicCardProps) {
-  const { play, addToQueue } = useMusicStore()
+  const { play, addToQueue, toggleSaved, saved } = useMusicStore()
+  const isSaved = saved.some((t) => t.id === video.id)
 
   return (
     <div className="group relative bg-[#0d0d0d] border border-white/8 rounded-xl overflow-hidden hover:border-purple-500/30 hover:bg-[#111111] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-900/20">
@@ -50,17 +51,35 @@ export default function MusicCard({ video, allVideos, index }: MusicCardProps) {
           </div>
         )}
 
-        {/* Add to queue button (top right on hover) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            addToQueue(video)
-          }}
-          className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-purple-600 transition-all duration-200 hover:scale-110"
-          title="Añadir a la cola"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
+        {/* Top-right action buttons */}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleSaved(video)
+            }}
+            className={`p-1.5 rounded-full transition-all duration-200 hover:scale-110 ${
+              isSaved
+                ? 'bg-pink-600/90 text-white opacity-100'
+                : 'bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-pink-600'
+            }`}
+            title={isSaved ? 'Quitar de guardadas' : 'Guardar canción'}
+            aria-pressed={isSaved}
+          >
+            <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-white' : ''}`} />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              addToQueue(video)
+            }}
+            className="p-1.5 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-purple-600 transition-all duration-200 hover:scale-110"
+            title="Añadir a la cola"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Info */}

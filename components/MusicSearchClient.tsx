@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useCallback, useTransition, useRef } from 'react'
-import { Search, X, Loader2, AlertCircle, Music2, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
+import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
+import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 interface MusicSearchClientProps {
@@ -10,6 +12,7 @@ interface MusicSearchClientProps {
 }
 
 export default function MusicSearchClient({ initialVideos }: MusicSearchClientProps) {
+  const savedCount = useMusicStore((s) => s.saved.length)
   const [query, setQuery] = useState('')
   const [videos, setVideos] = useState<MusicVideo[]>(initialVideos)
   const [nextPageToken, setNextPageToken] = useState<string | undefined>()
@@ -95,9 +98,21 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               sin interrupciones
             </span>
           </h1>
-          <p className="text-slate-500 max-w-md mx-auto text-sm sm:text-base">
+          <p className="text-slate-500 max-w-md mx-auto text-sm sm:text-base mb-5">
             Videos musicales en HD. Navega por toda la app sin perder la reproducción.
           </p>
+          <Link
+            href="/music/library"
+            className="inline-flex items-center gap-2 bg-[#0d0d0d] hover:bg-[#111111] text-white font-semibold px-5 py-2.5 rounded-full text-sm border border-white/10 hover:border-purple-500/40 transition-all hover:scale-105"
+          >
+            <Library className="w-4 h-4 text-purple-400" />
+            Mi biblioteca
+            {savedCount > 0 && (
+              <span className="bg-purple-600/25 text-purple-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                {savedCount}
+              </span>
+            )}
+          </Link>
         </div>
 
         {/* Search form */}

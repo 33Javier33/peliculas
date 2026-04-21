@@ -16,6 +16,7 @@ import {
   Music,
   PictureInPicture2,
   Plus,
+  Heart,
 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
@@ -45,6 +46,7 @@ export default function MusicPlayerBar() {
     played,
     isVisible,
     isQueueOpen,
+    saved,
     playNext,
     playPrev,
     togglePlay,
@@ -58,9 +60,11 @@ export default function MusicPlayerBar() {
     dismiss,
     playIndex,
     removeFromQueue,
+    toggleSaved,
   } = useMusicStore()
 
   const currentVideo = queue[currentIndex]
+  const isCurrentSaved = currentVideo ? saved.some((t) => t.id === currentVideo.id) : false
 
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
@@ -285,6 +289,17 @@ export default function MusicPlayerBar() {
                   />
                 </div>
               </div>
+
+              <button
+                onClick={() => currentVideo && toggleSaved(currentVideo)}
+                className={`p-1.5 transition-colors ${
+                  isCurrentSaved ? 'text-pink-500 hover:text-pink-400' : 'text-slate-500 hover:text-white'
+                }`}
+                title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar canción'}
+                aria-pressed={isCurrentSaved}
+              >
+                <Heart className={`w-4 h-4 ${isCurrentSaved ? 'fill-pink-500' : ''}`} />
+              </button>
 
               <button
                 onClick={handlePiP}
