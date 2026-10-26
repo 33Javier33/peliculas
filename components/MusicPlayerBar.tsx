@@ -27,6 +27,7 @@ import {
   Radio,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
+import { useLiveStore } from '@/store/liveStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
@@ -320,7 +321,11 @@ export default function MusicPlayerBar() {
     },
     [setAudioMode]
   )
-  const isCurrentSaved = currentVideo ? saved.some((t) => t.id === currentVideo.id) : false
+  // Radio en vivo: el corazón guarda la emisora en "Mis radios favoritas"
+  const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
+  const isCurrentSaved = currentVideo
+    ? (isLive ? favoriteRadios : saved).some((t) => t.id === currentVideo.id)
+    : false
   const hasResumedRef = useRef(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const gainRef = useRef<GainNode | null>(null)
@@ -1064,8 +1069,8 @@ export default function MusicPlayerBar() {
               </div>
 
               <button
-                onClick={() => currentVideo && toggleSaved(currentVideo)}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${
+                onClick={() => currentVideo && (isLive ? toggleFavoriteRadio(currentVideo) : toggleSaved(currentVideo))}
+                className={`${iconBtn} ${
                   isCurrentSaved ? 'text-purple-500 hover:text-purple-400' : 'text-slate-500 hover:text-white'
                 }`}
                 title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}

@@ -20,6 +20,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
+import { useLiveStore } from '@/store/liveStore'
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds <= 0) return '0:00'
@@ -70,6 +71,7 @@ export default function NowPlayingSheet({
     toggleShuffle,
   } = useMusicStore()
   const video = queue[currentIndex]
+  const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
   const [dragValue, setDragValue] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -90,8 +92,8 @@ export default function NowPlayingSheet({
 
   if (!video) return null
 
-  const isSaved = saved.some((t) => t.id === video.id)
   const isLive = !!video.streamUrl
+  const isSaved = (isLive ? favoriteRadios : saved).some((t) => t.id === video.id)
   const artist = isLive ? video.channelTitle : parseTrackMeta(video).artist || video.channelTitle
   // "Artista - Canción" → título solo con la canción (las radios conservan su nombre)
   const songTitle = isLive ? video.title : video.title.replace(/^[^-–]+[-–]\s*/, '') || video.title
@@ -202,8 +204,8 @@ export default function NowPlayingSheet({
               <p className="text-slate-400 text-base truncate mt-1">{artist}</p>
             </div>
             <button
-              onClick={() => toggleSaved(video)}
-              className={`${isLive ? 'hidden' : ''} shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
+              onClick={() => (isLive ? toggleFavoriteRadio(video) : toggleSaved(video))}
+              className={`shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
                 isSaved
                   ? 'bg-violet-500/20 border-violet-400/40 text-violet-300'
                   : 'bg-surface-2/70 border-white/8 text-slate-300'
