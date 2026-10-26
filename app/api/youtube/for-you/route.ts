@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await getForYouVideos(ids, artists)
+    const genreCount = Math.min(2, Math.max(0, parseInt(searchParams.get('genres') || '2', 10) || 0))
+    const result = await getForYouVideos(ids, artists, genreCount)
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' },
     })

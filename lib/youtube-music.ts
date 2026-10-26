@@ -248,8 +248,12 @@ async function detectGenres(ids: string[]): Promise<string[]> {
  * Mezcla canciones de los artistas que más escuchas con canciones de tus géneros,
  * sin repetir lo que ya escuchaste.
  */
-export async function getForYouVideos(recentIds: string[], artists: string[]): Promise<ForYouResult> {
-  const genres = (await detectGenres(recentIds).catch(() => [])).slice(0, 2)
+export async function getForYouVideos(
+  recentIds: string[],
+  artists: string[],
+  genreCount = 2
+): Promise<ForYouResult> {
+  const genres = genreCount > 0 ? (await detectGenres(recentIds).catch(() => [])).slice(0, genreCount) : []
   const topArtists = artists.slice(0, 3)
 
   const queries = [

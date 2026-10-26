@@ -35,6 +35,8 @@ interface MusicState {
   audioBoost: boolean
   // Modo audio: reproduce solo el sonido con un <audio> propio (sigue en segundo plano)
   audioMode: boolean
+  // Radio: al llegar al final de la cola se añade música parecida automáticamente
+  radioEnabled: boolean
   // Populated after zustand rehydrates from localStorage on the client.
   // Used by the player bar to resume the previous playback position.
   resumeAt: number
@@ -44,6 +46,8 @@ interface MusicState {
 interface MusicActions {
   play: (videos: MusicVideo[], startIndex?: number) => void
   addToQueue: (video: MusicVideo) => void
+  appendToQueue: (videos: MusicVideo[]) => number
+  setRadioEnabled: (v: boolean) => void
   removeFromQueue: (index: number) => void
   playIndex: (index: number) => void
   playNext: () => void
@@ -122,6 +126,7 @@ export const useMusicStore = create<MusicStore>()(
       history: [],
       audioBoost: false,
       audioMode: true,
+      radioEnabled: true,
       resumeAt: 0,
       hasHydrated: false,
 
@@ -130,6 +135,16 @@ export const useMusicStore = create<MusicStore>()(
         set({ queue: videos, currentIndex: startIndex, isPlaying: true, isVisible: true, played: 0, duration: 0, resumeAt: 0 })
         if (start) get().recordPlay(start)
       },
+
+      appendToQueue: (videos) => {
+        const { queue } = get()
+        const inQueue = new Set(queue.map((v) => v.id))
+        const fresh = videos.filter((v) => !inQueue.has(v.id) && inQueue.add(v.id))
+        if (fresh.length > 0) set({ queue: [...queue, ...fresh] })
+        return fresh.length
+      },
+
+      setRadioEnabled: (v) => set({ radioEnabled: v }),
 
       addToQueue: (video) => {
         const { queue, isVisible } = get()
@@ -291,6 +306,7 @@ export const useMusicStore = create<MusicStore>()(
         history: state.history,
         audioBoost: state.audioBoost,
         audioMode: state.audioMode,
+        radioEnabled: state.radioEnabled,
       }),
       onRehydrateStorage: () => (state) => {
         // Browsers block autoplay on cold load; keep paused and remember the

@@ -23,9 +23,11 @@ import {
   Minimize2,
   Headphones,
   Loader2,
+  Radio,
 } from 'lucide-react'
-import { useMusicStore } from '@/store/musicStore'
+import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
+import type { MusicVideo } from '@/lib/youtube-music'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -101,10 +103,64 @@ export default function MusicPlayerBar() {
     setAudioBoost,
     audioMode,
     setAudioMode,
+    radioEnabled,
+    setRadioEnabled,
+    appendToQueue,
     consumeResume,
   } = useMusicStore()
 
   const currentVideo = queue[currentIndex]
+
+  // ===== Radio: al empezar la última canción de la cola, se añade música parecida =====
+  const [isRadioLoading, setIsRadioLoading] = useState(false)
+  const isRadioLoadingRef = useRef(false)
+  isRadioLoadingRef.current = isRadioLoading
+  const radioSeedRef = useRef<string | null>(null)
+  // La canción terminó mientras la radio aún buscaba: seguir en cuanto lleguen canciones
+  const waitingForRadioRef = useRef(false)
+  const isLastTrack = queue.length > 0 && currentIndex === queue.length - 1
+
+  useEffect(() => {
+    if (!radioEnabled || !isLastTrack || !currentVideo || radioSeedRef.current === currentVideo.id) return
+    radioSeedRef.current = currentVideo.id
+    const { history } = useMusicStore.getState()
+
+    // Semilla: artista de la canción actual + tu artista más escuchado
+    const artists: string[] = []
+    const currentArtist = parseTrackMeta(currentVideo).artist || currentVideo.channelTitle
+    if (currentArtist) artists.push(currentArtist)
+    for (const h of history) {
+      const a = h.artist || h.channelTitle
+      if (a && !artists.includes(a)) {
+        artists.push(a)
+        break
+      }
+    }
+    const ids = Array.from(
+      new Set([currentVideo.id, ...queue.slice(-10).map((v) => v.id), ...history.slice(0, 14).map((h) => h.id)])
+    ).slice(0, 25)
+
+    const params = new URLSearchParams({ ids: ids.join(','), genres: '1' })
+    artists.forEach((a) => params.append('artist', a))
+    setIsRadioLoading(true)
+    fetch(`/api/youtube/for-you?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { videos?: MusicVideo[] } | null) => {
+        const list = data?.videos ?? []
+        // Preferimos lo que no has escuchado nunca; si queda poco, se completa con lo demás
+        const heard = new Set(useMusicStore.getState().history.map((h) => h.id))
+        const fresh = list.filter((v) => !heard.has(v.id))
+        const added = appendToQueue((fresh.length >= 5 ? fresh : list).slice(0, 15))
+        if (added > 0 && waitingForRadioRef.current) useMusicStore.getState().playNext()
+      })
+      .catch(() => {
+        radioSeedRef.current = null
+      })
+      .finally(() => {
+        waitingForRadioRef.current = false
+        setIsRadioLoading(false)
+      })
+  }, [radioEnabled, isLastTrack, currentVideo, queue, appendToQueue])
 
   // ===== Modo audio (segundo plano real) =====
   const [audioSrc, setAudioSrc] = useState<{ id: string; candidates: AudioCandidate[]; index: number } | null>(null)
@@ -308,7 +364,11 @@ export default function MusicPlayerBar() {
     }
   }, [resumeIfNeeded, setIsPlaying])
 
-  const handleEnded = useCallback(() => playNext(), [playNext])
+  const handleEnded = useCallback(() => {
+    const { queue: q, currentIndex: i } = useMusicStore.getState()
+    if (i >= q.length - 1 && isRadioLoadingRef.current) waitingForRadioRef.current = true
+    playNext()
+  }, [playNext])
   const handlePlay = useCallback(() => {
     setIsPlaying(true)
     // El audio de otro dominio sin CORS se silenciaría al pasar por Web Audio
@@ -599,7 +659,30 @@ export default function MusicPlayerBar() {
               )}
             </div>
 
-            <div className="px-4 py-2.5 border-t border-white/5 shrink-0">
+            <div className="px-4 py-2.5 border-t border-white/5 shrink-0 space-y-2">
+              <button
+                onClick={() => setRadioEnabled(!radioEnabled)}
+                role="switch"
+                aria-checked={radioEnabled}
+                className="w-full flex items-center gap-3 text-left"
+              >
+                <Radio className={`w-4 h-4 shrink-0 ${radioEnabled ? 'text-purple-400' : 'text-slate-600'}`} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm text-white font-medium">Radio</span>
+                  <span className="block text-[11px] text-slate-500">
+                    {isRadioLoading
+                      ? 'Buscando música parecida...'
+                      : 'Al terminar la cola, sigue con música parecida'}
+                  </span>
+                </span>
+                <span
+                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${radioEnabled ? 'bg-purple-600' : 'bg-white/15'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${radioEnabled ? 'left-[18px]' : 'left-0.5'}`}
+                  />
+                </span>
+              </button>
               <p className="text-slate-700 text-xs flex items-center gap-1.5">
                 <Plus className="w-3 h-3" />
                 Toca + en cualquier tarjeta para añadir a la cola
