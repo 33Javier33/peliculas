@@ -33,6 +33,8 @@ interface MusicState {
   saved: SavedTrack[]
   history: HistoryEntry[]
   audioBoost: boolean
+  // Modo audio: reproduce solo el sonido con un <audio> propio (sigue en segundo plano)
+  audioMode: boolean
   // Populated after zustand rehydrates from localStorage on the client.
   // Used by the player bar to resume the previous playback position.
   resumeAt: number
@@ -64,6 +66,7 @@ interface MusicActions {
   recordPlay: (video: MusicVideo) => void
   clearHistory: () => void
   setAudioBoost: (v: boolean) => void
+  setAudioMode: (v: boolean) => void
   consumeResume: () => number
   setHasHydrated: (v: boolean) => void
 }
@@ -118,6 +121,7 @@ export const useMusicStore = create<MusicStore>()(
       saved: [],
       history: [],
       audioBoost: false,
+      audioMode: true,
       resumeAt: 0,
       hasHydrated: false,
 
@@ -262,6 +266,7 @@ export const useMusicStore = create<MusicStore>()(
       clearHistory: () => set({ history: [] }),
 
       setAudioBoost: (v) => set({ audioBoost: v }),
+      setAudioMode: (v) => set({ audioMode: v }),
 
       consumeResume: () => {
         const { resumeAt } = get()
@@ -285,6 +290,7 @@ export const useMusicStore = create<MusicStore>()(
         played: state.played,
         history: state.history,
         audioBoost: state.audioBoost,
+        audioMode: state.audioMode,
       }),
       onRehydrateStorage: () => (state) => {
         // Browsers block autoplay on cold load; keep paused and remember the

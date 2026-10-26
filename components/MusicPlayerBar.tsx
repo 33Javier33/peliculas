@@ -21,11 +21,35 @@ import {
   Maximize,
   Maximize2,
   Minimize2,
+  Headphones,
+  Loader2,
 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
+import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
+
+// Candidatos de audio por video (compartido entre renders; las URLs duran horas)
+const audioCache = new Map<string, Promise<AudioCandidate[]>>()
+
+function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
+  let p = audioCache.get(id)
+  if (!p) {
+    p = fetch(`/api/audio?id=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : { candidates: [] }))
+      .then((d: { candidates?: AudioCandidate[] }) => d.candidates ?? [])
+      .catch(() => [] as AudioCandidate[])
+      // Si el servidor no consigue fuentes (p. ej. bloqueado), lo intenta el propio navegador
+      .then((c) => (c.length > 0 ? c : findAudioCandidates(id).catch(() => [])))
+      .then((c) => {
+        if (c.length === 0) audioCache.delete(id)
+        return c
+      })
+    audioCache.set(id, p)
+  }
+  return p
+}
 
 // Tiempo tras pasar a segundo plano en el que una pausa se considera automática (de YouTube)
 const AUTO_RESUME_WINDOW_MS = 5000
@@ -75,10 +99,72 @@ export default function MusicPlayerBar() {
     removeFromQueue,
     toggleSaved,
     setAudioBoost,
+    audioMode,
+    setAudioMode,
     consumeResume,
   } = useMusicStore()
 
   const currentVideo = queue[currentIndex]
+
+  // ===== Modo audio (segundo plano real) =====
+  const [audioSrc, setAudioSrc] = useState<{ id: string; candidates: AudioCandidate[]; index: number } | null>(null)
+  const [audioFailedIds, setAudioFailedIds] = useState<Set<string>>(() => new Set())
+  const pendingSeekRef = useRef(-1)
+  const currentId = currentVideo?.id
+  const useAudio = audioMode && !!currentId && !audioFailedIds.has(currentId)
+  const useAudioRef = useRef(useAudio)
+  useAudioRef.current = useAudio
+  const audioUrl =
+    useAudio && audioSrc?.id === currentId ? audioSrc.candidates[audioSrc.index]?.url : undefined
+  const isAudioLoading = useAudio && !audioUrl
+
+  const markAudioFailed = useCallback((id: string) => {
+    setAudioFailedIds((prev) => new Set(prev).add(id))
+  }, [])
+
+  useEffect(() => {
+    if (!useAudio || !currentId) return
+    if (audioSrc?.id === currentId) return
+    let cancelled = false
+    loadAudioCandidates(currentId).then((candidates) => {
+      if (cancelled) return
+      if (candidates.length === 0) markAudioFailed(currentId)
+      else setAudioSrc({ id: currentId, candidates, index: 0 })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [useAudio, currentId, audioSrc?.id, markAudioFailed])
+
+  // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
+  const nextId = queue[currentIndex + 1]?.id
+  useEffect(() => {
+    if (audioMode && nextId) loadAudioCandidates(nextId)
+  }, [audioMode, nextId])
+
+  const handleAudioError = useCallback(() => {
+    if (!audioSrc || audioSrc.id !== currentId) return
+    if (audioSrc.index + 1 < audioSrc.candidates.length) {
+      pendingSeekRef.current = useMusicStore.getState().played
+      setAudioSrc({ ...audioSrc, index: audioSrc.index + 1 })
+    } else {
+      audioCache.delete(audioSrc.id)
+      pendingSeekRef.current = useMusicStore.getState().played
+      markAudioFailed(audioSrc.id)
+    }
+  }, [audioSrc, currentId, markAudioFailed])
+
+  const switchMode = useCallback(
+    (toAudio: boolean) => {
+      pendingSeekRef.current = useMusicStore.getState().played
+      setAudioMode(toAudio)
+      if (toAudio) {
+        setIsExpanded(false)
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      }
+    },
+    [setAudioMode]
+  )
   const isCurrentSaved = currentVideo ? saved.some((t) => t.id === currentVideo.id) : false
   const hasResumedRef = useRef(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -125,6 +211,23 @@ export default function MusicPlayerBar() {
     if (gainRef.current) gainRef.current.gain.value = audioBoost ? 1.35 : 1
   }, [audioBoost])
 
+  useEffect(() => {
+    const el = playerRef.current
+    if (!useAudio || !el || !audioUrl) return
+    if (isPlaying && el.paused) {
+      el.play().catch((err: DOMException) => {
+        if (err?.name === 'NotAllowedError') setIsPlaying(false)
+      })
+    } else if (!isPlaying && !el.paused) {
+      el.pause()
+    }
+  }, [useAudio, audioUrl, isPlaying, setIsPlaying])
+
+  useEffect(() => {
+    const el = playerRef.current
+    if (useAudio && el) el.volume = isMuted ? 0 : volume
+  }, [useAudio, audioUrl, volume, isMuted])
+
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
     registerSeek((fraction: number) => {
@@ -140,9 +243,9 @@ export default function MusicPlayerBar() {
     if (!isSeeking) setLocalPlayed(played)
   }, [played, isSeeking])
 
-  // react-player v3: onTimeUpdate receives a React.SyntheticEvent<HTMLVideoElement>
+  // react-player v3: onTimeUpdate receives a React.SyntheticEvent<HTMLMediaElement>
   const handleTimeUpdate = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
       if (!isSeeking && isFinite(el.duration) && el.duration > 0) {
         const fraction = el.currentTime / el.duration
@@ -154,7 +257,7 @@ export default function MusicPlayerBar() {
   )
 
   const handleDurationChange = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const d = e.currentTarget.duration
       if (isFinite(d) && d > 0) {
         setDuration(d)
@@ -175,7 +278,7 @@ export default function MusicPlayerBar() {
 
   const resumeIfNeeded = useCallback(() => {
     const el = playerRef.current
-    if (!el || !keepPlayingRef.current) return
+    if (!el || !keepPlayingRef.current || useAudioRef.current) return
     if (el.paused) el.play()?.catch?.(() => {})
   }, [])
 
@@ -208,9 +311,18 @@ export default function MusicPlayerBar() {
   const handleEnded = useCallback(() => playNext(), [playNext])
   const handlePlay = useCallback(() => {
     setIsPlaying(true)
-    attachAudioGraph()
+    // El audio de otro dominio sin CORS se silenciaría al pasar por Web Audio
+    if (!useAudioRef.current) attachAudioGraph()
   }, [setIsPlaying, attachAudioGraph])
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
+    // Al terminar una canción también llega "pause": lo gestiona onEnded
+    if (e?.currentTarget?.ended) return
+    if (useAudioRef.current) {
+      // Con <audio> propio no hay pausas automáticas: cualquier pausa es del usuario
+      keepPlayingRef.current = false
+      setIsPlaying(false)
+      return
+    }
     const hiddenFor = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : -1
     if (document.visibilityState === 'hidden' && keepPlayingRef.current && hiddenFor >= 0 && hiddenFor < AUTO_RESUME_WINDOW_MS) {
       // Pausa automática de YouTube al ir a segundo plano: reanudar.
@@ -223,8 +335,16 @@ export default function MusicPlayerBar() {
   }, [setIsPlaying, resumeIfNeeded])
 
   const handleLoadedMetadata = useCallback(
-    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
+      // Cambio de modo audio/video o de fuente: seguir donde iba
+      if (pendingSeekRef.current >= 0) {
+        const f = pendingSeekRef.current
+        pendingSeekRef.current = -1
+        if (f > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = f * el.duration
+        hasResumedRef.current = true
+        return
+      }
       if (hasResumedRef.current) return
       const resume = consumeResume()
       if (resume > 0 && isFinite(el.duration) && el.duration > 0) {
@@ -302,6 +422,17 @@ export default function MusicPlayerBar() {
         : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
     })
   }, [currentVideo])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !localDuration) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: localDuration,
+        position: Math.min(localDuration, localPlayed * localDuration),
+        playbackRate: 1,
+      })
+    } catch {}
+  }, [localDuration, localPlayed])
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return
@@ -513,7 +644,34 @@ export default function MusicPlayerBar() {
                 : 'shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
             }`}
           >
-            <ReactPlayer {...playerProps} />
+            {useAudio ? (
+              <>
+                {currentVideo.thumbnail && (
+                  <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />
+                )}
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  {isAudioLoading ? (
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  ) : (
+                    <Headphones className="w-5 h-5 text-white/90 drop-shadow" />
+                  )}
+                </div>
+                <audio
+                  ref={playerRef as unknown as React.Ref<HTMLAudioElement>}
+                  src={audioUrl}
+                  preload="auto"
+                  onTimeUpdate={handleTimeUpdate}
+                  onDurationChange={handleDurationChange}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onEnded={handleEnded}
+                  onPlay={handlePlay}
+                  onPause={handlePause}
+                  onError={handleAudioError}
+                />
+              </>
+            ) : (
+              <ReactPlayer {...playerProps} />
+            )}
           </div>
 
           {/* Info + reproducción */}
@@ -522,7 +680,13 @@ export default function MusicPlayerBar() {
               <p className="text-white text-xs sm:text-sm font-medium leading-tight line-clamp-2 sm:truncate">
                 {currentVideo.title}
               </p>
-              <p className="text-slate-500 text-xs truncate mt-0.5">{currentVideo.channelTitle}</p>
+              <p className="text-slate-500 text-xs truncate mt-0.5">
+                {audioMode && !useAudio ? (
+                  <span className="text-amber-500/90">Audio no disponible · reproduciendo video</span>
+                ) : (
+                  currentVideo.channelTitle
+                )}
+              </p>
             </div>
 
             <div className="flex flex-col items-center gap-0.5 shrink-0 sm:mx-auto">
@@ -635,7 +799,24 @@ export default function MusicPlayerBar() {
               </button>
 
               <button
-                onClick={() => setIsExpanded((v) => !v)}
+                onClick={() => switchMode(!audioMode)}
+                className={`${iconBtn} ${audioMode ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                title={audioMode ? 'Modo audio: sigue sonando en segundo plano (toca para ver video)' : 'Activar modo audio (segundo plano)'}
+                aria-label="Modo audio en segundo plano"
+                aria-pressed={audioMode}
+              >
+                <Headphones className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  if (audioMode) {
+                    switchMode(false)
+                    setIsExpanded(true)
+                  } else {
+                    setIsExpanded((v) => !v)
+                  }
+                }}
                 className={`${iconBtn} ${isExpanded ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
                 title={isExpanded ? 'Reducir video' : 'Ver video'}
                 aria-label={isExpanded ? 'Reducir video' : 'Ver video'}
@@ -645,7 +826,14 @@ export default function MusicPlayerBar() {
               </button>
 
               <button
-                onClick={handleFullscreen}
+                onClick={() => {
+                  if (audioMode) {
+                    switchMode(false)
+                    setIsExpanded(true)
+                  } else {
+                    handleFullscreen()
+                  }
+                }}
                 className={`${iconBtn} text-slate-500 hover:text-white`}
                 title="Pantalla completa"
                 aria-label="Pantalla completa"
@@ -655,7 +843,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={handlePiP}
-                className={`${iconBtn} text-slate-500 hover:text-white`}
+                className={`${iconBtn} text-slate-500 hover:text-white hidden sm:flex`}
                 title="Picture-in-Picture"
                 aria-label="Picture-in-Picture"
               >
