@@ -55,6 +55,9 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
 
 // Tiempo tras pasar a segundo plano en el que una pausa se considera automática (de YouTube)
 const AUTO_RESUME_WINDOW_MS = 5000
+// Sin avance del audio durante este tiempo: la fuente se considera caída
+const STALL_MS = 15000
+const RESUME_KEY = 'cpn-resume-playing'
 
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0 || seconds === 0) return '0:00'
@@ -174,9 +177,31 @@ export default function MusicPlayerBar() {
     useAudio && audioSrc?.id === currentId ? audioSrc.candidates[audioSrc.index]?.url : undefined
   const isAudioLoading = useAudio && !audioUrl
 
-  const markAudioFailed = useCallback((id: string) => {
-    setAudioFailedIds((prev) => new Set(prev).add(id))
+  // Canción que no se puede reproducir: se salta para que la música siga fluida
+  const [skipNotice, setSkipNotice] = useState<string | null>(null)
+  const skipUnplayable = useCallback((id: string) => {
+    const st = useMusicStore.getState()
+    const cur = st.queue[st.currentIndex]
+    if (!cur || cur.id !== id) return
+    pendingSeekRef.current = -1
+    setSkipNotice(cur.title)
+    if (st.currentIndex < st.queue.length - 1) st.playNext()
+    else if (st.radioEnabled) waitingForRadioRef.current = true
   }, [])
+
+  useEffect(() => {
+    if (!skipNotice) return
+    const t = setTimeout(() => setSkipNotice(null), 4000)
+    return () => clearTimeout(t)
+  }, [skipNotice])
+
+  const markAudioFailed = useCallback(
+    (id: string) => {
+      setAudioFailedIds((prev) => new Set(prev).add(id))
+      skipUnplayable(id)
+    },
+    [skipUnplayable]
+  )
 
   useEffect(() => {
     if (!useAudio || !currentId) return
@@ -205,10 +230,66 @@ export default function MusicPlayerBar() {
       setAudioSrc({ ...audioSrc, index: audioSrc.index + 1 })
     } else {
       audioCache.delete(audioSrc.id)
-      pendingSeekRef.current = useMusicStore.getState().played
       markAudioFailed(audioSrc.id)
     }
   }, [audioSrc, currentId, markAudioFailed])
+
+  // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
+  const lastProgressRef = useRef(Date.now())
+  const handleAudioErrorRef = useRef(handleAudioError)
+  handleAudioErrorRef.current = handleAudioError
+  useEffect(() => {
+    if (!useAudio || !isPlaying || !currentId) return
+    lastProgressRef.current = Date.now()
+    const timer = setInterval(() => {
+      if (Date.now() - lastProgressRef.current < STALL_MS) return
+      lastProgressRef.current = Date.now()
+      if (audioUrl) handleAudioErrorRef.current()
+      else markAudioFailed(currentId)
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed])
+
+  // ===== Seguir sonando al recargar la página =====
+  const [needsTap, setNeedsTap] = useState(false)
+  const autoResumingRef = useRef(false)
+  useEffect(() => {
+    const save = () => {
+      try {
+        sessionStorage.setItem(RESUME_KEY, useMusicStore.getState().isPlaying ? '1' : '0')
+      } catch {}
+    }
+    window.addEventListener('pagehide', save)
+    return () => window.removeEventListener('pagehide', save)
+  }, [])
+
+  const resumeTriedRef = useRef(false)
+  useEffect(() => {
+    if (!hasHydrated || resumeTriedRef.current) return
+    resumeTriedRef.current = true
+    let flag: string | null = null
+    try {
+      flag = sessionStorage.getItem(RESUME_KEY)
+      sessionStorage.removeItem(RESUME_KEY)
+    } catch {}
+    if (flag === '1' && useMusicStore.getState().isVisible) {
+      autoResumingRef.current = true
+      setIsPlaying(true)
+    }
+  }, [hasHydrated, setIsPlaying])
+
+  // Si el navegador bloquea el inicio automático, sigue con el primer toque en cualquier parte
+  const handleAutoplayBlocked = useCallback(() => {
+    setIsPlaying(false)
+    if (!autoResumingRef.current) return
+    autoResumingRef.current = false
+    setNeedsTap(true)
+    const resume = () => {
+      setNeedsTap(false)
+      setIsPlaying(true)
+    }
+    document.addEventListener('pointerdown', resume, { once: true, capture: true })
+  }, [setIsPlaying])
 
   const switchMode = useCallback(
     (toAudio: boolean) => {
@@ -271,13 +352,17 @@ export default function MusicPlayerBar() {
     const el = playerRef.current
     if (!useAudio || !el || !audioUrl) return
     if (isPlaying && el.paused) {
-      el.play().catch((err: DOMException) => {
-        if (err?.name === 'NotAllowedError') setIsPlaying(false)
-      })
+      el.play()
+        .then(() => {
+          autoResumingRef.current = false
+        })
+        .catch((err: DOMException) => {
+          if (err?.name === 'NotAllowedError') handleAutoplayBlocked()
+        })
     } else if (!isPlaying && !el.paused) {
       el.pause()
     }
-  }, [useAudio, audioUrl, isPlaying, setIsPlaying])
+  }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked])
 
   useEffect(() => {
     const el = playerRef.current
@@ -308,6 +393,7 @@ export default function MusicPlayerBar() {
         setPlayed(fraction)
         setLocalPlayed(fraction)
       }
+      lastProgressRef.current = Date.now()
     },
     [isSeeking, setPlayed]
   )
@@ -572,6 +658,8 @@ export default function MusicPlayerBar() {
     onEnded: handleEnded,
     onPlay: handlePlay,
     onPause: handlePause,
+    // Video que YouTube no deja reproducir aquí (p. ej. inserción desactivada): saltar
+    onError: () => currentVideo && skipUnplayable(currentVideo.id),
     width: '100%',
     height: '100%',
     config: {
@@ -597,6 +685,14 @@ export default function MusicPlayerBar() {
 
       {/* ===== PLAYER BAR ===== */}
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
+        {(skipNotice || needsTap) && !isQueueOpen && (
+          <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
+            <p className="max-w-full truncate bg-surface-2/95 backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
+              {needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`}
+            </p>
+          </div>
+        )}
+
         {/* ===== QUEUE PANEL ===== */}
         {isQueueOpen && (
           <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/95 backdrop-blur-xl backdrop-saturate-[1.8] border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">

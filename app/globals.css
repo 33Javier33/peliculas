@@ -33,6 +33,8 @@ button:active:not(:disabled) {
 }
 
 body {
+  /* Evita recargar sin querer con el gesto de "deslizar para actualizar" (cortaba la música) */
+  overscroll-behavior-y: contain;
   background-color: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;

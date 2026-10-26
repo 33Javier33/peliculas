@@ -112,7 +112,8 @@ export async function getTrendingMusicVideos(regionCode = 'MX'): Promise<MusicVi
 export async function searchMusicVideos(
   query: string,
   pageToken?: string,
-  maxResults = 20
+  maxResults = 20,
+  regionCode = 'MX'
 ): Promise<MusicSearchResult> {
   if (!query.trim()) return { videos: [] }
 
@@ -128,7 +129,7 @@ export async function searchMusicVideos(
   searchUrl.searchParams.set('videoEmbeddable', 'true')
   searchUrl.searchParams.set('maxResults', String(maxResults))
   searchUrl.searchParams.set('relevanceLanguage', 'es')
-  searchUrl.searchParams.set('regionCode', 'MX')
+  searchUrl.searchParams.set('regionCode', regionCode)
   if (pageToken) searchUrl.searchParams.set('pageToken', pageToken)
 
   const searchRes = await fetch(searchUrl.toString(), { cache: 'no-store' })
@@ -251,7 +252,8 @@ async function detectGenres(ids: string[]): Promise<string[]> {
 export async function getForYouVideos(
   recentIds: string[],
   artists: string[],
-  genreCount = 2
+  genreCount = 2,
+  regionCode = 'MX'
 ): Promise<ForYouResult> {
   const genres = genreCount > 0 ? (await detectGenres(recentIds).catch(() => [])).slice(0, genreCount) : []
   const topArtists = artists.slice(0, 3)
@@ -260,7 +262,7 @@ export async function getForYouVideos(
     ...topArtists.map((a) => a),
     ...genres.map((g) => `${g} mejores canciones`),
   ]
-  const results = await Promise.allSettled(queries.map((q) => searchMusicVideos(q, undefined, 12)))
+  const results = await Promise.allSettled(queries.map((q) => searchMusicVideos(q, undefined, 12, regionCode)))
   const lists = results.map((r) => (r.status === 'fulfilled' ? r.value.videos : []))
 
   // Intercalar las listas para que se vean variadas

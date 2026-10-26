@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getForYouVideos } from '@/lib/youtube-music'
+import { getRequestRegion } from '@/lib/region'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
@@ -19,9 +20,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const genreCount = Math.min(2, Math.max(0, parseInt(searchParams.get('genres') || '2', 10) || 0))
-    const result = await getForYouVideos(ids, artists, genreCount)
+    const result = await getForYouVideos(ids, artists, genreCount, getRequestRegion(request))
     return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=43200' },
+      headers: { 'Cache-Control': 'private, max-age=3600' },
     })
   } catch (err) {
     const message = (err as Error).message || 'Error desconocido'

@@ -20,8 +20,40 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const savedCount = useMusicStore((s) => s.saved.length)
   const [query, setQuery] = useState('')
   const [videos, setVideos] = useState<MusicVideo[]>(initialVideos)
+  // Tendencias del país donde estás (la página trae México como respaldo)
+  const [trending, setTrending] = useState<MusicVideo[]>(initialVideos)
+  const [trendRegion, setTrendRegion] = useState<string | null>(null)
+  const isSearchModeRef = useRef(false)
   const [nextPageToken, setNextPageToken] = useState<string | undefined>()
   const [isSearchMode, setIsSearchMode] = useState(false)
+  isSearchModeRef.current = isSearchMode
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/youtube/music')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { videos?: MusicVideo[]; region?: string } | null) => {
+        if (cancelled) return
+        if (data?.videos?.length) {
+          setTrending(data.videos)
+          if (!isSearchModeRef.current) setVideos(data.videos)
+        }
+        setTrendRegion(data?.region || 'MX')
+      })
+      .catch(() => !cancelled && setTrendRegion('MX'))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const regionName = useMemo(() => {
+    if (!trendRegion) return ''
+    try {
+      return new Intl.DisplayNames(['es'], { type: 'region' }).of(trendRegion) || trendRegion
+    } catch {
+      return trendRegion
+    }
+  }, [trendRegion])
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -175,12 +207,12 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const handleClear = useCallback(() => {
     setQuery('')
     setIsSearchMode(false)
-    setVideos(initialVideos)
+    setVideos(trending)
     setError(null)
     setNextPageToken(undefined)
     setSubmittedQuery('')
     inputRef.current?.focus()
-  }, [initialVideos])
+  }, [trending])
 
   const chip =
     'shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors'
@@ -425,9 +457,11 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-violet-400" />
                 <h2 className="text-white font-bold text-[22px] leading-7">Tendencias</h2>
-                <span className="text-slate-500 text-sm">México</span>
+                <span className="text-slate-500 text-sm">{regionName}</span>
               </div>
-              {videos.length > 0 ? (
+              {!trendRegion ? (
+                <GridSkeleton />
+              ) : videos.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                   {videos.map((video, index) => (
                     <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} />
