@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
@@ -81,17 +82,22 @@ export default function Header() {
           <Link
             href="/"
             className="flex items-center gap-2 shrink-0 group"
-            aria-label="CarlosPN Films - Inicio"
+            aria-label="Carlos P. Nauto Interactive - Inicio"
           >
-            <div className="w-8 h-8 bg-amber-400 rounded-lg flex items-center justify-center shadow-md group-hover:bg-amber-300 transition-colors duration-200">
-              <span className="text-[#0f172a] font-black text-xs leading-none">CP</span>
-            </div>
-            <div className="hidden sm:flex flex-col leading-none">
-              <span className="text-white font-bold text-sm leading-tight">
-                CarlosPN <span className="text-amber-400">Films</span>
+            <Image
+              src="/brand/logo-mark.png"
+              alt="Carlos P. Nauto Interactive"
+              width={40}
+              height={40}
+              priority
+              className="w-10 h-10 rounded-xl shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform duration-200"
+            />
+            <div className="flex flex-col leading-none">
+              <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
+                Carlos P. Nauto
               </span>
-              <span className="text-slate-500 text-[9px] uppercase tracking-widest">
-                Carlos P. Nauto Interactive
+              <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em]">
+                Interactive
               </span>
             </div>
           </Link>

@@ -5,11 +5,11 @@ import MusicSearchClient from '@/components/MusicSearchClient'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 export const metadata: Metadata = {
-  title: 'CarlosPN Music Station — Videos Musicales HD',
+  title: 'Carlos P. Nauto Music Station — Videos Musicales HD',
   description:
     'Reproduce videos musicales en HD con reproductor persistente. Navega por la app sin interrumpir tu música.',
   openGraph: {
-    title: 'CarlosPN Music Station',
+    title: 'Carlos P. Nauto Music Station',
     description: 'Videos musicales HD con reproductor que no para al navegar.',
     type: 'music.playlist',
   },

@@ -107,7 +107,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-purple-500/15 border border-purple-500/25 text-purple-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
             <Music2 className="w-3.5 h-3.5" />
-            CarlosPN Music Station
+            Carlos P. Nauto Music Station
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
             Tu música,{' '}

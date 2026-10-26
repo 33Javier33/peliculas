@@ -14,8 +14,8 @@ export async function generateMetadata({ searchParams }: SearchPageProps): Promi
   return {
     title: query ? `Resultados para "${query}"` : 'Búsqueda',
     description: query
-      ? `Resultados de búsqueda de películas para "${query}" en CarlosPN Films.`
-      : 'Busca tus películas favoritas en CarlosPN Films.',
+      ? `Resultados de búsqueda de películas para "${query}" en Carlos P. Nauto Interactive.`
+      : 'Busca tus películas favoritas en Carlos P. Nauto Interactive.',
   }
 }
 

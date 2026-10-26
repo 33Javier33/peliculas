@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import MusicLibraryClient from '@/components/MusicLibraryClient'
 
 export const metadata: Metadata = {
-  title: 'Mi Biblioteca — CarlosPN Music Station',
+  title: 'Mi Biblioteca — Carlos P. Nauto Music Station',
   description: 'Tus canciones guardadas, filtra por artista, álbum o discografía.',
 }
 

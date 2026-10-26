@@ -416,7 +416,7 @@ export default function MusicPlayerBar() {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentVideo.title,
       artist: currentVideo.channelTitle,
-      album: 'CarlosPN Films',
+      album: 'Carlos P. Nauto Interactive',
       artwork: currentVideo.thumbnail
         ? [{ src: currentVideo.thumbnail, sizes: '480x360', type: 'image/jpeg' }]
         : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
