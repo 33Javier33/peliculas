@@ -10,6 +10,8 @@ export interface MusicVideo {
   duration?: string
   viewCount?: string
   likeCount?: string
+  // Radio en vivo: stream de audio directo (no es un video de YouTube)
+  streamUrl?: string
 }
 
 export interface MusicSearchResult {

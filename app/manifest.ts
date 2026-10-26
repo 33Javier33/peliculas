@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: '/',
     name: 'Carlos P. Nauto Interactive',
     short_name: 'Carlos P. Nauto',
-    description: 'Reproductor de películas, videos musicales y música.',
+    description: 'Películas, videos musicales, música, radio y TV en vivo.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -22,7 +22,8 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       { name: 'Música', url: '/music', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
-      { name: 'Videos', url: '/cine', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+      { name: 'Radio', url: '/radio', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+      { name: 'TV en vivo', url: '/tv', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
       { name: 'Biblioteca', url: '/music/library', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
     ],
   }

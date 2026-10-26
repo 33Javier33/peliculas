@@ -126,7 +126,7 @@ export default function MusicPlayerBar() {
   const isLastTrack = queue.length > 0 && currentIndex === queue.length - 1
 
   useEffect(() => {
-    if (!radioEnabled || !isLastTrack || !currentVideo || radioSeedRef.current === currentVideo.id) return
+    if (!radioEnabled || !isLastTrack || !currentVideo || currentVideo.streamUrl || radioSeedRef.current === currentVideo.id) return
     radioSeedRef.current = currentVideo.id
     const { history } = useMusicStore.getState()
 
@@ -172,11 +172,16 @@ export default function MusicPlayerBar() {
   const [audioFailedIds, setAudioFailedIds] = useState<Set<string>>(() => new Set())
   const pendingSeekRef = useRef(-1)
   const currentId = currentVideo?.id
-  const useAudio = audioMode && !!currentId && !audioFailedIds.has(currentId)
+  // Radio en vivo: siempre por <audio> con su stream directo
+  const isLive = !!currentVideo?.streamUrl
+  const useAudio = isLive || (audioMode && !!currentId && !audioFailedIds.has(currentId))
   const useAudioRef = useRef(useAudio)
   useAudioRef.current = useAudio
-  const audioUrl =
-    useAudio && audioSrc?.id === currentId ? audioSrc.candidates[audioSrc.index]?.url : undefined
+  const audioUrl = isLive
+    ? currentVideo?.streamUrl
+    : useAudio && audioSrc?.id === currentId
+      ? audioSrc.candidates[audioSrc.index]?.url
+      : undefined
   const isAudioLoading = useAudio && !audioUrl
 
   // Canción que no se puede reproducir: se salta para que la música siga fluida
@@ -206,7 +211,7 @@ export default function MusicPlayerBar() {
   )
 
   useEffect(() => {
-    if (!useAudio || !currentId) return
+    if (!useAudio || !currentId || isLive) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
     loadAudioCandidates(currentId).then((candidates) => {
@@ -217,15 +222,26 @@ export default function MusicPlayerBar() {
     return () => {
       cancelled = true
     }
-  }, [useAudio, currentId, audioSrc?.id, markAudioFailed])
+  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive])
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
-  const nextId = queue[currentIndex + 1]?.id
+  const nextTrack = queue[currentIndex + 1]
+  const nextId = nextTrack && !nextTrack.streamUrl ? nextTrack.id : undefined
   useEffect(() => {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
 
   const handleAudioError = useCallback(() => {
+    if (isLive && currentId) {
+      // Emisora caída: pasar a la siguiente o detener
+      const st = useMusicStore.getState()
+      if (st.currentIndex < st.queue.length - 1) skipUnplayable(currentId)
+      else {
+        setSkipNotice(st.queue[st.currentIndex]?.title ?? null)
+        st.setIsPlaying(false)
+      }
+      return
+    }
     if (!audioSrc || audioSrc.id !== currentId) return
     if (audioSrc.index + 1 < audioSrc.candidates.length) {
       pendingSeekRef.current = useMusicStore.getState().played
@@ -234,7 +250,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed])
+  }, [audioSrc, currentId, markAudioFailed, isLive, skipUnplayable])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
@@ -697,7 +713,7 @@ export default function MusicPlayerBar() {
 
   if (!isBarShown) return null
 
-  const progressPercent = localPlayed * 100
+  const progressPercent = isLive ? 100 : localPlayed * 100
   const isLastInQueue = currentIndex >= queue.length - 1
 
   const playerProps = {
@@ -796,7 +812,7 @@ export default function MusicPlayerBar() {
                 >
                   <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surface-2">
                     {video.thumbnail && (
-                      <Image src={video.thumbnail} alt={video.title} fill sizes="40px" className="object-cover" />
+                      <Image src={video.thumbnail} alt={video.title} fill sizes="40px" className="object-cover" unoptimized={!!video.streamUrl} />
                     )}
                     {index === currentIndex && isPlaying && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
@@ -878,8 +894,9 @@ export default function MusicPlayerBar() {
             onChange={handleSeekChange}
             onPointerUp={handleSeekEnd}
             onKeyUp={handleSeekEnd}
+            disabled={isLive}
             aria-label="Progreso"
-            className="absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none"
+            className="absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none disabled:hidden"
           />
           <div
             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)] pointer-events-none sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
@@ -901,7 +918,7 @@ export default function MusicPlayerBar() {
             {useAudio ? (
               <>
                 {currentVideo.thumbnail && (
-                  <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />
+                  <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className={isLive ? 'object-contain p-2 bg-surface-2' : 'object-cover'} unoptimized={isLive} />
                 )}
                 <div
                   className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer"
@@ -986,18 +1003,30 @@ export default function MusicPlayerBar() {
                 </button>
               </div>
 
-              <div className="hidden sm:flex items-center gap-1 text-xs text-slate-600 font-mono">
-                <span>{formatTime(localPlayed * localDuration)}</span>
-                <span>·</span>
-                <span>{formatTime(localDuration)}</span>
-              </div>
+              {isLive ? (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
+                </span>
+              ) : (
+                <div className="hidden sm:flex items-center gap-1 text-xs text-slate-600 font-mono">
+                  <span>{formatTime(localPlayed * localDuration)}</span>
+                  <span>·</span>
+                  <span>{formatTime(localDuration)}</span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Acciones — en móvil ocupan una segunda fila completa */}
           <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-1 sm:gap-2 px-2 sm:px-5 pb-1 sm:pb-0 shrink-0 border-t border-white/5 sm:border-0">
             <span className="sm:hidden max-[359px]:hidden pl-1 text-[11px] text-slate-500 font-mono tabular-nums whitespace-nowrap">
-              {formatTime(localPlayed * localDuration)} / {formatTime(localDuration)}
+              {isLive ? (
+                <span className="inline-flex items-center gap-1 font-sans font-bold text-emerald-400 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
+                </span>
+              ) : (
+                <>{formatTime(localPlayed * localDuration)} / {formatTime(localDuration)}</>
+              )}
             </span>
 
             <div className="flex items-center gap-0.5 sm:gap-2">
@@ -1036,7 +1065,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => currentVideo && toggleSaved(currentVideo)}
-                className={`${iconBtn} ${
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${
                   isCurrentSaved ? 'text-purple-500 hover:text-purple-400' : 'text-slate-500 hover:text-white'
                 }`}
                 title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}
@@ -1052,7 +1081,7 @@ export default function MusicPlayerBar() {
                   setAudioBoost(next)
                   if (next) attachAudioGraph()
                 }}
-                className={`${iconBtn} ${audioBoost ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioBoost ? 'Audio mejorado activado' : 'Mejorar audio (compresor + boost)'}
                 aria-label="Mejorar audio"
                 aria-pressed={audioBoost}
@@ -1062,7 +1091,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => switchMode(!audioMode)}
-                className={`${iconBtn} ${audioMode ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioMode ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioMode ? 'Modo audio: sigue sonando en segundo plano (toca para ver video)' : 'Activar modo audio (segundo plano)'}
                 aria-label="Modo audio en segundo plano"
                 aria-pressed={audioMode}
@@ -1079,7 +1108,7 @@ export default function MusicPlayerBar() {
                     setIsExpanded((v) => !v)
                   }
                 }}
-                className={`${iconBtn} ${isExpanded ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${isExpanded ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={isExpanded ? 'Reducir video' : 'Ver video'}
                 aria-label={isExpanded ? 'Reducir video' : 'Ver video'}
                 aria-pressed={isExpanded}
@@ -1096,7 +1125,7 @@ export default function MusicPlayerBar() {
                     handleFullscreen()
                   }
                 }}
-                className={`${iconBtn} text-slate-500 hover:text-white`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} text-slate-500 hover:text-white`}
                 title="Pantalla completa"
                 aria-label="Pantalla completa"
               >
@@ -1105,7 +1134,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={handlePiP}
-                className={`${iconBtn} text-slate-500 hover:text-white hidden sm:flex`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} text-slate-500 hover:text-white hidden sm:flex`}
                 title="Picture-in-Picture"
                 aria-label="Picture-in-Picture"
               >

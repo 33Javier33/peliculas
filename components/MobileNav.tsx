@@ -2,18 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, TvMinimalPlay, Music2, Library } from 'lucide-react'
+import { Home, TvMinimalPlay, Music2, Library, Radio } from 'lucide-react'
 
 const items = [
   { href: '/', label: 'Inicio', Icon: Home, active: 'text-violet-400' },
   { href: '/cine', label: 'Videos', Icon: TvMinimalPlay, active: 'text-violet-400' },
   { href: '/music', label: 'Música', Icon: Music2, active: 'text-violet-400' },
+  { href: '/radio', label: 'En vivo', Icon: Radio, active: 'text-violet-400' },
   { href: '/music/library', label: 'Biblioteca', Icon: Library, active: 'text-violet-400' },
 ]
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname.startsWith('/movie') || pathname === '/search'
-  if (href === '/music') return pathname === '/music'
+  if (href === '/music') return pathname === '/music' || pathname.startsWith('/play')
+  if (href === '/radio') return pathname.startsWith('/radio') || pathname.startsWith('/tv')
   return pathname.startsWith(href)
 }
 
@@ -26,7 +28,7 @@ export default function MobileNav() {
       className="sm:hidden fixed bottom-0 left-0 right-0 z-[85] h-14 bg-surface-1/90 backdrop-blur-xl backdrop-saturate-[1.8] border-t border-white/8 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
-      <ul className="grid grid-cols-4 h-full">
+      <ul className="grid grid-cols-5 h-full">
         {items.map(({ href, label, Icon, active }) => {
           const on = isActive(pathname, href)
           return (

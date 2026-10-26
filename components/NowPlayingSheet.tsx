@@ -91,13 +91,14 @@ export default function NowPlayingSheet({
   if (!video) return null
 
   const isSaved = saved.some((t) => t.id === video.id)
-  const artist = parseTrackMeta(video).artist || video.channelTitle
-  // "Artista - Canción" → título solo con la canción
-  const songTitle = video.title.replace(/^[^-–]+[-–]\s*/, '') || video.title
+  const isLive = !!video.streamUrl
+  const artist = isLive ? video.channelTitle : parseTrackMeta(video).artist || video.channelTitle
+  // "Artista - Canción" → título solo con la canción (las radios conservan su nombre)
+  const songTitle = isLive ? video.title : video.title.replace(/^[^-–]+[-–]\s*/, '') || video.title
   const value = dragValue ?? played
   const elapsed = value * duration
   const isLast = currentIndex >= queue.length - 1
-  const source = radioEnabled && isLast ? 'Radio' : `Tu cola · ${currentIndex + 1} de ${queue.length}`
+  const source = isLive ? 'Radio en vivo' : radioEnabled && isLast ? 'Radio' : `Tu cola · ${currentIndex + 1} de ${queue.length}`
 
   const [copied, setCopied] = useState(false)
   // Enlace a la propia app (/play/ID): quien lo abra la escucha aquí, no en YouTube
@@ -134,7 +135,7 @@ export default function NowPlayingSheet({
       {/* Luz ambiental tomada de la portada */}
       {video.thumbnail && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-          <Image src={video.thumbnail} alt="" fill sizes="100vw" className="object-cover scale-150 blur-3xl opacity-30" />
+          <Image src={video.thumbnail} alt="" fill sizes="100vw" className="object-cover scale-150 blur-3xl opacity-30" unoptimized={isLive} />
           <div className="absolute inset-0 bg-gradient-to-b from-obsidian/40 via-obsidian/70 to-obsidian" />
         </div>
       )}
@@ -172,9 +173,21 @@ export default function NowPlayingSheet({
           <div className="mt-4 mb-6">
             <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10">
               {video.thumbnail && (
-                <Image src={video.thumbnail} alt={video.title} fill sizes="(max-width: 448px) 90vw, 400px" className="object-cover" priority />
+                <Image
+                  src={video.thumbnail}
+                  alt={video.title}
+                  fill
+                  sizes="(max-width: 448px) 90vw, 400px"
+                  className={isLive ? 'object-contain p-10' : 'object-cover'}
+                  unoptimized={isLive}
+                  priority
+                />
               )}
-              {audioMode && (
+              {isLive ? (
+                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
+                </span>
+              ) : audioMode && (
                 <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Modo audio
                 </span>
@@ -190,7 +203,7 @@ export default function NowPlayingSheet({
             </div>
             <button
               onClick={() => toggleSaved(video)}
-              className={`shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
+              className={`${isLive ? 'hidden' : ''} shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
                 isSaved
                   ? 'bg-violet-500/20 border-violet-400/40 text-violet-300'
                   : 'bg-surface-2/70 border-white/8 text-slate-300'
@@ -215,7 +228,15 @@ export default function NowPlayingSheet({
             ))}
           </div>
 
-          {/* Progreso */}
+          {/* Progreso (las radios en vivo no tienen duración) */}
+          {isLive ? (
+            <div className="mt-3 h-[52px] flex flex-col justify-center">
+              <div className="h-1 rounded-full bg-gradient-to-r from-emerald-500 via-violet-500 to-purple-500" />
+              <p className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase tracking-[0.08em] font-display mt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Transmisión en vivo
+              </p>
+            </div>
+          ) : (
           <div className="mt-3">
             <div className="relative h-6 flex items-center group">
               <div className="absolute inset-x-0 h-1 group-active:h-1.5 rounded-full bg-white/12 overflow-hidden transition-all">
@@ -252,6 +273,7 @@ export default function NowPlayingSheet({
               <span>-{formatTime(Math.max(0, duration - elapsed))}</span>
             </div>
           </div>
+          )}
 
           {/* Controles */}
           <div className="flex items-center justify-between mt-5">
@@ -294,6 +316,7 @@ export default function NowPlayingSheet({
           </div>
 
           {/* Modo audio / video */}
+          {!isLive && (
           <button
             onClick={() => onSwitchMode(!audioMode)}
             className="mt-6 w-full flex items-center gap-3 bg-surface-1/80 backdrop-blur-xl border border-white/8 rounded-2xl px-4 py-3 text-left"
@@ -319,11 +342,13 @@ export default function NowPlayingSheet({
             </span>
           </button>
 
+          )}
+
           {/* Acciones */}
-          <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className={`grid ${isLive ? 'grid-cols-1 mt-6' : 'grid-cols-2 mt-3'} gap-3`}>
             <button
               onClick={handleShare}
-              className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
+              className={`${isLive ? 'hidden' : 'flex'} items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display`}
             >
               <Share2 className="w-4 h-4" /> {copied ? 'Enlace copiado' : 'Compartir'}
             </button>

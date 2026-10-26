@@ -4,7 +4,7 @@ import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
@@ -253,6 +253,12 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </span>
           <Link href="/cine" className={chipIdle}>
             <TvMinimalPlay className="w-4 h-4 text-violet-300" /> Videos
+          </Link>
+          <Link href="/radio" className={chipIdle}>
+            <RadioIcon className="w-4 h-4 text-emerald-400" /> Radio
+          </Link>
+          <Link href="/tv" className={chipIdle}>
+            <Tv className="w-4 h-4 text-violet-300" /> TV
           </Link>
           <Link href="/music/library" className={chipIdle}>
             <Library className="w-4 h-4 text-emerald-400" /> Biblioteca

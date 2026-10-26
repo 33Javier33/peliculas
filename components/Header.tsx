@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
 import { useMusicStore } from '@/store/musicStore'
+import { Radio } from 'lucide-react'
 
 export default function Header() {
   const router = useRouter()
@@ -18,26 +19,30 @@ export default function Header() {
   const mobileInputRef = useRef<HTMLInputElement>(null)
 
   // La búsqueda depende de la sección: música, videos/películas de YouTube o catálogo TMDB.
-  const section = pathname.startsWith('/music') || pathname.startsWith('/play') ? 'music' : pathname.startsWith('/cine') ? 'cine' : 'movies'
+  const section: 'music' | 'cine' | 'radio' | 'tv' | 'movies' =
+    pathname.startsWith('/music') || pathname.startsWith('/play')
+      ? 'music'
+      : pathname.startsWith('/cine')
+        ? 'cine'
+        : pathname.startsWith('/radio')
+          ? 'radio'
+          : pathname.startsWith('/tv')
+            ? 'tv'
+            : 'movies'
   // Etiqueta de la sección actual junto a la marca (como "INTERACTIVE · MUSIC")
   const sectionLabel =
     pathname === '/music/library'
       ? 'Biblioteca'
-      : section === 'music'
-        ? 'Music'
-        : section === 'cine'
-          ? 'Videos'
-          : pathname === '/'
-            ? 'Inicio'
-            : 'Películas'
+      : { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
   const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
-  const searchTarget = section === 'music' ? '/music' : section === 'cine' ? '/cine' : '/search'
-  const searchPlaceholder =
-    section === 'music'
-      ? 'Buscar música, artistas...'
-      : section === 'cine'
-        ? 'Buscar videos y películas...'
-        : 'Buscar películas...'
+  const searchTarget = { music: '/music', cine: '/cine', radio: '/radio', tv: '/tv', movies: '/search' }[section]
+  const searchPlaceholder = {
+    music: 'Buscar música, artistas...',
+    cine: 'Buscar videos y películas...',
+    radio: 'Buscar emisoras...',
+    tv: 'Buscar canales...',
+    movies: 'Buscar películas...',
+  }[section]
 
   useEffect(() => {
     if (pathname === searchTarget) {
@@ -227,6 +232,13 @@ export default function Header() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
               Music
+            </Link>
+            <Link
+              href="/radio"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+            >
+              <Radio className="w-4 h-4" />
+              En vivo
             </Link>
           </div>
         </div>

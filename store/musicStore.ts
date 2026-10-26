@@ -297,6 +297,8 @@ export const useMusicStore = create<MusicStore>()(
       },
 
       recordPlay: (video) => {
+        // Las radios en vivo no cuentan para el historial ni para "Para ti"
+        if (video.streamUrl) return
         const meta = parseTrackMeta(video)
         const { history } = get()
         const existing = history.find((h) => h.id === video.id)
