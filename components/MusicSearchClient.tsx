@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
+import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library } from 'lucide-react'
+import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, Sparkles } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
 import { useMusicStore } from '@/store/musicStore'
-import type { MusicVideo } from '@/lib/youtube-music'
+import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
+
+const FOR_YOU_CACHE_KEY = 'cpn-for-you'
+const FOR_YOU_TTL_MS = 6 * 60 * 60 * 1000
 
 interface MusicSearchClientProps {
   initialVideos: MusicVideo[]
@@ -23,6 +26,69 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const [isPending, startTransition] = useTransition()
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ===== "Para ti": según lo que escuchas =====
+  const history = useMusicStore((s) => s.history)
+  const hasHydrated = useMusicStore((s) => s.hasHydrated)
+  const [tab, setTab] = useState<'foryou' | 'trending'>('foryou')
+  const [forYou, setForYou] = useState<ForYouResult | null>(null)
+  const [isForYouLoading, setIsForYouLoading] = useState(false)
+
+  // Perfil: artistas más escuchados últimamente (lo reciente pesa más) + ids recientes
+  const profile = useMemo(() => {
+    const recent = history.slice(0, 30)
+    const score = new Map<string, number>()
+    recent.forEach((h, i) => {
+      const artist = h.artist || h.channelTitle
+      if (!artist) return
+      const weight = (h.plays || 1) * (1 + (30 - i) / 10)
+      score.set(artist, (score.get(artist) ?? 0) + weight)
+    })
+    const artists = Array.from(score.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([a]) => a)
+    return { artists, ids: recent.slice(0, 20).map((h) => h.id) }
+  }, [history])
+  const profileKey = profile.artists.join('|')
+
+  useEffect(() => {
+    if (!hasHydrated || !profileKey) return
+    // Caché local para no gastar cuota de YouTube en cada visita
+    try {
+      const cached = JSON.parse(localStorage.getItem(FOR_YOU_CACHE_KEY) || 'null')
+      if (cached?.key === profileKey && Date.now() - cached.at < FOR_YOU_TTL_MS && cached.data?.videos?.length) {
+        setForYou(cached.data)
+        return
+      }
+    } catch {}
+
+    let cancelled = false
+    setIsForYouLoading(true)
+    const params = new URLSearchParams({ ids: profile.ids.join(',') })
+    profile.artists.forEach((a) => params.append('artist', a))
+    fetch(`/api/youtube/for-you?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ForYouResult | null) => {
+        if (cancelled || !data?.videos?.length) return
+        setForYou(data)
+        try {
+          localStorage.setItem(FOR_YOU_CACHE_KEY, JSON.stringify({ key: profileKey, at: Date.now(), data }))
+        } catch {}
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setIsForYouLoading(false))
+    return () => {
+      cancelled = true
+    }
+    // profile.ids cambia con cada canción; solo recalculamos cuando cambian tus artistas
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated, profileKey])
+
+  const showForYou = !isSearchMode && tab === 'foryou' && (!!forYou || isForYouLoading)
+  const forYouSubtitle = forYou
+    ? [...forYou.genres.map((g) => g.charAt(0).toUpperCase() + g.slice(1)), ...forYou.artists].slice(0, 4).join(' · ')
+    : ''
 
   const runSearch = useCallback(
     (raw: string) => {
@@ -194,7 +260,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {isSearchMode ? (
               <>
                 <div className="w-1 h-7 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full" />
@@ -209,11 +275,50 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </h2>
               </>
             ) : (
-              <>
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-                <h2 className="text-white font-bold text-lg">Tendencias Musicales</h2>
-                <span className="text-slate-600 text-sm font-normal">México</span>
-              </>
+              <div className="min-w-0">
+                {(forYou || isForYouLoading) && (
+                  <div className="flex items-center gap-2 mb-2" role="tablist">
+                    <button
+                      role="tab"
+                      aria-selected={tab === 'foryou'}
+                      onClick={() => setTab('foryou')}
+                      className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
+                        tab === 'foryou'
+                          ? 'bg-purple-600 border-purple-500 text-white'
+                          : 'border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" /> Para ti
+                    </button>
+                    <button
+                      role="tab"
+                      aria-selected={tab === 'trending'}
+                      onClick={() => setTab('trending')}
+                      className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
+                        tab === 'trending'
+                          ? 'bg-purple-600 border-purple-500 text-white'
+                          : 'border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> Tendencias
+                    </button>
+                  </div>
+                )}
+                {showForYou ? (
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <h2 className="text-white font-bold text-lg">Para ti</h2>
+                    <span className="text-slate-500 text-sm font-normal truncate">
+                      {forYouSubtitle ? `según lo que escuchas: ${forYouSubtitle}` : 'según lo que escuchas'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="w-5 h-5 text-purple-500" />
+                    <h2 className="text-white font-bold text-lg">Tendencias Musicales</h2>
+                    <span className="text-slate-600 text-sm font-normal">México</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -229,7 +334,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         </div>
 
         {/* Loading skeleton */}
-        {isPending && (
+        {(isPending || (showForYou && !forYou)) && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {Array.from({ length: 10 }).map((_, i) => (
               <div
@@ -247,7 +352,15 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         )}
 
         {/* Video grid */}
-        {!isPending && videos.length > 0 && (
+        {!isPending && showForYou && forYou && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {forYou.videos.map((video, index) => (
+              <MusicCard key={`fy-${video.id}-${index}`} video={video} allVideos={forYou.videos} index={index} />
+            ))}
+          </div>
+        )}
+
+        {!isPending && !showForYou && videos.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {videos.map((video, index) => (
               <MusicCard
@@ -261,7 +374,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         )}
 
         {/* Empty state */}
-        {!isPending && videos.length === 0 && !error && (
+        {!isPending && !showForYou && videos.length === 0 && !error && (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Music2 className="w-16 h-16 text-slate-800" />
             <p className="text-slate-500 text-lg">
@@ -273,7 +386,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         )}
 
         {/* Load more */}
-        {nextPageToken && !isPending && (
+        {nextPageToken && !isPending && !showForYou && (
           <div className="flex justify-center mt-10">
             <button
               onClick={handleLoadMore}

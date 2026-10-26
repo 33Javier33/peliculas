@@ -111,7 +111,8 @@ export async function getTrendingMusicVideos(regionCode = 'MX'): Promise<MusicVi
 
 export async function searchMusicVideos(
   query: string,
-  pageToken?: string
+  pageToken?: string,
+  maxResults = 20
 ): Promise<MusicSearchResult> {
   if (!query.trim()) return { videos: [] }
 
@@ -125,7 +126,7 @@ export async function searchMusicVideos(
   searchUrl.searchParams.set('videoCategoryId', '10')
   searchUrl.searchParams.set('videoDefinition', 'high')
   searchUrl.searchParams.set('videoEmbeddable', 'true')
-  searchUrl.searchParams.set('maxResults', '20')
+  searchUrl.searchParams.set('maxResults', String(maxResults))
   searchUrl.searchParams.set('relevanceLanguage', 'es')
   searchUrl.searchParams.set('regionCode', 'MX')
   if (pageToken) searchUrl.searchParams.set('pageToken', pageToken)
@@ -182,4 +183,95 @@ export async function searchMusicVideos(
   })
 
   return { videos, nextPageToken: searchData.nextPageToken }
+}
+
+// ===== Recomendaciones "Para ti" =====
+
+export interface ForYouResult {
+  videos: MusicVideo[]
+  genres: string[]
+  artists: string[]
+}
+
+// Géneros de YouTube (topicDetails → Wikipedia) a términos de búsqueda en español
+const GENRE_LABELS: Record<string, string> = {
+  Rock_music: 'rock',
+  Heavy_metal: 'metal',
+  Hip_hop_music: 'hip hop',
+  Pop_music: 'pop',
+  Electronic_music: 'electrónica',
+  Music_of_Latin_America: 'música latina',
+  Reggae: 'reggae',
+  Reggaeton: 'reggaetón',
+  Country_music: 'country',
+  Jazz: 'jazz',
+  Soul_music: 'soul',
+  Rhythm_and_blues: 'r&b',
+  Classical_music: 'música clásica',
+  Christian_music: 'música cristiana',
+  Independent_music: 'indie',
+  Music_of_Asia: 'k-pop',
+  Blues: 'blues',
+  Punk_rock: 'punk',
+  Alternative_rock: 'rock alternativo',
+  Folk_music: 'folk',
+}
+
+/** Géneros más presentes en los videos escuchados, según YouTube (topicDetails). */
+async function detectGenres(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return []
+  const url = new URL(`${YOUTUBE_API_BASE}/videos`)
+  url.searchParams.set('key', getKey())
+  url.searchParams.set('id', ids.slice(0, 50).join(','))
+  url.searchParams.set('part', 'topicDetails')
+  const res = await fetch(url.toString(), { next: { revalidate: 86400 } })
+  if (!res.ok) return []
+  const data = await res.json()
+
+  const count = new Map<string, number>()
+  // Los primeros ids son lo más reciente: pesan más
+  ;(data.items ?? []).forEach((item: { topicDetails?: { topicCategories?: string[] } }, i: number) => {
+    const weight = 1 + Math.max(0, 10 - i) / 10
+    for (const cat of item.topicDetails?.topicCategories ?? []) {
+      const slug = decodeURIComponent(cat.split('/wiki/')[1] || '')
+      if (!slug || slug === 'Music') continue
+      const label = GENRE_LABELS[slug] ?? slug.replace(/_/g, ' ').replace(/ music$/i, '').toLowerCase()
+      count.set(label, (count.get(label) ?? 0) + weight)
+    }
+  })
+  return Array.from(count.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([g]) => g)
+}
+
+/**
+ * Mezcla canciones de los artistas que más escuchas con canciones de tus géneros,
+ * sin repetir lo que ya escuchaste.
+ */
+export async function getForYouVideos(recentIds: string[], artists: string[]): Promise<ForYouResult> {
+  const genres = (await detectGenres(recentIds).catch(() => [])).slice(0, 2)
+  const topArtists = artists.slice(0, 3)
+
+  const queries = [
+    ...topArtists.map((a) => a),
+    ...genres.map((g) => `${g} mejores canciones`),
+  ]
+  const results = await Promise.allSettled(queries.map((q) => searchMusicVideos(q, undefined, 12)))
+  const lists = results.map((r) => (r.status === 'fulfilled' ? r.value.videos : []))
+
+  // Intercalar las listas para que se vean variadas
+  const heard = new Set(recentIds)
+  const seen = new Set<string>()
+  const videos: MusicVideo[] = []
+  const longest = Math.max(0, ...lists.map((l) => l.length))
+  for (let i = 0; i < longest && videos.length < 36; i++) {
+    for (const list of lists) {
+      const v = list[i]
+      if (!v || heard.has(v.id) || seen.has(v.id)) continue
+      seen.add(v.id)
+      videos.push(v)
+    }
+  }
+
+  return { videos, genres, artists: topArtists }
 }
