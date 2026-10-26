@@ -73,8 +73,8 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-[#0f172a]/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-[#2d3748]'
-          : 'bg-gradient-to-b from-[#0f172a]/80 to-transparent'
+          ? 'bg-obsidian/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-white/8'
+          : 'bg-gradient-to-b from-obsidian/80 to-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -90,7 +90,7 @@ export default function Header() {
               width={40}
               height={40}
               priority
-              className="w-10 h-10 rounded-xl shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform duration-200"
+              className="w-10 h-10 rounded-xl shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200"
             />
             <div className="flex flex-col leading-none">
               <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
@@ -131,7 +131,7 @@ export default function Header() {
                 onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                className="w-full bg-[#1e293b] border border-[#2d3748] text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-amber-400/70 focus:bg-[#1a2236] focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
+                className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-violet-400/70 focus:bg-surface-1 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
                 autoComplete="off"
               />
               {query && (
@@ -161,7 +161,7 @@ export default function Header() {
             <InstallAppButton />
             <button
               onClick={() => setIsMobileSearchOpen(true)}
-              className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-lg transition-all duration-200"
+              className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-surface-1 rounded-lg transition-all duration-200"
               aria-label="Abrir búsqueda"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +176,7 @@ export default function Header() {
 
             <Link
               href="/"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-[#1e293b]"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-surface-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -190,7 +190,7 @@ export default function Header() {
             </Link>
             <Link
               href="/cine"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-red-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-red-500/10"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
@@ -199,7 +199,7 @@ export default function Header() {
             </Link>
             <Link
               href="/music"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-purple-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-purple-500/10"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -211,7 +211,7 @@ export default function Header() {
       </div>
 
       {isMobileSearchOpen && (
-        <div className="md:hidden bg-[#0f172a]/98 backdrop-blur-md border-t border-[#2d3748] px-4 py-3">
+        <div className="md:hidden bg-obsidian/98 backdrop-blur-md border-t border-white/8 px-4 py-3">
           <form onSubmit={handleSearch} className="flex items-center gap-2" role="search">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -237,14 +237,14 @@ export default function Header() {
                 onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                className="w-full bg-[#1e293b] border border-[#2d3748] text-white placeholder-slate-500 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
+                className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-violet-400/70 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
                 autoComplete="off"
                 enterKeyHint="search"
               />
             </div>
             <button
               type="submit"
-              className="bg-amber-400 hover:bg-amber-300 text-[#0f172a] font-bold px-4 py-2.5 rounded-full text-sm transition-colors duration-200 shrink-0"
+              className="bg-violet-500 hover:bg-violet-500 shadow-glow text-white font-bold px-4 py-2.5 rounded-full text-sm transition-colors duration-200 shrink-0"
             >
               Buscar
             </button>

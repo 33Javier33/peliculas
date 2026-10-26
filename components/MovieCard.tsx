@@ -16,12 +16,12 @@ export default function MovieCard({ movie }: MovieCardProps) {
     movie.vote_average >= 7.5
       ? 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10'
       : movie.vote_average >= 6
-        ? 'text-amber-400 border-amber-400/40 bg-amber-400/10'
+        ? 'text-violet-400 border-violet-400/40 bg-violet-400/10'
         : 'text-red-400 border-red-400/40 bg-red-400/10'
 
   return (
     <Link href={`/movie/${movie.id}`} className="group block">
-      <div className="relative overflow-hidden rounded-xl bg-[#1a2236] border border-[#2d3748] transition-all duration-300 group-hover:border-amber-400/50 group-hover:shadow-2xl group-hover:shadow-amber-400/10 group-hover:-translate-y-1">
+      <div className="relative overflow-hidden rounded-xl bg-surface-1 border border-white/8 transition-all duration-300 group-hover:border-violet-400/50 group-hover:shadow-2xl group-hover:shadow-violet-400/10 group-hover:-translate-y-1">
         <div className="relative aspect-[2/3] overflow-hidden">
           {posterUrl ? (
             <Image
@@ -33,7 +33,7 @@ export default function MovieCard({ movie }: MovieCardProps) {
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-[#1e293b] gap-2">
+            <div className="w-full h-full flex flex-col items-center justify-center bg-surface-1 gap-2">
               <svg
                 className="w-12 h-12 text-slate-600"
                 fill="none"
@@ -51,10 +51,10 @@ export default function MovieCard({ movie }: MovieCardProps) {
             </div>
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a]/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 bg-gradient-to-t from-obsidian/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="bg-amber-400 text-[#0f172a] rounded-full p-3 transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+            <div className="bg-violet-500 text-white rounded-full p-3 transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
@@ -72,7 +72,7 @@ export default function MovieCard({ movie }: MovieCardProps) {
         </div>
 
         <div className="p-3">
-          <h3 className="text-white font-semibold text-sm leading-tight line-clamp-2 group-hover:text-amber-400 transition-colors duration-200">
+          <h3 className="text-white font-semibold text-sm leading-tight line-clamp-2 group-hover:text-violet-400 transition-colors duration-200">
             {movie.title}
           </h3>
           <p className="text-slate-500 text-xs mt-1">{year}</p>

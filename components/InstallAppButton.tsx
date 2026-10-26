@@ -59,7 +59,7 @@ export default function InstallAppButton() {
     <>
       <button
         onClick={handleClick}
-        className="inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-[#0f172a] text-xs sm:text-sm font-bold px-3 py-1.5 sm:py-2 rounded-full transition-colors"
+        className="inline-flex items-center gap-1.5 bg-violet-500 hover:bg-violet-500 shadow-glow text-white text-xs sm:text-sm font-bold px-3 py-1.5 sm:py-2 rounded-full transition-colors"
         title="Instalar la app"
       >
         <Download className="w-4 h-4" />
@@ -72,7 +72,7 @@ export default function InstallAppButton() {
           onClick={() => setShowIosHelp(false)}
         >
           <div
-            className="w-full max-w-sm bg-[#1e293b] border border-[#2d3748] rounded-2xl p-5 text-sm text-slate-300"
+            className="w-full max-w-sm bg-surface-1 border border-white/8 rounded-2xl p-5 text-sm text-slate-300"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">

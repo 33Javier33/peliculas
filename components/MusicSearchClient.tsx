@@ -166,18 +166,18 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   }, [initialVideos])
 
   return (
-    <div className="pt-20 min-h-screen bg-black pb-32">
+    <div className="pt-20 min-h-screen bg-obsidian pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Hero header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-purple-500/15 border border-purple-500/25 text-purple-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
+          <div className="inline-flex items-center gap-2 bg-violet-500/15 border border-violet-500/25 text-violet-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
             <Music2 className="w-3.5 h-3.5" />
             Carlos P. Nauto Music Station
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
             Tu música,{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-pink-500">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-purple-500">
               sin interrupciones
             </span>
           </h1>
@@ -186,12 +186,12 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </p>
           <Link
             href="/music/library"
-            className="inline-flex items-center gap-2 bg-[#0d0d0d] hover:bg-[#111111] text-white font-semibold px-5 py-2.5 rounded-full text-sm border border-white/10 hover:border-purple-500/40 transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-1 text-white font-semibold px-5 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all hover:scale-105"
           >
-            <Library className="w-4 h-4 text-purple-400" />
+            <Library className="w-4 h-4 text-violet-400" />
             Mi biblioteca
             {savedCount > 0 && (
-              <span className="bg-purple-600/25 text-purple-300 text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="bg-violet-600/25 text-violet-300 text-xs font-bold px-2 py-0.5 rounded-full">
                 {savedCount}
               </span>
             )}
@@ -203,7 +203,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           <div className="relative flex items-center">
             <div className="absolute left-4 text-slate-500 pointer-events-none">
               {isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
               ) : (
                 <Search className="w-5 h-5" />
               )}
@@ -217,7 +217,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               aria-label="Buscar música"
               enterKeyHint="search"
               autoComplete="off"
-              className="w-full bg-[#0d0d0d] border border-white/12 text-white placeholder-slate-700 rounded-full pl-12 pr-32 py-4 text-base focus:outline-none focus:border-purple-500/60 focus:bg-[#111111] focus:ring-2 focus:ring-purple-500/15 transition-all duration-200"
+              className="w-full bg-surface-1 border border-white/12 text-white placeholder-slate-700 rounded-full pl-12 pr-32 py-4 text-base focus:outline-none focus:border-violet-500/60 focus:bg-surface-1 focus:ring-2 focus:ring-violet-500/15 transition-all duration-200"
             />
             <div className="absolute right-2 flex items-center gap-1">
               {query && (
@@ -233,7 +233,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               <button
                 type="submit"
                 disabled={!query.trim() || isPending}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all duration-200 hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-purple-900/30"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all duration-200 hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-violet-900/30"
               >
                 {isPending ? 'Buscando...' : 'Buscar'}
               </button>
@@ -263,10 +263,10 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           <div className="flex items-center gap-3 min-w-0">
             {isSearchMode ? (
               <>
-                <div className="w-1 h-7 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full" />
+                <div className="w-1 h-7 bg-gradient-to-b from-violet-500 to-purple-500 rounded-full" />
                 <h2 className="text-white font-bold text-lg">
                   Resultados:{' '}
-                  <span className="text-purple-400">&ldquo;{submittedQuery}&rdquo;</span>
+                  <span className="text-violet-400">&ldquo;{submittedQuery}&rdquo;</span>
                   {videos.length > 0 && (
                     <span className="text-slate-600 font-normal text-sm ml-2">
                       ({videos.length} videos)
@@ -284,7 +284,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                       onClick={() => setTab('foryou')}
                       className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
                         tab === 'foryou'
-                          ? 'bg-purple-600 border-purple-500 text-white'
+                          ? 'bg-violet-600 border-violet-500 text-white'
                           : 'border-white/10 text-slate-400 hover:text-white'
                       }`}
                     >
@@ -296,7 +296,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                       onClick={() => setTab('trending')}
                       className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
                         tab === 'trending'
-                          ? 'bg-purple-600 border-purple-500 text-white'
+                          ? 'bg-violet-600 border-violet-500 text-white'
                           : 'border-white/10 text-slate-400 hover:text-white'
                       }`}
                     >
@@ -313,7 +313,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                   </div>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <TrendingUp className="w-5 h-5 text-purple-500" />
+                    <TrendingUp className="w-5 h-5 text-violet-500" />
                     <h2 className="text-white font-bold text-lg">Tendencias Musicales</h2>
                     <span className="text-slate-600 text-sm font-normal">México</span>
                   </div>
@@ -339,12 +339,12 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
             {Array.from({ length: 10 }).map((_, i) => (
               <div
                 key={i}
-                className="bg-[#0d0d0d] border border-white/8 rounded-xl overflow-hidden animate-pulse"
+                className="bg-surface-1 border border-white/8 rounded-xl overflow-hidden animate-pulse"
               >
-                <div className="aspect-video bg-[#1a1a1a]" />
+                <div className="aspect-video bg-surface-2" />
                 <div className="p-3 space-y-2">
-                  <div className="h-3 bg-[#1a1a1a] rounded w-full" />
-                  <div className="h-3 bg-[#1a1a1a] rounded w-2/3" />
+                  <div className="h-3 bg-surface-2 rounded w-full" />
+                  <div className="h-3 bg-surface-2 rounded w-2/3" />
                 </div>
               </div>
             ))}
@@ -391,7 +391,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
             <button
               onClick={handleLoadMore}
               disabled={isLoadingMore}
-              className="inline-flex items-center gap-2 bg-[#0d0d0d] hover:bg-[#111111] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-full border border-white/12 hover:border-purple-500/30 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+              className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-full border border-white/12 hover:border-violet-500/30 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
             >
               {isLoadingMore ? (
                 <>

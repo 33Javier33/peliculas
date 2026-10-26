@@ -39,9 +39,9 @@ export default function YoutubePlayer({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3 bg-[#0a0a0a] border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 bg-obsidian border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center shrink-0">
             <TvMinimalPlay className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0">
@@ -74,7 +74,7 @@ export default function YoutubePlayer({
 
       <div className="flex-1 flex items-center justify-center p-2 sm:p-4 min-h-0">
         <div className="w-full max-w-6xl">
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black">
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-obsidian">
             <iframe
               src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es`}
               title={title}

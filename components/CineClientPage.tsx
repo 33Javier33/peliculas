@@ -175,16 +175,16 @@ export default function CineClientPage({
         />
       )}
 
-      <div className="pt-20 min-h-screen bg-black">
+      <div className="pt-20 min-h-screen bg-obsidian">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 bg-red-600/20 border border-red-600/30 text-red-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
+            <div className="inline-flex items-center gap-2 bg-violet-600/20 border border-violet-600/30 text-violet-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
               <TvMinimalPlay className="w-3.5 h-3.5" />
               CineLatino Pro
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-white mb-3 leading-tight">
               Películas en{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-red-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-violet-400">
                 Español Latino
               </span>
             </h1>
@@ -197,7 +197,7 @@ export default function CineClientPage({
             <div className="relative flex items-center">
               <div className="absolute left-4 text-slate-500 pointer-events-none">
                 {isPending ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-red-500" />
+                  <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
                 ) : (
                   <Search className="w-5 h-5" />
                 )}
@@ -211,7 +211,7 @@ export default function CineClientPage({
                 aria-label="Buscar películas en YouTube"
                 enterKeyHint="search"
                 autoComplete="off"
-                className="w-full bg-[#111111] border border-white/15 text-white placeholder-slate-600 rounded-full pl-12 pr-28 sm:pr-36 py-4 text-base focus:outline-none focus:border-red-500/70 focus:bg-[#161616] focus:ring-2 focus:ring-red-500/20 transition-all duration-200"
+                className="w-full bg-surface-1 border border-white/15 text-white placeholder-slate-600 rounded-full pl-12 pr-28 sm:pr-36 py-4 text-base focus:outline-none focus:border-violet-500/70 focus:bg-surface-2 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"
               />
               <div className="absolute right-2 flex items-center gap-1">
                 {query && (
@@ -227,7 +227,7 @@ export default function CineClientPage({
                 <button
                   type="submit"
                   disabled={!query.trim() || isPending}
-                  className="bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-4 sm:px-5 py-2.5 rounded-full text-sm transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+                  className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-4 sm:px-5 py-2.5 rounded-full text-sm transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
                 >
                   {isPending ? 'Buscando...' : 'Buscar'}
                 </button>
@@ -240,7 +240,7 @@ export default function CineClientPage({
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-sm">Error al cargar resultados</p>
-                <p className="text-xs text-red-500 mt-0.5">{error}</p>
+                <p className="text-xs text-violet-500 mt-0.5">{error}</p>
                 {error.includes('YOUTUBE_API_KEY') && (
                   <p className="text-xs text-slate-400 mt-2">
                     Agrega <code className="bg-black/40 px-1 rounded">YOUTUBE_API_KEY</code> en
@@ -255,18 +255,18 @@ export default function CineClientPage({
             <div className="flex items-center gap-3">
               {isSearchMode ? (
                 <>
-                  <div className="w-1 h-7 bg-red-500 rounded-full" />
+                  <div className="w-1 h-7 bg-violet-500 rounded-full" />
                   <div>
                     <h2 className="text-white font-bold text-lg leading-tight">
                       Resultados:{' '}
-                      <span className="text-red-400">&ldquo;{submittedQuery}&rdquo;</span>
+                      <span className="text-violet-400">&ldquo;{submittedQuery}&rdquo;</span>
                     </h2>
                     <p className="text-slate-600 text-xs">{results.length} videos encontrados</p>
                   </div>
                 </>
               ) : (
                 <>
-                  <TrendingUp className="w-5 h-5 text-red-500" />
+                  <TrendingUp className="w-5 h-5 text-violet-500" />
                   <h2 className="text-white font-bold text-lg">Más vistos en Español</h2>
                 </>
               )}
@@ -297,11 +297,11 @@ export default function CineClientPage({
           {isPending && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="bg-[#111111] border border-white/10 rounded-xl overflow-hidden animate-pulse">
-                  <div className="aspect-video bg-[#1a1a1a]" />
+                <div key={i} className="bg-surface-1 border border-white/10 rounded-xl overflow-hidden animate-pulse">
+                  <div className="aspect-video bg-surface-2" />
                   <div className="p-3 space-y-2">
-                    <div className="h-4 bg-[#1a1a1a] rounded w-full" />
-                    <div className="h-3 bg-[#1a1a1a] rounded w-2/3" />
+                    <div className="h-4 bg-surface-2 rounded w-full" />
+                    <div className="h-3 bg-surface-2 rounded w-2/3" />
                   </div>
                 </div>
               ))}
@@ -337,7 +337,7 @@ export default function CineClientPage({
               <button
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-full border border-white/15 hover:border-red-500/40 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+                className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-full border border-white/15 hover:border-violet-500/40 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
               >
                 {isLoadingMore ? (
                   <>

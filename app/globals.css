@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  --background: #0b0c10;
+  --foreground: #ffffff;
 }
 
 * {
@@ -13,6 +13,23 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* Obsidian Sonic: títulos en Plus Jakarta Sans con tracking negativo, números tabulares */
+h1,
+h2,
+h3 {
+  font-family: var(--font-jakarta), var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Botones: leve "press" al tocar */
+button:active:not(:disabled) {
+  scale: 0.97;
 }
 
 body {
@@ -28,7 +45,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: #16181f;
 }
 
 ::-webkit-scrollbar-thumb {

@@ -20,9 +20,9 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
   return (
     <button
       onClick={() => onClick(videoId, title, channelTitle)}
-      className="group w-full text-left bg-[#111111] border border-white/10 rounded-xl overflow-hidden hover:border-red-500/50 hover:shadow-xl hover:shadow-red-900/20 transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+      className="group w-full text-left bg-surface-1 border border-white/10 rounded-xl overflow-hidden hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-900/20 transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
     >
-      <div className="relative aspect-video overflow-hidden bg-[#1a1a1a]">
+      <div className="relative aspect-video overflow-hidden bg-surface-2">
         {thumbnail ? (
           <Image
             src={thumbnail}
@@ -33,7 +33,7 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a]">
+          <div className="w-full h-full flex items-center justify-center bg-surface-2">
             <Play className="w-10 h-10 text-slate-700" />
           </div>
         )}
@@ -41,7 +41,7 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300" />
 
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="bg-red-600 rounded-full p-4 shadow-2xl shadow-red-900/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+          <div className="bg-violet-600 rounded-full p-4 shadow-2xl shadow-violet-900/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
             <Play className="w-6 h-6 text-white fill-white" />
           </div>
         </div>
@@ -55,7 +55,7 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
       </div>
 
       <div className="p-3">
-        <h3 className="text-white font-semibold text-sm leading-snug line-clamp-2 group-hover:text-red-400 transition-colors duration-200 mb-1.5">
+        <h3 className="text-white font-semibold text-sm leading-snug line-clamp-2 group-hover:text-violet-400 transition-colors duration-200 mb-1.5">
           {title}
         </h3>
 

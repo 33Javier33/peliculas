@@ -106,7 +106,7 @@ export default function MusicLibraryClient() {
 
   if (!mounted) {
     return (
-      <div className="pt-20 min-h-screen bg-black pb-32">
+      <div className="pt-20 min-h-screen bg-obsidian pb-32">
         <div className="max-w-7xl mx-auto px-4 py-12 text-slate-500 text-sm">Cargando biblioteca...</div>
       </div>
     )
@@ -115,20 +115,20 @@ export default function MusicLibraryClient() {
   const activeSubFilter = selectedArtist || selectedAlbum
 
   return (
-    <div className="pt-20 min-h-screen bg-black pb-32">
+    <div className="pt-20 min-h-screen bg-obsidian pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
           <div>
             <Link
               href="/music"
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-purple-400 text-xs font-medium mb-3 transition-colors"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium mb-3 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Volver a Music Station
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-900/30">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-900/30">
                 <Library className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -144,7 +144,7 @@ export default function MusicLibraryClient() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => playSaved(0)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all hover:scale-105 shadow-lg shadow-purple-900/30"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all hover:scale-105 shadow-lg shadow-violet-900/30"
               >
                 <Play className="w-4 h-4 fill-white" /> Reproducir todo
               </button>
@@ -153,7 +153,7 @@ export default function MusicLibraryClient() {
                   const idx = Math.floor(Math.random() * saved.length)
                   playSaved(idx)
                 }}
-                className="inline-flex items-center gap-2 bg-[#0d0d0d] hover:bg-[#151515] text-white font-semibold px-4 py-2.5 rounded-full text-sm border border-white/10 hover:border-purple-500/40 transition-all"
+                className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-semibold px-4 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all"
                 title="Aleatorio"
               >
                 <Shuffle className="w-4 h-4" />
@@ -174,7 +174,7 @@ export default function MusicLibraryClient() {
             </div>
             <Link
               href="/music"
-              className="mt-3 inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2.5 rounded-full text-sm transition-colors"
+              className="mt-3 inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-semibold px-5 py-2.5 rounded-full text-sm transition-colors"
             >
               Explorar música
             </Link>
@@ -194,7 +194,7 @@ export default function MusicLibraryClient() {
                 <span className="text-slate-500 text-xs">Filtrando por:</span>
                 <button
                   onClick={clearSubFilters}
-                  className="inline-flex items-center gap-1.5 bg-purple-600/20 text-purple-300 border border-purple-500/30 rounded-full px-3 py-1 text-xs font-medium hover:bg-purple-600/30 transition-colors"
+                  className="inline-flex items-center gap-1.5 bg-violet-600/20 text-violet-300 border border-violet-500/30 rounded-full px-3 py-1 text-xs font-medium hover:bg-violet-600/30 transition-colors"
                 >
                   {selectedArtist ? `Artista: ${selectedArtist}` : `Álbum: ${selectedAlbum}`}
                   <X className="w-3 h-3" />
@@ -214,13 +214,13 @@ export default function MusicLibraryClient() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Buscar en tu biblioteca..."
-                      className="w-full bg-[#0d0d0d] border border-white/10 text-white placeholder-slate-600 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/15 transition-all"
+                      className="w-full bg-surface-1 border border-white/10 text-white placeholder-slate-600 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/15 transition-all"
                     />
                   </div>
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortOrder)}
-                    className="bg-[#0d0d0d] border border-white/10 text-white text-sm rounded-full px-4 py-2.5 focus:outline-none focus:border-purple-500/50 cursor-pointer"
+                    className="bg-surface-1 border border-white/10 text-white text-sm rounded-full px-4 py-2.5 focus:outline-none focus:border-violet-500/50 cursor-pointer"
                   >
                     <option value="recent">Añadidas recientemente</option>
                     <option value="title">Título (A-Z)</option>
@@ -234,7 +234,7 @@ export default function MusicLibraryClient() {
                     No se encontraron canciones.
                   </div>
                 ) : (
-                  <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-[#0a0a0a]">
+                  <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
                     {filtered.map((track, idx) => (
                       <li
                         key={track.id}
@@ -245,7 +245,7 @@ export default function MusicLibraryClient() {
                         </div>
                         <button
                           onClick={() => playList(filtered, idx)}
-                          className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-[#1a1a1a] group/thumb"
+                          className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-surface-2 group/thumb"
                           title="Reproducir"
                         >
                           {track.thumbnail && (
@@ -263,7 +263,7 @@ export default function MusicLibraryClient() {
                                 setTab('artists')
                                 setSelectedArtist(track.artist ?? parseTrackMeta(track).artist)
                               }}
-                              className="hover:text-purple-400 transition-colors"
+                              className="hover:text-violet-400 transition-colors"
                             >
                               {track.artist ?? track.channelTitle}
                             </button>
@@ -275,7 +275,7 @@ export default function MusicLibraryClient() {
                                     setTab('albums')
                                     setSelectedAlbum(track.album!)
                                   }}
-                                  className="hover:text-purple-400 transition-colors"
+                                  className="hover:text-violet-400 transition-colors"
                                 >
                                   {track.album}
                                 </button>
@@ -291,17 +291,17 @@ export default function MusicLibraryClient() {
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => addToQueue(track)}
-                            className="p-2 text-slate-600 hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-all"
+                            className="p-2 text-slate-600 hover:text-violet-400 opacity-0 group-hover:opacity-100 transition-all"
                             title="Añadir a la cola"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => removeSaved(track.id)}
-                            className="p-2 text-pink-500 hover:text-pink-400 transition-colors"
+                            className="p-2 text-purple-500 hover:text-purple-400 transition-colors"
                             title="Quitar de guardadas"
                           >
-                            <Heart className="w-4 h-4 fill-pink-500" />
+                            <Heart className="w-4 h-4 fill-purple-500" />
                           </button>
                         </div>
                       </li>
@@ -318,9 +318,9 @@ export default function MusicLibraryClient() {
                   <button
                     key={a.name}
                     onClick={() => setSelectedArtist(a.name)}
-                    className="group text-left bg-[#0d0d0d] border border-white/8 rounded-xl p-4 hover:border-purple-500/30 hover:bg-[#111111] transition-all hover:-translate-y-0.5"
+                    className="group text-left bg-surface-1 border border-white/8 rounded-xl p-4 hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
                   >
-                    <div className="relative aspect-square rounded-full overflow-hidden mx-auto mb-3 w-28 sm:w-32 bg-[#1a1a1a] shadow-lg">
+                    <div className="relative aspect-square rounded-full overflow-hidden mx-auto mb-3 w-28 sm:w-32 bg-surface-2 shadow-lg">
                       {a.cover ? (
                         <Image src={a.cover} alt={a.name} fill sizes="128px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                       ) : (
@@ -357,9 +357,9 @@ export default function MusicLibraryClient() {
                       <button
                         key={`${al.name}-${al.artist}`}
                         onClick={() => setSelectedAlbum(al.name)}
-                        className="group text-left bg-[#0d0d0d] border border-white/8 rounded-xl overflow-hidden hover:border-purple-500/30 hover:bg-[#111111] transition-all hover:-translate-y-0.5"
+                        className="group text-left bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
                       >
-                        <div className="relative aspect-square bg-[#1a1a1a]">
+                        <div className="relative aspect-square bg-surface-2">
                           {al.cover ? (
                             <Image src={al.cover} alt={al.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                           ) : (
@@ -404,7 +404,7 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors border-b-2 whitespace-nowrap ${
         active
-          ? 'text-white border-purple-500'
+          ? 'text-white border-violet-500'
           : 'text-slate-500 border-transparent hover:text-white'
       }`}
     >

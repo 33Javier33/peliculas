@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 import './globals.css'
@@ -12,6 +12,13 @@ const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ss
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['600', '700', '800'],
+  variable: '--font-jakarta',
   display: 'swap',
 })
 
@@ -55,7 +62,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0f172a',
+  themeColor: '#0B0C10',
   viewportFit: 'cover',
 }
 
@@ -63,13 +70,13 @@ const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={inter.variable}>
-      <body className="min-h-screen bg-[#0f172a] text-white font-sans pb-14 sm:pb-0">
-        <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-[#0f172a]" />}>
+    <html lang="es" className={`${inter.variable} ${jakarta.variable}`}>
+      <body className="min-h-screen bg-obsidian text-white font-sans pb-14 sm:pb-0">
+        <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
           <Header />
         </Suspense>
         <main className="min-h-screen pb-20">{children}</main>
-        <footer className="bg-[#1e293b] border-t border-[#2d3748] py-10 mt-20">
+        <footer className="bg-surface-1 border-t border-white/8 py-10 mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />
@@ -79,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <p className="text-slate-500 text-sm">
               © {new Date().getFullYear()}{' '}
-              <span className="text-amber-400 font-medium">Carlos P. Nauto Interactive</span>. Todos los
+              <span className="text-violet-400 font-medium">Carlos P. Nauto Interactive</span>. Todos los
               datos son proporcionados por{' '}
               <span className="text-blue-400 font-medium">TMDB</span>.
             </p>

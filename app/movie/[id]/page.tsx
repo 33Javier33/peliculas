@@ -81,7 +81,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
     movieData.vote_average >= 7.5
       ? 'text-emerald-400 border-emerald-400/40 bg-emerald-400/10'
       : movieData.vote_average >= 6
-        ? 'text-amber-400 border-amber-400/40 bg-amber-400/10'
+        ? 'text-violet-400 border-violet-400/40 bg-violet-400/10'
         : 'text-red-400 border-red-400/40 bg-red-400/10'
 
   return (
@@ -98,16 +98,16 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
             quality={85}
           />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-[#0f172a]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-obsidian" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/30 to-[#0f172a]/50" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0f172a]/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/30 to-obsidian/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-obsidian/60 to-transparent" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-48 sm:-mt-56 lg:-mt-64 relative z-10 pb-20">
         <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
           <div className="shrink-0 w-44 sm:w-52 md:w-60 lg:w-72 mx-auto md:mx-0">
-            <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl shadow-black/60 border-2 border-[#2d3748]">
+            <div className="relative aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl shadow-black/60 border-2 border-white/8">
               {posterUrl ? (
                 <Image
                   src={posterUrl}
@@ -118,7 +118,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                   priority
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#1e293b] gap-3">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-surface-1 gap-3">
                   <svg
                     className="w-14 h-14 text-slate-600"
                     fill="none"
@@ -142,7 +142,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
             <div className="mb-1">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-slate-400 hover:text-amber-400 text-sm transition-colors duration-200 mb-4"
+                className="inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm transition-colors duration-200 mb-4"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -157,7 +157,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
             </div>
 
             {movieData.tagline && (
-              <p className="text-amber-400 text-sm italic font-medium mb-2">
+              <p className="text-violet-400 text-sm italic font-medium mb-2">
                 &ldquo;{movieData.tagline}&rdquo;
               </p>
             )}
@@ -203,7 +203,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                 {movieData.genres.map((genre) => (
                   <span
                     key={genre.id}
-                    className="text-xs font-medium px-3 py-1 bg-[#1e293b] border border-[#2d3748] text-slate-300 rounded-full hover:border-amber-400/50 hover:text-amber-400 transition-colors duration-200 cursor-default"
+                    className="text-xs font-medium px-3 py-1 bg-surface-1 border border-white/8 text-slate-300 rounded-full hover:border-violet-400/50 hover:text-violet-400 transition-colors duration-200 cursor-default"
                   >
                     {genre.name}
                   </span>
@@ -214,7 +214,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
             {movieData.overview && (
               <div className="mb-6">
                 <h2 className="text-white font-semibold text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <div className="w-0.5 h-4 bg-amber-400 rounded-full" />
+                  <div className="w-0.5 h-4 bg-violet-500 rounded-full" />
                   Sinopsis
                 </h2>
                 <p className="text-slate-300 leading-relaxed text-base">{movieData.overview}</p>
@@ -282,7 +282,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
               {trailerId && (
                 <a
                   href={`#trailer`}
-                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-5 py-2.5 rounded-full transition-all duration-200 hover:scale-105 shadow-lg shadow-red-600/25"
+                  className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 rounded-full transition-all duration-200 hover:scale-105 shadow-lg shadow-violet-600/25"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
@@ -295,7 +295,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                   href={movieData.homepage}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-[#1e293b] hover:bg-[#2d3748] text-white font-medium px-5 py-2.5 rounded-full border border-[#2d3748] hover:border-slate-500 transition-all duration-200"
+                  className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-medium px-5 py-2.5 rounded-full border border-white/8 hover:border-slate-500 transition-all duration-200"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -313,7 +313,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                   href={`https://www.imdb.com/title/${movieData.imdb_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-bold px-5 py-2.5 rounded-full border border-amber-500/30 transition-all duration-200"
+                  className="inline-flex items-center gap-2 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 font-bold px-5 py-2.5 rounded-full border border-violet-500/30 transition-all duration-200"
                 >
                   <span className="text-xs font-black tracking-wider">IMDb</span>
                 </a>
@@ -325,10 +325,10 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
         {trailerId && (
           <section id="trailer" className="mt-16 scroll-mt-20">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-1 h-8 bg-red-500 rounded-full" />
+              <div className="w-1 h-8 bg-violet-500 rounded-full" />
               <h2 className="text-2xl font-bold text-white">Trailer Oficial</h2>
             </div>
-            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-[#2d3748] bg-black">
+            <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-white/8 bg-obsidian">
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${trailerId}?rel=0&modestbranding=1&color=white`}
                 title={`Trailer de ${movieData.title}`}
@@ -353,9 +353,9 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                 return (
                   <div
                     key={actor.cast_id}
-                    className="bg-[#1a2236] border border-[#2d3748] rounded-xl overflow-hidden hover:border-blue-500/40 transition-colors duration-200 group"
+                    className="bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-blue-500/40 transition-colors duration-200 group"
                   >
-                    <div className="relative aspect-[2/3] bg-[#1e293b] overflow-hidden">
+                    <div className="relative aspect-[2/3] bg-surface-1 overflow-hidden">
                       {profileUrl ? (
                         <Image
                           src={profileUrl}
@@ -408,7 +408,7 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
               {movieData.production_companies.map((company) => (
                 <div
                   key={company.id}
-                  className="flex items-center gap-2.5 bg-[#1e293b] border border-[#2d3748] rounded-xl px-4 py-2.5"
+                  className="flex items-center gap-2.5 bg-surface-1 border border-white/8 rounded-xl px-4 py-2.5"
                 >
                   {company.logo_path ? (
                     <div className="relative w-10 h-6 shrink-0">

@@ -21,15 +21,15 @@ export default function Error({
         {error.message || 'Ocurrió un error inesperado al cargar el contenido.'}
       </p>
       {error.message?.includes('TMDB_API_KEY') && (
-        <p className="text-amber-400 text-sm mb-6 max-w-md bg-amber-400/10 border border-amber-400/30 rounded-lg px-4 py-3">
-          Crea un archivo <code className="font-mono bg-[#2d3748] px-1 rounded">.env.local</code>{' '}
-          con tu <code className="font-mono bg-[#2d3748] px-1 rounded">TMDB_API_KEY</code>. Puedes
+        <p className="text-violet-400 text-sm mb-6 max-w-md bg-violet-400/10 border border-violet-400/30 rounded-lg px-4 py-3">
+          Crea un archivo <code className="font-mono bg-surface-2 px-1 rounded">.env.local</code>{' '}
+          con tu <code className="font-mono bg-surface-2 px-1 rounded">TMDB_API_KEY</code>. Puedes
           obtenerla gratis en themoviedb.org.
         </p>
       )}
       <button
         onClick={reset}
-        className="mt-4 bg-amber-400 hover:bg-amber-300 text-[#0f172a] font-bold px-6 py-3 rounded-full transition-all duration-200 hover:scale-105"
+        className="mt-4 bg-violet-500 hover:bg-violet-500 shadow-glow text-white font-bold px-6 py-3 rounded-full transition-all duration-200 hover:scale-105"
       >
         Intentar de nuevo
       </button>

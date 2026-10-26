@@ -599,10 +599,10 @@ export default function MusicPlayerBar() {
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
         {/* ===== QUEUE PANEL ===== */}
         {isQueueOpen && (
-          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-[#0d0d0d] backdrop-blur-xl border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
+          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/95 backdrop-blur-xl backdrop-saturate-[1.8] border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2">
-                <ListMusic className="w-4 h-4 text-purple-400" />
+                <ListMusic className="w-4 h-4 text-violet-400" />
                 <span className="text-white font-semibold text-sm">
                   Cola <span className="text-slate-500 font-normal">({queue.length})</span>
                 </span>
@@ -619,24 +619,24 @@ export default function MusicPlayerBar() {
                   onClick={() => playIndex(index)}
                   className={`flex items-center gap-3 px-4 py-2.5 group cursor-pointer transition-colors ${
                     index === currentIndex
-                      ? 'bg-purple-500/15 border-l-2 border-purple-500'
+                      ? 'bg-violet-500/15 border-l-2 border-violet-500'
                       : 'hover:bg-white/5 border-l-2 border-transparent'
                   }`}
                 >
-                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#1a1a1a]">
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-surface-2">
                     {video.thumbnail && (
                       <Image src={video.thumbnail} alt={video.title} fill sizes="40px" className="object-cover" />
                     )}
                     {index === currentIndex && isPlaying && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
-                        <span className="w-0.5 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-0.5 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-0.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <span className="w-0.5 h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-0.5 h-3 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-0.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-medium truncate ${index === currentIndex ? 'text-purple-300' : 'text-slate-200'}`}>
+                    <p className={`text-xs font-medium truncate ${index === currentIndex ? 'text-emerald-400' : 'text-slate-200'}`}>
                       {video.title}
                     </p>
                     <p className="text-slate-600 text-xs truncate mt-0.5">{video.channelTitle}</p>
@@ -666,7 +666,7 @@ export default function MusicPlayerBar() {
                 aria-checked={radioEnabled}
                 className="w-full flex items-center gap-3 text-left"
               >
-                <Radio className={`w-4 h-4 shrink-0 ${radioEnabled ? 'text-purple-400' : 'text-slate-600'}`} />
+                <Radio className={`w-4 h-4 shrink-0 ${radioEnabled ? 'text-violet-400' : 'text-slate-600'}`} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm text-white font-medium">Radio</span>
                   <span className="block text-[11px] text-slate-500">
@@ -676,7 +676,7 @@ export default function MusicPlayerBar() {
                   </span>
                 </span>
                 <span
-                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${radioEnabled ? 'bg-purple-600' : 'bg-white/15'}`}
+                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${radioEnabled ? 'bg-violet-600' : 'bg-white/15'}`}
                 >
                   <span
                     className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${radioEnabled ? 'left-[18px]' : 'left-0.5'}`}
@@ -692,9 +692,9 @@ export default function MusicPlayerBar() {
         )}
 
         {/* Scrubber bar (área táctil más alta que la barra visible) */}
-        <div className="relative h-1.5 sm:h-1 group cursor-pointer bg-white/10">
+        <div className="relative h-1.5 sm:h-1 group cursor-pointer bg-white/12">
           <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 pointer-events-none"
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-purple-500 pointer-events-none"
             style={{ width: `${progressPercent}%` }}
           />
           <input
@@ -711,17 +711,17 @@ export default function MusicPlayerBar() {
             className="absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none"
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)] pointer-events-none sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
             style={{ left: `clamp(0px, calc(${progressPercent}% - 6px), calc(100% - 12px))` }}
           />
         </div>
 
-        <div className="bg-black/95 backdrop-blur-xl border-t border-white/10 flex flex-wrap items-center">
+        <div className="bg-surface-1/90 backdrop-blur-xl backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
 
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div
             ref={videoWrapRef}
-            className={`relative bg-black overflow-hidden ${
+            className={`relative bg-obsidian overflow-hidden ${
               isExpanded
                 ? 'w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
                 : 'shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
@@ -765,7 +765,7 @@ export default function MusicPlayerBar() {
               </p>
               <p className="text-slate-500 text-xs truncate mt-0.5">
                 {audioMode && !useAudio ? (
-                  <span className="text-amber-500/90">Audio no disponible · reproduciendo video</span>
+                  <span className="text-violet-500/90">Audio no disponible · reproduciendo video</span>
                 ) : (
                   currentVideo.channelTitle
                 )}
@@ -785,14 +785,14 @@ export default function MusicPlayerBar() {
 
                 <button
                   onClick={togglePlay}
-                  className="w-10 h-10 sm:w-9 sm:h-9 bg-white hover:bg-slate-100 rounded-full flex items-center justify-center transition-all hover:scale-105 shadow-lg"
+                  className="w-10 h-10 sm:w-9 sm:h-9 bg-violet-500 hover:bg-violet-400 rounded-full flex items-center justify-center transition-all hover:scale-105 shadow-glow"
                   title={isPlaying ? 'Pausar' : 'Reproducir'}
                   aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
                 >
                   {isPlaying ? (
-                    <Pause className="w-4 h-4 text-black fill-black" />
+                    <Pause className="w-4 h-4 text-white fill-white" />
                   ) : (
-                    <Play className="w-4 h-4 text-black fill-black ml-0.5" />
+                    <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                   )}
                 </button>
 
@@ -850,7 +850,7 @@ export default function MusicPlayerBar() {
                     value={isMuted ? 0 : volume}
                     onChange={(e) => setVolume(parseFloat(e.target.value))}
                     aria-label="Volumen"
-                    className="w-20 accent-purple-500 cursor-pointer"
+                    className="w-20 accent-violet-500 cursor-pointer"
                   />
                 </div>
               </div>
@@ -858,13 +858,13 @@ export default function MusicPlayerBar() {
               <button
                 onClick={() => currentVideo && toggleSaved(currentVideo)}
                 className={`${iconBtn} ${
-                  isCurrentSaved ? 'text-pink-500 hover:text-pink-400' : 'text-slate-500 hover:text-white'
+                  isCurrentSaved ? 'text-purple-500 hover:text-purple-400' : 'text-slate-500 hover:text-white'
                 }`}
                 title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}
                 aria-label={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}
                 aria-pressed={isCurrentSaved}
               >
-                <Heart className={`w-4 h-4 ${isCurrentSaved ? 'fill-pink-500' : ''}`} />
+                <Heart className={`w-4 h-4 ${isCurrentSaved ? 'fill-purple-500' : ''}`} />
               </button>
 
               <button
@@ -873,7 +873,7 @@ export default function MusicPlayerBar() {
                   setAudioBoost(next)
                   if (next) attachAudioGraph()
                 }}
-                className={`${iconBtn} ${audioBoost ? 'text-amber-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${audioBoost ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioBoost ? 'Audio mejorado activado' : 'Mejorar audio (compresor + boost)'}
                 aria-label="Mejorar audio"
                 aria-pressed={audioBoost}
@@ -883,7 +883,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => switchMode(!audioMode)}
-                className={`${iconBtn} ${audioMode ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${audioMode ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioMode ? 'Modo audio: sigue sonando en segundo plano (toca para ver video)' : 'Activar modo audio (segundo plano)'}
                 aria-label="Modo audio en segundo plano"
                 aria-pressed={audioMode}
@@ -900,7 +900,7 @@ export default function MusicPlayerBar() {
                     setIsExpanded((v) => !v)
                   }
                 }}
-                className={`${iconBtn} ${isExpanded ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isExpanded ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={isExpanded ? 'Reducir video' : 'Ver video'}
                 aria-label={isExpanded ? 'Reducir video' : 'Ver video'}
                 aria-pressed={isExpanded}
@@ -935,7 +935,7 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={toggleQueue}
-                className={`${iconBtn} ${isQueueOpen ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isQueueOpen ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={`Cola (${queue.length})`}
                 aria-label={`Cola (${queue.length})`}
               >

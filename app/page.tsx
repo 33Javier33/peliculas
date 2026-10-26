@@ -27,7 +27,7 @@ export default async function HomePage() {
 
         <section>
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-1 h-8 bg-amber-400 rounded-full" />
+            <div className="w-1 h-8 bg-violet-500 rounded-full" />
             <h2 className="text-2xl font-bold text-white">En Tendencia</h2>
             <span className="text-slate-400 text-sm font-normal">esta semana</span>
           </div>

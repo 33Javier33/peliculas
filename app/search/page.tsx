@@ -56,10 +56,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     <div className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-1 h-8 bg-amber-400 rounded-full" />
+          <div className="w-1 h-8 bg-violet-500 rounded-full" />
           <h1 className="text-2xl sm:text-3xl font-bold text-white">
             Resultados para{' '}
-            <span className="text-amber-400">
+            <span className="text-violet-400">
               &ldquo;{query}&rdquo;
             </span>
           </h1>
@@ -86,7 +86,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {hasPrevPage && (
             <Link
               href={`/search?q=${encodeURIComponent(query)}&page=${currentPage - 1}`}
-              className="inline-flex items-center gap-2 bg-[#1e293b] hover:bg-[#2d3748] text-white font-medium px-5 py-2.5 rounded-full border border-[#2d3748] hover:border-slate-500 transition-all duration-200"
+              className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-medium px-5 py-2.5 rounded-full border border-white/8 hover:border-slate-500 transition-all duration-200"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -107,7 +107,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {hasNextPage && (
             <Link
               href={`/search?q=${encodeURIComponent(query)}&page=${currentPage + 1}`}
-              className="inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-[#0f172a] font-bold px-5 py-2.5 rounded-full transition-all duration-200 hover:scale-105"
+              className="inline-flex items-center gap-2 bg-violet-500 hover:bg-violet-500 shadow-glow text-white font-bold px-5 py-2.5 rounded-full transition-all duration-200 hover:scale-105"
             >
               Siguiente
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
