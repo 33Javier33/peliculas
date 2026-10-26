@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import InstallAppButton from '@/components/InstallAppButton'
 
 export default function Header() {
   const router = useRouter()
@@ -90,7 +91,7 @@ export default function Header() {
                 CarlosPN <span className="text-amber-400">Films</span>
               </span>
               <span className="text-slate-500 text-[9px] uppercase tracking-widest">
-                Interactive®
+                Carlos P. Nauto Interactive
               </span>
             </div>
           </Link>
@@ -151,6 +152,7 @@ export default function Header() {
           </form>
 
           <div className="flex items-center gap-2">
+            <InstallAppButton />
             <button
               onClick={() => setIsMobileSearchOpen(true)}
               className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-[#1e293b] rounded-lg transition-all duration-200"

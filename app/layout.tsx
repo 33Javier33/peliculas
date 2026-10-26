@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
@@ -28,11 +28,34 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'es_ES',
   },
+  applicationName: 'CarlosPN Films',
+  authors: [{ name: 'Carlos P. Nauto Interactive' }],
+  creator: 'Carlos P. Nauto Interactive',
+  publisher: 'Carlos P. Nauto Interactive',
+  appleWebApp: {
+    capable: true,
+    title: 'CarlosPN',
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    icon: [
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
+  },
   robots: {
     index: true,
     follow: true,
   },
 }
+
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
+  viewportFit: 'cover',
+}
+
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,10 +77,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
             <p className="text-slate-500 text-sm">
               © {new Date().getFullYear()}{' '}
-              <span className="text-amber-400 font-medium">CarlosPN Interactive®</span>. Todos los
+              <span className="text-amber-400 font-medium">Carlos P. Nauto Interactive</span>. Todos los
               datos son proporcionados por{' '}
               <span className="text-blue-400 font-medium">TMDB</span>.
             </p>
+            <p className="text-slate-600 text-xs mt-2">Versión {APP_VERSION}</p>
           </div>
         </footer>
         <MusicPlayerBar />

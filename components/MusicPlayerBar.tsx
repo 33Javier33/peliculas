@@ -236,6 +236,56 @@ export default function MusicPlayerBar() {
     }
   }, [])
 
+  // Controles en la pantalla de bloqueo / notificación para usar la app en segundo plano
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !currentVideo) return
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentVideo.title,
+      artist: currentVideo.channelTitle,
+      album: 'CarlosPN Films',
+      artwork: currentVideo.thumbnail
+        ? [{ src: currentVideo.thumbnail, sizes: '480x360', type: 'image/jpeg' }]
+        : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+    })
+  }, [currentVideo])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+  }, [isPlaying])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ['play', () => setIsPlaying(true)],
+      ['pause', () => setIsPlaying(false)],
+      ['previoustrack', () => playPrev()],
+      ['nexttrack', () => playNext()],
+      [
+        'seekto',
+        (d) => {
+          const el = playerRef.current
+          if (el && d.seekTime != null) el.currentTime = d.seekTime
+        },
+      ],
+    ]
+    for (const [action, handler] of handlers) {
+      try {
+        ms.setActionHandler(action, handler)
+      } catch {
+        // Acción no soportada por este navegador
+      }
+    }
+    return () => {
+      for (const [action] of handlers) {
+        try {
+          ms.setActionHandler(action, null)
+        } catch {}
+      }
+    }
+  }, [setIsPlaying, playPrev, playNext])
+
   const isBarShown = hasHydrated && isVisible && !!currentVideo
 
   // Mide el alto real de la barra (cambia en móvil, escritorio y modo ampliado)
