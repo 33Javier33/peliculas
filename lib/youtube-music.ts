@@ -17,6 +17,19 @@ export interface MusicSearchResult {
   nextPageToken?: string
 }
 
+/** YouTube devuelve títulos con entidades HTML (&quot;, &#39;, &amp;...). */
+export function decodeEntities(text: string): string {
+  if (!text || !text.includes('&')) return text
+  return text
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
 function getKey(): string {
   const key = process.env.YOUTUBE_API_KEY
   if (!key) throw new Error('YOUTUBE_API_KEY no está configurada. Agrégala en .env.local')
@@ -67,8 +80,8 @@ function normalizeChartItem(item: {
 }): MusicVideo {
   return {
     id: item.id,
-    title: item.snippet.title,
-    channelTitle: item.snippet.channelTitle,
+    title: decodeEntities(item.snippet.title),
+    channelTitle: decodeEntities(item.snippet.channelTitle),
     thumbnail: bestThumbnail(item.snippet.thumbnails),
     publishedAt: item.snippet.publishedAt,
     description: item.snippet.description || '',
@@ -166,8 +179,8 @@ export async function searchMusicVideos(
     const d = detailsMap[item.id.videoId]
     return {
       id: item.id.videoId,
-      title: item.snippet.title,
-      channelTitle: item.snippet.channelTitle,
+      title: decodeEntities(item.snippet.title),
+      channelTitle: decodeEntities(item.snippet.channelTitle),
       thumbnail: bestThumbnail(item.snippet.thumbnails),
       publishedAt: item.snippet.publishedAt,
       description: item.snippet.description || '',

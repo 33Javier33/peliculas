@@ -31,6 +31,15 @@ const config: Config = {
         glow: '0 8px 24px rgba(139, 92, 246, 0.35)',
         rim: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
       },
+      keyframes: {
+        eq: {
+          '0%, 100%': { transform: 'scaleY(1)' },
+          '50%': { transform: 'scaleY(0.35)' },
+        },
+      },
+      animation: {
+        eq: 'eq 0.9s ease-in-out infinite',
+      },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
       },

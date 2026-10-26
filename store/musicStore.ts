@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { MusicVideo } from '@/lib/youtube-music'
+import { decodeEntities, type MusicVideo } from '@/lib/youtube-music'
 
 export type { MusicVideo }
 
@@ -37,6 +37,8 @@ interface MusicState {
   audioMode: boolean
   // Radio: al llegar al final de la cola se añade música parecida automáticamente
   radioEnabled: boolean
+  repeatMode: 'off' | 'all' | 'one'
+  shuffle: boolean
   // Populated after zustand rehydrates from localStorage on the client.
   // Used by the player bar to resume the previous playback position.
   resumeAt: number
@@ -48,6 +50,8 @@ interface MusicActions {
   addToQueue: (video: MusicVideo) => void
   appendToQueue: (videos: MusicVideo[]) => number
   setRadioEnabled: (v: boolean) => void
+  cycleRepeat: () => void
+  toggleShuffle: () => void
   removeFromQueue: (index: number) => void
   playIndex: (index: number) => void
   playNext: () => void
@@ -127,6 +131,8 @@ export const useMusicStore = create<MusicStore>()(
       audioBoost: false,
       audioMode: true,
       radioEnabled: true,
+      repeatMode: 'off',
+      shuffle: false,
       resumeAt: 0,
       hasHydrated: false,
 
@@ -145,6 +151,24 @@ export const useMusicStore = create<MusicStore>()(
       },
 
       setRadioEnabled: (v) => set({ radioEnabled: v }),
+
+      cycleRepeat: () =>
+        set((s) => ({ repeatMode: s.repeatMode === 'off' ? 'all' : s.repeatMode === 'all' ? 'one' : 'off' })),
+
+      // Al activar "mezclar" se reordena al azar lo que queda por sonar
+      toggleShuffle: () => {
+        const { shuffle, queue, currentIndex } = get()
+        if (!shuffle) {
+          const upcoming = queue.slice(currentIndex + 1)
+          for (let i = upcoming.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            ;[upcoming[i], upcoming[j]] = [upcoming[j], upcoming[i]]
+          }
+          set({ shuffle: true, queue: [...queue.slice(0, currentIndex + 1), ...upcoming] })
+        } else {
+          set({ shuffle: false })
+        }
+      },
 
       addToQueue: (video) => {
         const { queue, isVisible } = get()
@@ -183,6 +207,9 @@ export const useMusicStore = create<MusicStore>()(
           const nextIdx = currentIndex + 1
           set({ currentIndex: nextIdx, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
           get().recordPlay(queue[nextIdx])
+        } else if (get().repeatMode === 'all' && queue.length > 0) {
+          set({ currentIndex: 0, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(queue[0])
         } else {
           set({ isPlaying: false })
         }
@@ -307,11 +334,22 @@ export const useMusicStore = create<MusicStore>()(
         audioBoost: state.audioBoost,
         audioMode: state.audioMode,
         radioEnabled: state.radioEnabled,
+        repeatMode: state.repeatMode,
+        shuffle: state.shuffle,
       }),
       onRehydrateStorage: () => (state) => {
         // Browsers block autoplay on cold load; keep paused and remember the
         // position so the player can seek back when the user hits play.
         if (state) {
+          // Títulos guardados antes de decodificar las entidades HTML de YouTube
+          const clean = <T extends MusicVideo>(v: T): T => ({
+            ...v,
+            title: decodeEntities(v.title),
+            channelTitle: decodeEntities(v.channelTitle),
+          })
+          state.queue = state.queue.map(clean)
+          state.history = state.history.map(clean)
+          state.saved = state.saved.map(clean)
           state.isPlaying = false
           state.resumeAt = state.played || 0
           state.duration = 0

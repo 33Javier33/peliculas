@@ -28,6 +28,7 @@ import {
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
+import NowPlayingSheet from '@/components/NowPlayingSheet'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -451,7 +452,15 @@ export default function MusicPlayerBar() {
   }, [resumeIfNeeded, setIsPlaying])
 
   const handleEnded = useCallback(() => {
-    const { queue: q, currentIndex: i } = useMusicStore.getState()
+    const { queue: q, currentIndex: i, repeatMode } = useMusicStore.getState()
+    if (repeatMode === 'one') {
+      const el = playerRef.current
+      if (el) {
+        el.currentTime = 0
+        el.play()?.catch?.(() => {})
+      }
+      return
+    }
     if (i >= q.length - 1 && isRadioLoadingRef.current) waitingForRadioRef.current = true
     playNext()
   }, [playNext])
@@ -625,6 +634,39 @@ export default function MusicPlayerBar() {
 
   const isBarShown = hasHydrated && isVisible && !!currentVideo
 
+  // ===== Pantalla completa "Reproduciendo ahora" =====
+  const [isFullOpen, setIsFullOpen] = useState(false)
+  const openFull = useCallback(() => {
+    setIsFullOpen(true)
+    // Entrada en el historial para que el botón "atrás" de Android cierre el reproductor.
+    // Se copia el estado de Next.js para que su router no recargue la página.
+    try {
+      window.history.pushState({ ...window.history.state, cpnFullPlayer: true }, '')
+    } catch {}
+  }, [])
+  const closeFull = useCallback(() => {
+    if (window.history.state?.cpnFullPlayer) window.history.back()
+    else setIsFullOpen(false)
+  }, [])
+  useEffect(() => {
+    const onPop = () => setIsFullOpen(!!window.history.state?.cpnFullPlayer)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  useEffect(() => {
+    if (!isBarShown) setIsFullOpen(false)
+  }, [isBarShown])
+
+  const seekFraction = useCallback(
+    (fraction: number) => {
+      const el = playerRef.current
+      if (el && isFinite(el.duration) && el.duration > 0) el.currentTime = fraction * el.duration
+      setPlayed(fraction)
+      setLocalPlayed(fraction)
+    },
+    [setPlayed]
+  )
+
   // Mide el alto real de la barra (cambia en móvil, escritorio y modo ampliado)
   useEffect(() => {
     const el = barRef.current
@@ -682,6 +724,28 @@ export default function MusicPlayerBar() {
     <>
       {/* Reserva el alto del reproductor para que no tape el contenido ni el footer */}
       <div aria-hidden style={{ height: barHeight }} />
+
+      <NowPlayingSheet
+        open={isFullOpen}
+        onClose={closeFull}
+        onOpenQueue={() => {
+          closeFull()
+          if (!useMusicStore.getState().isQueueOpen) toggleQueue()
+        }}
+        onSwitchMode={(toAudio) => {
+          if (toAudio) {
+            switchMode(true)
+          } else {
+            closeFull()
+            switchMode(false)
+            setIsExpanded(true)
+          }
+        }}
+        isAudioLoading={isAudioLoading}
+        played={localPlayed}
+        duration={localDuration}
+        onSeek={seekFraction}
+      />
 
       {/* ===== PLAYER BAR ===== */}
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
@@ -828,7 +892,10 @@ export default function MusicPlayerBar() {
                 {currentVideo.thumbnail && (
                   <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />
                 )}
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div
+                  className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer"
+                  onClick={openFull}
+                >
                   {isAudioLoading ? (
                     <Loader2 className="w-5 h-5 text-white animate-spin" />
                   ) : (
@@ -855,7 +922,12 @@ export default function MusicPlayerBar() {
 
           {/* Info + reproducción */}
           <div className="flex-1 flex items-center px-3 sm:px-5 py-1.5 sm:py-2 gap-2 sm:gap-5 min-w-0">
-            <div className="min-w-0 flex-1 sm:max-w-xs">
+            <button
+              type="button"
+              onClick={openFull}
+              className="min-w-0 flex-1 sm:max-w-xs text-left"
+              aria-label="Abrir reproductor"
+            >
               <p className="text-white text-xs sm:text-sm font-medium leading-tight line-clamp-2 sm:truncate">
                 {currentVideo.title}
               </p>
@@ -866,7 +938,7 @@ export default function MusicPlayerBar() {
                   currentVideo.channelTitle
                 )}
               </p>
-            </div>
+            </button>
 
             <div className="flex flex-col items-center gap-0.5 shrink-0 sm:mx-auto">
               <div className="flex items-center gap-1 sm:gap-3">
