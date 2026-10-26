@@ -27,6 +27,9 @@ import { useMusicStore } from '@/store/musicStore'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
+// Tiempo tras pasar a segundo plano en el que una pausa se considera automática (de YouTube)
+const AUTO_RESUME_WINDOW_MS = 5000
+
 function formatTime(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0 || seconds === 0) return '0:00'
   const m = Math.floor(seconds / 60)
@@ -161,12 +164,63 @@ export default function MusicPlayerBar() {
     [setDuration]
   )
 
+  // ===== Reproducción en segundo plano =====
+  // YouTube pausa el video cuando la app pasa a segundo plano o se bloquea la pantalla.
+  // Si esa pausa llega justo después de ocultarse la página (y no la pidió el usuario),
+  // volvemos a darle play. Una pausa posterior (p. ej. desde la pantalla de bloqueo) se respeta.
+  const isPlayingRef = useRef(isPlaying)
+  isPlayingRef.current = isPlaying
+  const hiddenAtRef = useRef(0)
+  const keepPlayingRef = useRef(false)
+
+  const resumeIfNeeded = useCallback(() => {
+    const el = playerRef.current
+    if (!el || !keepPlayingRef.current) return
+    if (el.paused) el.play()?.catch?.(() => {})
+  }, [])
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now()
+        keepPlayingRef.current = isPlayingRef.current
+        if (keepPlayingRef.current) {
+          for (const ms of [250, 800, 1600, 3000]) timers.push(setTimeout(resumeIfNeeded, ms))
+        }
+      } else {
+        timers.splice(0).forEach(clearTimeout)
+        hiddenAtRef.current = 0
+        if (keepPlayingRef.current) {
+          resumeIfNeeded()
+          setIsPlaying(true)
+        }
+        keepPlayingRef.current = false
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      timers.forEach(clearTimeout)
+    }
+  }, [resumeIfNeeded, setIsPlaying])
+
   const handleEnded = useCallback(() => playNext(), [playNext])
   const handlePlay = useCallback(() => {
     setIsPlaying(true)
     attachAudioGraph()
   }, [setIsPlaying, attachAudioGraph])
-  const handlePause = useCallback(() => setIsPlaying(false), [setIsPlaying])
+  const handlePause = useCallback(() => {
+    const hiddenFor = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : -1
+    if (document.visibilityState === 'hidden' && keepPlayingRef.current && hiddenFor >= 0 && hiddenFor < AUTO_RESUME_WINDOW_MS) {
+      // Pausa automática de YouTube al ir a segundo plano: reanudar.
+      setTimeout(resumeIfNeeded, 50)
+      return
+    }
+    // Pausa real del usuario (también desde la pantalla de bloqueo)
+    keepPlayingRef.current = false
+    setIsPlaying(false)
+  }, [setIsPlaying, resumeIfNeeded])
 
   const handleLoadedMetadata = useCallback(
     (e: React.SyntheticEvent<HTMLVideoElement>) => {
@@ -259,7 +313,13 @@ export default function MusicPlayerBar() {
     const ms = navigator.mediaSession
     const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
       ['play', () => setIsPlaying(true)],
-      ['pause', () => setIsPlaying(false)],
+      [
+        'pause',
+        () => {
+          keepPlayingRef.current = false
+          setIsPlaying(false)
+        },
+      ],
       ['previoustrack', () => playPrev()],
       ['nexttrack', () => playNext()],
       [
@@ -327,6 +387,7 @@ export default function MusicPlayerBar() {
       youtube: {
         rel: 0,
         iv_load_policy: 3,
+        playsinline: 1,
         hl: 'es',
         disablekb: 0,
         // Hint YouTube to pick a high-definition stream (audio bitrate improves alongside video quality on YT)
