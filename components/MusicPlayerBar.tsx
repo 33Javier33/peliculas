@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useRef, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import {
   Play,
   Pause,
@@ -656,6 +657,16 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     if (!isBarShown) setIsFullOpen(false)
   }, [isBarShown])
+
+  // Abrir la pantalla completa cuando otra parte de la app lo pide (enlace compartido)
+  const fullPlayerRequested = useMusicStore((s) => s.fullPlayerRequested)
+  const pathname = usePathname()
+  useEffect(() => {
+    // Esperar a salir de /play/… para que la entrada del historial quede en la página de destino
+    if (!fullPlayerRequested || !isBarShown || pathname.startsWith('/play')) return
+    useMusicStore.getState().requestFullPlayer(false)
+    openFull()
+  }, [fullPlayerRequested, isBarShown, openFull, pathname])
 
   const seekFraction = useCallback(
     (fraction: number) => {

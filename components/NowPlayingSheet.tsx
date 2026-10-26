@@ -99,11 +99,19 @@ export default function NowPlayingSheet({
   const isLast = currentIndex >= queue.length - 1
   const source = radioEnabled && isLast ? 'Radio' : `Tu cola · ${currentIndex + 1} de ${queue.length}`
 
+  const [copied, setCopied] = useState(false)
+  // Enlace a la propia app (/play/ID): quien lo abra la escucha aquí, no en YouTube
   const handleShare = async () => {
-    const url = `https://www.youtube.com/watch?v=${video.id}`
+    const url = `${window.location.origin}/play/${video.id}`
+    const text = `Escucha "${songTitle}"${artist ? ` de ${artist}` : ''} en Carlos P. Nauto Interactive`
     try {
-      if (navigator.share) await navigator.share({ title: video.title, url })
-      else await navigator.clipboard.writeText(url)
+      if (navigator.share) {
+        await navigator.share({ title: video.title, text, url })
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
     } catch {}
   }
 
@@ -317,7 +325,7 @@ export default function NowPlayingSheet({
               onClick={handleShare}
               className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
             >
-              <Share2 className="w-4 h-4" /> Compartir
+              <Share2 className="w-4 h-4" /> {copied ? 'Enlace copiado' : 'Compartir'}
             </button>
             <button
               onClick={onOpenQueue}

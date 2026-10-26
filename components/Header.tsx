@@ -18,7 +18,7 @@ export default function Header() {
   const mobileInputRef = useRef<HTMLInputElement>(null)
 
   // La búsqueda depende de la sección: música, videos/películas de YouTube o catálogo TMDB.
-  const section = pathname.startsWith('/music') ? 'music' : pathname.startsWith('/cine') ? 'cine' : 'movies'
+  const section = pathname.startsWith('/music') || pathname.startsWith('/play') ? 'music' : pathname.startsWith('/cine') ? 'cine' : 'movies'
   // Etiqueta de la sección actual junto a la marca (como "INTERACTIVE · MUSIC")
   const sectionLabel =
     pathname === '/music/library'

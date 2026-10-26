@@ -294,3 +294,38 @@ export async function getForYouVideos(
 
   return { videos, genres, artists: topArtists }
 }
+
+// ===== Canción compartida (/play/[id]) =====
+
+export function isYouTubeId(id: string): boolean {
+  return /^[A-Za-z0-9_-]{11}$/.test(id)
+}
+
+/**
+ * Datos básicos de un video para un enlace compartido. Usa oEmbed de YouTube
+ * (no gasta cuota de la API); si falla, devuelve al menos la miniatura.
+ */
+export async function getSharedVideo(id: string): Promise<MusicVideo> {
+  const fallback: MusicVideo = {
+    id,
+    title: 'Canción compartida',
+    channelTitle: '',
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    publishedAt: '',
+    description: '',
+  }
+  try {
+    const url = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`
+    const res = await fetch(url, { next: { revalidate: 86400 } })
+    if (!res.ok) return fallback
+    const data = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string }
+    return {
+      ...fallback,
+      title: decodeEntities(data.title || fallback.title),
+      channelTitle: decodeEntities(data.author_name || ''),
+      thumbnail: data.thumbnail_url || fallback.thumbnail,
+    }
+  } catch {
+    return fallback
+  }
+}

@@ -38,6 +38,8 @@ interface MusicState {
   // Radio: al llegar al final de la cola se añade música parecida automáticamente
   radioEnabled: boolean
   repeatMode: 'off' | 'all' | 'one'
+  // Pide al reproductor abrir la pantalla completa (p. ej. al abrir un enlace compartido)
+  fullPlayerRequested: boolean
   shuffle: boolean
   // Populated after zustand rehydrates from localStorage on the client.
   // Used by the player bar to resume the previous playback position.
@@ -51,6 +53,7 @@ interface MusicActions {
   appendToQueue: (videos: MusicVideo[]) => number
   setRadioEnabled: (v: boolean) => void
   cycleRepeat: () => void
+  requestFullPlayer: (v: boolean) => void
   toggleShuffle: () => void
   removeFromQueue: (index: number) => void
   playIndex: (index: number) => void
@@ -132,6 +135,7 @@ export const useMusicStore = create<MusicStore>()(
       audioMode: true,
       radioEnabled: true,
       repeatMode: 'off',
+      fullPlayerRequested: false,
       shuffle: false,
       resumeAt: 0,
       hasHydrated: false,
@@ -151,6 +155,8 @@ export const useMusicStore = create<MusicStore>()(
       },
 
       setRadioEnabled: (v) => set({ radioEnabled: v }),
+
+      requestFullPlayer: (v) => set({ fullPlayerRequested: v }),
 
       cycleRepeat: () =>
         set((s) => ({ repeatMode: s.repeatMode === 'off' ? 'all' : s.repeatMode === 'all' ? 'one' : 'off' })),
