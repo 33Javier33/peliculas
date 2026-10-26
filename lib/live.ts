@@ -13,6 +13,11 @@ export interface RadioStation {
   tags: string
   codec: string
   bitrate: number
+  city?: string
+  // Solo en "Cerca de mí": distancia aproximada en km
+  distanceKm?: number
+  lat?: number
+  lon?: number
 }
 
 export interface TvChannel {
@@ -53,6 +58,9 @@ interface RawStation {
   bitrate?: number
   hls?: number
   lastcheckok?: number
+  state?: string
+  geo_lat?: number | null
+  geo_long?: number | null
 }
 
 async function radioRequest(path: string): Promise<RadioStation[]> {
@@ -86,6 +94,9 @@ async function radioRequest(path: string): Promise<RadioStation[]> {
           tags: (s.tags || '').split(',').slice(0, 3).join(', '),
           codec: s.codec || '',
           bitrate: s.bitrate || 0,
+          city: s.state || undefined,
+          lat: typeof s.geo_lat === 'number' ? s.geo_lat : undefined,
+          lon: typeof s.geo_long === 'number' ? s.geo_long : undefined,
         }))
     } catch (err) {
       lastError = err
@@ -153,6 +164,45 @@ export async function getRadioCities(countryCode: string): Promise<{ name: strin
     } catch {}
   }
   return []
+}
+
+/** Distancia en km entre dos puntos (fórmula del semiverseno). */
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const rad = Math.PI / 180
+  const dLat = (lat2 - lat1) * rad
+  const dLon = (lon2 - lon1) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(a))
+}
+
+/**
+ * Emisoras cerca de un punto, de la más cercana a la más lejana. Se busca primero en
+ * 60 km y, si hay pocas, se amplía el radio. Si se conoce la ciudad, se suman las
+ * emisoras registradas en ella aunque no tengan coordenadas.
+ */
+export async function getNearbyRadios(lat: number, lon: number, city?: string, countryCode?: string) {
+  const byId = new Map<string, RadioStation>()
+  for (const km of [60, 200, 600]) {
+    const found = await radioRequest(
+      `/json/stations/search?geo_lat=${lat}&geo_long=${lon}&geo_distance=${km * 1000}&has_geo_info=true&${common}&limit=150`
+    ).catch(() => [] as RadioStation[])
+    for (const st of found) {
+      // Se comprueba la distancia aquí también, por si el servidor no aplica el filtro
+      if (st.lat !== undefined && st.lon !== undefined && distanceKm(lat, lon, st.lat, st.lon) <= km) byId.set(st.id, st)
+    }
+    if (byId.size >= 15) break
+  }
+  if (city && countryCode && byId.size < 30) {
+    const local = await getRadiosByCity(city, countryCode, 40).catch(() => [] as RadioStation[])
+    for (const st of local) if (!byId.has(st.id)) byId.set(st.id, st)
+  }
+  return Array.from(byId.values())
+    .map((st) => ({
+      ...st,
+      distanceKm: st.lat !== undefined && st.lon !== undefined ? Math.round(distanceKm(lat, lon, st.lat, st.lon)) : undefined,
+    }))
+    .sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999))
+    .slice(0, 80)
 }
 
 // ===== TV (iptv-org) =====

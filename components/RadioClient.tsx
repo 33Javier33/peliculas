@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Radio as RadioIcon, Loader2, AlertCircle, Heart, MapPin } from 'lucide-react'
+import { Search, Radio as RadioIcon, Loader2, AlertCircle, Heart, MapPin, LocateFixed } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import type { RadioStation } from '@/lib/live'
@@ -37,6 +37,8 @@ export default function RadioClient() {
   const [submitted, setSubmitted] = useState(searchParams.get('q') || '')
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+  // "Cerca de mí": de dónde salió la ubicación (GPS del teléfono o aproximada por la conexión)
+  const [near, setNear] = useState<{ source: 'gps' | 'ip' | 'none'; city?: string } | null>(null)
 
   const { play, queue, currentIndex, isPlaying, isVisible } = useMusicStore()
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
@@ -47,6 +49,7 @@ export default function RadioClient() {
   const load = useCallback(async (cc: string, q: string, c: string) => {
     setIsLoading(true)
     setError(null)
+    setNear(null)
     try {
       const params = new URLSearchParams()
       if (cc) params.set('country', cc)
@@ -87,6 +90,45 @@ export default function RadioClient() {
       cancelled = true
     }
   }, [country])
+
+  const findNearby = async () => {
+    setIsLoading(true)
+    setError(null)
+    setSubmitted('')
+    setQuery('')
+    setCity('')
+    setNear({ source: 'gps' })
+    // Pide la ubicación del teléfono; si no hay permiso, el servidor usa la de la conexión
+    const coords = await new Promise<GeolocationCoordinates | null>((resolve) => {
+      if (!('geolocation' in navigator)) return resolve(null)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos.coords),
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 }
+      )
+    })
+    try {
+      const params = new URLSearchParams({ near: '1' })
+      if (coords) {
+        params.set('lat', coords.latitude.toFixed(4))
+        params.set('lon', coords.longitude.toFixed(4))
+      }
+      const res = await fetch(`/api/radio?${params.toString()}`)
+      const data = (await res.json()) as {
+        stations?: RadioStation[]
+        near?: { source: 'gps' | 'ip' | 'none'; city?: string }
+        error?: string
+      }
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
+      setNear(data.near ?? { source: 'none' })
+      setStations(data.stations ?? [])
+    } catch (err) {
+      setError((err as Error).message)
+      setStations([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const changeCountry = (cc: string) => {
     setCountry(cc)
@@ -142,6 +184,18 @@ export default function RadioClient() {
           </section>
         )}
 
+        {/* Cerca de mí */}
+        <button
+          onClick={findNearby}
+          className={`w-full sm:w-auto mb-3 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-bold font-display transition-colors ${
+            near
+              ? 'bg-emerald-500/15 border border-emerald-400/40 text-emerald-300'
+              : 'bg-violet-500 hover:bg-violet-400 text-white shadow-glow'
+          }`}
+        >
+          <LocateFixed className="w-4 h-4" /> Radios cerca de mí
+        </button>
+
         {/* Filtros: país, ciudad y búsqueda */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           {country && <CountrySelect value={country} onChange={changeCountry} />}
@@ -170,7 +224,22 @@ export default function RadioClient() {
         </div>
 
         <h2 className="flex items-center gap-2 text-white font-bold text-[22px] leading-7 mb-4 min-w-0">
-          {submitted ? (
+          {near ? (
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <LocateFixed className="w-5 h-5 text-emerald-400 shrink-0" /> Cerca de ti
+              </span>
+              {!isLoading && (
+                <span className="block text-slate-400 text-sm font-normal font-sans mt-1">
+                  {near.source === 'gps'
+                    ? 'Según la ubicación de tu teléfono'
+                    : near.source === 'ip'
+                      ? `Ubicación aproximada según tu conexión${near.city ? ` · ${near.city}` : ''} (activa la ubicación para más precisión)`
+                      : 'No pudimos saber tu ubicación. Activa el permiso de ubicación e inténtalo de nuevo.'}
+                </span>
+              )}
+            </span>
+          ) : submitted ? (
             <span className="truncate">
               Resultados: <span className="text-violet-300">&ldquo;{submitted}&rdquo;</span>
             </span>
@@ -205,7 +274,7 @@ export default function RadioClient() {
                   key={s.id}
                   track={track}
                   subtitle={
-                    [s.tags, s.codec && `${s.codec}${s.bitrate ? ` ${s.bitrate}k` : ''}`].filter(Boolean).join(' · ') ||
+                    [s.distanceKm !== undefined ? `a ${s.distanceKm < 1 ? 'menos de 1' : s.distanceKm} km` : near && s.city, s.tags, s.codec && `${s.codec}${s.bitrate ? ` ${s.bitrate}k` : ''}`].filter(Boolean).join(' · ') ||
                     countryName(s.countryCode)
                   }
                   isCurrent={current?.id === track.id}
