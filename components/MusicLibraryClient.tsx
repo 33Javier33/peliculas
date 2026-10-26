@@ -182,7 +182,7 @@ export default function MusicLibraryClient() {
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex items-center gap-1 mb-5 border-b border-white/10 overflow-x-auto">
+            <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
               <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
               <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
@@ -402,10 +402,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-colors border-b-2 whitespace-nowrap ${
+      className={`shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors whitespace-nowrap ${
         active
-          ? 'text-white border-violet-500'
-          : 'text-slate-500 border-transparent hover:text-white'
+          ? 'bg-violet-300 text-violet-950'
+          : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'
       }`}
     >
       {icon}

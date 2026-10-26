@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
+import { useMusicStore } from '@/store/musicStore'
 
 export default function Header() {
   const router = useRouter()
@@ -18,6 +19,18 @@ export default function Header() {
 
   // La búsqueda depende de la sección: música, videos/películas de YouTube o catálogo TMDB.
   const section = pathname.startsWith('/music') ? 'music' : pathname.startsWith('/cine') ? 'cine' : 'movies'
+  // Etiqueta de la sección actual junto a la marca (como "INTERACTIVE · MUSIC")
+  const sectionLabel =
+    pathname === '/music/library'
+      ? 'Biblioteca'
+      : section === 'music'
+        ? 'Music'
+        : section === 'cine'
+          ? 'Videos'
+          : pathname === '/'
+            ? 'Inicio'
+            : 'Películas'
+  const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
   const searchTarget = section === 'music' ? '/music' : section === 'cine' ? '/cine' : '/search'
   const searchPlaceholder =
     section === 'music'
@@ -96,8 +109,17 @@ export default function Header() {
               <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
                 Carlos P. Nauto
               </span>
-              <span className="text-slate-400 text-[10px] uppercase tracking-[0.2em]">
-                Interactive
+              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] whitespace-nowrap">
+                <span className="text-slate-400">Interactive</span>
+                <span className="text-slate-600" aria-hidden>·</span>
+                <span className="text-violet-300 font-bold">{sectionLabel}</span>
+                {isMusicPlaying && (
+                  <span className="flex items-end gap-[2px] h-2.5" aria-label="Reproduciendo música">
+                    <span className="w-[2px] h-1.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-[2px] h-2.5 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-[2px] h-2 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                )}
               </span>
             </div>
           </Link>

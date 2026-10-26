@@ -3,7 +3,8 @@
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, Sparkles } from 'lucide-react'
+import Image from 'next/image'
+import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
@@ -30,7 +31,6 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   // ===== "Para ti": según lo que escuchas =====
   const history = useMusicStore((s) => s.history)
   const hasHydrated = useMusicStore((s) => s.hasHydrated)
-  const [tab, setTab] = useState<'foryou' | 'trending'>('foryou')
   const [forYou, setForYou] = useState<ForYouResult | null>(null)
   const [isForYouLoading, setIsForYouLoading] = useState(false)
 
@@ -85,7 +85,24 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated, profileKey])
 
-  const showForYou = !isSearchMode && tab === 'foryou' && (!!forYou || isForYouLoading)
+  const play = useMusicStore((s) => s.play)
+  const recent = useMemo(() => history.slice(0, 6), [history])
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const scrollCarousel = (dir: 1 | -1) =>
+    carouselRef.current?.scrollBy({ left: dir * carouselRef.current.clientWidth * 0.8, behavior: 'smooth' })
+
+  // Saludo según la hora (se calcula en el cliente para evitar desajustes de hidratación)
+  const [greeting, setGreeting] = useState<{ title: string; session: string } | null>(null)
+  useEffect(() => {
+    const h = new Date().getHours()
+    setGreeting(
+      h >= 5 && h < 12
+        ? { title: 'Buenos días', session: 'Sesión matutina' }
+        : h >= 12 && h < 19
+          ? { title: 'Buenas tardes', session: 'Sesión de tarde' }
+          : { title: 'Buenas noches', session: 'Sesión nocturna' }
+    )
+  }, [])
   const forYouSubtitle = forYou
     ? [...forYou.genres.map((g) => g.charAt(0).toUpperCase() + g.slice(1)), ...forYou.artists].slice(0, 4).join(' · ')
     : ''
@@ -165,48 +182,57 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     inputRef.current?.focus()
   }, [initialVideos])
 
+  const chip =
+    'shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors'
+  const chipIdle = `${chip} bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white`
+
   return (
     <div className="pt-20 min-h-screen bg-obsidian pb-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Hero header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-violet-500/15 border border-violet-500/25 text-violet-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">
-            <Music2 className="w-3.5 h-3.5" />
-            Carlos P. Nauto Music Station
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Saludo */}
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-emerald-400 text-[11px] font-bold uppercase tracking-[0.08em] font-display h-4">
+              {greeting && (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                  {greeting.session}
+                </>
+              )}
+            </p>
+            <h1 className="text-[32px] leading-[38px] sm:text-[40px] sm:leading-[48px] font-extrabold text-white mt-1">
+              {greeting?.title ?? '\u00a0'}
+            </h1>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
-            Tu música,{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-purple-500">
-              sin interrupciones
-            </span>
-          </h1>
-          <p className="text-slate-500 max-w-md mx-auto text-sm sm:text-base mb-5">
-            Videos musicales en HD. Navega por toda la app sin perder la reproducción.
-          </p>
           <Link
             href="/music/library"
-            className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-1 text-white font-semibold px-5 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all hover:scale-105"
+            className="shrink-0 w-12 h-12 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+            aria-label="Historial y biblioteca"
+            title="Historial y biblioteca"
           >
-            <Library className="w-4 h-4 text-violet-400" />
-            Mi biblioteca
-            {savedCount > 0 && (
-              <span className="bg-violet-600/25 text-violet-300 text-xs font-bold px-2 py-0.5 rounded-full">
-                {savedCount}
-              </span>
-            )}
+            <History className="w-5 h-5" />
           </Link>
         </div>
 
-        {/* Search form */}
-        <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-12" role="search">
+        {/* Chips de sección */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+          <span className={`${chip} bg-violet-300 text-violet-950`}>
+            <Music2 className="w-4 h-4" /> Música
+          </span>
+          <Link href="/cine" className={chipIdle}>
+            <TvMinimalPlay className="w-4 h-4 text-violet-300" /> Videos
+          </Link>
+          <Link href="/music/library" className={chipIdle}>
+            <Library className="w-4 h-4 text-emerald-400" /> Biblioteca
+            {savedCount > 0 && <span className="text-xs text-slate-500">{savedCount}</span>}
+          </Link>
+        </div>
+
+        {/* Búsqueda */}
+        <form onSubmit={handleSearch} className="mb-8" role="search">
           <div className="relative flex items-center">
-            <div className="absolute left-4 text-slate-500 pointer-events-none">
-              {isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
-              ) : (
-                <Search className="w-5 h-5" />
-              )}
+            <div className="absolute left-4 text-slate-400 pointer-events-none">
+              {isPending ? <Loader2 className="w-5 h-5 animate-spin text-violet-400" /> : <Search className="w-5 h-5" />}
             </div>
             <input
               ref={inputRef}
@@ -217,14 +243,14 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               aria-label="Buscar música"
               enterKeyHint="search"
               autoComplete="off"
-              className="w-full bg-surface-1 border border-white/12 text-white placeholder-slate-700 rounded-full pl-12 pr-32 py-4 text-base focus:outline-none focus:border-violet-500/60 focus:bg-surface-1 focus:ring-2 focus:ring-violet-500/15 transition-all duration-200"
+              className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-28 py-3.5 text-base focus:outline-none focus:border-violet-500 transition-colors"
             />
-            <div className="absolute right-2 flex items-center gap-1">
+            <div className="absolute right-1.5 flex items-center gap-1">
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="p-1.5 text-slate-600 hover:text-white transition-colors rounded-full hover:bg-white/5"
+                  className="p-1.5 text-slate-500 hover:text-white transition-colors rounded-full"
                   aria-label="Limpiar"
                 >
                   <X className="w-4 h-4" />
@@ -233,178 +259,212 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               <button
                 type="submit"
                 disabled={!query.trim() || isPending}
-                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all duration-200 hover:scale-105 disabled:hover:scale-100 shadow-lg shadow-violet-900/30"
+                className="bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-4 py-2 rounded-full text-sm transition-colors"
               >
-                {isPending ? 'Buscando...' : 'Buscar'}
+                Buscar
               </button>
             </div>
           </div>
         </form>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <div className="max-w-2xl mx-auto mb-8 flex items-start gap-3 bg-red-950/40 border border-red-900/50 text-red-400 rounded-xl px-5 py-4">
+          <div className="mb-8 flex items-start gap-3 bg-red-950/40 border border-red-900/50 text-red-400 rounded-xl px-5 py-4">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-sm">Error al cargar contenido</p>
               <p className="text-xs text-red-500/80 mt-0.5">{error}</p>
-              {error.includes('YOUTUBE_API_KEY') && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Agrega <code className="bg-black/50 px-1 rounded">YOUTUBE_API_KEY</code> en{' '}
-                  <code className="bg-black/50 px-1 rounded">.env.local</code> y reinicia el servidor.
-                </p>
-              )}
             </div>
           </div>
         )}
 
-        {/* Section header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3 min-w-0">
-            {isSearchMode ? (
-              <>
-                <div className="w-1 h-7 bg-gradient-to-b from-violet-500 to-purple-500 rounded-full" />
-                <h2 className="text-white font-bold text-lg">
-                  Resultados:{' '}
-                  <span className="text-violet-400">&ldquo;{submittedQuery}&rdquo;</span>
-                  {videos.length > 0 && (
-                    <span className="text-slate-600 font-normal text-sm ml-2">
-                      ({videos.length} videos)
-                    </span>
-                  )}
-                </h2>
-              </>
+        {isSearchMode || isPending ? (
+          /* ===== Resultados de búsqueda ===== */
+          <section>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-white font-bold text-[22px] leading-7 min-w-0 truncate">
+                {isPending ? 'Buscando...' : <>Resultados: <span className="text-violet-300">&ldquo;{submittedQuery}&rdquo;</span></>}
+              </h2>
+              {isSearchMode && (
+                <button
+                  onClick={handleClear}
+                  className="shrink-0 inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm px-3 py-1.5 rounded-full border border-white/8"
+                >
+                  <X className="w-3.5 h-3.5" /> Limpiar
+                </button>
+              )}
+            </div>
+            {isPending ? (
+              <GridSkeleton />
+            ) : videos.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                {videos.map((video, index) => (
+                  <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} />
+                ))}
+              </div>
             ) : (
-              <div className="min-w-0">
-                {(forYou || isForYouLoading) && (
-                  <div className="flex items-center gap-2 mb-2" role="tablist">
-                    <button
-                      role="tab"
-                      aria-selected={tab === 'foryou'}
-                      onClick={() => setTab('foryou')}
-                      className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
-                        tab === 'foryou'
-                          ? 'bg-violet-600 border-violet-500 text-white'
-                          : 'border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Para ti
-                    </button>
-                    <button
-                      role="tab"
-                      aria-selected={tab === 'trending'}
-                      onClick={() => setTab('trending')}
-                      className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3.5 py-1.5 rounded-full border transition-colors ${
-                        tab === 'trending'
-                          ? 'bg-violet-600 border-violet-500 text-white'
-                          : 'border-white/10 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <TrendingUp className="w-3.5 h-3.5" /> Tendencias
-                    </button>
-                  </div>
-                )}
-                {showForYou ? (
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <h2 className="text-white font-bold text-lg">Para ti</h2>
-                    <span className="text-slate-500 text-sm font-normal truncate">
-                      {forYouSubtitle ? `según lo que escuchas: ${forYouSubtitle}` : 'según lo que escuchas'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <TrendingUp className="w-5 h-5 text-violet-500" />
-                    <h2 className="text-white font-bold text-lg">Tendencias Musicales</h2>
-                    <span className="text-slate-600 text-sm font-normal">México</span>
-                  </div>
-                )}
+              <EmptyState text={`No se encontraron resultados para "${submittedQuery}"`} />
+            )}
+            {nextPageToken && !isPending && (
+              <div className="flex justify-center mt-10">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 disabled:opacity-50 text-white font-semibold px-8 py-3.5 rounded-full border border-white/8 transition-colors"
+                >
+                  {isLoadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> Cargando más...</> : 'Cargar más'}
+                </button>
               </div>
             )}
-          </div>
-
-          {isSearchMode && (
-            <button
-              onClick={handleClear}
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-all duration-200 px-3 py-1.5 rounded-full border border-white/10 hover:border-white/20 hover:bg-white/5"
-            >
-              <X className="w-3.5 h-3.5" />
-              Limpiar
-            </button>
-          )}
-        </div>
-
-        {/* Loading skeleton */}
-        {(isPending || (showForYou && !forYou)) && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-surface-1 border border-white/8 rounded-xl overflow-hidden animate-pulse"
-              >
-                <div className="aspect-video bg-surface-2" />
-                <div className="p-3 space-y-2">
-                  <div className="h-3 bg-surface-2 rounded w-full" />
-                  <div className="h-3 bg-surface-2 rounded w-2/3" />
+          </section>
+        ) : (
+          <>
+            {/* ===== Escuchado recientemente ===== */}
+            {hasHydrated && recent.length > 0 && (
+              <section className="mb-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-white font-bold text-[22px] leading-7">Escuchado recientemente</h2>
+                  <Link
+                    href="/music/library"
+                    className="text-violet-300 hover:text-violet-200 text-xs font-bold uppercase tracking-[0.04em] font-display"
+                  >
+                    Ver todo
+                  </Link>
                 </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {recent.map((track, idx) => (
+                    <button
+                      key={track.id}
+                      onClick={() => play(recent, idx)}
+                      className="group flex items-center gap-3 bg-surface-2/70 hover:bg-surface-2 border border-white/5 rounded-xl p-2 text-left transition-colors shadow-rim min-w-0"
+                    >
+                      <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-surface-1">
+                        {track.thumbnail && (
+                          <Image src={track.thumbnail} alt="" fill sizes="56px" className="object-cover" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-sm font-semibold font-display truncate">
+                          {/* "Artista - Canción" → solo la canción; el artista va debajo */}
+                          {track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}
+                        </p>
+                        <p className="text-slate-400 text-xs truncate mt-0.5">{track.artist || track.channelTitle}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ===== Hecho para ti ===== */}
+            {(forYou || isForYouLoading) && (
+              <section className="mb-10">
+                <div className="flex items-end justify-between gap-3 mb-4">
+                  <div className="min-w-0">
+                    <h2 className="text-white font-bold text-[22px] leading-7">Hecho para ti</h2>
+                    <p className="text-slate-400 text-sm truncate">
+                      {forYouSubtitle ? `Según lo que escuchas: ${forYouSubtitle}` : 'Según lo que escuchas'}
+                    </p>
+                  </div>
+                  <div className="hidden sm:flex gap-2 shrink-0">
+                    <button
+                      onClick={() => scrollCarousel(-1)}
+                      className="w-11 h-11 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center text-slate-300 hover:text-white"
+                      aria-label="Anterior"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => scrollCarousel(1)}
+                      className="w-11 h-11 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center text-slate-300 hover:text-white"
+                      aria-label="Siguiente"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <div
+                  ref={carouselRef}
+                  className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]"
+                >
+                  {forYou
+                    ? forYou.videos.map((video, index) => (
+                        <button
+                          key={video.id}
+                          onClick={() => play(forYou.videos, index)}
+                          className="group relative snap-start shrink-0 w-[78%] sm:w-80 aspect-[16/10] rounded-2xl overflow-hidden bg-surface-2 text-left"
+                        >
+                          {video.thumbnail && (
+                            <Image
+                              src={video.thumbnail}
+                              alt=""
+                              fill
+                              sizes="(max-width: 640px) 80vw, 320px"
+                              className="object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                          <div className="absolute left-3 right-14 bottom-3">
+                            <p className="text-white font-bold font-display text-base leading-tight line-clamp-2">{video.title}</p>
+                            <p className="text-slate-300 text-xs truncate mt-1">{video.channelTitle}</p>
+                          </div>
+                          <span className="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-violet-500 shadow-glow flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                          </span>
+                        </button>
+                      ))
+                    : Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="shrink-0 w-[78%] sm:w-80 aspect-[16/10] rounded-2xl bg-surface-2 animate-pulse" />
+                      ))}
+                </div>
+              </section>
+            )}
+
+            {/* ===== Tendencias ===== */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-5 h-5 text-violet-400" />
+                <h2 className="text-white font-bold text-[22px] leading-7">Tendencias</h2>
+                <span className="text-slate-500 text-sm">México</span>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Video grid */}
-        {!isPending && showForYou && forYou && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {forYou.videos.map((video, index) => (
-              <MusicCard key={`fy-${video.id}-${index}`} video={video} allVideos={forYou.videos} index={index} />
-            ))}
-          </div>
-        )}
-
-        {!isPending && !showForYou && videos.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {videos.map((video, index) => (
-              <MusicCard
-                key={`${video.id}-${index}`}
-                video={video}
-                allVideos={videos}
-                index={index}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!isPending && !showForYou && videos.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Music2 className="w-16 h-16 text-slate-800" />
-            <p className="text-slate-500 text-lg">
-              {isSearchMode
-                ? `No se encontraron resultados para "${submittedQuery}"`
-                : 'No hay tendencias disponibles'}
-            </p>
-          </div>
-        )}
-
-        {/* Load more */}
-        {nextPageToken && !isPending && !showForYou && (
-          <div className="flex justify-center mt-10">
-            <button
-              onClick={handleLoadMore}
-              disabled={isLoadingMore}
-              className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-1 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold px-8 py-3.5 rounded-full border border-white/12 hover:border-violet-500/30 transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
-            >
-              {isLoadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Cargando más...
-                </>
+              {videos.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                  {videos.map((video, index) => (
+                    <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} />
+                  ))}
+                </div>
               ) : (
-                'Cargar más videos'
+                !error && <EmptyState text="No hay tendencias disponibles" />
               )}
-            </button>
-          </div>
+            </section>
+          </>
         )}
       </div>
+    </div>
+  )
+}
+
+function GridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="bg-surface-1 border border-white/8 rounded-xl overflow-hidden animate-pulse">
+          <div className="aspect-video bg-surface-2" />
+          <div className="p-3 space-y-2">
+            <div className="h-3 bg-surface-2 rounded w-full" />
+            <div className="h-3 bg-surface-2 rounded w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <Music2 className="w-14 h-14 text-slate-700" />
+      <p className="text-slate-500 text-base text-center">{text}</p>
     </div>
   )
 }
