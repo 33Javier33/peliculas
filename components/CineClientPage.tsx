@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useTransition, useRef } from 'react'
+import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp } from 'lucide-react'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
@@ -57,10 +58,9 @@ export default function CineClientPage({
     }
   }, [])
 
-  const handleSearch = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      const trimmed = query.trim()
+  const runSearch = useCallback(
+    (raw: string) => {
+      const trimmed = raw.trim()
       if (!trimmed) return
 
       setError(null)
@@ -91,8 +91,25 @@ export default function CineClientPage({
         }
       })
     },
-    [query, enrichWithDetails]
+    [enrichWithDetails]
   )
+
+  const handleSearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      runSearch(query)
+    },
+    [query, runSearch]
+  )
+
+  // Búsqueda desde la barra superior (/cine?q=...)
+  const searchParams = useSearchParams()
+  const urlQuery = searchParams.get('q') || ''
+  useEffect(() => {
+    if (!urlQuery) return
+    setQuery(urlQuery)
+    runSearch(urlQuery)
+  }, [urlQuery, runSearch])
 
   const handleLoadMore = useCallback(async () => {
     if (!nextPageToken || isLoadingMore) return

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 import './globals.css'
 import Header from '@/components/Header'
+import MobileNav from '@/components/MobileNav'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -15,15 +16,15 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'CarlosPN Films — Catálogo de Películas',
+    default: 'CarlosPN Films — Películas, videos y música',
     template: '%s | CarlosPN Films',
   },
   description:
-    'Descubre las mejores películas, tendencias y estrenos. Datos proporcionados por TMDB.',
-  keywords: ['películas', 'cine', 'catálogo', 'estrenos', 'trailer', 'TMDB'],
+    'Reproductor de películas, videos musicales y música. Descubre estrenos, tendencias y tus canciones favoritas.',
+  keywords: ['películas', 'cine', 'videos musicales', 'música', 'reproductor', 'estrenos', 'trailer', 'TMDB'],
   openGraph: {
     title: 'CarlosPN Films',
-    description: 'Catálogo de películas powered by TMDB.',
+    description: 'Películas, videos musicales y música en un solo reproductor.',
     type: 'website',
     locale: 'es_ES',
   },
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={inter.variable}>
-      <body className="min-h-screen bg-[#0f172a] text-white font-sans">
+      <body className="min-h-screen bg-[#0f172a] text-white font-sans pb-14 sm:pb-0">
         <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-[#0f172a]" />}>
           <Header />
         </Suspense>
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </footer>
         <MusicPlayerBar />
+        <MobileNav />
       </body>
     </html>
   )

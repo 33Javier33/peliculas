@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getTrendingMusicVideos } from '@/lib/youtube-music'
 import MusicSearchClient from '@/components/MusicSearchClient'
@@ -25,5 +26,9 @@ export default async function MusicPage() {
     // Error handled gracefully in the client component
   }
 
-  return <MusicSearchClient initialVideos={initialVideos} />
+  return (
+    <Suspense>
+      <MusicSearchClient initialVideos={initialVideos} />
+    </Suspense>
+  )
 }

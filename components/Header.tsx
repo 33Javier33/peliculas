@@ -14,14 +14,23 @@ export default function Header() {
   const inputRef = useRef<HTMLInputElement>(null)
   const mobileInputRef = useRef<HTMLInputElement>(null)
 
+  // La búsqueda depende de la sección: música, videos/películas de YouTube o catálogo TMDB.
+  const section = pathname.startsWith('/music') ? 'music' : pathname.startsWith('/cine') ? 'cine' : 'movies'
+  const searchTarget = section === 'music' ? '/music' : section === 'cine' ? '/cine' : '/search'
+  const searchPlaceholder =
+    section === 'music'
+      ? 'Buscar música, artistas...'
+      : section === 'cine'
+        ? 'Buscar videos y películas...'
+        : 'Buscar películas...'
+
   useEffect(() => {
-    if (pathname === '/search') {
-      const currentQuery = searchParams.get('q') || ''
-      setQuery(currentQuery)
+    if (pathname === searchTarget) {
+      setQuery(searchParams.get('q') || '')
     } else {
       setQuery('')
     }
-  }, [pathname, searchParams])
+  }, [pathname, searchParams, searchTarget])
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
@@ -41,9 +50,9 @@ export default function Header() {
       const trimmed = query.trim()
       if (!trimmed) return
       setIsMobileSearchOpen(false)
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`)
+      router.push(`${searchTarget}?q=${encodeURIComponent(trimmed)}`)
     },
-    [query, router]
+    [query, router, searchTarget]
   )
 
   const handleKeyDown = useCallback(
@@ -113,8 +122,8 @@ export default function Header() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Buscar películas..."
-                aria-label="Buscar películas"
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 className="w-full bg-[#1e293b] border border-[#2d3748] text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-amber-400/70 focus:bg-[#1a2236] focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
                 autoComplete="off"
               />
@@ -218,8 +227,8 @@ export default function Header() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Buscar películas..."
-                aria-label="Buscar películas"
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 className="w-full bg-[#1e293b] border border-[#2d3748] text-white placeholder-slate-500 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
                 autoComplete="off"
                 enterKeyHint="search"

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { getTrendingMoviesOnYouTube, getVideoDetails } from '@/lib/youtube'
 import CineClientPage from '@/components/CineClientPage'
@@ -37,10 +38,12 @@ export default async function CinePage() {
   }
 
   return (
-    <CineClientPage
-      initialItems={initialItems}
-      initialNextPageToken={initialNextPageToken}
-      initialVideoDetails={initialVideoDetails}
-    />
+    <Suspense>
+      <CineClientPage
+        initialItems={initialItems}
+        initialNextPageToken={initialNextPageToken}
+        initialVideoDetails={initialVideoDetails}
+      />
+    </Suspense>
   )
 }

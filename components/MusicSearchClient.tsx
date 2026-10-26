@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useTransition, useRef } from 'react'
+import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
@@ -23,10 +24,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleSearch = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      const q = query.trim()
+  const runSearch = useCallback(
+    (raw: string) => {
+      const q = raw.trim()
       if (!q) return
 
       setError(null)
@@ -50,8 +50,25 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         }
       })
     },
-    [query]
+    []
   )
+
+  const handleSearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      runSearch(query)
+    },
+    [query, runSearch]
+  )
+
+  // Búsqueda desde la barra superior (/music?q=...)
+  const searchParams = useSearchParams()
+  const urlQuery = searchParams.get('q') || ''
+  useEffect(() => {
+    if (!urlQuery) return
+    setQuery(urlQuery)
+    runSearch(urlQuery)
+  }, [urlQuery, runSearch])
 
   const handleLoadMore = useCallback(async () => {
     if (!nextPageToken || isLoadingMore) return

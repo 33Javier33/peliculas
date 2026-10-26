@@ -18,6 +18,9 @@ import {
   Plus,
   Heart,
   Sparkles,
+  Maximize,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
@@ -37,6 +40,10 @@ export default function MusicPlayerBar() {
   const [localPlayed, setLocalPlayed] = useState(0)
   const [localDuration, setLocalDuration] = useState(0)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [barHeight, setBarHeight] = useState(0)
+  const barRef = useRef<HTMLDivElement>(null)
+  const videoWrapRef = useRef<HTMLDivElement>(null)
 
   const {
     queue,
@@ -182,14 +189,15 @@ export default function MusicPlayerBar() {
     hasResumedRef.current = false
   }, [currentVideo?.id])
 
-  const handleSeekMouseDown = () => setIsSeeking(true)
+  // Pointer events cubren ratón y pantallas táctiles
+  const handleSeekStart = () => setIsSeeking(true)
 
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setLocalPlayed(parseFloat(e.target.value))
 
-  const handleSeekMouseUp = (e: React.MouseEvent<HTMLInputElement>) => {
+  const handleSeekEnd = (e: React.SyntheticEvent<HTMLInputElement>) => {
     setIsSeeking(false)
-    const fraction = parseFloat((e.target as HTMLInputElement).value)
+    const fraction = parseFloat(e.currentTarget.value)
     const el = playerRef.current
     if (el && isFinite(el.duration) && el.duration > 0) {
       el.currentTime = fraction * el.duration
@@ -212,11 +220,42 @@ export default function MusicPlayerBar() {
     }
   }, [])
 
+  const handleFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        return
+      }
+      const wrap = videoWrapRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => void }) | null
+      if (wrap?.requestFullscreen) await wrap.requestFullscreen()
+      else if (wrap?.webkitRequestFullscreen) wrap.webkitRequestFullscreen()
+      else setIsExpanded(true)
+    } catch {
+      // Pantalla completa no disponible: al menos ampliamos el video
+      setIsExpanded(true)
+    }
+  }, [])
+
+  const isBarShown = hasHydrated && isVisible && !!currentVideo
+
+  // Mide el alto real de la barra (cambia en móvil, escritorio y modo ampliado)
+  useEffect(() => {
+    const el = barRef.current
+    if (!isBarShown || !el) {
+      setBarHeight(0)
+      return
+    }
+    const ro = new ResizeObserver(() => setBarHeight(el.offsetHeight))
+    ro.observe(el)
+    setBarHeight(el.offsetHeight)
+    return () => ro.disconnect()
+  }, [isBarShown])
+
   const youtubeUrl = currentVideo
     ? `https://www.youtube.com/watch?v=${currentVideo.id}`
     : ''
 
-  if (!hasHydrated || !isVisible || !currentVideo) return null
+  if (!isBarShown) return null
 
   const progressPercent = localPlayed * 100
   const isLastInQueue = currentIndex >= queue.length - 1
@@ -247,12 +286,88 @@ export default function MusicPlayerBar() {
     },
   }
 
+  const iconBtn = 'p-2 sm:p-1.5 transition-colors'
+
   return (
     <>
+      {/* Reserva el alto del reproductor para que no tape el contenido ni el footer */}
+      <div aria-hidden style={{ height: barHeight }} />
+
       {/* ===== PLAYER BAR ===== */}
-      <div className="fixed bottom-0 left-0 right-0 z-[80] select-none">
-        {/* Thin scrubber bar */}
-        <div className="relative h-1 group cursor-pointer bg-white/5">
+      <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
+        {/* ===== QUEUE PANEL ===== */}
+        {isQueueOpen && (
+          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-[#0d0d0d] backdrop-blur-xl border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <ListMusic className="w-4 h-4 text-purple-400" />
+                <span className="text-white font-semibold text-sm">
+                  Cola <span className="text-slate-500 font-normal">({queue.length})</span>
+                </span>
+              </div>
+              <button onClick={toggleQueue} className="p-1 text-slate-500 hover:text-white transition-colors" aria-label="Cerrar cola">
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 overscroll-contain">
+              {queue.map((video, index) => (
+                <div
+                  key={`${video.id}-${index}`}
+                  onClick={() => playIndex(index)}
+                  className={`flex items-center gap-3 px-4 py-2.5 group cursor-pointer transition-colors ${
+                    index === currentIndex
+                      ? 'bg-purple-500/15 border-l-2 border-purple-500'
+                      : 'hover:bg-white/5 border-l-2 border-transparent'
+                  }`}
+                >
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#1a1a1a]">
+                    {video.thumbnail && (
+                      <Image src={video.thumbnail} alt={video.title} fill sizes="40px" className="object-cover" />
+                    )}
+                    {index === currentIndex && isPlaying && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
+                        <span className="w-0.5 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-0.5 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-0.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-xs font-medium truncate ${index === currentIndex ? 'text-purple-300' : 'text-slate-200'}`}>
+                      {video.title}
+                    </p>
+                    <p className="text-slate-600 text-xs truncate mt-0.5">{video.channelTitle}</p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeFromQueue(index) }}
+                    className="p-1 text-slate-600 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 transition-all shrink-0"
+                    aria-label="Quitar de la cola"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              {queue.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <Music className="w-8 h-8 text-slate-800" />
+                  <p className="text-slate-600 text-sm">La cola está vacía</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-white/5 shrink-0">
+              <p className="text-slate-700 text-xs flex items-center gap-1.5">
+                <Plus className="w-3 h-3" />
+                Toca + en cualquier tarjeta para añadir a la cola
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Scrubber bar (área táctil más alta que la barra visible) */}
+        <div className="relative h-1.5 sm:h-1 group cursor-pointer bg-white/10">
           <div
             className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 pointer-events-none"
             style={{ width: `${progressPercent}%` }}
@@ -263,51 +378,58 @@ export default function MusicPlayerBar() {
             max={1}
             step={0.0005}
             value={localPlayed}
-            onMouseDown={handleSeekMouseDown}
+            onPointerDown={handleSeekStart}
             onChange={handleSeekChange}
-            onMouseUp={handleSeekMouseUp}
+            onPointerUp={handleSeekEnd}
+            onKeyUp={handleSeekEnd}
             aria-label="Progreso"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none"
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ left: `clamp(6px, calc(${progressPercent}% - 6px), calc(100% - 6px))` }}
+            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            style={{ left: `clamp(0px, calc(${progressPercent}% - 6px), calc(100% - 12px))` }}
           />
         </div>
 
-        <div className="bg-black/95 backdrop-blur-xl border-t border-white/10 flex items-stretch">
+        <div className="bg-black/95 backdrop-blur-xl border-t border-white/10 flex flex-wrap items-center">
 
-          {/* Mini video player — VISIBLE para que YouTube permita el audio */}
-          <div className="relative shrink-0 bg-black overflow-hidden" style={{ width: 142, height: 80 }}>
+          {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
+          <div
+            ref={videoWrapRef}
+            className={`relative bg-black overflow-hidden ${
+              isExpanded
+                ? 'w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
+                : 'shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
+            }`}
+          >
             <ReactPlayer {...playerProps} />
           </div>
 
-          {/* Controls */}
-          <div className="flex-1 flex items-center px-3 sm:px-5 py-2 gap-3 sm:gap-5 min-w-0">
-
-            {/* Song info */}
-            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
-              <p className="text-white text-xs sm:text-sm font-medium leading-tight truncate">
+          {/* Info + reproducción */}
+          <div className="flex-1 flex items-center px-3 sm:px-5 py-1.5 sm:py-2 gap-2 sm:gap-5 min-w-0">
+            <div className="min-w-0 flex-1 sm:max-w-xs">
+              <p className="text-white text-xs sm:text-sm font-medium leading-tight line-clamp-2 sm:truncate">
                 {currentVideo.title}
               </p>
               <p className="text-slate-500 text-xs truncate mt-0.5">{currentVideo.channelTitle}</p>
             </div>
 
-            {/* Playback buttons + time */}
-            <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <div className="flex flex-col items-center gap-0.5 shrink-0 sm:mx-auto">
               <div className="flex items-center gap-1 sm:gap-3">
                 <button
                   onClick={playPrev}
-                  className="p-2 text-slate-400 hover:text-white transition-colors hidden sm:flex"
+                  className="p-2 text-slate-400 hover:text-white transition-colors"
                   title="Anterior"
+                  aria-label="Anterior"
                 >
                   <SkipBack className="w-4 h-4" />
                 </button>
 
                 <button
                   onClick={togglePlay}
-                  className="w-9 h-9 bg-white hover:bg-slate-100 rounded-full flex items-center justify-center transition-all hover:scale-105 shadow-lg"
+                  className="w-10 h-10 sm:w-9 sm:h-9 bg-white hover:bg-slate-100 rounded-full flex items-center justify-center transition-all hover:scale-105 shadow-lg"
                   title={isPlaying ? 'Pausar' : 'Reproducir'}
+                  aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
                 >
                   {isPlaying ? (
                     <Pause className="w-4 h-4 text-black fill-black" />
@@ -321,6 +443,7 @@ export default function MusicPlayerBar() {
                   disabled={isLastInQueue}
                   className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Siguiente"
+                  aria-label="Siguiente"
                 >
                   <SkipForward className="w-4 h-4" />
                 </button>
@@ -332,18 +455,25 @@ export default function MusicPlayerBar() {
                 <span>{formatTime(localDuration)}</span>
               </div>
             </div>
+          </div>
 
-            {/* Right actions */}
-            <div
-              className="flex items-center gap-1 sm:gap-2 sm:w-52 justify-end shrink-0"
-              onMouseEnter={() => setShowVolumeSlider(true)}
-              onMouseLeave={() => setShowVolumeSlider(false)}
-            >
-              <div className="hidden md:flex items-center gap-2">
+          {/* Acciones — en móvil ocupan una segunda fila completa */}
+          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-1 sm:gap-2 px-2 sm:px-5 pb-1 sm:pb-0 shrink-0 border-t border-white/5 sm:border-0">
+            <span className="sm:hidden max-[359px]:hidden pl-1 text-[11px] text-slate-500 font-mono tabular-nums whitespace-nowrap">
+              {formatTime(localPlayed * localDuration)} / {formatTime(localDuration)}
+            </span>
+
+            <div className="flex items-center gap-0.5 sm:gap-2">
+              <div
+                className="flex items-center"
+                onMouseEnter={() => setShowVolumeSlider(true)}
+                onMouseLeave={() => setShowVolumeSlider(false)}
+              >
                 <button
                   onClick={toggleMute}
-                  className="p-1.5 text-slate-400 hover:text-white transition-colors"
+                  className={`${iconBtn} text-slate-400 hover:text-white`}
                   title={isMuted ? 'Activar sonido' : 'Silenciar'}
+                  aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="w-4 h-4" />
@@ -352,7 +482,7 @@ export default function MusicPlayerBar() {
                   )}
                 </button>
                 <div
-                  className={`overflow-hidden transition-all duration-200 ${showVolumeSlider ? 'w-20 opacity-100' : 'w-0 opacity-0'}`}
+                  className={`hidden md:block overflow-hidden transition-all duration-200 ${showVolumeSlider ? 'w-20 opacity-100' : 'w-0 opacity-0'}`}
                 >
                   <input
                     type="range"
@@ -369,10 +499,11 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => currentVideo && toggleSaved(currentVideo)}
-                className={`p-1.5 transition-colors ${
+                className={`${iconBtn} ${
                   isCurrentSaved ? 'text-pink-500 hover:text-pink-400' : 'text-slate-500 hover:text-white'
                 }`}
-                title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar canción'}
+                title={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}
+                aria-label={isCurrentSaved ? 'Quitar de guardadas' : 'Guardar'}
                 aria-pressed={isCurrentSaved}
               >
                 <Heart className={`w-4 h-4 ${isCurrentSaved ? 'fill-pink-500' : ''}`} />
@@ -384,35 +515,56 @@ export default function MusicPlayerBar() {
                   setAudioBoost(next)
                   if (next) attachAudioGraph()
                 }}
-                className={`p-1.5 transition-colors hidden sm:flex ${
-                  audioBoost ? 'text-amber-400' : 'text-slate-500 hover:text-white'
-                }`}
+                className={`${iconBtn} ${audioBoost ? 'text-amber-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioBoost ? 'Audio mejorado activado' : 'Mejorar audio (compresor + boost)'}
+                aria-label="Mejorar audio"
                 aria-pressed={audioBoost}
               >
                 <Sparkles className="w-4 h-4" />
               </button>
 
               <button
+                onClick={() => setIsExpanded((v) => !v)}
+                className={`${iconBtn} ${isExpanded ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                title={isExpanded ? 'Reducir video' : 'Ver video'}
+                aria-label={isExpanded ? 'Reducir video' : 'Ver video'}
+                aria-pressed={isExpanded}
+              >
+                {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+
+              <button
+                onClick={handleFullscreen}
+                className={`${iconBtn} text-slate-500 hover:text-white`}
+                title="Pantalla completa"
+                aria-label="Pantalla completa"
+              >
+                <Maximize className="w-4 h-4" />
+              </button>
+
+              <button
                 onClick={handlePiP}
-                className="p-1.5 text-slate-500 hover:text-white transition-colors hidden sm:flex"
+                className={`${iconBtn} text-slate-500 hover:text-white`}
                 title="Picture-in-Picture"
+                aria-label="Picture-in-Picture"
               >
                 <PictureInPicture2 className="w-4 h-4" />
               </button>
 
               <button
                 onClick={toggleQueue}
-                className={`p-1.5 transition-colors ${isQueueOpen ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isQueueOpen ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
                 title={`Cola (${queue.length})`}
+                aria-label={`Cola (${queue.length})`}
               >
                 <ListMusic className="w-4 h-4" />
               </button>
 
               <button
                 onClick={dismiss}
-                className="p-1.5 text-slate-600 hover:text-white transition-colors"
+                className={`${iconBtn} text-slate-600 hover:text-white`}
                 title="Cerrar"
+                aria-label="Cerrar reproductor"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -420,76 +572,6 @@ export default function MusicPlayerBar() {
           </div>
         </div>
       </div>
-
-      {/* ===== QUEUE PANEL ===== */}
-      {isQueueOpen && (
-        <div className="fixed bottom-[82px] right-0 sm:right-4 z-[79] w-full sm:w-80 max-h-[340px] bg-[#0d0d0d]/98 backdrop-blur-xl border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-2">
-              <ListMusic className="w-4 h-4 text-purple-400" />
-              <span className="text-white font-semibold text-sm">
-                Cola <span className="text-slate-500 font-normal">({queue.length})</span>
-              </span>
-            </div>
-            <button onClick={toggleQueue} className="p-1 text-slate-500 hover:text-white transition-colors">
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="overflow-y-auto flex-1 overscroll-contain">
-            {queue.map((video, index) => (
-              <div
-                key={`${video.id}-${index}`}
-                onClick={() => playIndex(index)}
-                className={`flex items-center gap-3 px-4 py-2.5 group cursor-pointer transition-colors ${
-                  index === currentIndex
-                    ? 'bg-purple-500/15 border-l-2 border-purple-500'
-                    : 'hover:bg-white/5 border-l-2 border-transparent'
-                }`}
-              >
-                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#1a1a1a]">
-                  {video.thumbnail && (
-                    <Image src={video.thumbnail} alt={video.title} fill sizes="40px" className="object-cover" />
-                  )}
-                  {index === currentIndex && isPlaying && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-0.5">
-                      <span className="w-0.5 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-0.5 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-0.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-medium truncate ${index === currentIndex ? 'text-purple-300' : 'text-slate-200'}`}>
-                    {video.title}
-                  </p>
-                  <p className="text-slate-600 text-xs truncate mt-0.5">{video.channelTitle}</p>
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeFromQueue(index) }}
-                  className="p-1 text-slate-700 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-
-            {queue.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 gap-2">
-                <Music className="w-8 h-8 text-slate-800" />
-                <p className="text-slate-600 text-sm">La cola está vacía</p>
-              </div>
-            )}
-          </div>
-
-          <div className="px-4 py-2.5 border-t border-white/5 shrink-0">
-            <p className="text-slate-700 text-xs flex items-center gap-1.5">
-              <Plus className="w-3 h-3" />
-              Clic en + en cualquier tarjeta para añadir a la cola
-            </p>
-          </div>
-        </div>
-      )}
     </>
   )
 }
