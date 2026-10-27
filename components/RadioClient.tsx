@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Radio as RadioIcon, Loader2, AlertCircle, Heart, MapPin, LocateFixed } from 'lucide-react'
+import { Search, Loader2, AlertCircle, Heart, MapPin, LocateFixed, ChevronDown } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import type { RadioStation } from '@/lib/live'
@@ -23,7 +23,8 @@ function toTrack(s: RadioStation): MusicVideo {
 }
 
 const selectCls =
-  'bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500 max-w-full'
+  'bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500 w-full sm:w-auto min-w-0'
+const FAVS_OPEN_KEY = 'cpn-radio-favs-open'
 
 export default function RadioClient() {
   const searchParams = useSearchParams()
@@ -36,7 +37,22 @@ export default function RadioClient() {
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [submitted, setSubmitted] = useState(searchParams.get('q') || '')
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  // Favoritas plegadas por defecto (una sola fila); se recuerda si las abres
+  const [favsOpen, setFavsOpen] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+    try {
+      setFavsOpen(localStorage.getItem(FAVS_OPEN_KEY) === '1')
+    } catch {}
+  }, [])
+  const toggleFavs = () => {
+    setFavsOpen((open) => {
+      try {
+        localStorage.setItem(FAVS_OPEN_KEY, open ? '0' : '1')
+      } catch {}
+      return !open
+    })
+  }
   // "Cerca de mí": de dónde salió la ubicación (GPS del teléfono o aproximada por la conexión)
   const [near, setNear] = useState<{ source: 'gps' | 'ip' | 'none'; city?: string } | null>(null)
 
@@ -161,26 +177,58 @@ export default function RadioClient() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <LiveHeader active="radio" />
 
-        {/* Favoritas */}
+        {/* Favoritas (plegables) */}
         {mounted && favoriteRadios.length > 0 && (
-          <section className="mb-8">
-            <h2 className="flex items-center gap-2 text-white font-bold text-[22px] leading-7 mb-4">
-              <Heart className="w-5 h-5 text-violet-300 fill-violet-300" /> Mis radios favoritas
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {favoriteRadios.map((track, idx) => (
-                <StationRow
-                  key={track.id}
-                  track={track}
-                  subtitle={track.channelTitle}
-                  isCurrent={current?.id === track.id}
-                  isPlaying={isPlaying}
-                  isFavorite
-                  onPlay={() => play(favoriteRadios, idx)}
-                  onToggleFavorite={() => toggleFavoriteRadio(track)}
-                />
-              ))}
-            </div>
+          <section className="mb-6 bg-surface-1/60 border border-white/8 rounded-2xl p-3">
+            <button
+              onClick={toggleFavs}
+              className="w-full flex items-center gap-2 text-left"
+              aria-expanded={favsOpen}
+            >
+              <Heart className="w-4 h-4 text-violet-300 fill-violet-300 shrink-0" />
+              <span className="text-white font-bold font-display text-base flex-1">
+                Mis radios favoritas <span className="text-slate-500 font-normal text-sm">({favoriteRadios.length})</span>
+              </span>
+              <span className="text-violet-300 text-xs font-semibold">{favsOpen ? 'Ver menos' : 'Ver todas'}</span>
+              <ChevronDown className={`w-4 h-4 text-violet-300 transition-transform ${favsOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {favsOpen ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+                {favoriteRadios.map((track, idx) => (
+                  <StationTile
+                    key={track.id}
+                    track={track}
+                    subtitle={track.channelTitle}
+                    isCurrent={current?.id === track.id}
+                    isPlaying={isPlaying}
+                    isFavorite
+                    onPlay={() => play(favoriteRadios, idx)}
+                    onToggleFavorite={() => toggleFavoriteRadio(track)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto mt-3 -mx-1 px-1 pb-0.5 [scrollbar-width:none]">
+                {favoriteRadios.map((track, idx) => {
+                  const isCurrent = current?.id === track.id
+                  return (
+                    <button
+                      key={track.id}
+                      onClick={() => play(favoriteRadios, idx)}
+                      className={`shrink-0 flex items-center gap-2 max-w-[170px] rounded-full pl-1 pr-3 py-1 border transition-colors ${
+                        isCurrent ? 'bg-violet-500/20 border-violet-400/50' : 'bg-surface-2/70 border-white/8'
+                      }`}
+                    >
+                      <StationLogo src={logoOf(track)} name={track.title} size="xs" />
+                      <span className={`text-xs font-semibold truncate ${isCurrent ? 'text-emerald-400' : 'text-slate-200'}`}>
+                        {track.title}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </section>
         )}
 
@@ -197,8 +245,9 @@ export default function RadioClient() {
         </button>
 
         {/* Filtros: país, ciudad y búsqueda */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          {country && <CountrySelect value={country} onChange={changeCountry} />}
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-6">
+          <div className={`grid ${cities.length > 0 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 sm:flex sm:gap-3`}>
+          {country && <CountrySelect value={country} onChange={changeCountry} className="w-full sm:w-auto min-w-0" />}
           {cities.length > 0 && (
             <select value={city} onChange={(e) => changeCity(e.target.value)} aria-label="Ciudad o región" className={selectCls}>
               <option value="">📍 Todas las ciudades</option>
@@ -209,6 +258,7 @@ export default function RadioClient() {
               ))}
             </select>
           )}
+          </div>
           <form onSubmit={handleSearch} className="relative flex-1" role="search">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
             <input
@@ -266,11 +316,11 @@ export default function RadioClient() {
         ) : stations.length === 0 && !error ? (
           <p className="text-slate-500 text-center py-20">No se encontraron emisoras.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {stations.map((s, idx) => {
               const track = tracks[idx]
               return (
-                <StationRow
+                <StationTile
                   key={s.id}
                   track={track}
                   subtitle={
@@ -296,7 +346,10 @@ export default function RadioClient() {
   )
 }
 
-function StationRow({
+const logoOf = (track: MusicVideo) => (track.thumbnail.startsWith('/icons/') ? '' : track.thumbnail)
+
+/** Tarjeta compacta de emisora (dos por fila en el celular). */
+function StationTile({
   track,
   subtitle,
   isCurrent,
@@ -315,52 +368,55 @@ function StationRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-1 rounded-xl p-2.5 transition-colors shadow-rim border ${
+      className={`relative rounded-xl border shadow-rim transition-colors ${
         isCurrent ? 'bg-violet-500/15 border-violet-500/40' : 'bg-surface-2/70 hover:bg-surface-2 border-white/5'
       }`}
     >
-      <button onClick={onPlay} className="flex items-center gap-3 min-w-0 flex-1 text-left">
-        <StationLogo src={track.thumbnail.startsWith('/icons/') ? '' : track.thumbnail} name={track.title} />
-        <div className="min-w-0 flex-1">
-          <p className={`text-sm font-semibold font-display truncate ${isCurrent ? 'text-emerald-400' : 'text-white'}`}>
-            {track.title}
-          </p>
-          <p className="text-slate-400 text-xs truncate mt-0.5">{subtitle}</p>
+      <button onClick={onPlay} className="w-full text-left p-2.5">
+        <div className="flex items-center gap-2 pr-7">
+          <StationLogo src={logoOf(track)} name={track.title} size="sm" />
+          {isCurrent && isPlaying && (
+            <span className="flex items-end gap-[2px] h-3.5" aria-label="Sonando">
+              {[0, 150, 300].map((d) => (
+                <span key={d} className="w-[3px] h-full bg-emerald-400 rounded-full origin-bottom animate-eq" style={{ animationDelay: `${d}ms` }} />
+              ))}
+            </span>
+          )}
         </div>
-        {isCurrent && isPlaying ? (
-          <span className="flex items-end gap-[2px] h-4 shrink-0 pr-1" aria-label="Sonando">
-            {[0, 150, 300].map((d) => (
-              <span key={d} className="w-[3px] h-full bg-emerald-400 rounded-full origin-bottom animate-eq" style={{ animationDelay: `${d}ms` }} />
-            ))}
-          </span>
-        ) : (
-          <RadioIcon className="w-4 h-4 text-slate-600 shrink-0 mr-1" />
-        )}
+        <p
+          className={`text-[13px] leading-4 font-semibold font-display line-clamp-2 mt-2 min-h-[32px] ${
+            isCurrent ? 'text-emerald-400' : 'text-white'
+          }`}
+        >
+          {track.title}
+        </p>
+        <p className="text-slate-400 text-[11px] truncate mt-0.5">{subtitle}</p>
       </button>
       <button
         onClick={onToggleFavorite}
-        className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+        className={`absolute top-1.5 right-1.5 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
           isFavorite ? 'text-violet-300' : 'text-slate-500 hover:text-white'
         }`}
         aria-label={isFavorite ? `Quitar ${track.title} de favoritas` : `Agregar ${track.title} a favoritas`}
         aria-pressed={isFavorite}
       >
-        <Heart className={`w-5 h-5 ${isFavorite ? 'fill-violet-300' : ''}`} />
+        <Heart className={`w-4 h-4 ${isFavorite ? 'fill-violet-300' : ''}`} />
       </button>
     </div>
   )
 }
 
-function StationLogo({ src, name }: { src: string; name: string }) {
+function StationLogo({ src, name, size = 'sm' }: { src: string; name: string; size?: 'xs' | 'sm' }) {
   const [failed, setFailed] = useState(false)
+  const box = size === 'xs' ? 'w-7 h-7 rounded-full text-[10px]' : 'w-11 h-11 rounded-lg text-sm'
   return (
-    <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 bg-surface-1 flex items-center justify-center">
+    <div className={`${box} overflow-hidden shrink-0 bg-surface-1 flex items-center justify-center`}>
       {src && !failed ? (
         // Logos de dominios arbitrarios: <img> directo, sin el optimizador de Next
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-contain p-1" />
+        <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-contain p-0.5" />
       ) : (
-        <span className="text-violet-300 font-extrabold font-display text-lg">{name.slice(0, 2).toUpperCase()}</span>
+        <span className="text-violet-300 font-extrabold font-display">{name.slice(0, 2).toUpperCase()}</span>
       )}
     </div>
   )

@@ -43,10 +43,12 @@ export function CountrySelect({
   value,
   onChange,
   includeWorld = true,
+  className = '',
 }: {
   value: string
   onChange: (code: string) => void
   includeWorld?: boolean
+  className?: string
 }) {
   const codes = Array.from(new Set([value, ...LIVE_COUNTRIES].filter((c) => c && c !== 'WORLD')))
   const options = codes
@@ -57,7 +59,7 @@ export function CountrySelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       aria-label="País"
-      className="bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500"
+      className={`bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500 ${className}`}
     >
       {includeWorld && <option value="WORLD">🌎 Todo el mundo</option>}
       {options.map((o) => (
