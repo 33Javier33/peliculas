@@ -1,31 +1,57 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Search, Tv, Loader2, AlertCircle, X, Heart } from 'lucide-react'
 import type { TvChannel } from '@/lib/live'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import { LiveHeader, CountrySelect, countryName } from '@/components/LiveTabs'
+import { readSession, writeSession } from '@/lib/session-cache'
 
 type ListKind = 'national' | 'spa' | 'news'
+interface TvState {
+  kind: ListKind
+  country: string
+  place: string
+}
+
+// Lista, país y ciudad elegidos se recuerdan en la sesión: al volver a TV se ve lo mismo
+// (y en la misma posición), sin volver a cargar.
+const STATE_KEY = 'tv-state'
+const listKey = (list: string) => `tv-list:${list}`
+const savedState = () => (typeof window === 'undefined' ? null : readSession<TvState>(STATE_KEY))
 
 export default function TvClient() {
   const searchParams = useSearchParams()
-  const [kind, setKind] = useState<ListKind>('national')
-  const [country, setCountry] = useState('')
-  const [channels, setChannels] = useState<TvChannel[]>([])
+  const [kind, setKind] = useState<ListKind>(() => savedState()?.kind ?? 'national')
+  const [country, setCountry] = useState(() => savedState()?.country ?? '')
+  const [channels, setChannels] = useState<TvChannel[]>(() => {
+    const st = savedState()
+    const list = st && (st.kind === 'national' ? st.country.toLowerCase() : st.kind)
+    return (list && readSession<TvChannel[]>(listKey(list))) || []
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState(searchParams.get('q') || '')
   const [current, setCurrent] = useState<TvChannel | null>(null)
   // Ciudad o región (sale de los propios canales)
-  const [place, setPlace] = useState('')
+  const [place, setPlace] = useState(() => savedState()?.place ?? '')
   const { favoriteChannels, toggleFavoriteChannel } = useLiveStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  useEffect(() => setPlace(''), [country, kind])
+  // Al cambiar de país o de lista se vuelve a "todo el país" (no al abrir la pantalla)
+  const listRef = useRef(`${kind}:${country}`)
+  useEffect(() => {
+    if (listRef.current === `${kind}:${country}`) return
+    listRef.current = `${kind}:${country}`
+    setPlace('')
+  }, [country, kind])
+
+  useEffect(() => {
+    if (country || kind !== 'national') writeSession<TvState>(STATE_KEY, { kind, country, place })
+  }, [kind, country, place])
 
   useEffect(() => {
     setFilter(searchParams.get('q') || '')
@@ -33,9 +59,15 @@ export default function TvClient() {
 
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
     setError(false)
     const list = kind === 'national' ? country.toLowerCase() : kind
+    const cached = list ? readSession<TvChannel[]>(listKey(list)) : null
+    if (cached) {
+      setChannels(cached)
+      setIsLoading(false)
+      return
+    }
+    setIsLoading(true)
     fetch(`/api/tv${list ? `?list=${list}` : ''}`)
       .then(async (r) => ({ ok: r.ok, data: (await r.json()) as { channels: TvChannel[]; list?: string } }))
       .then(({ ok, data }) => {
@@ -44,6 +76,7 @@ export default function TvClient() {
         if (kind === 'national' && !country && data.list && /^[a-z]{2}$/.test(data.list)) setCountry(data.list.toUpperCase())
         if (!ok) throw new Error('lista no disponible')
         setChannels(data.channels)
+        if (data.list && data.channels.length > 0) writeSession(listKey(data.list), data.channels)
       })
       .catch(() => !cancelled && (setError(true), setChannels([])))
       .finally(() => !cancelled && setIsLoading(false))
@@ -72,9 +105,33 @@ export default function TvClient() {
       : byPlace
   }, [channels, filter, place])
 
-  const select = (c: TvChannel) => {
+  // Al abrir o cerrar el reproductor (que ocupa espacio arriba) la pantalla no salta:
+  // el canal tocado queda donde estaba, o justo debajo del reproductor si este lo tapa.
+  const anchorRef = useRef<{ el: HTMLElement; top: number } | null>(null)
+  const playerRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current
+    anchorRef.current = null
+    if (!anchor || !anchor.el.isConnected) return
+    window.scrollBy(0, anchor.el.getBoundingClientRect().top - anchor.top)
+    const playerBottom = playerRef.current?.getBoundingClientRect().bottom ?? 0
+    const top = anchor.el.getBoundingClientRect().top
+    if (top < playerBottom + 8) window.scrollBy(0, top - playerBottom - 8)
+  }, [current])
+
+  const select = (c: TvChannel, el?: HTMLElement) => {
+    if (el) anchorRef.current = { el, top: el.getBoundingClientRect().top }
     setCurrent(c)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const close = () => {
+    // Se fija el primer canal visible para que la lista no se mueva al quitar el reproductor
+    const playerBottom = playerRef.current?.getBoundingClientRect().bottom ?? 0
+    const el = Array.from(document.querySelectorAll<HTMLElement>('[data-tv-card]')).find(
+      (e) => e.getBoundingClientRect().top >= playerBottom
+    )
+    if (el) anchorRef.current = { el, top: el.getBoundingClientRect().top }
+    setCurrent(null)
   }
 
   const chip = 'shrink-0 px-4 py-2 rounded-full text-sm font-semibold font-display transition-colors'
@@ -88,8 +145,9 @@ export default function TvClient() {
 
         {current && (
           <TvPlayer
+            ref={playerRef}
             channel={current}
-            onClose={() => setCurrent(null)}
+            onClose={close}
             isFavorite={mounted && favoriteChannels.some((c) => c.url === current.url)}
             onToggleFavorite={() => toggleFavoriteChannel(current)}
           />
@@ -161,7 +219,7 @@ export default function TvClient() {
           </div>
         )}
 
-        {isLoading ? (
+        {isLoading && channels.length === 0 ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
           </div>
@@ -196,7 +254,7 @@ function ChannelGrid({
   channels: TvChannel[]
   currentUrl?: string
   favoriteUrls: Set<string>
-  onSelect: (c: TvChannel) => void
+  onSelect: (c: TvChannel, el?: HTMLElement) => void
   onToggleFavorite: (c: TvChannel) => void
 }) {
   return (
@@ -207,11 +265,12 @@ function ChannelGrid({
         return (
           <div
             key={c.url}
+            data-tv-card
             className={`relative rounded-xl overflow-hidden border transition-colors shadow-rim ${
               isCurrent ? 'bg-violet-500/15 border-violet-500/50' : 'bg-surface-1 border-white/8 hover:border-violet-500/40'
             }`}
           >
-            <button onClick={() => onSelect(c)} className="block w-full text-left">
+            <button onClick={(e) => onSelect(c, e.currentTarget)} className="block w-full text-left">
               <div className="aspect-video bg-surface-2 flex items-center justify-center p-4">
                 <ChannelLogo src={c.logo} name={c.name} />
               </div>
@@ -252,17 +311,15 @@ function ChannelLogo({ src, name }: { src: string; name: string }) {
 }
 
 /** Reproductor HLS: hls.js donde hay Media Source (Android, PC) y nativo en iPhone. */
-function TvPlayer({
-  channel,
-  onClose,
-  isFavorite,
-  onToggleFavorite,
-}: {
-  channel: TvChannel
-  onClose: () => void
-  isFavorite: boolean
-  onToggleFavorite: () => void
-}) {
+const TvPlayer = forwardRef<
+  HTMLDivElement,
+  {
+    channel: TvChannel
+    onClose: () => void
+    isFavorite: boolean
+    onToggleFavorite: () => void
+  }
+>(function TvPlayer({ channel, onClose, isFavorite, onToggleFavorite }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
   // Primero la dirección directa; si falla (CORS, corte), la del intermediario
@@ -317,7 +374,7 @@ function TvPlayer({
   }, [src])
 
   return (
-    <div className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
+    <div ref={ref} className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
       <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden border-y sm:border border-white/10">
         <video ref={videoRef} controls playsInline autoPlay className="w-full h-full" />
         {status === 'loading' && (
@@ -360,4 +417,4 @@ function TvPlayer({
       </div>
     </div>
   )
-}
+})
