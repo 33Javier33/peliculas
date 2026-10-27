@@ -24,8 +24,13 @@ export interface TvChannel {
   id: string
   name: string
   logo: string
+  // Dirección para reproducir (directa o por el intermediario /api/hls)
   url: string
+  // Si la directa falla (p. ej. bloqueo CORS), esta pasa por el intermediario
+  fallbackUrl?: string
   group: string
+  city?: string
+  region?: string
 }
 
 const RADIO_SERVERS = [

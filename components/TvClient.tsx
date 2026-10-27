@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Search, Tv, Loader2, AlertCircle, X, Heart } from 'lucide-react'
 import type { TvChannel } from '@/lib/live'
@@ -19,26 +19,13 @@ export default function TvClient() {
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState(searchParams.get('q') || '')
   const [current, setCurrent] = useState<TvChannel | null>(null)
-  const [region, setRegion] = useState('')
-  const [regions, setRegions] = useState<{ code: string; name: string }[]>([])
+  // Ciudad o región (sale de los propios canales)
+  const [place, setPlace] = useState('')
   const { favoriteChannels, toggleFavoriteChannel } = useLiveStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  // Regiones del país, para ver canales locales
-  useEffect(() => {
-    setRegions([])
-    setRegion('')
-    if (!country) return
-    let cancelled = false
-    fetch(`/api/tv/regions?country=${country}`)
-      .then((r) => (r.ok ? r.json() : { regions: [] }))
-      .then((d: { regions: { code: string; name: string }[] }) => !cancelled && setRegions(d.regions))
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [country])
+  useEffect(() => setPlace(''), [country, kind])
 
   useEffect(() => {
     setFilter(searchParams.get('q') || '')
@@ -48,7 +35,7 @@ export default function TvClient() {
     let cancelled = false
     setIsLoading(true)
     setError(false)
-    const list = kind === 'national' ? (region || country).toLowerCase() : kind
+    const list = kind === 'national' ? country.toLowerCase() : kind
     fetch(`/api/tv${list ? `?list=${list}` : ''}`)
       .then(async (r) => ({ ok: r.ok, data: (await r.json()) as { channels: TvChannel[]; list?: string } }))
       .then(({ ok, data }) => {
@@ -63,12 +50,27 @@ export default function TvClient() {
     return () => {
       cancelled = true
     }
-  }, [kind, country, region])
+  }, [kind, country])
+
+  // Ciudades/regiones con canales locales (de más a menos canales)
+  const places = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const c of channels) {
+      const p = c.city || c.region
+      if (p) count.set(p, (count.get(p) ?? 0) + 1)
+    }
+    return Array.from(count, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'es'))
+  }, [channels])
 
   const visible = useMemo(() => {
     const f = filter.trim().toLowerCase()
-    return f ? channels.filter((c) => `${c.name} ${c.group}`.toLowerCase().includes(f)) : channels
-  }, [channels, filter])
+    const byPlace = place
+      ? channels.filter((c) => (place === '__national' ? !c.city && !c.region : c.city === place || c.region === place))
+      : channels
+    return f
+      ? byPlace.filter((c) => `${c.name} ${c.group} ${c.city ?? ''} ${c.region ?? ''}`.toLowerCase().includes(f))
+      : byPlace
+  }, [channels, filter, place])
 
   const select = (c: TvChannel) => {
     setCurrent(c)
@@ -124,17 +126,18 @@ export default function TvClient() {
           {kind === 'national' && country && (
             <CountrySelect value={country} onChange={setCountry} includeWorld={false} />
           )}
-          {kind === 'national' && regions.length > 0 && (
+          {kind === 'national' && places.length > 0 && (
             <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              aria-label="Región"
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              aria-label="Ciudad"
               className="bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500 max-w-full"
             >
-              <option value="">📍 Todo el país</option>
-              {regions.map((r) => (
-                <option key={r.code} value={r.code}>
-                  {r.name}
+              <option value="">📍 Todo el país ({channels.length})</option>
+              <option value="__national">📺 Canales nacionales</option>
+              {places.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name} ({p.n})
                 </option>
               ))}
             </select>
@@ -214,7 +217,7 @@ function ChannelGrid({
               </div>
               <div className="p-2.5 pr-10">
                 <p className={`text-sm font-semibold font-display truncate ${isCurrent ? 'text-emerald-400' : 'text-white'}`}>{c.name}</p>
-                <p className="text-slate-500 text-xs truncate">{c.group || 'General'}</p>
+                <p className="text-slate-500 text-xs truncate">{[c.city || c.region, c.group].filter(Boolean).join(' · ') || 'General'}</p>
               </div>
             </button>
             <button
@@ -262,6 +265,15 @@ function TvPlayer({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
+  // Primero la dirección directa; si falla (CORS, corte), la del intermediario
+  const [src, setSrc] = useState(channel.url)
+  useEffect(() => setSrc(channel.url), [channel.url])
+  const failed = useCallback(() => {
+    if (channel.fallbackUrl && src !== channel.fallbackUrl) setSrc(channel.fallbackUrl)
+    else setStatus('error')
+  }, [channel.fallbackUrl, src])
+  const failedRef = useRef(failed)
+  failedRef.current = failed
 
   useEffect(() => {
     // La TV y la música no suenan a la vez
@@ -274,7 +286,7 @@ function TvPlayer({
     setStatus('loading')
 
     const onPlaying = () => setStatus('playing')
-    const onError = () => setStatus('error')
+    const onError = () => failedRef.current()
     video.addEventListener('playing', onPlaying)
     video.addEventListener('error', onError)
 
@@ -284,12 +296,12 @@ function TvPlayer({
         const instance = new Hls({ enableWorker: true, lowLatencyMode: true })
         hls = instance
         instance.on(Hls.Events.ERROR, (_e, data) => {
-          if (data.fatal) setStatus('error')
+          if (data.fatal) failedRef.current()
         })
-        instance.loadSource(channel.url)
+        instance.loadSource(src)
         instance.attachMedia(video)
       } else {
-        video.src = channel.url
+        video.src = src
       }
       video.play().catch(() => {})
     })
@@ -302,7 +314,7 @@ function TvPlayer({
       video.removeAttribute('src')
       video.load()
     }
-  }, [channel.url])
+  }, [src])
 
   return (
     <div className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
