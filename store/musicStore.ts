@@ -19,6 +19,16 @@ export interface HistoryEntry extends MusicVideo {
 
 const MAX_HISTORY = 80
 
+// Fisher-Yates: mezcla una copia de la lista
+function shuffled<T>(list: T[]): T[] {
+  const out = [...list]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 interface MusicState {
   queue: MusicVideo[]
   currentIndex: number
@@ -142,7 +152,13 @@ export const useMusicStore = create<MusicStore>()(
 
       play: (videos, startIndex = 0) => {
         const start = videos[startIndex]
-        set({ queue: videos, currentIndex: startIndex, isPlaying: true, isVisible: true, played: 0, duration: 0, resumeAt: 0 })
+        // En aleatorio: suena la elegida y después el resto de la lista en orden al azar
+        const queue =
+          get().shuffle && start && !start.streamUrl
+            ? [start, ...shuffled(videos.filter((_, i) => i !== startIndex))]
+            : videos
+        const currentIndex = queue === videos ? startIndex : 0
+        set({ queue, currentIndex, isPlaying: true, isVisible: true, played: 0, duration: 0, resumeAt: 0 })
         if (start) get().recordPlay(start)
       },
 
@@ -150,7 +166,15 @@ export const useMusicStore = create<MusicStore>()(
         const { queue } = get()
         const inQueue = new Set(queue.map((v) => v.id))
         const fresh = videos.filter((v) => !inQueue.has(v.id) && inQueue.add(v.id))
-        if (fresh.length > 0) set({ queue: [...queue, ...fresh] })
+        if (fresh.length > 0) {
+          const { shuffle, currentIndex } = get()
+          // En aleatorio, lo que añade la radio se mezcla con lo que queda por sonar
+          set({
+            queue: shuffle
+              ? [...queue.slice(0, currentIndex + 1), ...shuffled([...queue.slice(currentIndex + 1), ...fresh])]
+              : [...queue, ...fresh],
+          })
+        }
         return fresh.length
       },
 
@@ -165,12 +189,7 @@ export const useMusicStore = create<MusicStore>()(
       toggleShuffle: () => {
         const { shuffle, queue, currentIndex } = get()
         if (!shuffle) {
-          const upcoming = queue.slice(currentIndex + 1)
-          for (let i = upcoming.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1))
-            ;[upcoming[i], upcoming[j]] = [upcoming[j], upcoming[i]]
-          }
-          set({ shuffle: true, queue: [...queue.slice(0, currentIndex + 1), ...upcoming] })
+          set({ shuffle: true, queue: [...queue.slice(0, currentIndex + 1), ...shuffled(queue.slice(currentIndex + 1))] })
         } else {
           set({ shuffle: false })
         }
@@ -214,8 +233,10 @@ export const useMusicStore = create<MusicStore>()(
           set({ currentIndex: nextIdx, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
           get().recordPlay(queue[nextIdx])
         } else if (get().repeatMode === 'all' && queue.length > 0) {
-          set({ currentIndex: 0, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
-          get().recordPlay(queue[0])
+          // Repetir todo: vuelve al inicio (en aleatorio, con un orden nuevo)
+          const nextQueue = get().shuffle && queue.length > 2 ? shuffled(queue) : queue
+          set({ queue: nextQueue, currentIndex: 0, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
+          get().recordPlay(nextQueue[0])
         } else {
           set({ isPlaying: false })
         }

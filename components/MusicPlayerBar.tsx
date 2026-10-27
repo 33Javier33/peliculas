@@ -128,6 +128,8 @@ export default function MusicPlayerBar() {
 
   useEffect(() => {
     if (!radioEnabled || !isLastTrack || !currentVideo || currentVideo.streamUrl || radioSeedRef.current === currentVideo.id) return
+    // Con "repetir todo" la cola vuelve a empezar: la radio no añade canciones
+    if (useMusicStore.getState().repeatMode === 'all') return
     radioSeedRef.current = currentVideo.id
     const { history } = useMusicStore.getState()
 
@@ -719,7 +721,9 @@ export default function MusicPlayerBar() {
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
-  const isLastInQueue = currentIndex >= queue.length - 1
+  // Siguiente sigue disponible en la última si se repite todo o la radio traerá más
+  const isLastInQueue =
+    currentIndex >= queue.length - 1 && useMusicStore.getState().repeatMode !== 'all' && !(radioEnabled && !isLive)
 
   const playerProps = {
     ref: playerRef,
@@ -998,7 +1002,12 @@ export default function MusicPlayerBar() {
                 </button>
 
                 <button
-                  onClick={playNext}
+                  onClick={() => {
+                    const st = useMusicStore.getState()
+                    // Última canción y la radio aún busca: avanzar en cuanto lleguen
+                    if (st.currentIndex >= st.queue.length - 1 && isRadioLoadingRef.current) waitingForRadioRef.current = true
+                    else playNext()
+                  }}
                   disabled={isLastInQueue}
                   className="p-2 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   title="Siguiente"
