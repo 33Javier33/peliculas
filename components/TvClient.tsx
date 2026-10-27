@@ -9,7 +9,7 @@ import { useLiveStore } from '@/store/liveStore'
 import { LiveHeader, CountrySelect, countryName } from '@/components/LiveTabs'
 import { readSession, writeSession } from '@/lib/session-cache'
 
-type ListKind = 'national' | 'spa' | 'news'
+type ListKind = 'national' | 'pluto' | 'spa' | 'news'
 interface TvState {
   kind: ListKind
   country: string
@@ -29,7 +29,7 @@ export default function TvClient() {
   const [channels, setChannels] = useState<TvChannel[]>(() => {
     const st = savedState()
     const list = st && (st.kind === 'national' ? st.country.toLowerCase() : st.kind)
-    return (list && readSession<TvChannel[]>(listKey(list))) || []
+    return (list && list !== 'pluto' && readSession<TvChannel[]>(listKey(list))) || []
   })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -61,7 +61,7 @@ export default function TvClient() {
     let cancelled = false
     setError(false)
     const list = kind === 'national' ? country.toLowerCase() : kind
-    const cached = list ? readSession<TvChannel[]>(listKey(list)) : null
+    const cached = list && list !== 'pluto' ? readSession<TvChannel[]>(listKey(list)) : null
     if (cached) {
       setChannels(cached)
       setIsLoading(false)
@@ -76,7 +76,7 @@ export default function TvClient() {
         if (kind === 'national' && !country && data.list && /^[a-z]{2}$/.test(data.list)) setCountry(data.list.toUpperCase())
         if (!ok) throw new Error('lista no disponible')
         setChannels(data.channels)
-        if (data.list && data.channels.length > 0) writeSession(listKey(data.list), data.channels)
+        if (data.list && data.list !== 'pluto' && data.channels.length > 0) writeSession(listKey(data.list), data.channels)
       })
       .catch(() => !cancelled && (setError(true), setChannels([])))
       .finally(() => !cancelled && setIsLoading(false))
@@ -85,15 +85,16 @@ export default function TvClient() {
     }
   }, [kind, country])
 
-  // Ciudades/regiones con canales locales (de más a menos canales)
+  // Nacional: ciudades/regiones con canales locales. Otras listas: categorías.
+  const byCategory = kind !== 'national'
   const places = useMemo(() => {
     const count = new Map<string, number>()
     for (const c of channels) {
-      const p = c.city || c.region
+      const p = byCategory ? c.group : c.city || c.region
       if (p) count.set(p, (count.get(p) ?? 0) + 1)
     }
     return Array.from(count, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'es'))
-  }, [channels])
+  }, [channels, byCategory])
 
   // Canales que no cargaron en este teléfono: se marcan "Sin señal" y, la próxima vez que
   // se abra la lista, quedan al final (no se mueven mientras uno está mirando)
@@ -120,12 +121,14 @@ export default function TvClient() {
   const visible = useMemo(() => {
     const f = filter.trim().toLowerCase()
     const byPlace = place
-      ? ordered.filter((c) => (place === '__national' ? !c.city && !c.region : c.city === place || c.region === place))
+      ? ordered.filter((c) =>
+          byCategory ? c.group === place : place === '__national' ? !c.city && !c.region : c.city === place || c.region === place
+        )
       : ordered
     return f
       ? byPlace.filter((c) => `${c.name} ${c.group} ${c.city ?? ''} ${c.region ?? ''}`.toLowerCase().includes(f))
       : byPlace
-  }, [ordered, filter, place])
+  }, [ordered, filter, place, byCategory])
 
   // Al abrir o cerrar el reproductor (que ocupa espacio arriba) la pantalla no salta:
   // el canal tocado queda donde estaba, o justo debajo del reproductor si este lo tapa.
@@ -196,6 +199,9 @@ export default function TvClient() {
           <button onClick={() => setKind('national')} className={chipCls(kind === 'national')}>
             Nacional{country ? ` · ${countryName(country)}` : ''}
           </button>
+          <button onClick={() => setKind('pluto')} className={chipCls(kind === 'pluto')}>
+            Pluto TV
+          </button>
           <button onClick={() => setKind('spa')} className={chipCls(kind === 'spa')}>
             Internacional en español
           </button>
@@ -208,15 +214,21 @@ export default function TvClient() {
           {kind === 'national' && country && (
             <CountrySelect value={country} onChange={setCountry} includeWorld={false} />
           )}
-          {kind === 'national' && places.length > 0 && (
+          {places.length > (byCategory ? 1 : 0) && (
             <select
               value={place}
               onChange={(e) => setPlace(e.target.value)}
-              aria-label="Ciudad"
+              aria-label={byCategory ? 'Categoría' : 'Ciudad'}
               className="bg-surface-1 border border-white/8 text-white rounded-full px-4 py-3 text-sm font-semibold focus:outline-none focus:border-violet-500 max-w-full"
             >
-              <option value="">📍 Todo el país ({channels.length})</option>
-              <option value="__national">📺 Canales nacionales</option>
+              {byCategory ? (
+                <option value="">🎬 Todas las categorías ({channels.length})</option>
+              ) : (
+                <>
+                  <option value="">📍 Todo el país ({channels.length})</option>
+                  <option value="__national">📺 Canales nacionales</option>
+                </>
+              )}
               {places.map((p) => (
                 <option key={p.name} value={p.name}>
                   {p.name} ({p.n})
@@ -261,8 +273,8 @@ export default function TvClient() {
         )}
 
         <p className="text-slate-600 text-xs mt-8">
-          Canales de acceso libre por internet según iptv-org. La disponibilidad depende de cada canal y algunos solo
-          funcionan en su país.
+          Canales de acceso libre por internet (iptv-org, Free-TV y Pluto TV). La disponibilidad depende de cada canal y
+          algunos solo funcionan en su país.
         </p>
       </div>
     </div>

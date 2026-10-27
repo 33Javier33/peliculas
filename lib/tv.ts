@@ -165,8 +165,9 @@ interface Candidate {
 }
 
 // ===== Comprobación de que el canal emite =====
-// Muchas direcciones de las listas públicas ya no funcionan. Antes de mostrarlas se pide
-// la lista .m3u8 de cada una: las que no responden o no son video se descartan.
+// Un canal suele tener varias direcciones y muchas ya no funcionan: se elige una que
+// responda. Nunca se descarta un canal: el servidor está fuera de Chile y muchos canales
+// solo emiten para su país, así que "no responde desde aquí" no significa que no funcione.
 type Health = 'ok' | 'dead' | 'unknown'
 const healthMemo = new Map<string, { at: number; h: Health }>()
 const HEALTH_TTL = 60 * 60 * 1000
@@ -209,22 +210,23 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 }
 
 /**
- * De cada canal (varias direcciones posibles) se queda con la primera que emite.
- * Si se acaba el tiempo, los que faltan se muestran sin comprobar.
+ * De cada canal (varias direcciones posibles) usa la primera que emite; si ninguna
+ * responde desde el servidor, igual se muestra con la primera. Solo se comprueban los
+ * canales con más de una dirección, y con tiempo límite.
  */
-async function pickWorking(groups: Candidate[][], budgetMs = 18000): Promise<TvChannel[]> {
+async function pickWorking(groups: Candidate[][], budgetMs = 10000): Promise<TvChannel[]> {
   const deadline = Date.now() + budgetMs
-  const picked = await mapLimit(groups, 24, async (group) => {
+  return mapLimit(groups, 24, async (group) => {
+    if (group.length === 1) return toChannel(group[0])
     let fallback: Candidate | null = null
     for (const c of group) {
-      if (Date.now() > deadline) return toChannel(fallback ?? c)
+      if (Date.now() > deadline) break
       const h = await checkStream(c)
       if (h === 'ok') return toChannel(c)
       if (h === 'unknown' && !fallback) fallback = c
     }
-    return fallback ? toChannel(fallback) : null
+    return toChannel(fallback ?? group[0])
   })
-  return picked.filter((c): c is TvChannel => c !== null)
 }
 
 /** Construye el canal final con su dirección directa y la del intermediario. */
