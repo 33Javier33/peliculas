@@ -56,6 +56,25 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
   return p
 }
 
+// Orden de las fuentes de audio. Normal: M4A primero (compatible con todo). Alta calidad:
+// la de más kbps que el navegador pueda reproducir (p. ej. Opus 160 kbps).
+function orderCandidates(list: AudioCandidate[], highQuality: boolean): AudioCandidate[] {
+  const canPlay = (mime: string) => {
+    try {
+      return document.createElement('audio').canPlayType(mime) !== ''
+    } catch {
+      return true
+    }
+  }
+  const playable = list.filter((c) => canPlay(c.mimeType))
+  const base = playable.length > 0 ? playable : list
+  return [...base].sort((a, b) =>
+    highQuality
+      ? b.bitrate - a.bitrate
+      : (b.mimeType === 'audio/mp4' ? 1 : 0) - (a.mimeType === 'audio/mp4' ? 1 : 0) || b.bitrate - a.bitrate
+  )
+}
+
 // Tiempo tras pasar a segundo plano en el que una pausa se considera automática (de YouTube)
 const AUTO_RESUME_WINDOW_MS = 5000
 // Sin avance del audio durante este tiempo: la fuente se considera caída
@@ -220,7 +239,7 @@ export default function MusicPlayerBar() {
     loadAudioCandidates(currentId).then((candidates) => {
       if (cancelled) return
       if (candidates.length === 0) markAudioFailed(currentId)
-      else setAudioSrc({ id: currentId, candidates, index: 0 })
+      else setAudioSrc({ id: currentId, candidates: orderCandidates(candidates, useMusicStore.getState().audioBoost), index: 0 })
     })
     return () => {
       cancelled = true
@@ -312,6 +331,20 @@ export default function MusicPlayerBar() {
     document.addEventListener('pointerdown', resume, { once: true, capture: true })
   }, [setIsPlaying])
 
+  // Alta calidad: reordena las fuentes y, si cambia la mejor, sigue en el mismo segundo
+  const currentCandidate = audioSrc?.id === currentId ? audioSrc?.candidates[audioSrc.index] : undefined
+  const currentBitrate = currentCandidate?.bitrate ? Math.round(currentCandidate.bitrate / 1000) : 0
+  const toggleHighQuality = () => {
+    const next = !useMusicStore.getState().audioBoost
+    setAudioBoost(next)
+    if (!useAudio || isLive || !audioSrc || audioSrc.id !== currentId) return
+    const ordered = orderCandidates(audioSrc.candidates, next)
+    if (ordered[0]?.url !== audioSrc.candidates[audioSrc.index]?.url) {
+      pendingSeekRef.current = useMusicStore.getState().played
+      setAudioSrc({ id: audioSrc.id, candidates: ordered, index: 0 })
+    }
+  }
+
   const switchMode = useCallback(
     (toAudio: boolean) => {
       pendingSeekRef.current = useMusicStore.getState().played
@@ -329,49 +362,6 @@ export default function MusicPlayerBar() {
     ? (isLive ? favoriteRadios : saved).some((t) => t.id === currentVideo.id)
     : false
   const hasResumedRef = useRef(false)
-  const audioCtxRef = useRef<AudioContext | null>(null)
-  const gainRef = useRef<GainNode | null>(null)
-  const compressorRef = useRef<DynamicsCompressorNode | null>(null)
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
-
-  const attachAudioGraph = useCallback(() => {
-    const el = playerRef.current
-    if (!el) return false
-    try {
-      if (!audioCtxRef.current) {
-        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-        if (!Ctx) return false
-        const ctx = new Ctx()
-        const source = ctx.createMediaElementSource(el)
-        const compressor = ctx.createDynamicsCompressor()
-        compressor.threshold.value = -24
-        compressor.knee.value = 30
-        compressor.ratio.value = 3
-        compressor.attack.value = 0.003
-        compressor.release.value = 0.25
-        const gain = ctx.createGain()
-        gain.gain.value = 1
-        source.connect(compressor)
-        compressor.connect(gain)
-        gain.connect(ctx.destination)
-        audioCtxRef.current = ctx
-        compressorRef.current = compressor
-        gainRef.current = gain
-        sourceRef.current = source
-      }
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {})
-      }
-      return true
-    } catch {
-      // CORS or already-connected element: fall back silently.
-      return false
-    }
-  }, [])
-
-  useEffect(() => {
-    if (gainRef.current) gainRef.current.gain.value = audioBoost ? 1.35 : 1
-  }, [audioBoost])
 
   useEffect(() => {
     const el = playerRef.current
@@ -490,9 +480,7 @@ export default function MusicPlayerBar() {
   }, [playNext])
   const handlePlay = useCallback(() => {
     setIsPlaying(true)
-    // El audio de otro dominio sin CORS se silenciaría al pasar por Web Audio
-    if (!useAudioRef.current) attachAudioGraph()
-  }, [setIsPlaying, attachAudioGraph])
+  }, [setIsPlaying])
   const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
     // Al terminar una canción también llega "pause": lo gestiona onEnded
     if (e?.currentTarget?.ended) return
@@ -1091,13 +1079,15 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => {
-                  const next = !audioBoost
-                  setAudioBoost(next)
-                  if (next) attachAudioGraph()
+                  toggleHighQuality()
                 }}
                 className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
-                title={audioBoost ? 'Audio mejorado activado' : 'Mejorar audio (compresor + boost)'}
-                aria-label="Mejorar audio"
+                title={
+                  audioBoost
+                    ? `Audio en alta calidad${currentBitrate ? ` (${currentBitrate} kbps)` : ''}`
+                    : 'Activar audio en alta calidad'
+                }
+                aria-label="Audio en alta calidad"
                 aria-pressed={audioBoost}
               >
                 <Sparkles className="w-4 h-4" />
