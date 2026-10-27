@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp } from 'lucide-react'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
+import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem } from '@/lib/youtube'
 import { parseDuration, formatViewCount } from '@/lib/youtube'
 
@@ -97,10 +98,25 @@ export default function CineClientPage({
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
+      rememberSearch('video', query)
+      suggestions.close()
       runSearch(query)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [query, runSearch]
   )
+
+  // Sugerencias mientras se escribe (autocompletado de YouTube + búsquedas recientes)
+  const suggestions = useSearchSuggestions({
+    kind: 'video',
+    value: query,
+    onChange: setQuery,
+    onPick: (s) => {
+      setQuery(s)
+      inputRef.current?.blur()
+      runSearch(s)
+    },
+  })
 
   // Búsqueda desde la barra superior (/cine?q=...)
   const searchParams = useSearchParams()
@@ -210,9 +226,10 @@ export default function CineClientPage({
                 placeholder="Buscar película, saga, actor..."
                 aria-label="Buscar películas en YouTube"
                 enterKeyHint="search"
-                autoComplete="off"
                 className="w-full bg-surface-1 border border-white/15 text-white placeholder-slate-600 rounded-full pl-12 pr-28 sm:pr-36 py-4 text-base focus:outline-none focus:border-violet-500/70 focus:bg-surface-2 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"
+                {...suggestions.inputProps}
               />
+              {suggestions.dropdown}
               <div className="absolute right-2 flex items-center gap-1">
                 {query && (
                   <button

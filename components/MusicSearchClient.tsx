@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
+import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
 
@@ -171,10 +172,25 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
+      rememberSearch('music', query)
+      suggestions.close()
       runSearch(query)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [query, runSearch]
   )
+
+  // Sugerencias mientras se escribe (autocompletado de YouTube + búsquedas recientes)
+  const suggestions = useSearchSuggestions({
+    kind: 'music',
+    value: query,
+    onChange: setQuery,
+    onPick: (s) => {
+      setQuery(s)
+      inputRef.current?.blur()
+      runSearch(s)
+    },
+  })
 
   // Búsqueda desde la barra superior (/music?q=...)
   const searchParams = useSearchParams()
@@ -280,9 +296,10 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               placeholder="Artista, canción, álbum..."
               aria-label="Buscar música"
               enterKeyHint="search"
-              autoComplete="off"
               className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-28 py-3.5 text-base focus:outline-none focus:border-violet-500 transition-colors"
+              {...suggestions.inputProps}
             />
+            {suggestions.dropdown}
             <div className="absolute right-1.5 flex items-center gap-1">
               {query && (
                 <button

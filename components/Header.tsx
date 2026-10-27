@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
+import { useSearchSuggestions, rememberSearch, type SuggestKind } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
 import { Radio } from 'lucide-react'
 
@@ -70,8 +71,10 @@ export default function Header() {
       const trimmed = query.trim()
       if (!trimmed) return
       setIsMobileSearchOpen(false)
+      rememberSearch(suggestKind, trimmed)
       router.push(`${searchTarget}?q=${encodeURIComponent(trimmed)}`)
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [query, router, searchTarget]
   )
 
@@ -86,6 +89,32 @@ export default function Header() {
     },
     []
   )
+
+  // Sugerencias según la sección (en TV el filtro de canales ya es instantáneo)
+  const suggestKind: SuggestKind = { music: 'music', cine: 'video', radio: 'radio', tv: 'video', movies: 'movies' }[section] as SuggestKind
+  const goTo = (s: string) => {
+    setQuery(s)
+    setIsMobileSearchOpen(false)
+    inputRef.current?.blur()
+    mobileInputRef.current?.blur()
+    router.push(`${searchTarget}?q=${encodeURIComponent(s)}`)
+  }
+  const desktopSuggest = useSearchSuggestions({
+    kind: suggestKind,
+    value: query,
+    onChange: setQuery,
+    onPick: goTo,
+    onKeyDown: handleKeyDown,
+    enabled: section !== 'tv',
+  })
+  const mobileSuggest = useSearchSuggestions({
+    kind: suggestKind,
+    value: query,
+    onChange: setQuery,
+    onPick: goTo,
+    onKeyDown: handleKeyDown,
+    enabled: section !== 'tv',
+  })
 
   return (
     <header
@@ -155,12 +184,12 @@ export default function Header() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
                 className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-2.5 text-sm focus:outline-none focus:border-violet-400/70 focus:bg-surface-1 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
-                autoComplete="off"
+                {...desktopSuggest.inputProps}
               />
+              {desktopSuggest.dropdown}
               {query && (
                 <button
                   type="button"
@@ -268,13 +297,13 @@ export default function Header() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
                 className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-violet-400/70 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
-                autoComplete="off"
                 enterKeyHint="search"
+                {...mobileSuggest.inputProps}
               />
+              {mobileSuggest.dropdown}
             </div>
             <button
               type="submit"

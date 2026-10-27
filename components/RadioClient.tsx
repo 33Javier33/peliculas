@@ -8,6 +8,7 @@ import { useLiveStore } from '@/store/liveStore'
 import type { RadioStation } from '@/lib/live'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { LiveHeader, CountrySelect, countryName } from '@/components/LiveTabs'
+import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 
 // Una emisora se reproduce con el mismo reproductor que la música (sigue en segundo plano)
 function toTrack(s: RadioStation): MusicVideo {
@@ -164,10 +165,31 @@ export default function RadioClient() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const q = query.trim()
+    rememberSearch('radio', q)
+    suggestions.close()
     setSubmitted(q)
     setCity('')
     load(country, q, '')
   }
+
+  // Sugerencias: ciudades del país (al elegir una se filtra por ciudad) y emisoras
+  const suggestions = useSearchSuggestions({
+    kind: 'radio',
+    value: query,
+    onChange: setQuery,
+    extra: cities.map((c) => c.name),
+    onPick: (s) => {
+      const isCity = cities.some((c) => c.name === s)
+      if (isCity) {
+        changeCity(s)
+      } else {
+        setQuery(s)
+        setSubmitted(s)
+        setCity('')
+        load(country, s, '')
+      }
+    },
+  })
 
   const tracks = stations.map(toTrack)
   const favIds = new Set(mounted ? favoriteRadios.map((r) => r.id) : [])
@@ -269,7 +291,9 @@ export default function RadioClient() {
               aria-label="Buscar emisora o ciudad"
               enterKeyHint="search"
               className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-4 py-3 text-base focus:outline-none focus:border-violet-500"
+              {...suggestions.inputProps}
             />
+            {suggestions.dropdown}
           </form>
         </div>
 
