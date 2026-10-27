@@ -37,7 +37,7 @@ function fromEnv(name: string): string[] {
   return raw ? raw.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean) : []
 }
 
-async function fetchJson<T>(url: string, timeout = TIMEOUT_MS): Promise<T> {
+export async function fetchJson<T>(url: string, timeout = TIMEOUT_MS): Promise<T> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeout)
   try {
@@ -53,7 +53,7 @@ async function fetchJson<T>(url: string, timeout = TIMEOUT_MS): Promise<T> {
 
 let instanceCache: { at: number; piped: string[]; invidious: string[] } | null = null
 
-async function getInstances() {
+export async function getInstances() {
   if (instanceCache && Date.now() - instanceCache.at < 6 * 60 * 60 * 1000) return instanceCache
 
   const envPiped = fromEnv('PIPED_INSTANCES')

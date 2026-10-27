@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { Play, Clock, Eye } from 'lucide-react'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 import { getBestThumbnail, timeAgo } from '@/lib/youtube'
+import { decodeEntities } from '@/lib/youtube-music'
 
 interface YoutubeCardProps {
   item: YouTubeSearchItem
@@ -14,7 +15,10 @@ interface YoutubeCardProps {
 
 export default function YoutubeCard({ item, duration, viewCount, onClick }: YoutubeCardProps) {
   const thumbnail = getBestThumbnail(item)
-  const { title, channelTitle, publishedAt, description } = item.snippet
+  const { publishedAt, description } = item.snippet
+  // YouTube entrega los títulos con entidades HTML (&quot;, &#39;…)
+  const title = decodeEntities(item.snippet.title)
+  const channelTitle = decodeEntities(item.snippet.channelTitle)
   const videoId = item.id.videoId
 
   return (

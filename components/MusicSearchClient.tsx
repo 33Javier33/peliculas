@@ -305,13 +305,13 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </div>
         </form>
 
-        {/* Error */}
+        {/* Error (sin mensajes técnicos) */}
         {error && (
-          <div className="mb-8 flex items-start gap-3 bg-red-950/40 border border-red-900/50 text-red-400 rounded-xl px-5 py-4">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="mb-8 flex items-start gap-3 bg-surface-1 border border-white/8 text-slate-300 rounded-xl px-5 py-4">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-violet-300" />
             <div>
-              <p className="font-semibold text-sm">Error al cargar contenido</p>
-              <p className="text-xs text-red-500/80 mt-0.5">{error}</p>
+              <p className="font-semibold text-sm text-white">No pudimos buscar en este momento</p>
+              <p className="text-xs text-slate-400 mt-0.5">Intenta de nuevo en unos minutos o con otras palabras.</p>
             </div>
           </div>
         )}

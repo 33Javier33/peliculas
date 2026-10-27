@@ -1,3 +1,5 @@
+import { publicSearch, publicTrendingMusic, formatSeconds, isQuotaBlocked, noteYouTubeError, type PublicVideo } from '@/lib/public-search'
+
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 export interface MusicVideo {
@@ -99,7 +101,32 @@ function normalizeChartItem(item: {
   }
 }
 
+function fromPublic(v: PublicVideo): MusicVideo {
+  return {
+    id: v.id,
+    title: decodeEntities(v.title),
+    channelTitle: decodeEntities(v.author),
+    thumbnail: v.thumbnail,
+    publishedAt: '',
+    description: '',
+    duration: formatSeconds(v.lengthSeconds),
+    viewCount: v.views ? formatViews(String(v.views)) : undefined,
+  }
+}
+
 export async function getTrendingMusicVideos(regionCode = 'MX'): Promise<MusicVideo[]> {
+  try {
+    if (isQuotaBlocked()) throw new Error('cuota de YouTube agotada')
+    return await getTrendingMusicVideosApi(regionCode)
+  } catch (err) {
+    // Respaldo sin cuota: tendencias de música vía Invidious/Piped
+    const videos = (await publicTrendingMusic(regionCode).catch(() => [])).map(fromPublic)
+    if (videos.length > 0) return videos.slice(0, 24)
+    throw err
+  }
+}
+
+async function getTrendingMusicVideosApi(regionCode: string): Promise<MusicVideo[]> {
   const key = getKey()
 
   const url = new URL(`${YOUTUBE_API_BASE}/videos`)
@@ -115,14 +142,17 @@ export async function getTrendingMusicVideos(regionCode = 'MX'): Promise<MusicVi
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body?.error?.message || `YouTube API error: ${res.status} ${res.statusText}`
-    )
+    const message = body?.error?.message || `YouTube API error: ${res.status} ${res.statusText}`
+    noteYouTubeError(res.status, message)
+    throw new Error(message)
   }
 
   const data = await res.json()
   return (data.items ?? []).map(normalizeChartItem)
 }
+
+// Las páginas del respaldo se marcan "pub:N" para seguir sin la API oficial
+const PUBLIC_PAGE = /^pub:(\d+)$/
 
 export async function searchMusicVideos(
   query: string,
@@ -131,6 +161,30 @@ export async function searchMusicVideos(
   regionCode = 'MX'
 ): Promise<MusicSearchResult> {
   if (!query.trim()) return { videos: [] }
+  const publicPage = pageToken?.match(PUBLIC_PAGE)
+  if (!publicPage && !isQuotaBlocked()) {
+    try {
+      return await searchMusicVideosApi(query, pageToken, maxResults, regionCode)
+    } catch {
+      // Cuota agotada, error de YouTube o sin clave: se sigue con el respaldo
+    }
+  }
+  // Respaldo sin cuota (Invidious/Piped)
+  const page = publicPage ? Number(publicPage[1]) : 1
+  const found = await publicSearch(`${query.trim()} official`, page)
+  if (found.length === 0 && page === 1) throw new Error('La búsqueda no está disponible por ahora')
+  return {
+    videos: found.slice(0, maxResults).map(fromPublic),
+    nextPageToken: found.length > 0 ? `pub:${page + 1}` : undefined,
+  }
+}
+
+async function searchMusicVideosApi(
+  query: string,
+  pageToken: string | undefined,
+  maxResults: number,
+  regionCode: string
+): Promise<MusicSearchResult> {
 
   const key = getKey()
 
@@ -147,13 +201,14 @@ export async function searchMusicVideos(
   searchUrl.searchParams.set('regionCode', regionCode)
   if (pageToken) searchUrl.searchParams.set('pageToken', pageToken)
 
-  const searchRes = await fetch(searchUrl.toString(), { cache: 'no-store' })
+  // Caché de 6 h: repetir una búsqueda no gasta cuota
+  const searchRes = await fetch(searchUrl.toString(), { next: { revalidate: 21600 } })
 
   if (!searchRes.ok) {
     const body = await searchRes.json().catch(() => ({}))
-    throw new Error(
-      body?.error?.message || `YouTube API error: ${searchRes.status} ${searchRes.statusText}`
-    )
+    const message = body?.error?.message || `YouTube API error: ${searchRes.status} ${searchRes.statusText}`
+    noteYouTubeError(searchRes.status, message)
+    throw new Error(message)
   }
 
   const searchData = await searchRes.json()

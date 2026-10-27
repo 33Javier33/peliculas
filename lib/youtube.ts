@@ -1,3 +1,5 @@
+import { publicSearch, isQuotaBlocked, noteYouTubeError, type PublicVideo } from '@/lib/public-search'
+
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
 export interface YouTubeVideoSnippet {
@@ -66,7 +68,66 @@ function getYouTubeApiKey(): string {
   return key
 }
 
-export async function searchMoviesOnYouTube(
+// ===== Respaldo sin cuota (Invidious/Piped) =====
+
+function publicToSearchItem(v: PublicVideo): YouTubeSearchItem {
+  const t = { url: v.thumbnail, width: 480, height: 360 }
+  return {
+    kind: 'youtube#searchResult',
+    etag: '',
+    id: { kind: 'youtube#video', videoId: v.id },
+    snippet: {
+      publishedAt: '',
+      channelId: '',
+      title: v.title,
+      description: '',
+      thumbnails: { default: t, medium: t, high: t },
+      channelTitle: v.author,
+      liveBroadcastContent: 'none',
+    },
+  }
+}
+
+const PUBLIC_PAGE = /^pub:(\d+)$/
+
+async function publicMovieSearch(query: string, page: number): Promise<YouTubeSearchResponse> {
+  // Solo películas largas (más de 40 minutos) cuando se conoce la duración
+  const found = (await publicSearch(query, page)).filter((v) => !v.lengthSeconds || v.lengthSeconds >= 40 * 60)
+  if (found.length === 0 && page === 1) throw new Error('La búsqueda no está disponible por ahora')
+  return {
+    kind: 'youtube#searchListResponse',
+    etag: '',
+    nextPageToken: found.length > 0 ? `pub:${page + 1}` : undefined,
+    pageInfo: { totalResults: found.length, resultsPerPage: found.length },
+    items: found.map(publicToSearchItem),
+  }
+}
+
+export async function searchMoviesOnYouTube(query: string, pageToken?: string): Promise<YouTubeSearchResponse> {
+  const publicPage = pageToken?.match(PUBLIC_PAGE)
+  if (query.trim() && !publicPage && !isQuotaBlocked()) {
+    try {
+      return await searchMoviesOnYouTubeApi(query, pageToken)
+    } catch {
+      // Cuota agotada o error de YouTube: se sigue con el respaldo
+    }
+  }
+  if (!query.trim()) return searchMoviesOnYouTubeApi(query, pageToken)
+  return publicMovieSearch(`${query.trim()} pelicula completa español latino`, publicPage ? Number(publicPage[1]) : 1)
+}
+
+export async function getTrendingMoviesOnYouTube(): Promise<YouTubeSearchResponse> {
+  if (!isQuotaBlocked()) {
+    try {
+      return await getTrendingMoviesOnYouTubeApi()
+    } catch {
+      // Respaldo abajo
+    }
+  }
+  return publicMovieSearch('pelicula completa español latino HD', 1)
+}
+
+async function searchMoviesOnYouTubeApi(
   query: string,
   pageToken?: string
 ): Promise<YouTubeSearchResponse> {
@@ -98,19 +159,21 @@ export async function searchMoviesOnYouTube(
     url.searchParams.set('pageToken', pageToken)
   }
 
-  const response = await fetch(url.toString(), { cache: 'no-store' })
+  // Caché de 6 h: repetir una búsqueda no gasta cuota
+  const response = await fetch(url.toString(), { next: { revalidate: 21600 } })
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
     const message =
       errorBody?.error?.message || `YouTube API error: ${response.status} ${response.statusText}`
+    noteYouTubeError(response.status, message)
     throw new Error(message)
   }
 
   return response.json() as Promise<YouTubeSearchResponse>
 }
 
-export async function getTrendingMoviesOnYouTube(): Promise<YouTubeSearchResponse> {
+async function getTrendingMoviesOnYouTubeApi(): Promise<YouTubeSearchResponse> {
   const apiKey = getYouTubeApiKey()
 
   const url = new URL(`${YOUTUBE_API_BASE}/search`)
@@ -127,13 +190,14 @@ export async function getTrendingMoviesOnYouTube(): Promise<YouTubeSearchRespons
   url.searchParams.set('publishedAfter', '2023-01-01T00:00:00Z')
 
   const response = await fetch(url.toString(), {
-    next: { revalidate: 3600 },
+    next: { revalidate: 21600 },
   })
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
     const message =
       errorBody?.error?.message || `YouTube API error: ${response.status} ${response.statusText}`
+    noteYouTubeError(response.status, message)
     throw new Error(message)
   }
 

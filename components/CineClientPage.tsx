@@ -236,17 +236,11 @@ export default function CineClientPage({
           </form>
 
           {error && (
-            <div className="max-w-2xl mx-auto mb-8 flex items-start gap-3 bg-red-900/20 border border-red-800/50 text-red-400 rounded-xl px-5 py-4">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div className="max-w-2xl mx-auto mb-8 flex items-start gap-3 bg-surface-1 border border-white/8 text-slate-300 rounded-xl px-5 py-4">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-violet-300" />
               <div>
-                <p className="font-semibold text-sm">Error al cargar resultados</p>
-                <p className="text-xs text-violet-500 mt-0.5">{error}</p>
-                {error.includes('YOUTUBE_API_KEY') && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    Agrega <code className="bg-black/40 px-1 rounded">YOUTUBE_API_KEY</code> en
-                    tu archivo <code className="bg-black/40 px-1 rounded">.env.local</code>
-                  </p>
-                )}
+                <p className="font-semibold text-sm text-white">No pudimos buscar en este momento</p>
+                <p className="text-xs text-slate-400 mt-0.5">Intenta de nuevo en unos minutos o con otras palabras.</p>
               </div>
             </div>
           )}
