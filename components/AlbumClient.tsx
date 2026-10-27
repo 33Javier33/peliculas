@@ -7,6 +7,7 @@ import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle } from 'lucide-
 import { useMusicStore } from '@/store/musicStore'
 import type { CatalogAlbumDetail } from '@/lib/catalog'
 import type { MusicVideo } from '@/lib/youtube-music'
+import BackButton from '@/components/BackButton'
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -86,12 +87,12 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
       )}
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <Link
-          href={album.artist.id ? `/music/artist/${album.artist.id}` : '/music'}
+        <BackButton
+          fallbackHref={album.artist.id ? `/music/artist/${album.artist.id}` : '/music'}
           className="inline-flex items-center gap-1 text-slate-300 hover:text-white text-sm mb-5"
         >
-          <ChevronLeft className="w-4 h-4" /> {album.artist.name || 'Música'}
-        </Link>
+          <ChevronLeft className="w-4 h-4" /> Volver
+        </BackButton>
 
         <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8">
           <div className="relative w-56 sm:w-64 aspect-square mx-auto sm:mx-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10 bg-surface-2 shrink-0">

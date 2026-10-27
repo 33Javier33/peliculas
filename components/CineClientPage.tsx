@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { readSession, writeSession } from '@/lib/session-cache'
 import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp, Heart, Clock3, ChevronDown, Play } from 'lucide-react'
 import Image from 'next/image'
 import { useVideoStore, type SavedVideo } from '@/store/videoStore'
@@ -95,6 +96,9 @@ export default function CineClientPage({
     }
   }, [])
 
+  const router = useRouter()
+  const lastSearchedRef = useRef('')
+
   const runSearch = useCallback(
     (raw: string) => {
       const trimmed = raw.trim()
@@ -102,6 +106,22 @@ export default function CineClientPage({
 
       setError(null)
       setSubmittedQuery(trimmed)
+      lastSearchedRef.current = trimmed
+      // La búsqueda queda en la dirección (/cine?q=…): al volver atrás se recupera
+      if (new URLSearchParams(window.location.search).get('q') !== trimmed) {
+        router.replace(`/cine?q=${encodeURIComponent(trimmed)}`, { scroll: false })
+      }
+
+      // Resultados ya vistos en esta sesión (por idioma): al instante, sin gastar cuota
+      const cacheKey = `video:${langRef.current}:${trimmed.toLowerCase()}`
+      const cached = readSession<{ items: YouTubeSearchItem[]; nextPageToken?: string; details: VideoDetails }>(cacheKey)
+      if (cached?.items) {
+        setResults(cached.items)
+        setNextPageToken(cached.nextPageToken)
+        setVideoDetails((prev) => ({ ...prev, ...cached.details }))
+        setIsSearchMode(true)
+        return
+      }
 
       startTransition(async () => {
         try {
@@ -122,13 +142,14 @@ export default function CineClientPage({
 
           const details = await enrichWithDetails(data.items)
           setVideoDetails((prev) => ({ ...prev, ...details }))
+          writeSession(cacheKey, { items: data.items, nextPageToken: data.nextPageToken, details })
         } catch (err) {
           setError((err as Error).message)
           setResults([])
         }
       })
     },
-    [enrichWithDetails]
+    [enrichWithDetails, router]
   )
 
   const handleSearch = useCallback(
@@ -158,7 +179,7 @@ export default function CineClientPage({
   const searchParams = useSearchParams()
   const urlQuery = searchParams.get('q') || ''
   useEffect(() => {
-    if (!urlQuery) return
+    if (!urlQuery || urlQuery === lastSearchedRef.current) return
     setQuery(urlQuery)
     runSearch(urlQuery)
   }, [urlQuery, runSearch])
@@ -243,13 +264,15 @@ export default function CineClientPage({
   }
 
   const handleClearSearch = useCallback(() => {
+    lastSearchedRef.current = ''
+    router.replace('/cine', { scroll: false })
     setQuery('')
     setSubmittedQuery('')
     setIsSearchMode(false)
     setError(null)
     loadTrending(langRef.current)
     inputRef.current?.focus()
-  }, [loadTrending])
+  }, [loadTrending, router])
 
   const openPlayer = useCallback(
     (videoId: string, title: string, channelTitle: string) => {

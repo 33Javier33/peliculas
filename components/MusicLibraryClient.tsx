@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import BackButton from '@/components/BackButton'
 
 type Tab = 'all' | 'artists' | 'albums'
 type SortOrder = 'recent' | 'title' | 'artist'
@@ -138,13 +139,13 @@ export default function MusicLibraryClient() {
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
           <div>
-            <Link
-              href="/music"
+            <BackButton
+              fallbackHref="/music"
               className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium mb-3 transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Volver a Music Station
-            </Link>
+              Volver
+            </BackButton>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-900/30">
                 <Library className="w-6 h-6 text-white" />

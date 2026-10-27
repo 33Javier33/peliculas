@@ -6,6 +6,7 @@ import './globals.css'
 import Image from 'next/image'
 import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
+import NavigationMemory from '@/components/NavigationMemory'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -95,6 +96,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
         <MusicPlayerBar />
         <MobileNav />
+        <Suspense fallback={null}>
+          <NavigationMemory />
+        </Suspense>
       </body>
     </html>
   )

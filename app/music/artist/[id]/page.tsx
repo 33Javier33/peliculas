@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { getArtist, type CatalogAlbum } from '@/lib/catalog'
+import BackButton from '@/components/BackButton'
 
 interface Props {
   params: { id: string }
@@ -71,9 +72,9 @@ export default async function ArtistPage({ params }: Props) {
         </div>
       )}
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <Link href="/music" className="inline-flex items-center gap-1 text-slate-300 hover:text-white text-sm mb-5">
-          <ChevronLeft className="w-4 h-4" /> Música
-        </Link>
+        <BackButton fallbackHref="/music" className="inline-flex items-center gap-1 text-slate-300 hover:text-white text-sm mb-5">
+          <ChevronLeft className="w-4 h-4" /> Volver
+        </BackButton>
 
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 sm:gap-8 mb-10">
           <div className="relative w-40 h-40 sm:w-52 sm:h-52 rounded-full overflow-hidden bg-surface-2 border border-white/10 shadow-[0_20px_60px_rgba(139,92,246,0.35)] shrink-0">

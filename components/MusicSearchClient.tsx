@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { readSession, writeSession, patchSession } from '@/lib/session-cache'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
@@ -10,6 +11,12 @@ import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggest
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
 import type { CatalogArtist, CatalogAlbum } from '@/lib/catalog'
+
+interface SearchCache {
+  videos?: MusicVideo[]
+  nextPageToken?: string
+  catalog?: { artists: CatalogArtist[]; albums: CatalogAlbum[] }
+}
 
 const FOR_YOU_CACHE_KEY = 'cpn-for-you'
 const FOR_YOU_TTL_MS = 6 * 60 * 60 * 1000
@@ -142,6 +149,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     ? [...forYou.genres.map((g) => g.charAt(0).toUpperCase() + g.slice(1)), ...forYou.artists].slice(0, 4).join(' · ')
     : ''
 
+  const router = useRouter()
+  const lastSearchedRef = useRef('')
+
   const runSearch = useCallback(
     (raw: string) => {
       const q = raw.trim()
@@ -149,12 +159,32 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
 
       setError(null)
       setSubmittedQuery(q)
+      lastSearchedRef.current = q
+      // La búsqueda queda en la dirección (/music?q=…): al volver atrás se recupera
+      if (new URLSearchParams(window.location.search).get('q') !== q) {
+        router.replace(`/music?q=${encodeURIComponent(q)}`, { scroll: false })
+      }
+
+      // Resultados ya vistos en esta sesión: al instante, sin gastar cuota
+      const cacheKey = `music:${q.toLowerCase()}`
+      const cached = readSession<SearchCache>(cacheKey)
+      if (cached?.videos) {
+        setVideos(cached.videos)
+        setNextPageToken(cached.nextPageToken)
+        setCatalog(cached.catalog ?? null)
+        setIsSearchMode(true)
+        return
+      }
 
       // Artistas y álbumes completos (catálogo) en paralelo con las canciones
       setCatalog(null)
       fetch(`/api/catalog/search?q=${encodeURIComponent(q)}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { artists: CatalogArtist[]; albums: CatalogAlbum[] } | null) => d && setCatalog(d))
+        .then((d: { artists: CatalogArtist[]; albums: CatalogAlbum[] } | null) => {
+          if (!d) return
+          setCatalog(d)
+          patchSession<SearchCache>(cacheKey, { catalog: d })
+        })
         .catch(() => {})
 
       startTransition(async () => {
@@ -168,6 +198,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           setVideos(data.videos)
           setNextPageToken(data.nextPageToken)
           setIsSearchMode(true)
+          patchSession<SearchCache>(cacheKey, { videos: data.videos, nextPageToken: data.nextPageToken })
           inputRef.current?.blur()
         } catch (err) {
           setError((err as Error).message)
@@ -175,7 +206,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         }
       })
     },
-    []
+    [router]
   )
 
   const handleSearch = useCallback(
@@ -205,7 +236,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const searchParams = useSearchParams()
   const urlQuery = searchParams.get('q') || ''
   useEffect(() => {
-    if (!urlQuery) return
+    if (!urlQuery || urlQuery === lastSearchedRef.current) return
     setQuery(urlQuery)
     runSearch(urlQuery)
   }, [urlQuery, runSearch])
@@ -220,7 +251,15 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
       const res = await fetch(`/api/youtube/music?${params.toString()}`)
       if (!res.ok) throw new Error(`Error ${res.status}`)
       const data = (await res.json()) as { videos: MusicVideo[]; nextPageToken?: string }
-      setVideos((prev) => [...prev, ...data.videos])
+      setVideos((prev) => {
+        const all = [...prev, ...data.videos]
+        writeSession<SearchCache>(`music:${submittedQuery.toLowerCase()}`, {
+          ...(readSession<SearchCache>(`music:${submittedQuery.toLowerCase()}`) ?? {}),
+          videos: all,
+          nextPageToken: data.nextPageToken,
+        })
+        return all
+      })
       setNextPageToken(data.nextPageToken)
     } catch (err) {
       setError((err as Error).message)
@@ -237,8 +276,10 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     setNextPageToken(undefined)
     setSubmittedQuery('')
     setCatalog(null)
+    lastSearchedRef.current = ''
+    router.replace('/music', { scroll: false })
     inputRef.current?.focus()
-  }, [trending])
+  }, [trending, router])
 
   const chip =
     'shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors'

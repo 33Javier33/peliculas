@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { readSession, writeSession } from '@/lib/session-cache'
 import { Search, Loader2, AlertCircle, Heart, MapPin, LocateFixed, ChevronDown } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -63,10 +64,36 @@ export default function RadioClient() {
   const countryRef = useRef(country)
   countryRef.current = country
 
+  const router = useRouter()
+  const lastUrlRef = useRef<string | null>(null)
+
+  // País, ciudad y búsqueda quedan en la dirección (/radio?country=CL&city=…): al volver se recuperan
+  const syncUrl = useCallback(
+    (cc: string, q: string, c: string) => {
+      const params = new URLSearchParams()
+      if (cc) params.set('country', cc)
+      if (q) params.set('q', q)
+      else if (c) params.set('city', c)
+      const next = params.toString()
+      lastUrlRef.current = next
+      if (next !== window.location.search.replace(/^\?/, '')) router.replace(`/radio${next ? `?${next}` : ''}`, { scroll: false })
+    },
+    [router]
+  )
+
   const load = useCallback(async (cc: string, q: string, c: string) => {
-    setIsLoading(true)
     setError(null)
     setNear(null)
+    // Ya visto en esta sesión: al instante
+    const cacheKey = `radio:${cc}:${q.toLowerCase()}:${c}`
+    const cached = cc ? readSession<RadioStation[]>(cacheKey) : null
+    if (cached) {
+      setStations(cached)
+      setIsLoading(false)
+      syncUrl(cc, q, c)
+      return
+    }
+    setIsLoading(true)
     try {
       const params = new URLSearchParams()
       if (cc) params.set('country', cc)
@@ -76,23 +103,32 @@ export default function RadioClient() {
       const data = (await res.json()) as { stations?: RadioStation[]; country?: string; error?: string }
       // El país detectado llega incluso si falla la lista, para poder elegir otro
       if (!cc && data.country) setCountry(data.country)
+      syncUrl(cc || (data.country && data.country !== 'WORLD' ? data.country : ''), q, c)
       if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
       setStations(data.stations ?? [])
+      writeSession(`radio:${cc || data.country || ''}:${q.toLowerCase()}:${c}`, data.stations ?? [])
     } catch (err) {
       setError((err as Error).message)
       setStations([])
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [syncUrl])
 
-  // Primera carga: país detectado por el servidor (o búsqueda desde el encabezado)
-  const urlQuery = searchParams.get('q') || ''
+  // Carga según la dirección: primera vez, al volver atrás o búsqueda desde el encabezado
+  const urlKey = searchParams.toString()
   useEffect(() => {
-    setQuery(urlQuery)
-    setSubmitted(urlQuery)
-    load(countryRef.current, urlQuery, '')
-  }, [urlQuery, load])
+    if (urlKey === lastUrlRef.current) return
+    const q = searchParams.get('q') || ''
+    const c = searchParams.get('city') || ''
+    const cc = (searchParams.get('country') || countryRef.current || '').toUpperCase()
+    if (cc) setCountry(cc)
+    setQuery(q)
+    setSubmitted(q)
+    setCity(c)
+    load(cc, q, c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlKey, load])
 
   // Ciudades del país elegido
   useEffect(() => {

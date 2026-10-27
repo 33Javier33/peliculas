@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import Link from 'next/link'
+import BackButton from '@/components/BackButton'
 import { notFound } from 'next/navigation'
 import {
   getMovieDetails,
@@ -140,8 +140,8 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
 
           <div className="flex-1 pt-2">
             <div className="mb-1">
-              <Link
-                href="/"
+              <BackButton
+                fallbackHref="/"
                 className="inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm transition-colors duration-200 mb-4"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,8 +152,8 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
                     d="M15 19l-7-7 7-7"
                   />
                 </svg>
-                Volver al catálogo
-              </Link>
+                Volver
+              </BackButton>
             </div>
 
             {movieData.tagline && (
