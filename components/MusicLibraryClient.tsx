@@ -15,16 +15,34 @@ import {
   ArrowLeft,
   X,
   Shuffle,
+  List,
+  LayoutGrid,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 type Tab = 'all' | 'artists' | 'albums'
 type SortOrder = 'recent' | 'title' | 'artist'
+type ViewMode = 'list' | 'grid'
+const VIEW_KEY = 'cpn-library-view'
 
 export default function MusicLibraryClient() {
-  const { saved, play, addToQueue, removeSaved, playSaved } = useMusicStore()
+  const { saved, play, addToQueue, removeSaved, playSaved, queue, currentIndex, isVisible, isPlaying } = useMusicStore()
+  const currentId = isVisible ? queue[currentIndex]?.id : undefined
   const [mounted, setMounted] = useState(false)
+  // Vista de canciones: lista o mosaico (se recuerda en el teléfono)
+  const [view, setView] = useState<ViewMode>('list')
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(VIEW_KEY) === 'grid') setView('grid')
+    } catch {}
+  }, [])
+  const changeView = (v: ViewMode) => {
+    setView(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {}
+  }
   const [tab, setTab] = useState<Tab>('all')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOrder>('recent')
@@ -226,12 +244,98 @@ export default function MusicLibraryClient() {
                     <option value="title">Título (A-Z)</option>
                     <option value="artist">Artista (A-Z)</option>
                   </select>
+                  <div className="inline-flex bg-surface-1 border border-white/10 rounded-full p-1" role="group" aria-label="Vista">
+                    {([
+                      ['list', List, 'Lista'],
+                      ['grid', LayoutGrid, 'Mosaico'],
+                    ] as const).map(([value, Icon, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => changeView(value)}
+                        aria-pressed={view === value}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                          view === value ? 'bg-violet-500 text-white' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" /> {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Track list */}
                 {filtered.length === 0 ? (
                   <div className="text-center py-16 text-slate-600 text-sm">
                     No se encontraron canciones.
+                  </div>
+                ) : view === 'grid' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {filtered.map((track, idx) => {
+                      const isCurrent = currentId === track.id
+                      return (
+                        <div
+                          key={track.id}
+                          className={`group relative rounded-xl overflow-hidden border transition-colors shadow-rim ${
+                            isCurrent ? 'bg-violet-500/15 border-violet-500/50' : 'bg-surface-1 border-white/8 hover:border-violet-500/30'
+                          }`}
+                        >
+                          <button onClick={() => playList(filtered, idx)} className="block w-full text-left">
+                            <div className="relative aspect-square bg-surface-2">
+                              {track.thumbnail && (
+                                <Image
+                                  src={track.thumbnail}
+                                  alt={track.title}
+                                  fill
+                                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                              <span className="absolute right-2 bottom-2 w-9 h-9 rounded-full bg-violet-500 shadow-glow flex items-center justify-center">
+                                {isCurrent && isPlaying ? (
+                                  <span className="flex items-end gap-[2px] h-3.5">
+                                    {[0, 150, 300].map((d) => (
+                                      <span key={d} className="w-[3px] h-full bg-white rounded-full origin-bottom animate-eq" style={{ animationDelay: `${d}ms` }} />
+                                    ))}
+                                  </span>
+                                ) : (
+                                  <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                                )}
+                              </span>
+                              {track.duration && (
+                                <span className="absolute left-2 bottom-2 text-[10px] font-mono text-white/90 bg-black/60 px-1.5 py-0.5 rounded">
+                                  {track.duration}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-2.5">
+                              <p className={`text-sm leading-tight font-semibold font-display line-clamp-2 ${isCurrent ? 'text-emerald-400' : 'text-white'}`}>
+                                {track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}
+                              </p>
+                              <p className="text-slate-400 text-xs truncate mt-0.5">{track.artist ?? track.channelTitle}</p>
+                            </div>
+                          </button>
+                          <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+                            <button
+                              onClick={() => addToQueue(track)}
+                              className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white hover:text-violet-300"
+                              aria-label="Añadir a la cola"
+                              title="Añadir a la cola"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => removeSaved(track.id)}
+                              className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-purple-400 hover:text-purple-300"
+                              aria-label="Quitar de guardadas"
+                              title="Quitar de guardadas"
+                            >
+                              <Heart className="w-4 h-4 fill-purple-400" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : (
                   <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
