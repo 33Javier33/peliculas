@@ -152,8 +152,7 @@ const CATEGORY_ES: Record<string, string> = {
   shop: 'Compras',
 }
 
-/** Construye el canal final con su dirección directa y la del intermediario. */
-function toChannel(s: {
+interface Candidate {
   id: string
   name: string
   logo: string
@@ -163,7 +162,73 @@ function toChannel(s: {
   region?: string
   referrer?: string
   userAgent?: string
-}): TvChannel {
+}
+
+// ===== Comprobación de que el canal emite =====
+// Muchas direcciones de las listas públicas ya no funcionan. Antes de mostrarlas se pide
+// la lista .m3u8 de cada una: las que no responden o no son video se descartan.
+type Health = 'ok' | 'dead' | 'unknown'
+const healthMemo = new Map<string, { at: number; h: Health }>()
+const HEALTH_TTL = 60 * 60 * 1000
+
+async function checkStream(c: Candidate): Promise<Health> {
+  const hit = healthMemo.get(c.url)
+  if (hit && Date.now() - hit.at < HEALTH_TTL) return hit.h
+  let h: Health = 'dead'
+  try {
+    const res = await fetch(c.url, {
+      headers: {
+        'User-Agent': c.userAgent || 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+        ...(c.referrer ? { Referer: c.referrer } : {}),
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(6000),
+    })
+    if (res.ok) h = (await res.text()).slice(0, 2048).includes('#EXTM3U') ? 'ok' : 'dead'
+    // Bloqueado por país o por origen: desde Chile puede funcionar, se deja (al final de la preferencia)
+    else if ([401, 403, 451].includes(res.status)) h = 'unknown'
+  } catch {
+    h = 'dead'
+  }
+  healthMemo.set(c.url, { at: Date.now(), h })
+  return h
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++
+        out[i] = await fn(items[i])
+      }
+    })
+  )
+  return out
+}
+
+/**
+ * De cada canal (varias direcciones posibles) se queda con la primera que emite.
+ * Si se acaba el tiempo, los que faltan se muestran sin comprobar.
+ */
+async function pickWorking(groups: Candidate[][], budgetMs = 18000): Promise<TvChannel[]> {
+  const deadline = Date.now() + budgetMs
+  const picked = await mapLimit(groups, 24, async (group) => {
+    let fallback: Candidate | null = null
+    for (const c of group) {
+      if (Date.now() > deadline) return toChannel(fallback ?? c)
+      const h = await checkStream(c)
+      if (h === 'ok') return toChannel(c)
+      if (h === 'unknown' && !fallback) fallback = c
+    }
+    return fallback ? toChannel(fallback) : null
+  })
+  return picked.filter((c): c is TvChannel => c !== null)
+}
+
+/** Construye el canal final con su dirección directa y la del intermediario. */
+function toChannel(s: Candidate): TvChannel {
   const headers = { referrer: s.referrer, userAgent: s.userAgent }
   const proxy = proxiedUrl(s.url, headers)
   // Directo solo si es https y no pide cabeceras; si falla (CORS), el reproductor usa el intermediario
@@ -207,60 +272,68 @@ export async function getNationalChannels(countryCode: string): Promise<TvChanne
   for (const l of logos) if (!logoOf.has(l.channel)) logoOf.set(l.channel, l.url)
   const regionName = new Map(subdivisions.map((s) => [s.code, s.name]))
 
-  const result = new Map<string, TvChannel>() // por nombre normalizado
-  const add = (ch: TvChannel) => {
-    const key = norm(ch.name)
-    const prev = result.get(key)
-    // Se prefiere el que se puede ver directo, y si no, el que trae ciudad
-    if (!prev || (!prev.fallbackUrl && ch.fallbackUrl) || (!prev.city && ch.city && !!prev.fallbackUrl === !!ch.fallbackUrl)) {
-      result.set(key, { ...ch, city: ch.city || prev?.city, region: ch.region || prev?.region, logo: ch.logo || prev?.logo || '' })
-    }
+  // Todas las direcciones de cada canal (por nombre), de todas las fuentes
+  const byName = new Map<string, Candidate[]>()
+  const add = (c: Candidate) => {
+    const key = norm(c.name)
+    const list = byName.get(key) ?? []
+    list.push(c)
+    byName.set(key, list)
   }
 
   // 1) Base de datos (con ciudad/región)
   for (const s of streams) {
     const meta = s.channel ? countryChannels.get(s.channel) : undefined
     if (!meta) continue
-    add(
-      toChannel({
-        id: meta.id,
-        name: meta.name,
-        logo: meta.logo || logoOf.get(meta.id) || '',
-        url: s.url,
-        group: (meta.categories ?? []).map((c) => CATEGORY_ES[c] || c)[0] || 'General',
-        city: meta.city || undefined,
-        region: meta.subdivision ? regionName.get(meta.subdivision) || undefined : undefined,
-        referrer: s.referrer || undefined,
-        userAgent: s.user_agent || undefined,
-      })
-    )
+    add({
+      id: meta.id,
+      name: meta.name,
+      logo: meta.logo || logoOf.get(meta.id) || '',
+      url: s.url,
+      group: (meta.categories ?? []).map((c) => CATEGORY_ES[c] || c)[0] || 'General',
+      city: meta.city || undefined,
+      region: meta.subdivision ? regionName.get(meta.subdivision) || undefined : undefined,
+      referrer: s.referrer || undefined,
+      userAgent: s.user_agent || undefined,
+    })
   }
 
   // 2) Lista M3U del país
   for (const s of countryM3u) {
     const meta = s.tvgId ? countryChannels.get(s.tvgId.split('@')[0]) : undefined
-    add(
-      toChannel({
-        id: s.tvgId || s.url,
-        name: s.name,
-        logo: s.logo,
-        url: s.url,
-        group: s.group || 'General',
-        city: meta?.city || undefined,
-        region: meta?.subdivision ? regionName.get(meta.subdivision) : undefined,
-        referrer: s.referrer,
-        userAgent: s.userAgent,
-      })
-    )
+    add({
+      id: s.tvgId || s.url,
+      name: s.name,
+      logo: s.logo,
+      url: s.url,
+      group: s.group || 'General',
+      city: meta?.city || undefined,
+      region: meta?.subdivision ? regionName.get(meta.subdivision) : undefined,
+      referrer: s.referrer,
+      userAgent: s.userAgent,
+    })
   }
 
   // 3) Free-TV: el grupo es el nombre del país en inglés
   for (const s of freeTv) {
     if (s.group.toLowerCase() !== countryEn.toLowerCase()) continue
-    add(toChannel({ id: s.tvgId || s.url, name: s.name, logo: s.logo, url: s.url, group: 'General', referrer: s.referrer, userAgent: s.userAgent }))
+    add({ id: s.tvgId || s.url, name: s.name, logo: s.logo, url: s.url, group: 'General', referrer: s.referrer, userAgent: s.userAgent })
   }
 
-  return Array.from(result.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const groups = Array.from(byName.values()).map((list) => {
+    // Sin repetir direcciones; primero las que se ven directo (sin intermediario)
+    const unique = list.filter((c, i) => list.findIndex((o) => o.url === c.url) === i)
+    const directScore = (c: Candidate) => (c.url.startsWith('https://') && !c.referrer && !c.userAgent ? 0 : 1)
+    unique.sort((a, b) => directScore(a) - directScore(b))
+    // Ciudad, región y logo del que los tenga
+    const city = list.find((c) => c.city)?.city
+    const region = list.find((c) => c.region)?.region
+    const logo = list.find((c) => c.logo.startsWith('https://'))?.logo || ''
+    return unique.map((c) => ({ ...c, city: c.city || city, region: c.region || region, logo: c.logo.startsWith('https://') ? c.logo : logo }))
+  })
+
+  const working = await pickWorking(groups)
+  return working.sort((a, b) => a.name.localeCompare(b.name, 'es', { numeric: true }))
 }
 
 /** Listas temáticas (en español, noticias) con la misma lógica de intermediario. */
@@ -275,14 +348,13 @@ export async function getThemedChannels(list: 'spa' | 'news' | string): Promise<
           : null
   if (!url) return []
   const streams = await cachedText(url).then(parseM3UStreams).catch(() => [] as RawStream[])
-  const seen = new Set<string>()
-  const out: TvChannel[] = []
+  const byName = new Map<string, Candidate[]>()
   for (const s of streams) {
     const key = norm(s.name)
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(toChannel({ id: s.tvgId || s.url, name: s.name, logo: s.logo, url: s.url, group: s.group || 'General', referrer: s.referrer, userAgent: s.userAgent }))
-    if (out.length >= 400) break
+    if (!byName.has(key) && byName.size >= 400) continue
+    const list = byName.get(key) ?? []
+    list.push({ id: s.tvgId || s.url, name: s.name, logo: s.logo, url: s.url, group: s.group || 'General', referrer: s.referrer, userAgent: s.userAgent })
+    byName.set(key, list)
   }
-  return out
+  return pickWorking(Array.from(byName.values()))
 }

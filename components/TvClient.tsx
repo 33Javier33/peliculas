@@ -95,15 +95,37 @@ export default function TvClient() {
     return Array.from(count, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'es'))
   }, [channels])
 
+  // Canales que no cargaron en este teléfono: se marcan "Sin señal" y, la próxima vez que
+  // se abra la lista, quedan al final (no se mueven mientras uno está mirando)
+  const [unavailable, setUnavailable] = useState<Set<string>>(
+    () => new Set(typeof window === 'undefined' ? [] : readSession<string[]>('tv-unavailable') ?? [])
+  )
+  const markUnavailable = useCallback((c: TvChannel, off = true) => {
+    setUnavailable((prev) => {
+      if (prev.has(c.url) === off) return prev
+      const next = new Set(prev)
+      if (off) next.add(c.url)
+      else next.delete(c.url)
+      writeSession('tv-unavailable', Array.from(next).slice(-500))
+      return next
+    })
+  }, [])
+  const unavailableRef = useRef(unavailable)
+  unavailableRef.current = unavailable
+  const ordered = useMemo(() => {
+    const off = unavailableRef.current
+    return off.size ? [...channels.filter((c) => !off.has(c.url)), ...channels.filter((c) => off.has(c.url))] : channels
+  }, [channels])
+
   const visible = useMemo(() => {
     const f = filter.trim().toLowerCase()
     const byPlace = place
-      ? channels.filter((c) => (place === '__national' ? !c.city && !c.region : c.city === place || c.region === place))
-      : channels
+      ? ordered.filter((c) => (place === '__national' ? !c.city && !c.region : c.city === place || c.region === place))
+      : ordered
     return f
       ? byPlace.filter((c) => `${c.name} ${c.group} ${c.city ?? ''} ${c.region ?? ''}`.toLowerCase().includes(f))
       : byPlace
-  }, [channels, filter, place])
+  }, [ordered, filter, place])
 
   // Al abrir o cerrar el reproductor (que ocupa espacio arriba) la pantalla no salta:
   // el canal tocado queda donde estaba, o justo debajo del reproductor si este lo tapa.
@@ -150,6 +172,7 @@ export default function TvClient() {
             onClose={close}
             isFavorite={mounted && favoriteChannels.some((c) => c.url === current.url)}
             onToggleFavorite={() => toggleFavoriteChannel(current)}
+            onUnavailable={markUnavailable}
           />
         )}
 
@@ -161,6 +184,7 @@ export default function TvClient() {
             <ChannelGrid
               channels={favoriteChannels}
               currentUrl={current?.url}
+              unavailableUrls={unavailable}
               favoriteUrls={new Set(favoriteChannels.map((c) => c.url))}
               onSelect={select}
               onToggleFavorite={toggleFavoriteChannel}
@@ -229,6 +253,7 @@ export default function TvClient() {
           <ChannelGrid
             channels={visible}
             currentUrl={current?.url}
+            unavailableUrls={unavailable}
             favoriteUrls={new Set(mounted ? favoriteChannels.map((c) => c.url) : [])}
             onSelect={select}
             onToggleFavorite={toggleFavoriteChannel}
@@ -248,12 +273,14 @@ function ChannelGrid({
   channels,
   currentUrl,
   favoriteUrls,
+  unavailableUrls,
   onSelect,
   onToggleFavorite,
 }: {
   channels: TvChannel[]
   currentUrl?: string
   favoriteUrls: Set<string>
+  unavailableUrls: Set<string>
   onSelect: (c: TvChannel, el?: HTMLElement) => void
   onToggleFavorite: (c: TvChannel) => void
 }) {
@@ -262,6 +289,7 @@ function ChannelGrid({
       {channels.map((c) => {
         const isCurrent = currentUrl === c.url
         const isFav = favoriteUrls.has(c.url)
+        const isOff = unavailableUrls.has(c.url) && !isCurrent
         return (
           <div
             key={c.url}
@@ -271,9 +299,14 @@ function ChannelGrid({
             }`}
           >
             <button onClick={(e) => onSelect(c, e.currentTarget)} className="block w-full text-left">
-              <div className="aspect-video bg-surface-2 flex items-center justify-center p-4">
+              <div className={`relative aspect-video bg-surface-2 flex items-center justify-center p-4 ${isOff ? 'opacity-40' : ''}`}>
                 <ChannelLogo src={c.logo} name={c.name} />
               </div>
+              {isOff && (
+                <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/70 text-slate-300 text-[10px] font-bold uppercase tracking-wider">
+                  Sin señal
+                </span>
+              )}
               <div className="p-2.5 pr-10">
                 <p className={`text-sm font-semibold font-display truncate ${isCurrent ? 'text-emerald-400' : 'text-white'}`}>{c.name}</p>
                 <p className="text-slate-500 text-xs truncate">{[c.city || c.region, c.group].filter(Boolean).join(' · ') || 'General'}</p>
@@ -318,19 +351,30 @@ const TvPlayer = forwardRef<
     onClose: () => void
     isFavorite: boolean
     onToggleFavorite: () => void
+    onUnavailable?: (c: TvChannel, off?: boolean) => void
   }
->(function TvPlayer({ channel, onClose, isFavorite, onToggleFavorite }, ref) {
+>(function TvPlayer({ channel, onClose, isFavorite, onToggleFavorite, onUnavailable }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
-  // Primero la dirección directa; si falla (CORS, corte), la del intermediario
+  // Primero la dirección directa; si no arranca (CORS, corte), la del intermediario
   const [src, setSrc] = useState(channel.url)
-  useEffect(() => setSrc(channel.url), [channel.url])
+  // Sube con "Reintentar" para volver a cargar el canal desde cero
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    setSrc(channel.url)
+    setAttempt(0)
+  }, [channel.url])
   const failed = useCallback(() => {
     if (channel.fallbackUrl && src !== channel.fallbackUrl) setSrc(channel.fallbackUrl)
-    else setStatus('error')
-  }, [channel.fallbackUrl, src])
+    else {
+      setStatus('error')
+      onUnavailable?.(channel)
+    }
+  }, [channel, src, onUnavailable])
   const failedRef = useRef(failed)
   failedRef.current = failed
+  const workingRef = useRef(() => onUnavailable?.(channel, false))
+  workingRef.current = () => onUnavailable?.(channel, false)
 
   useEffect(() => {
     // La TV y la música no suenan a la vez
@@ -339,25 +383,94 @@ const TvPlayer = forwardRef<
     const video = videoRef.current
     if (!video) return
     let destroyed = false
-    let hls: { destroy: () => void } | null = null
+    let started = false
+    let hls: import('hls.js').default | null = null
+    let stallTimer: ReturnType<typeof setTimeout> | undefined
     setStatus('loading')
 
-    const onPlaying = () => setStatus('playing')
-    const onError = () => failedRef.current()
+    const onPlaying = () => {
+      started = true
+      clearTimeout(stallTimer)
+      setStatus('playing')
+      workingRef.current()
+    }
+    // Si se queda "pensando" mucho rato, se vuelve a pedir la señal y se salta al punto en vivo
+    const onWaiting = () => {
+      clearTimeout(stallTimer)
+      stallTimer = setTimeout(() => {
+        if (destroyed) return
+        if (hls) {
+          hls.startLoad()
+          if (hls.liveSyncPosition) video.currentTime = hls.liveSyncPosition
+        } else {
+          video.load()
+        }
+        video.play().catch(() => {})
+      }, 8000)
+    }
+    // Algunos canales entregan la emisión por tramos: al terminar uno se pide el siguiente
+    const onEnded = () => {
+      if (destroyed) return
+      if (hls) {
+        hls.stopLoad()
+        hls.loadSource(src)
+      } else {
+        video.load()
+      }
+      video.play().catch(() => {})
+    }
     video.addEventListener('playing', onPlaying)
-    video.addEventListener('error', onError)
+    video.addEventListener('waiting', onWaiting)
+    video.addEventListener('stalled', onWaiting)
+    video.addEventListener('ended', onEnded)
 
     import('hls.js').then(({ default: Hls }) => {
       if (destroyed) return
       if (Hls.isSupported()) {
-        const instance = new Hls({ enableWorker: true, lowLatencyMode: true })
+        const instance = new Hls({
+          enableWorker: true,
+          // El modo de baja latencia hace que los canales normales se detengan a cada rato
+          lowLatencyMode: false,
+          // Más colchón: unos segundos detrás del vivo, pero sin cortes
+          liveSyncDurationCount: 4,
+          liveMaxLatencyDurationCount: 12,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          backBufferLength: 30,
+          // Calidad según el tamaño de la pantalla y la conexión
+          capLevelToPlayerSize: true,
+          startLevel: -1,
+          // Reintentos ante una red inestable
+          manifestLoadingMaxRetry: 3,
+          levelLoadingMaxRetry: 6,
+          fragLoadingMaxRetry: 6,
+          fragLoadingRetryDelay: 1000,
+          nudgeMaxRetry: 10,
+        })
         hls = instance
+        let networkRetries = 0
+        let mediaRecoveries = 0
+        instance.on(Hls.Events.FRAG_LOADED, () => {
+          networkRetries = 0
+        })
         instance.on(Hls.Events.ERROR, (_e, data) => {
-          if (data.fatal) failedRef.current()
+          if (!data.fatal || destroyed) return
+          // Si nunca arrancó, se prueba la otra dirección; si ya se veía, se intenta recuperar
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR && started && networkRetries < 5) {
+            networkRetries++
+            setTimeout(() => !destroyed && instance.startLoad(), 1000 * networkRetries)
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && mediaRecoveries < 2) {
+            if (mediaRecoveries++ === 1) instance.swapAudioCodec()
+            instance.recoverMediaError()
+          } else {
+            failedRef.current()
+          }
         })
         instance.loadSource(src)
         instance.attachMedia(video)
       } else {
+        // iPhone: reproductor nativo
+        video.addEventListener('error', () => !destroyed && failedRef.current(), { once: true })
         video.src = src
       }
       video.play().catch(() => {})
@@ -365,13 +478,16 @@ const TvPlayer = forwardRef<
 
     return () => {
       destroyed = true
+      clearTimeout(stallTimer)
       video.removeEventListener('playing', onPlaying)
-      video.removeEventListener('error', onError)
+      video.removeEventListener('waiting', onWaiting)
+      video.removeEventListener('stalled', onWaiting)
+      video.removeEventListener('ended', onEnded)
       hls?.destroy()
       video.removeAttribute('src')
       video.load()
     }
-  }, [src])
+  }, [src, attempt])
 
   return (
     <div ref={ref} className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
@@ -387,6 +503,15 @@ const TvPlayer = forwardRef<
             <AlertCircle className="w-8 h-8 text-red-400" />
             <p className="text-white font-semibold">Este canal no está disponible ahora</p>
             <p className="text-slate-400 text-sm">Puede estar fuera del aire o solo emitir en su país. Prueba con otro.</p>
+            <button
+              onClick={() => {
+                setSrc(channel.url)
+                setAttempt((n) => n + 1)
+              }}
+              className="mt-1 px-4 py-2 rounded-full bg-violet-500 text-white text-sm font-semibold"
+            >
+              Reintentar
+            </button>
           </div>
         )}
       </div>

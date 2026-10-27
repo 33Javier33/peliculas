@@ -3,7 +3,7 @@ import { getNationalChannels, getThemedChannels } from '@/lib/tv'
 import { getRequestRegion } from '@/lib/region'
 
 // /api/tv?list=cl | ?list=cl-rm (región) | ?list=spa (en español, todo el mundo) | ?list=news ; sin list → país del usuario
-export const maxDuration = 30
+export const maxDuration = 60
 
 export async function GET(request: NextRequest) {
   const listParam = (request.nextUrl.searchParams.get('list') || '').toLowerCase()
