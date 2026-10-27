@@ -14,6 +14,8 @@ export interface MusicVideo {
   likeCount?: string
   // Radio en vivo: stream de audio directo (no es un video de YouTube)
   streamUrl?: string
+  // Canciones de un álbum del catálogo: nombre del álbum
+  album?: string
 }
 
 export interface MusicSearchResult {

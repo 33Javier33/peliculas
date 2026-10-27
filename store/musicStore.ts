@@ -102,9 +102,10 @@ export function parseTrackMeta(video: MusicVideo): { artist: string; album?: str
   const rawTitle = video.title || ''
   const channel = (video.channelTitle || '').replace(/\s*-?\s*(Topic|VEVO|Official)\s*$/i, '').trim()
 
-  let album: string | undefined
+  // Canciones del catálogo de álbumes ya traen su álbum
+  let album: string | undefined = video.album
   const bracket = rawTitle.match(/\[([^\]]+)\]/)
-  if (bracket) {
+  if (bracket && !album) {
     const inside = bracket[1].trim()
     if (!/official|video|audio|lyrics|hd|4k|mv|m\/v/i.test(inside)) {
       album = inside

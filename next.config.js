@@ -20,6 +20,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'img.youtube.com',
       },
+      // Portadas de álbumes y fotos de artistas (Deezer)
+      {
+        protocol: 'https',
+        hostname: '*.dzcdn.net',
+      },
     ],
   },
 }

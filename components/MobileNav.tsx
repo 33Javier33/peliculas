@@ -14,7 +14,7 @@ const items = [
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname.startsWith('/movie') || pathname === '/search'
-  if (href === '/music') return pathname === '/music' || pathname.startsWith('/play')
+  if (href === '/music') return pathname === '/music' || pathname.startsWith('/play') || pathname.startsWith('/music/album') || pathname.startsWith('/music/artist')
   if (href === '/radio') return pathname.startsWith('/radio') || pathname.startsWith('/tv')
   return pathname.startsWith(href)
 }

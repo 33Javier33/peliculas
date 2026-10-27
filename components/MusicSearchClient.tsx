@@ -9,6 +9,7 @@ import MusicCard from '@/components/MusicCard'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
+import type { CatalogArtist, CatalogAlbum } from '@/lib/catalog'
 
 const FOR_YOU_CACHE_KEY = 'cpn-for-you'
 const FOR_YOU_TTL_MS = 6 * 60 * 60 * 1000
@@ -27,6 +28,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const isSearchModeRef = useRef(false)
   const [nextPageToken, setNextPageToken] = useState<string | undefined>()
   const [isSearchMode, setIsSearchMode] = useState(false)
+  const [catalog, setCatalog] = useState<{ artists: CatalogArtist[]; albums: CatalogAlbum[] } | null>(null)
   isSearchModeRef.current = isSearchMode
 
   useEffect(() => {
@@ -148,6 +150,13 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
       setError(null)
       setSubmittedQuery(q)
 
+      // Artistas y álbumes completos (catálogo) en paralelo con las canciones
+      setCatalog(null)
+      fetch(`/api/catalog/search?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { artists: CatalogArtist[]; albums: CatalogAlbum[] } | null) => d && setCatalog(d))
+        .catch(() => {})
+
       startTransition(async () => {
         try {
           const res = await fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
@@ -227,6 +236,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     setError(null)
     setNextPageToken(undefined)
     setSubmittedQuery('')
+    setCatalog(null)
     inputRef.current?.focus()
   }, [trending])
 
@@ -349,6 +359,45 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </button>
               )}
             </div>
+            {/* Artistas y álbumes (como en Spotify) */}
+            {catalog && catalog.artists.length > 0 && (
+              <div className="mb-7">
+                <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Artistas</h3>
+                <div className="flex gap-4 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+                  {catalog.artists.map((a) => (
+                    <Link key={a.id} href={`/music/artist/${a.id}`} className="group shrink-0 w-24 text-center">
+                      <div className="relative w-24 h-24 rounded-full overflow-hidden bg-surface-2 border border-white/8">
+                        {a.picture && <Image src={a.picture} alt={a.name} fill sizes="96px" className="object-cover group-hover:scale-105 transition-transform duration-500" />}
+                      </div>
+                      <p className="text-white text-xs font-semibold mt-2 line-clamp-2 group-hover:text-violet-300">{a.name}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            {catalog && catalog.albums.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Álbumes completos</h3>
+                <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x [scrollbar-width:none]">
+                  {catalog.albums.map((a) => (
+                    <Link key={a.id} href={`/music/album/${a.id}`} className="group shrink-0 w-36 sm:w-40 snap-start">
+                      <div className="relative aspect-square rounded-xl overflow-hidden bg-surface-2 border border-white/8">
+                        {a.cover && <Image src={a.cover} alt={a.title} fill sizes="160px" className="object-cover group-hover:scale-105 transition-transform duration-500" />}
+                      </div>
+                      <p className="text-white text-sm font-semibold font-display leading-tight line-clamp-2 mt-2 group-hover:text-violet-300">{a.title}</p>
+                      <p className="text-slate-500 text-xs truncate">
+                        {a.artist.name}
+                        {a.year ? ` · ${a.year}` : ''}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+            {isSearchMode && !isPending && videos.length > 0 && (catalog?.artists.length || catalog?.albums.length) ? (
+              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones y videos</h3>
+            ) : null}
+
             {isPending ? (
               <GridSkeleton />
             ) : videos.length > 0 ? (
