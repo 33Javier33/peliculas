@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchMoviesOnYouTube, getTrendingMoviesOnYouTube } from '@/lib/youtube'
+import { searchMoviesOnYouTube, getTrendingMoviesOnYouTube, parseVideoLang } from '@/lib/youtube'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const query = searchParams.get('q')?.trim() || ''
   const pageToken = searchParams.get('pageToken') || undefined
+  // Idioma: latino (por defecto), castellano o ingles
+  const lang = parseVideoLang(searchParams.get('lang'))
 
   try {
     const data = query
-      ? await searchMoviesOnYouTube(query, pageToken)
-      : await getTrendingMoviesOnYouTube()
+      ? await searchMoviesOnYouTube(query, pageToken, lang)
+      : await getTrendingMoviesOnYouTube(lang, pageToken)
 
     return NextResponse.json(
       { items: data.items, nextPageToken: data.nextPageToken },

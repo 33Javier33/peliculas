@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Play, Clock, Eye } from 'lucide-react'
+import { Play, Clock, Eye, Heart, Clock3 } from 'lucide-react'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 import { getBestThumbnail, timeAgo } from '@/lib/youtube'
 import { decodeEntities } from '@/lib/youtube-music'
@@ -11,9 +11,23 @@ interface YoutubeCardProps {
   duration?: string
   viewCount?: string
   onClick: (videoId: string, title: string, channelTitle: string) => void
+  // Me gusta / Ver más tarde
+  liked?: boolean
+  later?: boolean
+  onToggleLike?: () => void
+  onToggleLater?: () => void
 }
 
-export default function YoutubeCard({ item, duration, viewCount, onClick }: YoutubeCardProps) {
+export default function YoutubeCard({
+  item,
+  duration,
+  viewCount,
+  onClick,
+  liked,
+  later,
+  onToggleLike,
+  onToggleLater,
+}: YoutubeCardProps) {
   const thumbnail = getBestThumbnail(item)
   const { publishedAt, description } = item.snippet
   // YouTube entrega los títulos con entidades HTML (&quot;, &#39;…)
@@ -22,9 +36,10 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
   const videoId = item.id.videoId
 
   return (
+    <div className="relative group">
     <button
       onClick={() => onClick(videoId, title, channelTitle)}
-      className="group w-full text-left bg-surface-1 border border-white/10 rounded-xl overflow-hidden hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-900/20 transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+      className="group w-full text-left bg-surface-1 border border-white/10 rounded-xl overflow-hidden hover:border-violet-500/50 hover:shadow-xl hover:shadow-violet-900/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
     >
       <div className="relative aspect-video overflow-hidden bg-surface-2">
         {thumbnail ? (
@@ -76,8 +91,12 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
               </span>
             </>
           )}
-          <span className="w-0.5 h-0.5 bg-slate-700 rounded-full" />
-          <span className="text-slate-600 text-xs">{timeAgo(publishedAt)}</span>
+          {publishedAt && (
+            <>
+              <span className="w-0.5 h-0.5 bg-slate-700 rounded-full" />
+              <span className="text-slate-600 text-xs">{timeAgo(publishedAt)}</span>
+            </>
+          )}
         </div>
 
         {description && (
@@ -87,5 +106,38 @@ export default function YoutubeCard({ item, duration, viewCount, onClick }: Yout
         )}
       </div>
     </button>
+
+      {/* Me gusta y Ver más tarde, sobre la miniatura */}
+      {(onToggleLike || onToggleLater) && (
+        <div className="absolute top-2 right-2 flex gap-1.5">
+          {onToggleLater && (
+            <button
+              onClick={onToggleLater}
+              className={`w-9 h-9 rounded-full backdrop-blur-md flex items-center justify-center transition-colors ${
+                later ? 'bg-emerald-500/90 text-white' : 'bg-black/60 text-white hover:bg-black/80'
+              }`}
+              aria-label={later ? 'Quitar de Ver más tarde' : 'Ver más tarde'}
+              aria-pressed={later}
+              title={later ? 'Quitar de Ver más tarde' : 'Ver más tarde'}
+            >
+              <Clock3 className="w-4 h-4" />
+            </button>
+          )}
+          {onToggleLike && (
+            <button
+              onClick={onToggleLike}
+              className={`w-9 h-9 rounded-full backdrop-blur-md flex items-center justify-center transition-colors ${
+                liked ? 'bg-violet-500/90 text-white' : 'bg-black/60 text-white hover:bg-black/80'
+              }`}
+              aria-label={liked ? 'Quitar de Me gusta' : 'Me gusta'}
+              aria-pressed={liked}
+              title={liked ? 'Quitar de Me gusta' : 'Me gusta'}
+            >
+              <Heart className={`w-4 h-4 ${liked ? 'fill-white' : ''}`} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

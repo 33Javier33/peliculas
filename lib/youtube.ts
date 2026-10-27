@@ -68,6 +68,20 @@ function getYouTubeApiKey(): string {
   return key
 }
 
+// ===== Idiomas de la sección Videos =====
+
+export type VideoLang = 'latino' | 'castellano' | 'ingles'
+
+export const VIDEO_LANGS: Record<VideoLang, { suffix: string; trending: string; region: string; language: string }> = {
+  latino: { suffix: 'pelicula completa español latino', trending: 'pelicula completa español latino HD', region: 'MX', language: 'es' },
+  castellano: { suffix: 'película completa en castellano', trending: 'película completa castellano HD', region: 'ES', language: 'es' },
+  ingles: { suffix: 'full movie english', trending: 'full movie english HD', region: 'US', language: 'en' },
+}
+
+export function parseVideoLang(value: string | null | undefined): VideoLang {
+  return value === 'castellano' || value === 'ingles' ? value : 'latino'
+}
+
 // ===== Respaldo sin cuota (Invidious/Piped) =====
 
 function publicToSearchItem(v: PublicVideo): YouTubeSearchItem {
@@ -103,33 +117,39 @@ async function publicMovieSearch(query: string, page: number): Promise<YouTubeSe
   }
 }
 
-export async function searchMoviesOnYouTube(query: string, pageToken?: string): Promise<YouTubeSearchResponse> {
+export async function searchMoviesOnYouTube(
+  query: string,
+  pageToken?: string,
+  lang: VideoLang = 'latino'
+): Promise<YouTubeSearchResponse> {
   const publicPage = pageToken?.match(PUBLIC_PAGE)
   if (query.trim() && !publicPage && !isQuotaBlocked()) {
     try {
-      return await searchMoviesOnYouTubeApi(query, pageToken)
+      return await searchMoviesOnYouTubeApi(query, pageToken, lang)
     } catch {
       // Cuota agotada o error de YouTube: se sigue con el respaldo
     }
   }
-  if (!query.trim()) return searchMoviesOnYouTubeApi(query, pageToken)
-  return publicMovieSearch(`${query.trim()} pelicula completa español latino`, publicPage ? Number(publicPage[1]) : 1)
+  if (!query.trim()) return searchMoviesOnYouTubeApi(query, pageToken, lang)
+  return publicMovieSearch(`${query.trim()} ${VIDEO_LANGS[lang].suffix}`, publicPage ? Number(publicPage[1]) : 1)
 }
 
-export async function getTrendingMoviesOnYouTube(): Promise<YouTubeSearchResponse> {
-  if (!isQuotaBlocked()) {
+export async function getTrendingMoviesOnYouTube(lang: VideoLang = 'latino', pageToken?: string): Promise<YouTubeSearchResponse> {
+  const publicPage = pageToken?.match(PUBLIC_PAGE)
+  if (!publicPage && !isQuotaBlocked()) {
     try {
-      return await getTrendingMoviesOnYouTubeApi()
+      return await getTrendingMoviesOnYouTubeApi(lang, pageToken)
     } catch {
       // Respaldo abajo
     }
   }
-  return publicMovieSearch('pelicula completa español latino HD', 1)
+  return publicMovieSearch(VIDEO_LANGS[lang].trending, publicPage ? Number(publicPage[1]) : 1)
 }
 
 async function searchMoviesOnYouTubeApi(
   query: string,
-  pageToken?: string
+  pageToken: string | undefined,
+  lang: VideoLang
 ): Promise<YouTubeSearchResponse> {
   const apiKey = getYouTubeApiKey()
 
@@ -142,7 +162,7 @@ async function searchMoviesOnYouTubeApi(
     }
   }
 
-  const enhancedQuery = `${query.trim()} pelicula completa español latino`
+  const enhancedQuery = `${query.trim()} ${VIDEO_LANGS[lang].suffix}`
 
   const url = new URL(`${YOUTUBE_API_BASE}/search`)
   url.searchParams.set('key', apiKey)
@@ -151,8 +171,8 @@ async function searchMoviesOnYouTubeApi(
   url.searchParams.set('type', 'video')
   url.searchParams.set('videoDuration', 'long')
   url.searchParams.set('maxResults', '20')
-  url.searchParams.set('relevanceLanguage', 'es')
-  url.searchParams.set('regionCode', 'MX')
+  url.searchParams.set('relevanceLanguage', VIDEO_LANGS[lang].language)
+  url.searchParams.set('regionCode', VIDEO_LANGS[lang].region)
   url.searchParams.set('videoEmbeddable', 'true')
   url.searchParams.set('safeSearch', 'none')
   if (pageToken) {
@@ -173,19 +193,20 @@ async function searchMoviesOnYouTubeApi(
   return response.json() as Promise<YouTubeSearchResponse>
 }
 
-async function getTrendingMoviesOnYouTubeApi(): Promise<YouTubeSearchResponse> {
+async function getTrendingMoviesOnYouTubeApi(lang: VideoLang, pageToken?: string): Promise<YouTubeSearchResponse> {
   const apiKey = getYouTubeApiKey()
 
   const url = new URL(`${YOUTUBE_API_BASE}/search`)
   url.searchParams.set('key', apiKey)
-  url.searchParams.set('q', 'pelicula completa español latino 2024 HD')
+  url.searchParams.set('q', VIDEO_LANGS[lang].trending)
+  if (pageToken) url.searchParams.set('pageToken', pageToken)
   url.searchParams.set('part', 'snippet')
   url.searchParams.set('type', 'video')
   url.searchParams.set('videoDuration', 'long')
   url.searchParams.set('maxResults', '20')
   url.searchParams.set('order', 'viewCount')
-  url.searchParams.set('relevanceLanguage', 'es')
-  url.searchParams.set('regionCode', 'MX')
+  url.searchParams.set('relevanceLanguage', VIDEO_LANGS[lang].language)
+  url.searchParams.set('regionCode', VIDEO_LANGS[lang].region)
   url.searchParams.set('videoEmbeddable', 'true')
   url.searchParams.set('publishedAfter', '2023-01-01T00:00:00Z')
 

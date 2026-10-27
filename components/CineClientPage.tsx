@@ -2,12 +2,15 @@
 
 import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp } from 'lucide-react'
+import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp, Heart, Clock3, ChevronDown, Play } from 'lucide-react'
+import Image from 'next/image'
+import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
-import type { YouTubeSearchItem, YouTubeVideoItem } from '@/lib/youtube'
+import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
 import { parseDuration, formatViewCount } from '@/lib/youtube'
+import { decodeEntities } from '@/lib/youtube-music'
 
 interface VideoDetails {
   [videoId: string]: YouTubeVideoItem
@@ -18,6 +21,16 @@ interface PlayerState {
   title: string
   channelTitle: string
 }
+
+// Idiomas de la sección (búsquedas y "más vistos")
+const LANGS: { id: VideoLang; label: string; title: string; heading: string; description: string }[] = [
+  { id: 'latino', label: '🇲🇽 Español latino', title: 'Español Latino', heading: 'Más vistos en español latino', description: 'Películas completas en español latino disponibles en YouTube.' },
+  { id: 'castellano', label: '🇪🇸 Castellano', title: 'Castellano', heading: 'Más vistos en castellano', description: 'Películas completas dobladas en castellano (España) disponibles en YouTube.' },
+  { id: 'ingles', label: '🇺🇸 Inglés', title: 'Inglés', heading: 'Más vistos en inglés', description: 'Full movies in English available on YouTube.' },
+]
+const LANG_KEY = 'cpn-video-lang'
+const SAVED_OPEN_KEY = 'cpn-saved-videos-open'
+const thumbOf = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
 
 interface CineClientPageProps {
   initialItems: YouTubeSearchItem[]
@@ -41,6 +54,29 @@ export default function CineClientPage({
   const [isPending, startTransition] = useTransition()
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // ===== Idioma =====
+  const [lang, setLang] = useState<VideoLang>('latino')
+  const langRef = useRef<VideoLang>('latino')
+  langRef.current = lang
+  const langInfo = LANGS.find((l) => l.id === lang) ?? LANGS[0]
+
+  // ===== Me gusta / Ver más tarde =====
+  const { liked, watchLater, toggle, remove } = useVideoStore()
+  const [mounted, setMounted] = useState(false)
+  const [savedTab, setSavedTab] = useState<'liked' | 'watchLater'>('liked')
+  const [savedOpen, setSavedOpen] = useState(true)
+  useEffect(() => {
+    setMounted(true)
+    try {
+      const l = localStorage.getItem(LANG_KEY)
+      if (l === 'castellano' || l === 'ingles') setLang(l)
+      setSavedOpen(localStorage.getItem(SAVED_OPEN_KEY) !== '0')
+    } catch {}
+  }, [])
+  const likedIds = new Set(mounted ? liked.map((v) => v.id) : [])
+  const laterIds = new Set(mounted ? watchLater.map((v) => v.id) : [])
+  const toggleSaved = (list: 'liked' | 'watchLater', v: Omit<SavedVideo, 'addedAt'>) => toggle(list, v)
 
   const enrichWithDetails = useCallback(async (items: YouTubeSearchItem[]) => {
     const ids = items.map((i) => i.id.videoId).filter(Boolean)
@@ -70,7 +106,7 @@ export default function CineClientPage({
       startTransition(async () => {
         try {
           const res = await fetch(
-            `/api/youtube/search?q=${encodeURIComponent(trimmed)}`
+            `/api/youtube/search?q=${encodeURIComponent(trimmed)}&lang=${langRef.current}`
           )
           if (!res.ok) {
             const body = await res.json().catch(() => ({}))
@@ -138,6 +174,7 @@ export default function CineClientPage({
         params.set('q', submittedQuery)
       }
       params.set('pageToken', nextPageToken)
+      params.set('lang', lang)
 
       const res = await fetch(`/api/youtube/search?${params.toString()}`)
       if (!res.ok) throw new Error(`Error ${res.status}`)
@@ -156,18 +193,63 @@ export default function CineClientPage({
     } finally {
       setIsLoadingMore(false)
     }
-  }, [nextPageToken, isLoadingMore, isSearchMode, submittedQuery, enrichWithDetails])
+  }, [nextPageToken, isLoadingMore, isSearchMode, submittedQuery, enrichWithDetails, lang])
+
+  // "Más vistos" del idioma elegido (la página trae los de español latino)
+  const loadTrending = useCallback(
+    async (l: VideoLang) => {
+      if (l === 'latino') {
+        setResults(initialItems)
+        setVideoDetails(initialVideoDetails)
+        setNextPageToken(initialNextPageToken)
+        return
+      }
+      startTransition(async () => {
+        try {
+          const res = await fetch(`/api/youtube/search?lang=${l}`)
+          if (!res.ok) throw new Error(`Error ${res.status}`)
+          const data = (await res.json()) as { items: YouTubeSearchItem[]; nextPageToken?: string }
+          setResults(data.items)
+          setNextPageToken(data.nextPageToken)
+          const details = await enrichWithDetails(data.items)
+          setVideoDetails((prev) => ({ ...prev, ...details }))
+        } catch (err) {
+          setError((err as Error).message)
+          setResults([])
+        }
+      })
+    },
+    [initialItems, initialVideoDetails, initialNextPageToken, enrichWithDetails]
+  )
+
+  const isFirstLang = useRef(true)
+  useEffect(() => {
+    // Al montar solo se recarga si el idioma guardado no es el latino
+    if (isFirstLang.current) {
+      isFirstLang.current = false
+      if (lang === 'latino') return
+    }
+    setError(null)
+    if (isSearchMode && submittedQuery) runSearch(submittedQuery)
+    else loadTrending(lang)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang])
+
+  const changeLang = (l: VideoLang) => {
+    setLang(l)
+    try {
+      localStorage.setItem(LANG_KEY, l)
+    } catch {}
+  }
 
   const handleClearSearch = useCallback(() => {
     setQuery('')
     setSubmittedQuery('')
     setIsSearchMode(false)
-    setResults(initialItems)
-    setVideoDetails(initialVideoDetails)
-    setNextPageToken(initialNextPageToken)
     setError(null)
+    loadTrending(langRef.current)
     inputRef.current?.focus()
-  }, [initialItems, initialVideoDetails, initialNextPageToken])
+  }, [loadTrending])
 
   const openPlayer = useCallback(
     (videoId: string, title: string, channelTitle: string) => {
@@ -188,6 +270,14 @@ export default function CineClientPage({
           title={player.title}
           channelTitle={player.channelTitle}
           onClose={closePlayer}
+          liked={likedIds.has(player.videoId)}
+          later={laterIds.has(player.videoId)}
+          onToggleLike={() =>
+            toggleSaved('liked', { id: player.videoId, title: player.title, channelTitle: player.channelTitle, thumbnail: thumbOf(player.videoId) })
+          }
+          onToggleLater={() =>
+            toggleSaved('watchLater', { id: player.videoId, title: player.title, channelTitle: player.channelTitle, thumbnail: thumbOf(player.videoId) })
+          }
         />
       )}
 
@@ -201,12 +291,10 @@ export default function CineClientPage({
             <h1 className="text-4xl sm:text-5xl font-black text-white mb-3 leading-tight">
               Películas en{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-violet-400">
-                Español Latino
+                {langInfo.title}
               </span>
             </h1>
-            <p className="text-slate-500 text-base max-w-lg mx-auto">
-              Busca películas completas disponibles en YouTube. Contenido en español latino y HD.
-            </p>
+            <p className="text-slate-500 text-base max-w-lg mx-auto">{langInfo.description}</p>
           </div>
 
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto mb-10" role="search">
@@ -262,6 +350,99 @@ export default function CineClientPage({
             </div>
           )}
 
+          {/* Mis videos: Me gusta / Ver más tarde */}
+          {mounted && (liked.length > 0 || watchLater.length > 0) && (
+            <section className="mb-8 bg-surface-1/60 border border-white/8 rounded-2xl p-3">
+              <div className="flex items-center gap-2">
+                {([
+                  ['liked', Heart, 'Me gusta', liked.length],
+                  ['watchLater', Clock3, 'Ver más tarde', watchLater.length],
+                ] as const).map(([id, Icon, label, count]) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setSavedTab(id)
+                      if (!savedOpen) {
+                        setSavedOpen(true)
+                        try { localStorage.setItem(SAVED_OPEN_KEY, '1') } catch {}
+                      }
+                    }}
+                    className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-[13px] font-semibold font-display transition-colors ${
+                      savedTab === id && savedOpen ? 'bg-violet-300 text-violet-950' : 'bg-surface-2/70 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${id === 'liked' && savedTab === id && savedOpen ? 'fill-violet-950' : ''}`} />
+                    {label} <span className="opacity-70">({count})</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setSavedOpen((o) => {
+                      try { localStorage.setItem(SAVED_OPEN_KEY, o ? '0' : '1') } catch {}
+                      return !o
+                    })
+                  }}
+                  className="ml-auto w-9 h-9 rounded-full flex items-center justify-center text-violet-300"
+                  aria-label={savedOpen ? 'Plegar mis videos' : 'Mostrar mis videos'}
+                  aria-expanded={savedOpen}
+                >
+                  <ChevronDown className={`w-5 h-5 transition-transform ${savedOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {savedOpen && (
+                (savedTab === 'liked' ? liked : watchLater).length === 0 ? (
+                  <p className="text-slate-500 text-sm px-1 pt-3">
+                    {savedTab === 'liked' ? 'Aún no tienes videos con Me gusta.' : 'No tienes videos para ver más tarde.'}
+                  </p>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto mt-3 -mx-1 px-1 pb-1 snap-x [scrollbar-width:none]">
+                    {(savedTab === 'liked' ? liked : watchLater).map((v) => (
+                      <div key={v.id} className="relative shrink-0 w-48 sm:w-56 snap-start">
+                        <button onClick={() => openPlayer(v.id, v.title, v.channelTitle)} className="block w-full text-left group">
+                          <div className="relative aspect-video rounded-lg overflow-hidden bg-surface-2">
+                            <Image src={v.thumbnail} alt={v.title} fill sizes="224px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <span className="w-9 h-9 rounded-full bg-violet-500/90 flex items-center justify-center">
+                                <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                              </span>
+                            </span>
+                          </div>
+                          <p className="text-white text-xs font-semibold leading-snug line-clamp-2 mt-1.5">{v.title}</p>
+                          <p className="text-slate-500 text-[11px] truncate">{v.channelTitle}</p>
+                        </button>
+                        <button
+                          onClick={() => remove(savedTab, v.id)}
+                          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/70 text-white flex items-center justify-center"
+                          aria-label={`Quitar ${v.title}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </section>
+          )}
+
+          {/* Idioma */}
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="tablist" aria-label="Idioma">
+            {LANGS.map((l) => (
+              <button
+                key={l.id}
+                role="tab"
+                aria-selected={lang === l.id}
+                onClick={() => changeLang(l.id)}
+                className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold font-display transition-colors ${
+                  lang === l.id ? 'bg-violet-500 text-white shadow-glow' : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {isSearchMode ? (
@@ -278,7 +459,7 @@ export default function CineClientPage({
               ) : (
                 <>
                   <TrendingUp className="w-5 h-5 text-violet-500" />
-                  <h2 className="text-white font-bold text-lg">Más vistos en Español</h2>
+                  <h2 className="text-white font-bold text-lg">{langInfo.heading}</h2>
                 </>
               )}
             </div>
@@ -337,6 +518,26 @@ export default function CineClientPage({
                     duration={duration}
                     viewCount={viewCount}
                     onClick={openPlayer}
+                    liked={likedIds.has(item.id.videoId)}
+                    later={laterIds.has(item.id.videoId)}
+                    onToggleLike={() =>
+                      toggleSaved('liked', {
+                        id: item.id.videoId,
+                        title: decodeEntities(item.snippet.title),
+                        channelTitle: decodeEntities(item.snippet.channelTitle),
+                        thumbnail: thumbOf(item.id.videoId),
+                        duration,
+                      })
+                    }
+                    onToggleLater={() =>
+                      toggleSaved('watchLater', {
+                        id: item.id.videoId,
+                        title: decodeEntities(item.snippet.title),
+                        channelTitle: decodeEntities(item.snippet.channelTitle),
+                        thumbnail: thumbOf(item.id.videoId),
+                        duration,
+                      })
+                    }
                   />
                 )
               })}

@@ -161,3 +161,54 @@ export async function findAudioCandidates(id: string): Promise<AudioCandidate[]>
 export function isValidVideoId(id: string | null): id is string {
   return !!id && /^[A-Za-z0-9_-]{6,20}$/.test(id)
 }
+
+// ===== Video completo (audio + imagen) para cuando YouTube no deja insertar el video =====
+
+export interface VideoCandidate {
+  url: string
+  quality: number // altura en píxeles (360, 720…)
+  source: string
+}
+
+interface PipedVideoStreams {
+  videoStreams?: { url: string; mimeType?: string; quality?: string; videoOnly?: boolean }[]
+}
+
+async function videoFromPiped(base: string, id: string): Promise<VideoCandidate[]> {
+  const data = await fetchJson<PipedVideoStreams>(`${base}/streams/${encodeURIComponent(id)}`)
+  return (data.videoStreams ?? [])
+    // Solo streams con audio incluido y en MP4 (se reproducen en cualquier navegador)
+    .filter((s) => s.url && s.videoOnly === false && (s.mimeType || '').includes('mp4'))
+    .map((s) => ({ url: s.url, quality: parseInt(s.quality || '0', 10) || 0, source: base }))
+}
+
+interface InvidiousFormats {
+  formatStreams?: { itag: string | number; type?: string; resolution?: string; qualityLabel?: string }[]
+}
+
+async function videoFromInvidious(base: string, id: string): Promise<VideoCandidate[]> {
+  const data = await fetchJson<InvidiousFormats>(`${base}/api/v1/videos/${encodeURIComponent(id)}?fields=formatStreams`)
+  return (data.formatStreams ?? [])
+    .filter((f) => (f.type || '').startsWith('video/mp4'))
+    .map((f) => ({
+      // formatStreams ya traen audio y video juntos; local=true los sirve la propia instancia
+      url: `${base}/latest_version?id=${encodeURIComponent(id)}&itag=${f.itag}&local=true`,
+      quality: parseInt(f.resolution || f.qualityLabel || '0', 10) || 0,
+      source: base,
+    }))
+}
+
+/** Candidatos de video (mejor calidad primero, uno por instancia que responda). */
+export async function findVideoCandidates(id: string): Promise<VideoCandidate[]> {
+  const { piped, invidious } = await getInstances()
+  const results = await Promise.allSettled([
+    ...piped.slice(0, MAX_PER_KIND).map((b) => videoFromPiped(b, id)),
+    ...invidious.slice(0, MAX_PER_KIND).map((b) => videoFromInvidious(b, id)),
+  ])
+  const best: VideoCandidate[] = []
+  for (const r of results) {
+    if (r.status !== 'fulfilled' || r.value.length === 0) continue
+    best.push(r.value.sort((a, b) => b.quality - a.quality)[0])
+  }
+  return best.sort((a, b) => b.quality - a.quality)
+}
