@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { getArtist, type CatalogAlbum } from '@/lib/catalog'
 import BackButton from '@/components/BackButton'
+import FollowArtistButton from '@/components/FollowArtistButton'
 
 interface Props {
   params: { id: string }
@@ -87,6 +88,9 @@ export default async function ArtistPage({ params }: Props) {
               {albums.length} lanzamientos
               {artist.fans ? ` · ${artist.fans.toLocaleString('es')} seguidores en Deezer` : ''}
             </p>
+            <div className="mt-4">
+              <FollowArtistButton artist={{ id: artist.id, name: artist.name, picture: artist.picture }} />
+            </div>
           </div>
         </div>
 

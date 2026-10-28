@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
+import FollowByName from '@/components/FollowByName'
 import {
   ChevronDown,
   ListMusic,
@@ -199,6 +200,7 @@ export default function NowPlayingSheet({
             <div className="min-w-0 flex-1">
               <h2 className="text-white text-[28px] leading-[34px] font-extrabold line-clamp-2">{songTitle}</h2>
               <p className="text-slate-400 text-base truncate mt-1">{artist}</p>
+              {!isLive && artist && <FollowByName name={artist} />}
             </div>
             <button
               onClick={() => (isLive ? toggleFavoriteRadio(video) : toggleSaved(video))}

@@ -1,5 +1,6 @@
 'use client'
 
+import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -180,6 +181,8 @@ export default function MusicLibraryClient() {
             </div>
           )}
         </div>
+
+        <FollowedArtistsSection showEmpty />
 
         {/* Empty state */}
         {saved.length === 0 ? (

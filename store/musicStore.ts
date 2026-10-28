@@ -66,6 +66,8 @@ interface MusicActions {
   requestFullPlayer: (v: boolean) => void
   toggleShuffle: () => void
   removeFromQueue: (index: number) => void
+  /** Cambia el video de una pista (otra subida de la misma canción) sin moverla en la cola */
+  replaceTrackId: (index: number, newId: string) => void
   playIndex: (index: number) => void
   playNext: () => void
   playPrev: () => void
@@ -262,6 +264,13 @@ export const useMusicStore = create<MusicStore>()(
       toggleMute: () => set((s) => ({ isMuted: !s.isMuted })),
 
       setPlayed: (p) => set({ played: p }),
+
+      replaceTrackId: (index, newId) => {
+        const queue = get().queue.slice()
+        if (!queue[index]) return
+        queue[index] = { ...queue[index], id: newId }
+        set({ queue })
+      },
       setDuration: (d) => set({ duration: d }),
 
       registerSeek: (fn) => set({ seekCallback: fn }),

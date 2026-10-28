@@ -1,5 +1,6 @@
 'use client'
 
+import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession, patchSession } from '@/lib/session-cache'
@@ -464,6 +465,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </section>
         ) : (
           <>
+            <FollowedArtistsSection />
+
             {/* ===== Escuchado recientemente ===== */}
             {hasHydrated && recent.length > 0 && (
               <section className="mb-10">

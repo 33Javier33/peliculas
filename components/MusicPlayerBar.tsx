@@ -227,10 +227,43 @@ export default function MusicPlayerBar() {
     return () => clearTimeout(t)
   }, [skipNotice])
 
-  const markAudioFailed = useCallback(
-    (id: string) => {
-      setAudioFailedIds((prev) => new Set(prev).add(id))
-      skipUnplayable(id)
+  // Sin audio de respaldo: la canción sigue sonando con el reproductor de YouTube (no se salta)
+  const markAudioFailed = useCallback((id: string) => {
+    setAudioFailedIds((prev) => new Set(prev).add(id))
+  }, [])
+
+  // YouTube no deja reproducir este video (bloqueado fuera de YouTube, eliminado, de otro país):
+  // se busca otra subida de la misma canción antes de saltarla.
+  const altTriedRef = useRef<Map<string, Set<string>>>(new Map())
+  const tryAlternative = useCallback(
+    async (failedId: string) => {
+      const st = useMusicStore.getState()
+      const index = st.currentIndex
+      const track = st.queue[index]
+      if (!track || track.id !== failedId || track.streamUrl) return skipUnplayable(failedId)
+      const key = track.title
+      const tried = altTriedRef.current.get(key) ?? new Set<string>()
+      tried.add(failedId)
+      altTriedRef.current.set(key, tried)
+      if (tried.size > 4) return skipUnplayable(failedId)
+      setSkipNotice(null)
+      try {
+        const q = `${track.title.replace(/\(.*?\)|\[.*?\]/g, '').trim()} ${track.title.includes(track.channelTitle) ? '' : track.channelTitle}`.trim()
+        const res = await fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
+        const data = (await res.json()) as { videos?: MusicVideo[] }
+        const want = durationSeconds(track.duration)
+        const options = (data.videos ?? []).filter((v) => !tried.has(v.id))
+        const close = options.find((v) => want > 0 && Math.abs(durationSeconds(v.duration) - want) <= 20) ?? options[0]
+        const now = useMusicStore.getState()
+        if (!close || now.currentIndex !== index || now.queue[index]?.id !== failedId) {
+          if (!close) skipUnplayable(failedId)
+          return
+        }
+        tried.add(close.id)
+        now.replaceTrackId(index, close.id)
+      } catch {
+        skipUnplayable(failedId)
+      }
     },
     [skipUnplayable]
   )
@@ -813,7 +846,7 @@ export default function MusicPlayerBar() {
     onPlay: handlePlay,
     onPause: handlePause,
     // Video que YouTube no deja reproducir aquí (p. ej. inserción desactivada): saltar
-    onError: () => currentVideo && skipUnplayable(currentVideo.id),
+    onError: () => currentVideo && tryAlternative(currentVideo.id),
     width: '100%',
     height: '100%',
     config: {

@@ -239,3 +239,21 @@ export async function getPlayableAlbum(id: string): Promise<MusicVideo[]> {
   }
   return tracks
 }
+
+/** Últimos lanzamientos de varios artistas (para "Novedades de los artistas que sigues"). */
+export async function getLatestReleases(ids: number[], perArtist = 3): Promise<CatalogAlbum[]> {
+  const lists = await Promise.all(
+    ids.slice(0, 40).map((id) =>
+      deezer<{ data: DzAlbum[] }>(`/artist/${id}/albums?limit=25`, 21600)
+        .then((d) =>
+          d.data
+            .map((a) => mapAlbum(a, a.artist ?? { id, name: '' }))
+            .sort((a, b) => (b.year || '').localeCompare(a.year || '') || b.id - a.id)
+            .slice(0, perArtist)
+            .map((a) => ({ ...a, artist: a.artist.name ? a.artist : { id, name: '' } }))
+        )
+        .catch(() => [] as CatalogAlbum[])
+    )
+  )
+  return lists.flat().sort((a, b) => (b.year || '').localeCompare(a.year || '') || b.id - a.id)
+}
