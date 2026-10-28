@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, Loader2, AlertCircle, X, Film, Clock } from 'lucide-react'
+import { Search, Loader2, AlertCircle, X, Film, Clock, Cast } from 'lucide-react'
 import type { FreeMovie, FreeMovieRow } from '@/lib/pluto'
 import { useMusicStore } from '@/store/musicStore'
 import { readSession, writeSession } from '@/lib/session-cache'
-import CastButton from '@/components/CastButton'
+import CastButton, { useIsCasting, useCastStore } from '@/components/CastButton'
 
 // Películas completas, gratis y legales: Pluto TV a la carta e Internet Archive.
 
@@ -239,11 +239,20 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
     }
   }, [onClose])
 
+  // Mientras se ve en la TV, el teléfono no la reproduce; al dejar de transmitir sigue desde ese punto
+  const casting = useIsCasting()
+  const castDevice = useCastStore((s) => s.device)
+  const resumeAt = useRef(0)
+
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !url) return
+    if (!video || !url || casting) return
     useMusicStore.getState().setIsPlaying(false)
     let destroyed = false
+    const onMeta = () => {
+      if (resumeAt.current > 5) video.currentTime = resumeAt.current
+    }
+    video.addEventListener('loadedmetadata', onMeta, { once: true })
     let triedFallback = false
     let hls: import('hls.js').default | null = null
     const onPlaying = () => setStatus('playing')
@@ -285,25 +294,34 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
 
     return () => {
       destroyed = true
+      if (video.currentTime > 5) resumeAt.current = video.currentTime
       video.removeEventListener('playing', onPlaying)
+      video.removeEventListener('loadedmetadata', onMeta)
       video.onerror = null
       hls?.destroy()
       video.removeAttribute('src')
       video.load()
     }
-  }, [url, movie.fallbackUrl])
+  }, [url, movie.fallbackUrl, casting])
 
   return (
     <div className="fixed inset-0 z-[110] bg-obsidian overflow-y-auto" role="dialog" aria-label={movie.title}>
       <div className="max-w-5xl mx-auto sm:pt-6">
         <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden">
-          <video ref={videoRef} controls playsInline autoPlay poster={movie.backdrop} className="w-full h-full" />
-          {status === 'loading' && (
+          <video ref={videoRef} controls playsInline autoPlay poster={movie.backdrop} className={`w-full h-full ${casting ? 'invisible' : ''}`} />
+          {casting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950 to-black text-center px-6">
+              <Cast className="w-10 h-10 text-emerald-400" />
+              <p className="text-white font-semibold">Viendo en {castDevice || 'la TV'}</p>
+              <p className="text-slate-400 text-sm">Pausa, adelanta o detén desde el botón de transmitir o la notificación.</p>
+            </div>
+          )}
+          {status === 'loading' && !casting && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <Loader2 className="w-10 h-10 text-violet-300 animate-spin" />
             </div>
           )}
-          {status === 'error' && (
+          {status === 'error' && !casting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-center px-6">
               <AlertCircle className="w-8 h-8 text-red-400" />
               <p className="text-white font-semibold">Esta película no se pudo cargar</p>

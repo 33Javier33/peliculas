@@ -2,6 +2,25 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Cast, MonitorSmartphone, Tv2, X, Airplay } from 'lucide-react'
+import { create } from 'zustand'
+
+type TvState = '' | 'loading' | 'playing' | 'error'
+
+/** Estado de la transmisión, compartido con los reproductores (para no reproducir también en el teléfono) */
+export const useCastStore = create<{
+  device: string | null
+  tvState: TvState
+  setDevice: (d: string | null) => void
+  setTvState: (s: TvState) => void
+}>((set) => ({
+  device: null,
+  tvState: '',
+  setDevice: (device) => set(device ? { device } : { device: null, tvState: '' }),
+  setTvState: (tvState) => set({ tvState }),
+}))
+
+/** ¿El video se está viendo en la TV? (entonces el teléfono no lo reproduce) */
+export const useIsCasting = () => useCastStore((s) => !!s.device && (s.tvState === 'loading' || s.tvState === 'playing'))
 
 // Transmitir a la TV:
 //  - Chromecast / Google TV / TV con Chromecast integrado (Chrome en Android y PC): se manda
@@ -71,26 +90,37 @@ export default function CastButton({
   const [open, setOpen] = useState(false)
   const [castReady, setCastReady] = useState(false)
   const [airplay, setAirplay] = useState(false)
-  const [castingTo, setCastingTo] = useState<string | null>(null)
+  const castingTo = useCastStore((s) => s.device)
+  const setCastingTo = useCastStore((s) => s.setDevice)
   const [message, setMessage] = useState('')
   // Lo que informa la TV: cargando, reproduciendo o error
-  const [tvState, setTvState] = useState<'' | 'loading' | 'playing' | 'error'>('')
+  const tvState = useCastStore((s) => s.tvState)
+  const setTvState = useCastStore((s) => s.setTvState)
   const mediaRef = useRef(media)
   mediaRef.current = media
 
   useEffect(() => {
     setAirplay(typeof (window as any).WebKitPlaybackTargetAvailabilityEvent !== 'undefined')
+    let removed = false
+    let cleanup = () => {}
     loadCast().then((ok) => {
-      if (!ok) return
+      if (!ok || removed) return
       setCastReady(true)
       const ctx = window.cast.framework.CastContext.getInstance()
+      const type = window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED
       const update = () => {
         const session = ctx.getCurrentSession()
         setCastingTo(session ? session.getCastDevice()?.friendlyName || 'tu TV' : null)
       }
-      ctx.addEventListener(window.cast.framework.CastContextEventType.SESSION_STATE_CHANGED, update)
+      ctx.addEventListener(type, update)
+      cleanup = () => ctx.removeEventListener(type, update)
       update()
     })
+    return () => {
+      removed = true
+      cleanup()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /** Manda una dirección a la TV. La SDK no rechaza la promesa al fallar: devuelve un código de error. */

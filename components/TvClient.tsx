@@ -2,8 +2,8 @@
 
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Tv, Loader2, AlertCircle, X, Heart, ChevronUp, ChevronDown } from 'lucide-react'
-import CastButton from '@/components/CastButton'
+import { Search, Tv, Loader2, AlertCircle, X, Heart, ChevronUp, ChevronDown, Maximize, Minimize, Cast } from 'lucide-react'
+import CastButton, { useIsCasting, useCastStore } from '@/components/CastButton'
 import type { TvChannel } from '@/lib/live'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -428,6 +428,9 @@ const TvPlayer = forwardRef<
   }, [channel, src, onUnavailable])
   const failedRef = useRef(failed)
   failedRef.current = failed
+  // Mientras se ve en la TV, el teléfono no reproduce el canal (solo hace de control remoto)
+  const casting = useIsCasting()
+  const castDevice = useCastStore((s) => s.device)
   const workingRef = useRef(() => onUnavailable?.(channel, false))
   workingRef.current = () => onUnavailable?.(channel, false)
 
@@ -436,7 +439,7 @@ const TvPlayer = forwardRef<
     useMusicStore.getState().setIsPlaying(false)
 
     const video = videoRef.current
-    if (!video) return
+    if (!video || casting) return
     let destroyed = false
     let started = false
     let hls: import('hls.js').default | null = null
@@ -542,7 +545,7 @@ const TvPlayer = forwardRef<
       video.removeAttribute('src')
       video.load()
     }
-  }, [src, attempt])
+  }, [src, attempt, casting])
 
   // ===== Control remoto =====
   // Cartel con número y nombre al cambiar de canal (como en la TV)
@@ -613,24 +616,147 @@ const TvPlayer = forwardRef<
     }
   }, [channel.name, channel.logo])
 
+  // ===== Pantalla completa con los controles de canal encima =====
+  // Se pone en pantalla completa el recuadro (no solo el video) para que se vean CH▲▼.
+  // En iPhone, donde eso no se puede, se ocupa toda la pantalla con la página.
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [full, setFull] = useState(false)
+  const [ui, setUi] = useState(true)
+  const uiTimer = useRef<ReturnType<typeof setTimeout>>()
+  const pokeUi = useCallback(() => {
+    setUi(true)
+    clearTimeout(uiTimer.current)
+    uiTimer.current = setTimeout(() => setUi(false), 3500)
+  }, [])
+  useEffect(() => {
+    const onChange = () => {
+      if (!document.fullscreenElement) setFull(false)
+    }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  useEffect(() => {
+    if (!full) return
+    pokeUi()
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [full, pokeUi])
+  const enterFull = async () => {
+    setFull(true)
+    try {
+      await boxRef.current?.requestFullscreen?.({ navigationUI: 'hide' })
+      // Android: girar a horizontal
+      await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape')
+    } catch {}
+  }
+  const exitFull = () => {
+    setFull(false)
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    try {
+      screen.orientation?.unlock?.()
+    } catch {}
+  }
+  // En pantalla completa: deslizar arriba/abajo cambia de canal
+  const touchY = useRef<number | null>(null)
+
   // Deslizar el dedo a la izquierda/derecha sobre la barra del canal: siguiente/anterior
   const touchX = useRef<number | null>(null)
 
   return (
-    <div ref={ref} className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
-      <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden border-y sm:border border-white/10">
-        <video ref={videoRef} controls playsInline autoPlay className="w-full h-full" />
+    <div ref={ref} className={`sticky top-16 ${full ? 'z-[150]' : 'z-30'} -mx-4 sm:mx-0 mb-5 bg-obsidian`}>
+      <div
+        ref={boxRef}
+        className={
+          full
+            ? 'fixed inset-0 z-[150] bg-black flex items-center justify-center'
+            : 'relative aspect-video bg-black sm:rounded-2xl overflow-hidden border-y sm:border border-white/10'
+        }
+        onPointerDownCapture={full ? pokeUi : undefined}
+        onTouchStart={full ? (e) => (touchY.current = e.touches[0].clientY) : undefined}
+        onTouchEnd={
+          full
+            ? (e) => {
+                const start = touchY.current
+                touchY.current = null
+                if (start === null) return
+                const dy = e.changedTouches[0].clientY - start
+                if (Math.abs(dy) > 80) onZap(dy < 0 ? 1 : -1)
+              }
+            : undefined
+        }
+      >
+        <video
+          ref={videoRef}
+          controls
+          // La pantalla completa la maneja la app (para mostrar los botones de canal)
+          controlsList="nofullscreen"
+          playsInline
+          autoPlay
+          className={`w-full h-full ${casting ? 'invisible' : ''}`}
+        />
+        {casting && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950 to-black text-center px-6">
+            <Cast className="w-10 h-10 text-emerald-400" />
+            <p className="text-white font-semibold">Viendo en {castDevice || 'la TV'}</p>
+            <p className="text-slate-400 text-sm">Usa CH ▲▼ para cambiar de canal en la TV.</p>
+          </div>
+        )}
+        {/* Botón de pantalla completa (arriba a la izquierda, sobre el video) */}
+        {!full && (
+          <button
+            onClick={enterFull}
+            className="absolute z-10 top-2 left-2 w-9 h-9 rounded-full bg-black/55 backdrop-blur flex items-center justify-center text-white"
+            aria-label="Pantalla completa"
+          >
+            <Maximize className="w-4 h-4" />
+          </button>
+        )}
+        {full && (
+          <div className={`absolute inset-0 z-20 pointer-events-none transition-opacity duration-300 ${ui ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="absolute top-0 inset-x-0 flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-6 bg-gradient-to-b from-black/80 to-transparent">
+              <div className="min-w-0 flex-1">
+                <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] font-display">
+                  En vivo{number > 0 ? ` · Canal ${number} de ${total}` : ''}
+                </p>
+                <p className="text-white font-bold font-display text-lg truncate">{channel.name}</p>
+              </div>
+              <button
+                onClick={exitFull}
+                className={`${ui ? 'pointer-events-auto' : ''} shrink-0 w-11 h-11 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white`}
+                aria-label="Salir de pantalla completa"
+              >
+                <Minimize className="w-5 h-5" />
+              </button>
+            </div>
+            <div
+              className={`${ui ? 'pointer-events-auto' : ''} absolute right-[max(1rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 flex flex-col items-center rounded-full bg-black/55 backdrop-blur border border-white/15`}
+              role="group"
+              aria-label="Cambiar canal"
+            >
+              <button onClick={() => onZap(1)} className="w-14 h-14 flex items-center justify-center text-white" aria-label="Canal siguiente">
+                <ChevronUp className="w-7 h-7" />
+              </button>
+              <span className="text-[11px] font-bold text-slate-300 leading-none">CH</span>
+              <button onClick={() => onZap(-1)} className="w-14 h-14 flex items-center justify-center text-white" aria-label="Canal anterior">
+                <ChevronDown className="w-7 h-7" />
+              </button>
+            </div>
+          </div>
+        )}
         {osd && (
           <div className="absolute z-10 top-3 right-3 pointer-events-none rounded-xl bg-black/70 backdrop-blur px-3 py-2 max-w-[75%]">
             <p className="text-emerald-300 font-display font-bold text-lg leading-tight truncate">{osd}</p>
           </div>
         )}
-        {status === 'loading' && (
+        {status === 'loading' && !casting && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Loader2 className="w-10 h-10 text-violet-300 animate-spin" />
           </div>
         )}
-        {status === 'error' && (
+        {status === 'error' && !casting && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-center px-6">
             <AlertCircle className="w-8 h-8 text-red-400" />
             <p className="text-white font-semibold">Este canal no está disponible ahora</p>

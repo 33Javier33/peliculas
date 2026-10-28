@@ -357,6 +357,24 @@ export default function MusicPlayerBar() {
     },
     [setAudioMode]
   )
+  // Videos y películas (no música): se muestran en modo video aunque esté el modo audio.
+  // Al volver a una canción se regresa solo al modo audio.
+  const autoVideoRef = useRef(false)
+  const currentIsVideo = currentVideo ? looksLikeVideo(currentVideo) : false
+  useEffect(() => {
+    if (!currentId || isLive) return
+    if (currentIsVideo && audioMode) {
+      autoVideoRef.current = true
+      switchMode(false)
+      setIsExpanded(true)
+    } else if (!currentIsVideo && autoVideoRef.current) {
+      autoVideoRef.current = false
+      if (!audioMode) switchMode(true)
+    }
+    // Solo al cambiar de pista
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentId])
+
   // Radio en vivo: el corazón guarda la emisora en "Mis radios favoritas"
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
   const isCurrentSaved = currentVideo
@@ -1097,7 +1115,10 @@ export default function MusicPlayerBar() {
               </button>
 
               <button
-                onClick={() => switchMode(!audioMode)}
+                onClick={() => {
+                  autoVideoRef.current = false
+                  switchMode(!audioMode)
+                }}
                 className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioMode ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={audioMode ? 'Modo audio: sigue sonando en segundo plano (toca para ver video)' : 'Activar modo audio (segundo plano)'}
                 aria-label="Modo audio en segundo plano"
@@ -1171,4 +1192,20 @@ export default function MusicPlayerBar() {
       </div>
     </>
   )
+}
+
+/** ¿Es un video o una película (no una canción)? Por el título o por durar más de una hora sin ser un mix. */
+function looksLikeVideo(v: { title: string; duration?: string; channelTitle?: string }): boolean {
+  const text = `${v.title} ${v.channelTitle ?? ''}`.toLowerCase()
+  if (/pel[ií]cula|movie|film completo|cap[ií]tulo|episodio|temporada|documental|trailer|tr[aá]iler|serie completa|noticiero|en vivo tv/.test(text)) return true
+  const secs = durationSeconds(v.duration)
+  const musicMix = /mix|playlist|enganchados|grandes [eé]xitos|[aá]lbum|album|full album|concierto|live|en vivo|lo mejor|cumbias|baladas|music|m[uú]sica|songs|canciones|hits/.test(text)
+  return secs >= 60 * 60 && !musicMix
+}
+
+function durationSeconds(d?: string): number {
+  if (!d) return 0
+  const iso = d.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+  if (iso) return Number(iso[1] || 0) * 3600 + Number(iso[2] || 0) * 60 + Number(iso[3] || 0)
+  return d.split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0)
 }
