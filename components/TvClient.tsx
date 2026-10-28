@@ -2,7 +2,8 @@
 
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Tv, Loader2, AlertCircle, X, Heart } from 'lucide-react'
+import { Search, Tv, Loader2, AlertCircle, X, Heart, ChevronUp, ChevronDown } from 'lucide-react'
+import CastButton from '@/components/CastButton'
 import type { TvChannel } from '@/lib/live'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -149,6 +150,32 @@ export default function TvClient() {
     setCurrent(c)
   }
 
+  // Control remoto: los canales se recorren en el orden de la lista que se está viendo
+  // (o de los favoritos, si el canal se eligió desde ahí)
+  const zapList = useMemo(() => {
+    if (!current) return visible
+    const inVisible = visible.some((c) => c.url === current.url)
+    const inFavorites = mounted && favoriteChannels.some((c) => c.url === current.url)
+    return !inVisible && inFavorites ? favoriteChannels : visible
+  }, [current, visible, favoriteChannels, mounted])
+  const zapIndex = current ? zapList.findIndex((c) => c.url === current.url) : -1
+  const zap = useCallback(
+    (step: number) => {
+      if (zapList.length === 0) return
+      const i = zapIndex < 0 ? 0 : (zapIndex + step + zapList.length) % zapList.length
+      setCurrent(zapList[i])
+    },
+    [zapList, zapIndex]
+  )
+  const tune = useCallback(
+    (n: number) => {
+      const c = zapList[n - 1]
+      if (c) setCurrent(c)
+      return !!c
+    },
+    [zapList]
+  )
+
   const close = () => {
     // Se fija el primer canal visible para que la lista no se mueva al quitar el reproductor
     const playerBottom = playerRef.current?.getBoundingClientRect().bottom ?? 0
@@ -172,6 +199,10 @@ export default function TvClient() {
           <TvPlayer
             ref={playerRef}
             channel={current}
+            number={zapIndex + 1}
+            total={zapList.length}
+            onZap={zap}
+            onTune={tune}
             onClose={close}
             isFavorite={mounted && favoriteChannels.some((c) => c.url === current.url)}
             onToggleFavorite={() => toggleFavoriteChannel(current)}
@@ -266,6 +297,7 @@ export default function TvClient() {
             channels={visible}
             currentUrl={current?.url}
             unavailableUrls={unavailable}
+            numbered
             favoriteUrls={new Set(mounted ? favoriteChannels.map((c) => c.url) : [])}
             onSelect={select}
             onToggleFavorite={toggleFavoriteChannel}
@@ -286,6 +318,7 @@ function ChannelGrid({
   currentUrl,
   favoriteUrls,
   unavailableUrls,
+  numbered = false,
   onSelect,
   onToggleFavorite,
 }: {
@@ -293,12 +326,13 @@ function ChannelGrid({
   currentUrl?: string
   favoriteUrls: Set<string>
   unavailableUrls: Set<string>
+  numbered?: boolean
   onSelect: (c: TvChannel, el?: HTMLElement) => void
   onToggleFavorite: (c: TvChannel) => void
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {channels.map((c) => {
+      {channels.map((c, i) => {
         const isCurrent = currentUrl === c.url
         const isFav = favoriteUrls.has(c.url)
         const isOff = unavailableUrls.has(c.url) && !isCurrent
@@ -314,6 +348,11 @@ function ChannelGrid({
               <div className={`relative aspect-video bg-surface-2 flex items-center justify-center p-4 ${isOff ? 'opacity-40' : ''}`}>
                 <ChannelLogo src={c.logo} name={c.name} />
               </div>
+              {numbered && (
+                <span className="absolute top-1.5 right-1.5 min-w-[1.75rem] px-1.5 py-0.5 rounded-md bg-black/60 text-slate-200 text-[11px] font-bold text-center tabular-nums">
+                  {i + 1}
+                </span>
+              )}
               {isOff && (
                 <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/70 text-slate-300 text-[10px] font-bold uppercase tracking-wider">
                   Sin señal
@@ -364,8 +403,12 @@ const TvPlayer = forwardRef<
     isFavorite: boolean
     onToggleFavorite: () => void
     onUnavailable?: (c: TvChannel, off?: boolean) => void
+    number: number
+    total: number
+    onZap: (step: number) => void
+    onTune: (n: number) => boolean
   }
->(function TvPlayer({ channel, onClose, isFavorite, onToggleFavorite, onUnavailable }, ref) {
+>(function TvPlayer({ channel, onClose, isFavorite, onToggleFavorite, onUnavailable, number, total, onZap, onTune }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
   // Primero la dirección directa; si no arranca (CORS, corte), la del intermediario
@@ -501,10 +544,87 @@ const TvPlayer = forwardRef<
     }
   }, [src, attempt])
 
+  // ===== Control remoto =====
+  // Cartel con número y nombre al cambiar de canal (como en la TV)
+  const [osd, setOsd] = useState<string | null>(null)
+  const osdTimer = useRef<ReturnType<typeof setTimeout>>()
+  const showOsd = useCallback((text: string, ms = 2500) => {
+    setOsd(text)
+    clearTimeout(osdTimer.current)
+    osdTimer.current = setTimeout(() => setOsd(null), ms)
+  }, [])
+  useEffect(() => {
+    if (number > 0) showOsd(`${number} · ${channel.name}`)
+  }, [channel.url, number, channel.name, showOsd])
+
+  const zapRef = useRef(onZap)
+  zapRef.current = onZap
+  const tuneRef = useRef(onTune)
+  tuneRef.current = onTune
+
+  // Teclado y controles de TV/PC: ▲▼, Página arriba/abajo, CH+/CH−, y números para ir a un canal
+  useEffect(() => {
+    let digits = ''
+    let digitTimer: ReturnType<typeof setTimeout> | undefined
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'ChannelUp') {
+        e.preventDefault()
+        zapRef.current(1)
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === 'ChannelDown') {
+        e.preventDefault()
+        zapRef.current(-1)
+      } else if (/^[0-9]$/.test(e.key)) {
+        digits = (digits + e.key).slice(-4)
+        showOsd(`${digits}_`, 2000)
+        clearTimeout(digitTimer)
+        digitTimer = setTimeout(() => {
+          const n = Number(digits)
+          digits = ''
+          if (!tuneRef.current(n)) showOsd(`Canal ${n} no existe`, 1500)
+        }, 1200)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      clearTimeout(digitTimer)
+    }
+  }, [showOsd])
+
+  // Botones del auricular / pantalla de bloqueo: anterior y siguiente cambian de canal
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: channel.name,
+        artist: 'TV en vivo · Carlos P. Nauto Interactive',
+        artwork: channel.logo ? [{ src: channel.logo, sizes: '512x512' }] : [],
+      })
+      navigator.mediaSession.setActionHandler('nexttrack', () => zapRef.current(1))
+      navigator.mediaSession.setActionHandler('previoustrack', () => zapRef.current(-1))
+    } catch {}
+    return () => {
+      try {
+        navigator.mediaSession.setActionHandler('nexttrack', null)
+        navigator.mediaSession.setActionHandler('previoustrack', null)
+      } catch {}
+    }
+  }, [channel.name, channel.logo])
+
+  // Deslizar el dedo a la izquierda/derecha sobre la barra del canal: siguiente/anterior
+  const touchX = useRef<number | null>(null)
+
   return (
     <div ref={ref} className="sticky top-16 z-30 -mx-4 sm:mx-0 mb-5 bg-obsidian">
       <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden border-y sm:border border-white/10">
         <video ref={videoRef} controls playsInline autoPlay className="w-full h-full" />
+        {osd && (
+          <div className="absolute z-10 top-3 right-3 pointer-events-none rounded-xl bg-black/70 backdrop-blur px-3 py-2 max-w-[75%]">
+            <p className="text-emerald-300 font-display font-bold text-lg leading-tight truncate">{osd}</p>
+          </div>
+        )}
         {status === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Loader2 className="w-10 h-10 text-violet-300 animate-spin" />
@@ -527,16 +647,40 @@ const TvPlayer = forwardRef<
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-1 py-2.5">
-        <div className="min-w-0">
+      <div
+        className="flex items-center justify-between gap-2 px-4 sm:px-1 py-2.5"
+        onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
+        onTouchEnd={(e) => {
+          const start = touchX.current
+          touchX.current = null
+          if (start === null) return
+          const dx = e.changedTouches[0].clientX - start
+          if (Math.abs(dx) > 60) onZap(dx < 0 ? 1 : -1)
+        }}
+      >
+        <div className="flex flex-col items-center rounded-full bg-surface-2 border border-white/8 shrink-0" role="group" aria-label="Cambiar canal">
+          <button onClick={() => onZap(1)} className="w-10 h-8 flex items-center justify-center text-slate-200" aria-label="Canal siguiente">
+            <ChevronUp className="w-5 h-5" />
+          </button>
+          <span className="text-[9px] font-bold text-slate-500 leading-none">CH</span>
+          <button onClick={() => onZap(-1)} className="w-10 h-8 flex items-center justify-center text-slate-200" aria-label="Canal anterior">
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] font-display">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
+            {number > 0 && <span className="text-slate-500">· Canal {number} de {total}</span>}
           </p>
           <p className="text-white font-bold font-display truncate">{channel.name}</p>
         </div>
+        <CastButton
+          videoRef={videoRef}
+          media={{ url: channel.fallbackUrl || channel.url, title: channel.name, poster: channel.logo || undefined, live: true }}
+        />
         <button
           onClick={onToggleFavorite}
-          className={`shrink-0 ml-auto w-10 h-10 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center ${
+          className={`shrink-0 w-10 h-10 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center ${
             isFavorite ? 'text-violet-300' : 'text-slate-300'
           }`}
           aria-label={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}

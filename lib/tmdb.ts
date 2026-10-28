@@ -140,3 +140,27 @@ export function formatCurrency(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount)
 }
+
+// ===== Dónde ver (datos de JustWatch a través de TMDB) =====
+
+export interface WatchProvider {
+  provider_id: number
+  provider_name: string
+  logo_path: string | null
+  display_priority?: number
+}
+
+export interface WatchProvidersRegion {
+  link?: string
+  flatrate?: WatchProvider[]
+  free?: WatchProvider[]
+  ads?: WatchProvider[]
+  rent?: WatchProvider[]
+  buy?: WatchProvider[]
+}
+
+/** Servicios donde se puede ver la película en un país (CL, MX…). */
+export async function getWatchProviders(id: string | number, country: string): Promise<WatchProvidersRegion | null> {
+  const data = await tmdbFetch<{ results?: Record<string, WatchProvidersRegion> }>(`/movie/${id}/watch/providers`, {}, 43200)
+  return data.results?.[country.toUpperCase()] ?? null
+}

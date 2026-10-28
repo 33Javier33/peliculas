@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
 import { useSearchSuggestions, rememberSearch, type SuggestKind } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
-import { Radio } from 'lucide-react'
+import { Radio, Clapperboard } from 'lucide-react'
 
 export default function Header() {
   const router = useRouter()
@@ -268,6 +268,13 @@ export default function Header() {
             >
               <Radio className="w-4 h-4" />
               En vivo
+            </Link>
+            <Link
+              href="/peliculas"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+            >
+              <Clapperboard className="w-4 h-4" />
+              Películas gratis
             </Link>
           </div>
         </div>

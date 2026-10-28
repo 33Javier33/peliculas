@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession } from '@/lib/session-cache'
 import { Search, X, Film, Loader2, AlertCircle, TvMinimalPlay, TrendingUp, Heart, Clock3, ChevronDown, Play } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
@@ -372,6 +373,16 @@ export default function CineClientPage({
               </div>
             </div>
           )}
+
+          <Link
+            href="/peliculas"
+            className="mb-6 flex items-center gap-3 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-3 hover:border-violet-400/60"
+          >
+            <Film className="w-5 h-5 text-violet-300 shrink-0" />
+            <span className="text-sm text-slate-200">
+              <b className="text-white">Películas gratis completas:</b> Pluto TV y clásicos de Internet Archive →
+            </span>
+          </Link>
 
           {/* Mis videos: Me gusta / Ver más tarde */}
           {mounted && (liked.length > 0 || watchLater.length > 0) && (

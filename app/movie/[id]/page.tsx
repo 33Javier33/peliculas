@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import BackButton from '@/components/BackButton'
+import WatchProviders from '@/components/WatchProviders'
 import { notFound } from 'next/navigation'
 import {
   getMovieDetails,
@@ -321,6 +322,8 @@ export default async function MovieDetailPage({ params }: MoviePageProps) {
             </div>
           </div>
         </div>
+
+        <WatchProviders movieId={movieId} title={movieData.title} />
 
         {trailerId && (
           <section id="trailer" className="mt-16 scroll-mt-20">
