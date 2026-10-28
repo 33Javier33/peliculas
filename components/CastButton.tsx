@@ -49,6 +49,8 @@ function loadCast(): Promise<boolean> {
 export interface CastMedia {
   /** Dirección del video (puede ser relativa: se completa con el dominio de la app) */
   url: string
+  /** Otra dirección del mismo video (p. ej. la del intermediario): se prueba si la TV no puede con la primera */
+  altUrl?: string
   title: string
   poster?: string
   live?: boolean
@@ -71,6 +73,8 @@ export default function CastButton({
   const [airplay, setAirplay] = useState(false)
   const [castingTo, setCastingTo] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  // Lo que informa la TV: cargando, reproduciendo o error
+  const [tvState, setTvState] = useState<'' | 'loading' | 'playing' | 'error'>('')
   const mediaRef = useRef(media)
   mediaRef.current = media
 
@@ -89,28 +93,71 @@ export default function CastButton({
     })
   }, [])
 
-  const sendToCast = async (m: CastMedia) => {
-    const ctx = window.cast.framework.CastContext.getInstance()
-    if (!ctx.getCurrentSession()) await ctx.requestSession()
-    const session = ctx.getCurrentSession()
-    if (!session) return
-    const info = new window.chrome.cast.media.MediaInfo(absolute(m.url), isHls(m.url) ? 'application/x-mpegurl' : 'video/mp4')
+  /** Manda una dirección a la TV. La SDK no rechaza la promesa al fallar: devuelve un código de error. */
+  const loadOnTv = async (session: any, m: CastMedia, url: string) => {
+    const hls = isHls(url)
+    const info = new window.chrome.cast.media.MediaInfo(absolute(url), hls ? 'application/x-mpegurl' : 'video/mp4')
     info.streamType = m.live ? window.chrome.cast.media.StreamType.LIVE : window.chrome.cast.media.StreamType.BUFFERED
-    if (isHls(m.url)) {
-      info.hlsSegmentFormat = window.chrome.cast.media.HlsSegmentFormat?.TS
-      info.hlsVideoSegmentFormat = window.chrome.cast.media.HlsVideoSegmentFormat?.MPEG2_TS
-    }
     const meta = new window.chrome.cast.media.GenericMediaMetadata()
     meta.title = m.title
     meta.subtitle = 'Carlos P. Nauto Interactive'
     if (m.poster) meta.images = [new window.chrome.cast.Image(absolute(m.poster))]
     info.metadata = meta
     const request = new window.chrome.cast.media.LoadRequest(info)
+    request.autoplay = true
     // El video sigue en la TV desde el punto en que iba (películas)
     const video = videoRef.current
     if (!m.live && video && video.currentTime > 5) request.currentTime = video.currentTime
-    await session.loadMedia(request)
-    video?.pause()
+    const error = await session.loadMedia(request)
+    if (error) throw new Error(String(error))
+    return session.getMediaSession()
+  }
+
+  const sendToCast = async (m: CastMedia) => {
+    const ctx = window.cast.framework.CastContext.getInstance()
+    if (!ctx.getCurrentSession()) await ctx.requestSession()
+    const session = ctx.getCurrentSession()
+    if (!session) return
+    setTvState('loading')
+    const urls = [m.url, m.altUrl].filter((u, i, a): u is string => !!u && a.indexOf(u) === i)
+
+    for (let i = 0; i < urls.length; i++) {
+      const isLast = i === urls.length - 1
+      try {
+        const mediaSession = await loadOnTv(session, m, urls[i])
+        videoRef.current?.pause()
+        // Se espera a que la TV confirme que reproduce; si da error, se prueba la otra dirección
+        const ok = await new Promise<boolean>((resolve) => {
+          if (!mediaSession) return resolve(true)
+          const timer = setTimeout(() => resolve(true), 20000)
+          const check = (alive: boolean) => {
+            const state = mediaSession.playerState
+            if (state === 'PLAYING' || state === 'BUFFERING' || state === 'PAUSED') {
+              if (state === 'PLAYING') {
+                clearTimeout(timer)
+                resolve(true)
+              }
+            } else if (!alive || (state === 'IDLE' && mediaSession.idleReason === 'ERROR')) {
+              clearTimeout(timer)
+              resolve(false)
+            }
+          }
+          mediaSession.addUpdateListener(check)
+          check(true)
+        })
+        if (ok) {
+          setTvState('playing')
+          return
+        }
+      } catch (err) {
+        if (isLast) {
+          setTvState('error')
+          throw err
+        }
+        continue
+      }
+      if (isLast) setTvState('error')
+    }
   }
 
   // Si se cambia de canal mientras se transmite, la TV cambia también
@@ -127,16 +174,16 @@ export default function CastButton({
     try {
       lastSent.current = mediaRef.current.url
       await sendToCast(mediaRef.current)
-      setOpen(false)
     } catch (err) {
       const code = (err as any)?.code || String(err)
-      if (!/cancel/i.test(code)) setMessage('No se pudo transmitir. Revisa que la TV y el teléfono estén en la misma red Wi-Fi.')
+      if (!/cancel/i.test(code)) setMessage('La TV no pudo abrir este video. Prueba otro canal o usa "Duplicar pantalla".')
     }
   }
 
   const stopCasting = () => {
     window.cast?.framework.CastContext.getInstance().endCurrentSession(true)
     lastSent.current = ''
+    setTvState('')
     videoRef.current?.play().catch(() => {})
   }
 
@@ -188,7 +235,18 @@ export default function CastButton({
 
             {castingTo && (
               <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-3">
-                <p className="text-emerald-300 text-sm font-semibold truncate">Transmitiendo a {castingTo}</p>
+                <div className="min-w-0">
+                  <p className="text-emerald-300 text-sm font-semibold truncate">Conectado a {castingTo}</p>
+                  <p className="text-slate-400 text-xs">
+                    {tvState === 'loading'
+                      ? 'Cargando el video en la TV…'
+                      : tvState === 'playing'
+                        ? 'Reproduciendo en la TV'
+                        : tvState === 'error'
+                          ? 'La TV no pudo reproducir este video'
+                          : 'Toca Chromecast para enviar el video'}
+                  </p>
+                </div>
                 <button onClick={stopCasting} className="shrink-0 text-xs font-bold text-white bg-white/10 rounded-full px-3 py-1.5">
                   Detener
                 </button>
@@ -197,7 +255,12 @@ export default function CastButton({
 
             <div className="space-y-2">
               {castReady && (
-                <Option icon={<Cast className="w-5 h-5" />} title="Chromecast / Google TV" text="La TV reproduce el video sola; puedes usar el teléfono." onClick={chromecast} />
+                <Option
+                  icon={<Cast className="w-5 h-5" />}
+                  title={castingTo ? 'Enviar este video a la TV' : 'Chromecast / Google TV'}
+                  text="La TV reproduce el video sola; puedes usar el teléfono."
+                  onClick={chromecast}
+                />
               )}
               {hasRemote && (
                 <Option icon={<Tv2 className="w-5 h-5" />} title="Enviar a un televisor" text="TV o dispositivo de transmisión en la misma red Wi-Fi." onClick={remotePlayback} />

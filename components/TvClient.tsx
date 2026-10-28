@@ -676,7 +676,14 @@ const TvPlayer = forwardRef<
         </div>
         <CastButton
           videoRef={videoRef}
-          media={{ url: channel.fallbackUrl || channel.url, title: channel.name, poster: channel.logo || undefined, live: true }}
+          // Primero la dirección que está funcionando en el teléfono; la otra, de respaldo
+          media={{
+            url: src,
+            altUrl: src === channel.url ? channel.fallbackUrl : channel.url,
+            title: channel.name,
+            poster: channel.logo || undefined,
+            live: true,
+          }}
         />
         <button
           onClick={onToggleFavorite}

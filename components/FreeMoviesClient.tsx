@@ -326,7 +326,7 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
                 {movie.rating && <span className="px-1.5 rounded border border-white/20 text-xs">{movie.rating}</span>}
               </p>
             </div>
-            {url && <CastButton videoRef={videoRef} media={{ url: movie.fallbackUrl || url, title: movie.title, poster: movie.poster }} />}
+            {url && <CastButton videoRef={videoRef} media={{ url, altUrl: movie.fallbackUrl, title: movie.title, poster: movie.poster }} />}
             <button
               onClick={onClose}
               className="shrink-0 w-10 h-10 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center text-slate-300"
