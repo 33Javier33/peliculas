@@ -80,6 +80,8 @@ function orderCandidates(list: AudioCandidate[], highQuality: boolean): AudioCan
 const AUTO_RESUME_WINDOW_MS = 5000
 // Sin avance del audio durante este tiempo: la fuente se considera caída
 const STALL_MS = 15000
+// Radio: más margen antes de reconectar (con señal débil el audio puede tardar en volver solo)
+const LIVE_STALL_MS = 25000
 const RESUME_KEY = 'cpn-resume-playing'
 
 function formatTime(seconds: number): string {
@@ -315,14 +317,35 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     if (!useAudio || !isPlaying || !currentId) return
     lastProgressRef.current = Date.now()
+    let lastTime = -1
     const timer = setInterval(() => {
-      if (Date.now() - lastProgressRef.current < STALL_MS) return
+      // Se mira el avance real del audio (no solo el evento timeupdate, que con la pantalla
+      // apagada puede llegar tarde y hacía creer que la radio se había cortado)
+      const el = playerRef.current as unknown as HTMLAudioElement | null
+      if (el && !el.paused && el.currentTime !== lastTime) {
+        if (lastTime >= 0) lastProgressRef.current = Date.now()
+        lastTime = el.currentTime
+      }
+      if (Date.now() - lastProgressRef.current < (isLive ? LIVE_STALL_MS : STALL_MS)) return
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()
       else markAudioFailed(currentId)
     }, 3000)
     return () => clearInterval(timer)
-  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed])
+  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed, isLive])
+
+  // Al volver la conexión (cambio de Wi-Fi a datos, túnel…) la radio se reconecta al instante
+  useEffect(() => {
+    if (!isLive) return
+    const onOnline = () => {
+      const el = playerRef.current as unknown as HTMLAudioElement | null
+      if (!el || !useMusicStore.getState().isPlaying) return
+      liveRetriesRef.current = 0
+      reconnectLive()
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [isLive, reconnectLive])
 
   // ===== Seguir sonando al recargar la página =====
   const [needsTap, setNeedsTap] = useState(false)
@@ -455,7 +478,8 @@ export default function MusicPlayerBar() {
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
-      if (!isSeeking && isFinite(el.duration) && el.duration > 0) {
+      const live = !!useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl
+      if (!live && !isSeeking && isFinite(el.duration) && el.duration > 0) {
         const fraction = el.currentTime / el.duration
         setPlayed(fraction)
         setLocalPlayed(fraction)
@@ -472,8 +496,11 @@ export default function MusicPlayerBar() {
 
   const handleDurationChange = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
+      // Radio en vivo: la "duración" crece sin parar mientras llega el audio; no se usa.
+      // (Guardarla en cada cambio recalculaba toda la app muchas veces por segundo y cortaba el sonido.)
+      if (useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl) return
       const d = e.currentTarget.duration
-      if (isFinite(d) && d > 0) {
+      if (isFinite(d) && d > 0 && Math.abs(d - useMusicStore.getState().duration) > 0.5) {
         setDuration(d)
         setLocalDuration(d)
       }
