@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
 import NavigationMemory from '@/components/NavigationMemory'
+import SplashScreen, { SPLASH_SCRIPT } from '@/components/SplashScreen'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -71,8 +72,13 @@ const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${inter.variable} ${jakarta.variable}`}>
+    <html lang="es" className={`${inter.variable} ${jakarta.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_SCRIPT }} />
+        <link rel="preload" href="/brand/splash-poster.webp" as="image" />
+      </head>
       <body className="min-h-screen bg-obsidian text-white font-sans pb-14 sm:pb-0">
+        <SplashScreen />
         <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
           <Header />
         </Suspense>

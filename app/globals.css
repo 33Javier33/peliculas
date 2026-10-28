@@ -81,3 +81,8 @@ body {
     overflow: hidden;
   }
 }
+
+/* Pantalla de inicio: ya vista en esta sesión → no se dibuja */
+html[data-splash='done'] #cpn-splash {
+  display: none;
+}

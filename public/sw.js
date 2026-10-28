@@ -1,6 +1,6 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y abrirla sin conexión con lo último que se visitó.
-const CACHE = 'cpn-cache-v27'
+const CACHE = 'cpn-cache-v28'
 const OFFLINE_URLS = ['/', '/music', '/cine', '/music/library', '/radio', '/tv', '/peliculas']
 
 self.addEventListener('install', (event) => {
@@ -27,7 +27,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
 
   // Archivos estáticos con hash: primero caché.
-  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/')) {
+  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/') || (url.pathname.startsWith('/brand/') && !url.pathname.endsWith('.mp4'))) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
