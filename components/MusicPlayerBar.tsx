@@ -384,6 +384,11 @@ export default function MusicPlayerBar() {
     lastProgressRef.current = Date.now()
     let lastTime = -1
     const timer = setInterval(() => {
+      // Interrumpida por otra app (WhatsApp, llamada): no es una fuente caída
+      if (interruptedAtRef.current) {
+        lastProgressRef.current = Date.now()
+        return
+      }
       // Se mira el avance real del audio (no solo el evento timeupdate, que con la pantalla
       // apagada puede llegar tarde y hacía creer que la radio se había cortado)
       const el = playerRef.current as unknown as HTMLAudioElement | null
@@ -625,6 +630,44 @@ export default function MusicPlayerBar() {
     }
   }, [resumeIfNeeded, setIsPlaying])
 
+  // ===== Reanudar después de una interrupción de otra app =====
+  // Android le devuelve el audio a la app cuando la otra termina y el navegador reanuda solo.
+  // Por si no lo hace: al volver a la app se reanuda al instante y, con la app en segundo plano,
+  // se reintenta con calma (cada 20 s, para no sonar encima de un audio que se esté grabando).
+  const interruptedAtRef = useRef(0)
+  useEffect(() => {
+    const tryResume = () => {
+      const el = playerRef.current
+      const st = useMusicStore.getState()
+      if (!interruptedAtRef.current || !useAudioRef.current || !st.isPlaying || !el?.paused) return
+      if (Date.now() - interruptedAtRef.current > 30 * 60 * 1000) {
+        interruptedAtRef.current = 0
+        st.setIsPlaying(false)
+        return
+      }
+      el.play().catch(() => {})
+    }
+    const timer = setInterval(() => {
+      const since = Date.now() - interruptedAtRef.current
+      // Primer intento a los 20 s y luego cada 20 s
+      if (interruptedAtRef.current && since >= 20000 && since % 20000 < 5000) tryResume()
+    }, 5000)
+    const onVisible = () => document.visibilityState === 'visible' && tryResume()
+    document.addEventListener('visibilitychange', onVisible)
+    // Si justo después de la pausa se desconectaron los audífonos, era eso: queda en pausa
+    onUnplug = () => {
+      if (interruptedAtRef.current && Date.now() - interruptedAtRef.current < 3000) {
+        interruptedAtRef.current = 0
+        useMusicStore.getState().setIsPlaying(false)
+      }
+    }
+    return () => {
+      onUnplug = null
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
   const handleEnded = useCallback(() => {
     const { queue: q, currentIndex: i, repeatMode } = useMusicStore.getState()
     // Una radio en vivo no "termina": si el servidor corta, se vuelve a conectar
@@ -641,6 +684,7 @@ export default function MusicPlayerBar() {
     playNext()
   }, [playNext, reconnectLive])
   const handlePlay = useCallback(() => {
+    interruptedAtRef.current = 0
     setIsPlaying(true)
   }, [setIsPlaying])
   const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
@@ -649,7 +693,13 @@ export default function MusicPlayerBar() {
     // Pausa causada por la reconexión de una radio: no es del usuario
     if (reconnectingRef.current) return
     if (useAudioRef.current) {
-      // Con <audio> propio no hay pausas automáticas: cualquier pausa es del usuario
+      // Si la app todavía "quiere" sonar, la pausa no la pidió el usuario (los botones y la
+      // pantalla de bloqueo cambian primero el estado): la cortó otra app, p. ej. al grabar o
+      // escuchar un audio de WhatsApp, una llamada o una alarma. Se reanuda sola después.
+      if (useMusicStore.getState().isPlaying && !unpluggedRecently()) {
+        interruptedAtRef.current = Date.now()
+        return
+      }
       keepPlayingRef.current = false
       setIsPlaying(false)
       return
@@ -1370,4 +1420,19 @@ async function findAlternativeId(track: MusicVideo, tried: Set<string>): Promise
   } catch {
     return null
   }
+}
+
+// Audífonos desconectados: el navegador pausa la música y no hay que reanudarla por el parlante.
+let lastDeviceChange = 0
+let onUnplug: (() => void) | null = null
+if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+  try {
+    navigator.mediaDevices.addEventListener('devicechange', () => {
+      lastDeviceChange = Date.now()
+      onUnplug?.()
+    })
+  } catch {}
+}
+function unpluggedRecently() {
+  return Date.now() - lastDeviceChange < 3000
 }
