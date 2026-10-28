@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useRef, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
+import LiveArtwork from '@/components/LiveArtwork'
 import { usePathname } from 'next/navigation'
 import {
   Play,
@@ -914,8 +915,10 @@ export default function MusicPlayerBar() {
           >
             {useAudio ? (
               <>
-                {currentVideo.thumbnail && (
-                  <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className={isLive ? 'object-contain p-2 bg-surface-2' : 'object-cover'} unoptimized={isLive} />
+                {isLive ? (
+                  <LiveArtwork src={currentVideo.thumbnail} alt="" sizes="142px" imageClassName="object-contain p-2 bg-surface-2" />
+                ) : (
+                  currentVideo.thumbnail && <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />
                 )}
                 <div
                   className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer"

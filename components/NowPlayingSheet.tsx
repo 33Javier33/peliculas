@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import LiveArtwork from '@/components/LiveArtwork'
 import {
   ChevronDown,
   ListMusic,
@@ -174,16 +175,12 @@ export default function NowPlayingSheet({
           {/* Portada */}
           <div className="mt-4 mb-6">
             <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10">
-              {video.thumbnail && (
-                <Image
-                  src={video.thumbnail}
-                  alt={video.title}
-                  fill
-                  sizes="(max-width: 448px) 90vw, 400px"
-                  className={isLive ? 'object-contain p-10' : 'object-cover'}
-                  unoptimized={isLive}
-                  priority
-                />
+              {isLive ? (
+                <LiveArtwork src={video.thumbnail} alt={video.title} sizes="(max-width: 448px) 90vw, 400px" imageClassName="object-contain p-10" />
+              ) : (
+                video.thumbnail && (
+                  <Image src={video.thumbnail} alt={video.title} fill sizes="(max-width: 448px) 90vw, 400px" className="object-cover" priority />
+                )
               )}
               {isLive ? (
                 <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
