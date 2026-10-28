@@ -1,5 +1,6 @@
 'use client'
 
+import LocalMusicSection from '@/components/LocalMusicSection'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -181,6 +182,8 @@ export default function MusicLibraryClient() {
             </div>
           )}
         </div>
+
+        <LocalMusicSection />
 
         <FollowedArtistsSection showEmpty />
 

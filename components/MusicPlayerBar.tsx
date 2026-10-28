@@ -31,6 +31,7 @@ import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -199,12 +200,34 @@ export default function MusicPlayerBar() {
   const currentId = currentVideo?.id
   // Radio en vivo: siempre por <audio> con su stream directo
   const isLive = !!currentVideo?.streamUrl
-  const useAudio = isLive || (audioMode && !!currentId && !audioFailedIds.has(currentId))
+  // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
+  const isLocal = isLocalTrack(currentId)
+  const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
+  useEffect(() => {
+    if (!isLocal || !currentId) return
+    let url = ''
+    let cancelled = false
+    getLocalBlob(currentId).then((blob) => {
+      if (cancelled) return
+      if (!blob) return skipUnplayableRef.current(currentId)
+      url = URL.createObjectURL(blob)
+      setLocalUrl({ id: currentId, url })
+    })
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [isLocal, currentId])
+  const useAudio = isLive || isLocal || (audioMode && !!currentId && !audioFailedIds.has(currentId))
   const useAudioRef = useRef(useAudio)
   useAudioRef.current = useAudio
   const audioUrl = isLive
     ? currentVideo?.streamUrl
-    : useAudio && audioSrc?.id === currentId
+    : isLocal
+      ? localUrl?.id === currentId
+        ? localUrl.url
+        : undefined
+      : useAudio && audioSrc?.id === currentId
       ? audioSrc.candidates[audioSrc.index]?.url
       : undefined
   const isAudioLoading = useAudio && !audioUrl
@@ -221,55 +244,63 @@ export default function MusicPlayerBar() {
     else if (st.radioEnabled) waitingForRadioRef.current = true
   }, [])
 
+  const skipUnplayableRef = useRef(skipUnplayable)
+  skipUnplayableRef.current = skipUnplayable
+
   useEffect(() => {
     if (!skipNotice) return
     const t = setTimeout(() => setSkipNotice(null), 4000)
     return () => clearTimeout(t)
   }, [skipNotice])
 
-  // Sin audio de respaldo: la canción sigue sonando con el reproductor de YouTube (no se salta)
-  const markAudioFailed = useCallback((id: string) => {
-    setAudioFailedIds((prev) => new Set(prev).add(id))
-  }, [])
 
   // YouTube no deja reproducir este video (bloqueado fuera de YouTube, eliminado, de otro país):
   // se busca otra subida de la misma canción antes de saltarla.
   const altTriedRef = useRef<Map<string, Set<string>>>(new Map())
   const tryAlternative = useCallback(
-    async (failedId: string) => {
+    async (failedId: string, maxTries = 4): Promise<boolean> => {
       const st = useMusicStore.getState()
       const index = st.currentIndex
       const track = st.queue[index]
-      if (!track || track.id !== failedId || track.streamUrl) return skipUnplayable(failedId)
-      const key = track.title
-      const tried = altTriedRef.current.get(key) ?? new Set<string>()
+      if (!track || track.id !== failedId || track.streamUrl) return false
+      const tried = altTriedRef.current.get(track.title) ?? new Set<string>()
       tried.add(failedId)
-      altTriedRef.current.set(key, tried)
-      if (tried.size > 4) return skipUnplayable(failedId)
+      altTriedRef.current.set(track.title, tried)
+      if (tried.size > maxTries) return false
       setSkipNotice(null)
-      try {
-        const q = `${track.title.replace(/\(.*?\)|\[.*?\]/g, '').trim()} ${track.title.includes(track.channelTitle) ? '' : track.channelTitle}`.trim()
-        const res = await fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
-        const data = (await res.json()) as { videos?: MusicVideo[] }
-        const want = durationSeconds(track.duration)
-        const options = (data.videos ?? []).filter((v) => !tried.has(v.id))
-        const close = options.find((v) => want > 0 && Math.abs(durationSeconds(v.duration) - want) <= 20) ?? options[0]
-        const now = useMusicStore.getState()
-        if (!close || now.currentIndex !== index || now.queue[index]?.id !== failedId) {
-          if (!close) skipUnplayable(failedId)
-          return
-        }
-        tried.add(close.id)
-        now.replaceTrackId(index, close.id)
-      } catch {
-        skipUnplayable(failedId)
-      }
+      const altId = await findAlternativeId(track, tried)
+      const now = useMusicStore.getState()
+      if (!altId || now.currentIndex !== index || now.queue[index]?.id !== failedId) return false
+      tried.add(altId)
+      now.replaceTrackId(index, altId)
+      return true
     },
-    [skipUnplayable]
+    []
+  )
+  const tryAlternativeOrSkip = useCallback(
+    async (failedId: string) => {
+      if (!(await tryAlternative(failedId))) skipUnplayable(failedId)
+    },
+    [tryAlternative, skipUnplayable]
+  )
+
+  // Sin audio para segundo plano: primero se prueba otra subida de la misma canción (cuyo audio
+  // sí se pueda obtener). Si no hay, con la app abierta suena con el reproductor de YouTube; con
+  // la pantalla bloqueada (donde YouTube no suena) se pasa a la siguiente para no quedar en silencio.
+  const markAudioFailed = useCallback(
+    async (id: string) => {
+      if (isLocalTrack(id)) return skipUnplayable(id)
+      if (await tryAlternative(id, 2)) return
+      const st = useMusicStore.getState()
+      if (st.queue[st.currentIndex]?.id !== id) return
+      if (document.visibilityState === 'hidden') skipUnplayable(id)
+      else setAudioFailedIds((prev) => new Set(prev).add(id))
+    },
+    [tryAlternative, skipUnplayable]
   )
 
   useEffect(() => {
-    if (!useAudio || !currentId || isLive) return
+    if (!useAudio || !currentId || isLive || isLocal) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
     loadAudioCandidates(currentId).then((candidates) => {
@@ -280,11 +311,11 @@ export default function MusicPlayerBar() {
     return () => {
       cancelled = true
     }
-  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive])
+  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal])
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
-  const nextId = nextTrack && !nextTrack.streamUrl ? nextTrack.id : undefined
+  const nextId = nextTrack && !nextTrack.streamUrl && !isLocalTrack(nextTrack.id) ? nextTrack.id : undefined
   useEffect(() => {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
@@ -322,6 +353,7 @@ export default function MusicPlayerBar() {
   }, [currentVideo?.streamUrl])
 
   const handleAudioError = useCallback(() => {
+    if (isLocal && currentId) return skipUnplayable(currentId)
     if (isLive && currentId) {
       if (liveStartedRef.current) return reconnectLive()
       // Emisora que no llega a sonar: pasar a la siguiente o detener
@@ -341,7 +373,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, skipUnplayable, reconnectLive])
+  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
@@ -449,7 +481,7 @@ export default function MusicPlayerBar() {
   // Videos y películas (no música): se muestran en modo video aunque esté el modo audio.
   // Al volver a una canción se regresa solo al modo audio.
   const autoVideoRef = useRef(false)
-  const currentIsVideo = currentVideo ? looksLikeVideo(currentVideo) : false
+  const currentIsVideo = currentVideo && !isLocal ? looksLikeVideo(currentVideo) : false
   useEffect(() => {
     if (!currentId || isLive) return
     if (currentIsVideo && audioMode) {
@@ -564,6 +596,17 @@ export default function MusicPlayerBar() {
         keepPlayingRef.current = isPlayingRef.current
         if (keepPlayingRef.current) {
           for (const ms of [250, 800, 1600, 3000]) timers.push(setTimeout(resumeIfNeeded, ms))
+          // Canción que solo suena con YouTube (sin audio para segundo plano) y YouTube se detuvo
+          // al bloquear: se pasa a la siguiente (con audio propio) en vez de quedar en silencio
+          timers.push(
+            setTimeout(() => {
+              const st = useMusicStore.getState()
+              const el = playerRef.current
+              if (!useAudioRef.current && st.audioMode && keepPlayingRef.current && el?.paused && document.visibilityState === 'hidden') {
+                if (st.currentIndex < st.queue.length - 1) st.playNext()
+              }
+            }, 4000)
+          )
         }
       } else {
         timers.splice(0).forEach(clearTimeout)
@@ -846,7 +889,7 @@ export default function MusicPlayerBar() {
     onPlay: handlePlay,
     onPause: handlePause,
     // Video que YouTube no deja reproducir aquí (p. ej. inserción desactivada): saltar
-    onError: () => currentVideo && tryAlternative(currentVideo.id),
+    onError: () => currentVideo && tryAlternativeOrSkip(currentVideo.id),
     width: '100%',
     height: '100%',
     config: {
@@ -1312,4 +1355,19 @@ function durationSeconds(d?: string): number {
   const iso = d.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
   if (iso) return Number(iso[1] || 0) * 3600 + Number(iso[2] || 0) * 60 + Number(iso[3] || 0)
   return d.split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0)
+}
+
+/** Otra subida de la misma canción (duración parecida) que no se haya probado. */
+async function findAlternativeId(track: MusicVideo, tried: Set<string>): Promise<string | null> {
+  try {
+    const q = `${track.title.replace(/\(.*?\)|\[.*?\]/g, '').trim()} ${track.title.includes(track.channelTitle) ? '' : track.channelTitle}`.trim()
+    const res = await fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
+    const data = (await res.json()) as { videos?: MusicVideo[] }
+    const want = durationSeconds(track.duration)
+    const options = (data.videos ?? []).filter((v) => !tried.has(v.id))
+    const close = options.find((v) => want > 0 && Math.abs(durationSeconds(v.duration) - want) <= 20) ?? options[0]
+    return close?.id ?? null
+  } catch {
+    return null
+  }
 }

@@ -137,14 +137,35 @@ function rank(list: AudioCandidate[]): AudioCandidate[] {
  * De cada instancia que responde se toma solo su mejor stream, para que el
  * cliente pueda pasar a otra instancia si una falla al reproducir.
  */
+// Instancias que respondieron hace poco: se consultan primero (muchas listas públicas están caídas)
+const goodInstances = new Map<string, number>()
+const byHealth = (list: string[]) =>
+  list
+    .map((b, i) => ({ b, i, score: goodInstances.get(b) ?? 0 }))
+    .sort((x, y) => y.score - x.score || x.i - y.i)
+    .map((x) => x.b)
+
 export async function findAudioCandidates(id: string): Promise<AudioCandidate[]> {
   const { piped, invidious } = await getInstances()
+  const pipedList = byHealth(piped)
+  const invList = byHealth(invidious)
 
-  const tasks = [
-    ...piped.slice(0, MAX_PER_KIND).map((b) => fromPiped(b, id)),
-    ...invidious.slice(0, MAX_PER_KIND).map((b) => fromInvidious(b, id)),
-  ]
-  const results = await Promise.allSettled(tasks)
+  // Primera ronda con las mejores; si ninguna responde, una segunda con las siguientes
+  let results: PromiseSettledResult<AudioCandidate[]>[] = []
+  for (const [from, to] of [
+    [0, MAX_PER_KIND],
+    [MAX_PER_KIND, MAX_PER_KIND * 3],
+  ]) {
+    const bases = [...pipedList.slice(from, to).map((b) => ['p', b] as const), ...invList.slice(from, to).map((b) => ['i', b] as const)]
+    if (bases.length === 0) break
+    results = await Promise.allSettled(bases.map(([kind, b]) => (kind === 'p' ? fromPiped(b, id) : fromInvidious(b, id))))
+    results.forEach((r, i) => {
+      const base = bases[i][1]
+      if (r.status === 'fulfilled' && r.value.length > 0) goodInstances.set(base, Date.now())
+      else if (goodInstances.has(base)) goodInstances.delete(base)
+    })
+    if (results.some((r) => r.status === 'fulfilled' && r.value.length > 0)) break
+  }
 
   const best: AudioCandidate[] = []
   for (const r of results) {
