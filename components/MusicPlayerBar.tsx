@@ -254,9 +254,42 @@ export default function MusicPlayerBar() {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
 
+  // ===== Radio en vivo: reconectar en vez de saltar =====
+  // Las emisoras cortan la conexión a veces (cambio de Wi-Fi a datos, servidor que reinicia,
+  // señal débil). Si la radio ya estaba sonando, se vuelve a conectar a la misma emisora;
+  // solo se salta a la siguiente si nunca llegó a sonar.
+  const liveStartedRef = useRef(false)
+  const liveRetriesRef = useRef(0)
+  const liveRetryTimer = useRef<ReturnType<typeof setTimeout>>()
+  const [reconnecting, setReconnecting] = useState(false)
+  const reconnectingRef = useRef(false)
+  reconnectingRef.current = reconnecting
+  useEffect(() => {
+    liveStartedRef.current = false
+    liveRetriesRef.current = 0
+    clearTimeout(liveRetryTimer.current)
+    setReconnecting(false)
+  }, [currentId])
+  const reconnectLive = useCallback(() => {
+    const url = currentVideo?.streamUrl
+    if (!url) return
+    clearTimeout(liveRetryTimer.current)
+    setReconnecting(true)
+    const wait = Math.min(30000, 1500 * 2 ** liveRetriesRef.current)
+    liveRetriesRef.current++
+    liveRetryTimer.current = setTimeout(() => {
+      const el = playerRef.current as unknown as HTMLAudioElement | null
+      if (!el || !useMusicStore.getState().isPlaying) return
+      el.src = url
+      el.load()
+      el.play().catch(() => {})
+    }, wait)
+  }, [currentVideo?.streamUrl])
+
   const handleAudioError = useCallback(() => {
     if (isLive && currentId) {
-      // Emisora caída: pasar a la siguiente o detener
+      if (liveStartedRef.current) return reconnectLive()
+      // Emisora que no llega a sonar: pasar a la siguiente o detener
       const st = useMusicStore.getState()
       if (st.currentIndex < st.queue.length - 1) skipUnplayable(currentId)
       else {
@@ -273,7 +306,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, skipUnplayable])
+  }, [audioSrc, currentId, markAudioFailed, isLive, skipUnplayable, reconnectLive])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
@@ -428,6 +461,11 @@ export default function MusicPlayerBar() {
         setLocalPlayed(fraction)
       }
       lastProgressRef.current = Date.now()
+      if (el.currentTime > 0 && !liveStartedRef.current) liveStartedRef.current = true
+      if (liveRetriesRef.current > 0 && el.currentTime > 0) {
+        liveRetriesRef.current = 0
+        setReconnecting(false)
+      }
     },
     [isSeeking, setPlayed]
   )
@@ -486,6 +524,8 @@ export default function MusicPlayerBar() {
 
   const handleEnded = useCallback(() => {
     const { queue: q, currentIndex: i, repeatMode } = useMusicStore.getState()
+    // Una radio en vivo no "termina": si el servidor corta, se vuelve a conectar
+    if (q[i]?.streamUrl) return reconnectLive()
     if (repeatMode === 'one') {
       const el = playerRef.current
       if (el) {
@@ -496,13 +536,15 @@ export default function MusicPlayerBar() {
     }
     if (i >= q.length - 1 && isRadioLoadingRef.current) waitingForRadioRef.current = true
     playNext()
-  }, [playNext])
+  }, [playNext, reconnectLive])
   const handlePlay = useCallback(() => {
     setIsPlaying(true)
   }, [setIsPlaying])
   const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
     // Al terminar una canción también llega "pause": lo gestiona onEnded
     if (e?.currentTarget?.ended) return
+    // Pausa causada por la reconexión de una radio: no es del usuario
+    if (reconnectingRef.current) return
     if (useAudioRef.current) {
       // Con <audio> propio no hay pausas automáticas: cualquier pausa es del usuario
       keepPlayingRef.current = false
@@ -978,7 +1020,9 @@ export default function MusicPlayerBar() {
                 {currentVideo.title}
               </p>
               <p className="text-slate-500 text-xs truncate mt-0.5">
-                {audioMode && !useAudio ? (
+                {isLive && reconnecting ? (
+                  <span className="text-amber-400">Señal interrumpida · reconectando…</span>
+                ) : audioMode && !useAudio ? (
                   <span className="text-violet-500/90">Audio no disponible · reproduciendo video</span>
                 ) : (
                   currentVideo.channelTitle
