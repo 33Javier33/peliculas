@@ -68,6 +68,8 @@ interface MusicActions {
   removeFromQueue: (index: number) => void
   /** Cambia el video de una pista (otra subida de la misma canción) sin moverla en la cola */
   replaceTrackId: (index: number, newId: string) => void
+  /** Una canción "pendiente" del catálogo ya tiene su video */
+  resolvePending: (pendingId: string, newId: string) => void
   playIndex: (index: number) => void
   playNext: () => void
   playPrev: () => void
@@ -265,6 +267,15 @@ export const useMusicStore = create<MusicStore>()(
 
       setPlayed: (p) => set({ played: p }),
 
+      resolvePending: (pendingId, newId) => {
+        const { queue } = get()
+        if (!queue.some((t) => t.id === pendingId)) return
+        const next = queue.map((t) => (t.id === pendingId ? { ...t, id: newId, pending: undefined } : t))
+        set({ queue: next })
+        const cur = next[get().currentIndex]
+        if (cur?.id === newId) get().recordPlay(cur)
+      },
+
       replaceTrackId: (index, newId) => {
         const queue = get().queue.slice()
         if (!queue[index]) return
@@ -328,6 +339,8 @@ export const useMusicStore = create<MusicStore>()(
       },
 
       recordPlay: (video) => {
+        // Las pendientes se anotan cuando ya tienen su video (en resolvePending)
+        if (video.pending) return
         // Las radios en vivo no cuentan para el historial ni para "Para ti"
         if (video.streamUrl) return
         const meta = parseTrackMeta(video)

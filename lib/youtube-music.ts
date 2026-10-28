@@ -16,6 +16,8 @@ export interface MusicVideo {
   streamUrl?: string
   // Canciones de un álbum del catálogo: nombre del álbum
   album?: string
+  // Canción del catálogo aún sin video de YouTube: se busca justo antes de sonar
+  pending?: { artist: string; title: string; duration: number }
 }
 
 export interface MusicSearchResult {

@@ -200,6 +200,31 @@ export default function MusicPlayerBar() {
   const currentId = currentVideo?.id
   // Radio en vivo: siempre por <audio> con su stream directo
   const isLive = !!currentVideo?.streamUrl
+  // ===== Canciones del catálogo "pendientes": se busca su video justo antes de sonar =====
+  // (así un disco o un artista empieza a sonar al instante, sin esperar a buscar todo)
+  const pendingTrack = currentVideo?.pending ? currentVideo : null
+  useEffect(() => {
+    if (!pendingTrack) return
+    const pendingId = pendingTrack.id
+    resolvePendingId(pendingTrack).then((id) => {
+      const st = useMusicStore.getState()
+      if (st.queue[st.currentIndex]?.id !== pendingId) return
+      if (id) st.resolvePending(pendingId, id)
+      else skipUnplayableRef.current(pendingId)
+    })
+    // Se adelanta la búsqueda de las dos siguientes
+    const st = useMusicStore.getState()
+    st.queue.slice(st.currentIndex + 1, st.currentIndex + 3).forEach((t) => t.pending && resolvePendingId(t))
+  }, [pendingTrack])
+  // Y si la que suena ya está lista, se preparan las siguientes pendientes
+  useEffect(() => {
+    if (!currentId || currentVideo?.pending) return
+    const st = useMusicStore.getState()
+    st.queue.slice(st.currentIndex + 1, st.currentIndex + 3).forEach((t) => {
+      if (t.pending) resolvePendingId(t).then((id) => id && useMusicStore.getState().resolvePending(t.id, id))
+    })
+  }, [currentId, currentVideo?.pending])
+
   // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
   const isLocal = isLocalTrack(currentId)
   const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
@@ -218,12 +243,16 @@ export default function MusicPlayerBar() {
       if (url) URL.revokeObjectURL(url)
     }
   }, [isLocal, currentId])
-  const useAudio = isLive || isLocal || (audioMode && !!currentId && !audioFailedIds.has(currentId))
+  // Mientras se busca el video de una canción pendiente se muestra "cargando" (como el modo audio)
+  const isPending = !!currentVideo?.pending
+  const useAudio = isLive || isLocal || isPending || (audioMode && !!currentId && !audioFailedIds.has(currentId))
   const useAudioRef = useRef(useAudio)
   useAudioRef.current = useAudio
   const audioUrl = isLive
     ? currentVideo?.streamUrl
-    : isLocal
+    : isPending
+      ? undefined
+      : isLocal
       ? localUrl?.id === currentId
         ? localUrl.url
         : undefined
@@ -300,7 +329,7 @@ export default function MusicPlayerBar() {
   )
 
   useEffect(() => {
-    if (!useAudio || !currentId || isLive || isLocal) return
+    if (!useAudio || !currentId || isLive || isLocal || isPending) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
     loadAudioCandidates(currentId).then((candidates) => {
@@ -311,11 +340,11 @@ export default function MusicPlayerBar() {
     return () => {
       cancelled = true
     }
-  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal])
+  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal, isPending])
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
-  const nextId = nextTrack && !nextTrack.streamUrl && !isLocalTrack(nextTrack.id) ? nextTrack.id : undefined
+  const nextId = nextTrack && !nextTrack.streamUrl && !nextTrack.pending && !isLocalTrack(nextTrack.id) ? nextTrack.id : undefined
   useEffect(() => {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
@@ -384,8 +413,8 @@ export default function MusicPlayerBar() {
     lastProgressRef.current = Date.now()
     let lastTime = -1
     const timer = setInterval(() => {
-      // Interrumpida por otra app (WhatsApp, llamada): no es una fuente caída
-      if (interruptedAtRef.current) {
+      // Interrumpida por otra app (WhatsApp, llamada) o buscando la canción: no es una fuente caída
+      if (interruptedAtRef.current || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.pending) {
         lastProgressRef.current = Date.now()
         return
       }
@@ -486,7 +515,7 @@ export default function MusicPlayerBar() {
   // Videos y películas (no música): se muestran en modo video aunque esté el modo audio.
   // Al volver a una canción se regresa solo al modo audio.
   const autoVideoRef = useRef(false)
-  const currentIsVideo = currentVideo && !isLocal ? looksLikeVideo(currentVideo) : false
+  const currentIsVideo = currentVideo && !isLocal && !isPending ? looksLikeVideo(currentVideo) : false
   useEffect(() => {
     if (!currentId || isLive) return
     if (currentIsVideo && audioMode) {
@@ -1435,4 +1464,25 @@ if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener
 }
 function unpluggedRecently() {
   return Date.now() - lastDeviceChange < 3000
+}
+
+// Búsquedas de canciones pendientes en curso (para no repetirlas)
+const pendingResolutions = new Map<string, Promise<string | null>>()
+function resolvePendingId(track: MusicVideo): Promise<string | null> {
+  const p = track.pending
+  if (!p) return Promise.resolve(null)
+  let job = pendingResolutions.get(track.id)
+  if (!job) {
+    const params = new URLSearchParams({ artist: p.artist, title: p.title, d: String(p.duration || 0) })
+    job = fetch(`/api/catalog/resolve?${params}`)
+      .then((r) => (r.ok ? r.json() : { id: null }))
+      .then((d: { id?: string | null }) => d.id ?? null)
+      .catch(() => null)
+      .then((id) => {
+        if (!id) pendingResolutions.delete(track.id)
+        return id
+      })
+    pendingResolutions.set(track.id, job)
+  }
+  return job
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle } from 'lucide-react'
@@ -27,8 +27,26 @@ const TYPE_LABEL: Record<string, string> = { album: 'Álbum', single: 'Sencillo'
 
 export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
   const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved, saveTrack } = useMusicStore()
-  const [playable, setPlayable] = useState<MusicVideo[] | null>(null)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // Al abrir el álbum ya se puede reproducir: cada canción busca su video justo antes de sonar.
+  // Mientras tanto se piden todas ya listas (si llegan antes de tocar Reproducir, se usan esas).
+  const pendingTracks = useMemo<MusicVideo[]>(
+    () =>
+      album.trackList.map((t) => ({
+        id: `dz-${t.id}`,
+        title: `${t.artist || album.artist.name} - ${t.title}`,
+        channelTitle: t.artist || album.artist.name,
+        thumbnail: album.cover,
+        publishedAt: album.year || '',
+        description: album.title,
+        duration: formatDuration(t.duration),
+        album: album.title,
+        pending: { artist: t.artist || album.artist.name, title: t.title, duration: t.duration },
+      })),
+    [album]
+  )
+  const [resolved, setResolved] = useState<MusicVideo[] | null>(null)
+  const playable = resolved ?? (pendingTracks.length ? pendingTracks : null)
+  const status = (playable ? 'ready' : 'error') as 'loading' | 'ready' | 'error'
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
@@ -38,21 +56,18 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
     fetch(`/api/catalog/album/${album.id}/play`)
       .then((r) => (r.ok ? r.json() : { tracks: [] }))
       .then((d: { tracks?: MusicVideo[] }) => {
-        if (cancelled) return
-        if (d.tracks?.length) {
-          setPlayable(d.tracks)
-          setStatus('ready')
-        } else setStatus('error')
+        if (!cancelled && d.tracks?.length) setResolved(d.tracks)
       })
-      .catch(() => !cancelled && setStatus('error'))
+      .catch(() => {})
     return () => {
       cancelled = true
     }
   }, [album.id])
 
   const current = isVisible ? queue[currentIndex] : undefined
-  const playableIds = new Set(playable?.map((t) => t.id))
-  const isAlbumPlaying = !!current && playableIds.has(current.id)
+  // Por título: las pendientes cambian de ID al encontrar su video
+  const playableTitles = new Set(playable?.map((t) => t.title))
+  const isAlbumPlaying = !!current && playableTitles.has(current.title)
 
   // Índice reproducible de una canción del álbum (por título; si no, por posición)
   const indexOf = (title: string, position: number) => {
@@ -73,8 +88,9 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
   }
 
   const savedIds = new Set(mounted ? saved.map((t) => t.id) : [])
-  const allSaved = !!playable?.length && playable.every((t) => savedIds.has(t.id))
-  const saveAlbum = () => playable?.forEach((t) => saveTrack(t))
+  // Para guardar en la biblioteca hacen falta los videos ya encontrados
+  const allSaved = !!resolved?.length && resolved.every((t) => savedIds.has(t.id))
+  const saveAlbum = () => resolved?.forEach((t) => saveTrack(t))
 
   return (
     <div className="relative min-h-screen pt-20 pb-32 overflow-hidden">
@@ -138,7 +154,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           </button>
           <button
             onClick={saveAlbum}
-            disabled={status !== 'ready' || allSaved}
+            disabled={!resolved || allSaved}
             className={`w-12 h-12 rounded-full border flex items-center justify-center disabled:cursor-default ${
               allSaved ? 'bg-violet-500/20 border-violet-400/40 text-violet-300' : 'bg-surface-2/80 border-white/10 text-slate-200'
             } ${status !== 'ready' ? 'opacity-50' : ''}`}
@@ -160,7 +176,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
         <ol className="mt-8 divide-y divide-white/5 border border-white/5 rounded-2xl overflow-hidden bg-surface-1/50">
           {album.trackList.map((t) => {
             const idx = indexOf(t.title, t.position)
-            const isCurrent = isAlbumPlaying && idx >= 0 && playable?.[idx]?.id === current?.id
+            const isCurrent = isAlbumPlaying && idx >= 0 && playable?.[idx]?.title === current?.title
             return (
               <li key={t.id}>
                 <button

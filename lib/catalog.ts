@@ -257,3 +257,54 @@ export async function getLatestReleases(ids: number[], perArtist = 3): Promise<C
   )
   return lists.flat().sort((a, b) => (b.year || '').localeCompare(a.year || '') || b.id - a.id)
 }
+
+/** Canciones del álbum para sonar al instante: con su video si ya se conoce, si no "pendientes". */
+export async function getQuickAlbum(id: string): Promise<MusicVideo[]> {
+  const hit = playableCache.get(id)
+  if (hit && Date.now() - hit.at < 24 * 60 * 60 * 1000) return hit.tracks
+  const album = await getAlbum(id)
+  const artist = album.artist.name
+  return album.trackList.map((t) => ({
+    id: `dz-${t.id}`,
+    title: `${t.artist || artist} - ${t.title}`,
+    channelTitle: t.artist || artist,
+    thumbnail: album.cover,
+    publishedAt: album.year || '',
+    description: album.title,
+    duration: formatSeconds(t.duration),
+    album: album.title,
+    pending: { artist: t.artist || artist, title: t.title, duration: t.duration },
+  }))
+}
+
+const resolveCache = new Map<string, { at: number; id: string }>()
+
+/** Video de YouTube de una canción (sin cuota primero; si tarda, con la API oficial). */
+export async function resolveTrack(artist: string, title: string, duration: number): Promise<string | null> {
+  const key = `${artist}|${title}`.toLowerCase()
+  const hit = resolveCache.get(key)
+  if (hit && Date.now() - hit.at < 7 * 24 * 60 * 60 * 1000) return hit.id
+
+  const pick = (list: { id: string; seconds?: number }[]) =>
+    (list.find((r) => r.seconds && duration && Math.abs(r.seconds - duration) <= 15) ?? list[0])?.id ?? null
+  const viaPublic = findTrack(artist, title, duration)
+  // Si la búsqueda gratuita no responde en 4 s, se usa la oficial (rápida, con cuota diaria)
+  const viaApi = new Promise<string | null>((resolve) => setTimeout(resolve, 4000, null)).then(async () => {
+    const { searchMusicVideos } = await import('@/lib/youtube-music')
+    const r = await searchMusicVideos(`${artist} ${title}`, undefined, 8).catch(() => ({ videos: [] as MusicVideo[] }))
+    return pick(r.videos.map((v) => ({ id: v.id, seconds: secondsOf(v.duration) })))
+  })
+  const id = await Promise.any([viaPublic.then((v) => v ?? Promise.reject()), viaApi.then((v) => v ?? Promise.reject())]).catch(() => null)
+  if (id) {
+    resolveCache.set(key, { at: Date.now(), id })
+    if (resolveCache.size > 2000) resolveCache.delete(resolveCache.keys().next().value as string)
+  }
+  return id
+}
+
+function secondsOf(d?: string): number {
+  if (!d) return 0
+  const iso = d.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+  if (iso) return Number(iso[1] || 0) * 3600 + Number(iso[2] || 0) * 60 + Number(iso[3] || 0)
+  return d.split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0)
+}

@@ -29,7 +29,7 @@ const DEFAULT_INVIDIOUS = [
   'https://invidious.privacyredirect.com',
 ]
 
-const TIMEOUT_MS = 7000
+const TIMEOUT_MS = 5000
 const MAX_PER_KIND = 5
 
 function fromEnv(name: string): string[] {
@@ -53,9 +53,27 @@ export async function fetchJson<T>(url: string, timeout = TIMEOUT_MS): Promise<T
 
 let instanceCache: { at: number; piped: string[]; invidious: string[] } | null = null
 
+let instanceRefresh: Promise<unknown> | null = null
+
+/**
+ * Instancias a usar. La primera vez no se espera a las listas públicas (podían tardar 5 s
+ * y la música demoraba en sonar): se usan las conocidas y las listas se cargan por detrás.
+ */
 export async function getInstances() {
   if (instanceCache && Date.now() - instanceCache.at < 6 * 60 * 60 * 1000) return instanceCache
+  instanceRefresh ??= refreshInstances().finally(() => {
+    instanceRefresh = null
+  })
+  if (instanceCache) return instanceCache
+  const uniq = (arr: string[]) => Array.from(new Set(arr.map((u) => u.replace(/\/$/, ''))))
+  return {
+    at: 0,
+    piped: uniq([...fromEnv('PIPED_INSTANCES'), ...DEFAULT_PIPED]),
+    invidious: uniq([...fromEnv('INVIDIOUS_INSTANCES'), ...DEFAULT_INVIDIOUS]),
+  }
+}
 
+async function refreshInstances() {
   const envPiped = fromEnv('PIPED_INSTANCES')
   const envInv = fromEnv('INVIDIOUS_INSTANCES')
 
@@ -83,6 +101,7 @@ export async function getInstances() {
   }
   return instanceCache
 }
+
 
 // ---- Piped ----
 

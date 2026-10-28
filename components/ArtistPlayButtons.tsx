@@ -45,7 +45,7 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
     let total = 0
 
     const load = async (id: number) => {
-      const r = await fetch(`/api/catalog/album/${id}/play`).catch(() => null)
+      const r = await fetch(`/api/catalog/album/${id}/play?quick=1`).catch(() => null)
       if (!r?.ok) return [] as MusicVideo[]
       const d = (await r.json()) as { tracks?: MusicVideo[] }
       return (d.tracks ?? []).filter((t) => {
@@ -56,9 +56,10 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
       })
     }
 
-    for (let i = 0; i < ids.length; i += 2) {
-      // Dos discos a la vez; si se tocó otro botón, este recorrido se detiene
-      const batch = await Promise.all(ids.slice(i, i + 2).map(load))
+    for (let i = 0; i < ids.length; i += 4) {
+      // Cuatro discos a la vez (es rápido: cada canción se busca justo antes de sonar);
+      // si se tocó otro botón, este recorrido se detiene
+      const batch = await Promise.all(ids.slice(i, i + 4).map(load))
       if (run !== runRef.current) return
       const tracks = batch.flat()
       if (tracks.length === 0) continue
