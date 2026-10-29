@@ -51,7 +51,15 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
       .then((d: { candidates?: AudioCandidate[] }) => d.candidates ?? [])
       .catch(() => [] as AudioCandidate[])
       // Si el servidor no consigue fuentes (p. ej. bloqueado), lo intenta el propio navegador
-      .then((c) => (c.length > 0 ? c : findAudioCandidates(id).catch(() => [])))
+      // Si el servidor no trae fuentes públicas (YouTube y los servidores públicos suelen bloquear a
+      // Vercel), las busca el propio teléfono: desde su conexión normalmente sí responden
+      .then((c) =>
+        c.some((x) => x.source !== 'app')
+          ? c
+          : findAudioCandidates(id)
+              .catch(() => [] as AudioCandidate[])
+              .then((mine) => [...mine, ...c])
+      )
       .then((c) => {
         if (c.length === 0) audioCache.delete(id)
         return c
@@ -73,11 +81,11 @@ function orderCandidates(list: AudioCandidate[], highQuality: boolean): AudioCan
   }
   const playable = list.filter((c) => canPlay(c.mimeType))
   const base = playable.length > 0 ? playable : list
-  // El audio propio de la app va primero: es el más confiable
+  // El audio propio del servidor va al final: YouTube suele bloquearlo
   const own = (c: AudioCandidate) => (c.source === 'app' ? 1 : 0)
   return [...base].sort(
     (a, b) =>
-      own(b) - own(a) ||
+      own(a) - own(b) ||
       (highQuality
         ? b.bitrate - a.bitrate
         : (b.mimeType === 'audio/mp4' ? 1 : 0) - (a.mimeType === 'audio/mp4' ? 1 : 0) || b.bitrate - a.bitrate)
@@ -295,6 +303,8 @@ export default function MusicPlayerBar() {
   // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
   const [bgAudioId, setBgAudioId] = useState<string | null>(null)
   const bgActiveRef = useRef(false)
+  // ¿Sonaba algo al salir de la app o bloquear? (aunque YouTube se haya pausado solo después)
+  const hiddenWantRef = useRef(false)
   // Ventana de video: flotante sobre la barra; "oculta" = de vuelta en la miniatura de la barra
   const [videoHidden, setVideoHidden] = useState(false)
   const useAudio =
@@ -425,11 +435,13 @@ export default function MusicPlayerBar() {
     const switchIfNeeded = () => {
       const st = useMusicStore.getState()
       if (document.visibilityState === 'hidden') {
-        if (!st.isPlaying || useAudioRef.current) return
+        // Sonaba al bloquear (YouTube ya pudo haberse pausado solo): se sigue con el audio propio
+        if (!(st.isPlaying || hiddenWantRef.current) || useAudioRef.current) return
         // Siguiente pista con la pantalla bloqueada: también por audio propio
         if (bgActiveRef.current && currentId) return setBgAudioId(currentId)
         if (!audioReady) return
         pendingSeekRef.current = localPlayedRef.current
+        if (!st.isPlaying) st.setIsPlaying(true)
         if (quickStartId && quickStartId === currentId) setAudioSwitchId(currentId)
         else {
           bgActiveRef.current = true
@@ -743,6 +755,7 @@ export default function MusicPlayerBar() {
       if (document.visibilityState === 'hidden') {
         hiddenAtRef.current = Date.now()
         keepPlayingRef.current = isPlayingRef.current
+        hiddenWantRef.current = isPlayingRef.current
         if (keepPlayingRef.current) {
           for (const ms of [250, 800, 1600, 3000]) timers.push(setTimeout(resumeIfNeeded, ms))
           // Canción que solo suena con YouTube (sin audio para segundo plano) y YouTube se detuvo
@@ -751,15 +764,17 @@ export default function MusicPlayerBar() {
             setTimeout(() => {
               const st = useMusicStore.getState()
               const el = playerRef.current
-              if (!useAudioRef.current && st.audioMode && keepPlayingRef.current && el?.paused && document.visibilityState === 'hidden') {
+              if (!useAudioRef.current && hiddenWantRef.current && el?.paused && document.visibilityState === 'hidden') {
                 if (st.currentIndex < st.queue.length - 1) st.playNext()
               }
-            }, 4000)
+              // (antes se esperan 12 s: si el audio de esta canción llega, se pasa a él sin saltarla)
+            }, 12000)
           )
         }
       } else {
         timers.splice(0).forEach(clearTimeout)
         hiddenAtRef.current = 0
+        hiddenWantRef.current = false
         if (keepPlayingRef.current) {
           resumeIfNeeded()
           setIsPlaying(true)
@@ -973,6 +988,7 @@ export default function MusicPlayerBar() {
         'pause',
         () => {
           keepPlayingRef.current = false
+          hiddenWantRef.current = false
           setIsPlaying(false)
         },
       ],

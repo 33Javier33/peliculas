@@ -31,6 +31,10 @@ export interface OwnAudio {
 }
 
 const cache = new Map<string, { at: number; audio: OwnAudio }>()
+
+// Si YouTube está rechazando al servidor, no se ofrece el audio propio por un rato
+let failingUntil = 0
+export const ownAudioAvailable = () => Date.now() > failingUntil
 const TTL = 3 * 60 * 60 * 1000 // las direcciones de YouTube duran ~6 h
 
 // Orden de prueba; el último que funcionó pasa adelante
@@ -46,7 +50,10 @@ const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 export async function resolveOwnAudio(id: string, fresh = false): Promise<OwnAudio> {
   const hit = cache.get(id)
   if (!fresh && hit && Date.now() - hit.at < TTL) return hit.audio
-  const yt = await getClient()
+  const yt = await getClient().catch((err) => {
+    failingUntil = Date.now() + 30 * 60 * 1000
+    throw err
+  })
   const errors: string[] = []
   for (const c of order) {
     try {
@@ -69,6 +76,7 @@ export async function resolveOwnAudio(id: string, fresh = false): Promise<OwnAud
       errors.push(`${c}: ${((err as Error).message || 'error').slice(0, 80)}`)
     }
   }
+  failingUntil = Date.now() + 30 * 60 * 1000
   // El motivo real que da YouTube (p. ej. "Sign in to confirm you're not a bot")
   try {
     const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
