@@ -15,7 +15,30 @@ const VOD_FALLBACK = 'https://service-vod.clusters.pluto.tv'
 interface Boot {
   sessionToken?: string
   stitcherParams?: string
-  servers?: { stitcher?: string; channels?: string; vod?: string }
+  servers?: { stitcher?: string; stitcherDash?: string; channels?: string; vod?: string }
+}
+
+// Desde 2026 Pluto exige la versión real de su web: se lee de pluto.tv (se guarda un día)
+let appVersionCache: { at: number; v: string } | null = null
+async function getAppVersion(): Promise<string> {
+  if (appVersionCache && Date.now() - appVersionCache.at < 24 * 60 * 60 * 1000) return appVersionCache.v
+  let v = process.env.PLUTO_APP_VERSION || ''
+  if (!v) {
+    try {
+      const html = await fetch(process.env.PLUTO_WEB_URL || 'https://pluto.tv/', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(6000),
+      }).then((r) => r.text())
+      v =
+        html.match(/<meta[^>]*name="appVersion"[^>]*content="([^"]+)"/i)?.[1] ||
+        html.match(/"appVersion"\s*:\s*"([^"]+)"/i)?.[1] ||
+        ''
+    } catch {}
+  }
+  v ||= '9.15.0'
+  appVersionCache = { at: Date.now(), v }
+  return v
 }
 
 interface Session {
@@ -31,6 +54,8 @@ interface PlutoChannel {
   id: string
   name: string
   number?: number
+  isStitched?: boolean
+  stitched?: { path?: string; paths?: { type?: string; path?: string }[]; urls?: { url?: string }[] }
   images?: { type?: string; url?: string }[]
   categoryIDs?: string[]
 }
@@ -63,26 +88,39 @@ async function getSession(userIp: string | null): Promise<Session> {
     Origin: 'https://pluto.tv',
     Referer: 'https://pluto.tv/',
   }
+  // Los mismos datos que envía hoy la web de Pluto TV
+  const clientId = randomUUID()
   const bootParams = new URLSearchParams({
     appName: 'web',
-    appVersion: '9.0.0',
-    deviceVersion: '120.0.0',
-    deviceModel: 'web',
+    appVersion: await getAppVersion(),
+    clientTime: new Date().toISOString(),
+    deviceDNT: '0',
+    clientId,
+    clientID: clientId,
+    clientModelNumber: '1.0.0',
+    clientModelName: 'Chrome',
+    clientModel: 'web',
+    clientType: 'web',
+    deviceVersion: '130.0.0',
+    drmCapabilities: 'widevine:L3',
+    includeExtendedEvents: 'false',
+    serverSideAds: 'false',
     deviceMake: 'chrome',
     deviceType: 'web',
-    clientID: randomUUID(),
-    clientModelNumber: '1.0.0',
-    serverSideAds: 'false',
-    channelSlug: '',
+    deviceModel: 'web',
+    notificationVersion: '1',
+    appLaunchCount: '1',
+    lastAppLaunchDate: '',
   })
   const boot = await getJson<Boot>(`${BOOT}?${bootParams}`, headers)
   const token = boot.sessionToken
-  const stitcher = boot.servers?.stitcher
+  const stitcher = boot.servers?.stitcher || boot.servers?.stitcherDash
   if (!token || !stitcher) throw new Error('Pluto sin sesión')
 
-  const params = new URLSearchParams(boot.stitcherParams || '')
+  // Formato 2026: solo el token y masterJWTPassthrough (los demás parámetros lo rompen)
+  const params = new URLSearchParams()
   params.set('jwt', token)
-  params.set('masterJWTPassthrough', 'true')
+  params.set('masterJWTPassthrough', '1')
   const session: Session = {
     token,
     stitcher,
@@ -116,9 +154,15 @@ export async function getPlutoChannels(userIp: string | null, country: string): 
   const categoryName = new Map((categories.data ?? []).map((c) => [c.id, c.name]))
 
   const channels: TvChannel[] = (list.data ?? [])
-    .filter((c) => c.id && c.name)
+    // Los canales con DRM (sin "stitched") no se pueden ver fuera de la app de Pluto
+    .filter((c) => c.id && c.name && c.isStitched !== false)
     .map((c) => {
-      const url = `${stitcher}/v2/stitch/hls/channel/${c.id}/master.m3u8?${session.playParams}`
+      const path =
+        c.stitched?.path ||
+        c.stitched?.paths?.find((p) => p.path && (p.type === 'hls' || !p.type))?.path ||
+        `/stitch/hls/channel/${c.id}/master.m3u8`
+      const clean = path.split('?')[0].replace(/^\/v2(?=\/)/, '')
+      const url = `${stitcher}/v2${clean.startsWith('/') ? '' : '/'}${clean}?${session.playParams}`
       const logo =
         c.images?.find((i) => i.type === 'colorLogoPNG')?.url || c.images?.find((i) => i.type === 'logo')?.url || ''
       return {

@@ -97,7 +97,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               datos son proporcionados por{' '}
               <span className="text-blue-400 font-medium">TMDB</span>.
             </p>
-            <p className="text-slate-600 text-xs mt-2">Versión {APP_VERSION}</p>
+            <p className="text-slate-600 text-xs mt-2">
+              Versión {APP_VERSION} ·{' '}
+              <a href="/estado" className="underline hover:text-slate-400">
+                Estado de las fuentes
+              </a>
+            </p>
           </div>
         </footer>
         <MusicPlayerBar />

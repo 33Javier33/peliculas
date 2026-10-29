@@ -33,12 +33,28 @@ export interface TvChannel {
   region?: string
 }
 
-const RADIO_SERVERS = [
+const DEFAULT_RADIO_SERVERS = [
   'https://de1.api.radio-browser.info',
   'https://nl1.api.radio-browser.info',
   'https://at1.api.radio-browser.info',
   'https://de2.api.radio-browser.info',
+  'https://fi1.api.radio-browser.info',
 ]
+
+// Radio Browser cambia sus servidores: se pide la lista actual (y se guarda unas horas)
+let radioServersCache: { at: number; list: string[] } | null = null
+async function radioServers(): Promise<string[]> {
+  if (radioServersCache && Date.now() - radioServersCache.at < 6 * 60 * 60 * 1000) return radioServersCache.list
+  let found: string[] = []
+  try {
+    const res = await fetchWithTimeout('https://all.api.radio-browser.info/json/servers', { cache: 'no-store' }, 4000)
+    const data = (await res.json()) as { name?: string }[]
+    found = data.map((d) => d.name).filter((n): n is string => !!n && /\.api\.radio-browser\.info$/.test(n)).map((n) => `https://${n}`)
+  } catch {}
+  const list = Array.from(new Set([...found.sort(() => Math.random() - 0.5), ...DEFAULT_RADIO_SERVERS]))
+  radioServersCache = { at: Date.now(), list }
+  return list
+}
 
 async function fetchWithTimeout(url: string, init: RequestInit & { next?: { revalidate: number } }, ms = 8000) {
   const ctrl = new AbortController()
@@ -70,7 +86,7 @@ interface RawStation {
 
 async function radioRequest(path: string): Promise<RadioStation[]> {
   let lastError: unknown
-  for (const base of RADIO_SERVERS) {
+  for (const base of await radioServers()) {
     try {
       const res = await fetchWithTimeout(`${base}${path}`, {
         headers: { 'User-Agent': 'CarlosPNautoInteractive/1.0', Accept: 'application/json' },
@@ -149,7 +165,7 @@ export async function getRadioCities(countryCode: string): Promise<{ name: strin
   try {
     countryName = new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) || countryCode
   } catch {}
-  for (const base of RADIO_SERVERS) {
+  for (const base of await radioServers()) {
     try {
       const res = await fetchWithTimeout(`${base}/json/states/${encodeURIComponent(countryName)}/?hidebroken=true`, {
         headers: { 'User-Agent': 'CarlosPNautoInteractive/1.0', Accept: 'application/json' },
