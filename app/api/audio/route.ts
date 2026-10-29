@@ -18,8 +18,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ candidates: hit.candidates })
   }
 
-  const candidates = await findAudioCandidates(id).catch(() => [])
-  if (candidates.length > 0) {
+  // Primero el audio propio de la app (/api/stream); después los servidores públicos de respaldo
+  const own: AudioCandidate = { url: `/api/stream?id=${id}`, mimeType: 'audio/mp4', bitrate: 130000, source: 'app' }
+  // Los públicos tienen 2,5 s; si tardan más se responde ya con el propio (y quedan en caché después)
+  const publicJob = findAudioCandidates(id).catch(() => [] as AudioCandidate[])
+  publicJob.then((list) => list.length && cache.set(id, { at: Date.now(), candidates: [own, ...list] }))
+  const publicList = await Promise.race([publicJob, new Promise<AudioCandidate[]>((r) => setTimeout(r, 2500, []))])
+  const candidates = [own, ...publicList]
+  if (candidates.length > 1) {
     cache.set(id, { at: Date.now(), candidates })
     if (cache.size > 300) cache.delete(cache.keys().next().value as string)
   }

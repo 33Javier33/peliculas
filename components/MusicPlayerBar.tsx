@@ -73,10 +73,14 @@ function orderCandidates(list: AudioCandidate[], highQuality: boolean): AudioCan
   }
   const playable = list.filter((c) => canPlay(c.mimeType))
   const base = playable.length > 0 ? playable : list
-  return [...base].sort((a, b) =>
-    highQuality
-      ? b.bitrate - a.bitrate
-      : (b.mimeType === 'audio/mp4' ? 1 : 0) - (a.mimeType === 'audio/mp4' ? 1 : 0) || b.bitrate - a.bitrate
+  // El audio propio de la app va primero: es el más confiable
+  const own = (c: AudioCandidate) => (c.source === 'app' ? 1 : 0)
+  return [...base].sort(
+    (a, b) =>
+      own(b) - own(a) ||
+      (highQuality
+        ? b.bitrate - a.bitrate
+        : (b.mimeType === 'audio/mp4' ? 1 : 0) - (a.mimeType === 'audio/mp4' ? 1 : 0) || b.bitrate - a.bitrate)
   )
 }
 

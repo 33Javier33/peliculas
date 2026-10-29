@@ -10,6 +10,7 @@ import { getPopularMovies } from '@/lib/tmdb'
 import { searchArchiveMovies } from '@/lib/archive'
 import { getArtistInfo } from '@/lib/music-info'
 import { getRequestRegion } from '@/lib/region'
+import { resolveOwnAudio } from '@/lib/own-stream'
 
 // Diagnóstico de todas las fuentes que usa la app, probadas desde el servidor real (Vercel).
 export const dynamic = 'force-dynamic'
@@ -63,7 +64,13 @@ export async function GET(request: NextRequest) {
       return need(r.videos.length, 'videos') + (r.nextPageToken?.startsWith('pub:') ? ' (por respaldo, sin cuota oficial)' : '')
     }),
     check('youtube-public', 'Música', 'Búsqueda de respaldo (Piped/Invidious)', async () => need((await publicSearch('Shakira Hips')).length, 'videos')),
-    check('audio', 'Música', 'Audio con pantalla bloqueada', async () => need((await findAudioCandidates('pRpeEdMmmQ0')).length, 'fuentes de audio')),
+    check('own-audio', 'Música', 'Audio propio de la app (pantalla bloqueada)', async () => {
+      const a = await resolveOwnAudio('pRpeEdMmmQ0', true)
+      const r = await fetch(a.url, { headers: { Range: 'bytes=0-1023', 'User-Agent': a.userAgent } })
+      if (r.status !== 206 && !r.ok) throw new Error(`YouTube respondió ${r.status}`)
+      return `audio ${a.mimeType} · ${Math.round(a.bitrate / 1000)} kbps`
+    }),
+    check('audio', 'Música', 'Audio de respaldo (servidores públicos)', async () => need((await findAudioCandidates('pRpeEdMmmQ0')).length, 'fuentes de audio')),
     check('tmdb', 'Películas', 'Catálogo de películas (TMDB)', async () => need((await getPopularMovies(1)).results.length, 'películas')),
     check('archive', 'Películas', 'Clásicos (Internet Archive)', async () => need((await searchArchiveMovies('es')).length, 'películas')),
     check('wikipedia', 'Música', 'Biografías (Wikipedia)', async () => ((await getArtistInfo('Shakira')) ? 'biografía encontrada' : Promise.reject(new Error('sin resultado')))),

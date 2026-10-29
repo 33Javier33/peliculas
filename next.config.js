@@ -5,6 +5,10 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
+  // youtubei.js se usa tal cual en el servidor (audio propio, /api/stream)
+  experimental: {
+    serverComponentsExternalPackages: ['youtubei.js'],
+  },
   images: {
     remotePatterns: [
       {
