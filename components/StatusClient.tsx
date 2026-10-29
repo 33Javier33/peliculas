@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Copy, Activity } from 'lucide-react'
+import { findAudioCandidates } from '@/lib/audio-sources'
 
 // Página de diagnóstico: prueba cada fuente (Pluto, TV, radio, música, películas) desde el
 // servidor y algunas cosas desde este teléfono (Pluto directo, transmitir a la TV).
@@ -43,6 +44,39 @@ async function deviceChecks(): Promise<Check[]> {
   } catch (err) {
     out.push({ id: 'pluto-device', area: 'Este teléfono', name: 'Pluto TV desde el teléfono', ok: false, ms: Date.now() - t0, detail: (err as Error).message })
   }
+  // Audio para pantalla bloqueada, buscado desde este teléfono (como lo hace la música)
+  const t1 = Date.now()
+  try {
+    const list = await findAudioCandidates('kJQP7kiw5Fk')
+    if (list.length === 0) throw new Error('ningún servidor de audio respondió')
+    // ¿Alguno suena de verdad? (se prueba con un reproductor de audio, sin sonido)
+    let okSource = ''
+    for (const c of list.slice(0, 4)) {
+      const ok = await new Promise<boolean>((resolve) => {
+        const a = new Audio()
+        a.muted = true
+        a.preload = 'auto'
+        const done = (v: boolean) => {
+          a.removeAttribute('src')
+          a.load()
+          resolve(v)
+        }
+        a.oncanplay = () => done(true)
+        a.onerror = () => done(false)
+        setTimeout(() => done(false), 8000)
+        a.src = c.url
+      })
+      if (ok) {
+        okSource = new URL(c.source).hostname
+        break
+      }
+    }
+    if (!okSource) throw new Error(`${list.length} fuentes encontradas, pero ninguna se puede reproducir`)
+    out.push({ id: 'audio-device', area: 'Este teléfono', name: 'Audio con pantalla bloqueada (desde el teléfono)', ok: true, ms: Date.now() - t1, detail: `suena desde ${okSource}` })
+  } catch (err) {
+    out.push({ id: 'audio-device', area: 'Este teléfono', name: 'Audio con pantalla bloqueada (desde el teléfono)', ok: false, ms: Date.now() - t1, detail: (err as Error).message })
+  }
+
   const chrome = /Chrome/.test(navigator.userAgent) && !/CriOS|SamsungBrowser|EdgA|OPR/.test(navigator.userAgent)
   out.push({
     id: 'cast',

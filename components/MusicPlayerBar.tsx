@@ -41,6 +41,11 @@ const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
 const audioCache = new Map<string, Promise<AudioCandidate[]>>()
 
+let audioFailStreak = 0
+let audioDownUntil = 0
+/** ¿Las fuentes de audio están fallando todas ahora? */
+const audioSourcesDown = () => Date.now() < audioDownUntil
+
 function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
   let p = audioCache.get(id)
   if (!p) {
@@ -59,7 +64,14 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
               .then((mine) => [...mine, ...c])
       )
       .then((c) => {
-        if (c.length === 0) audioCache.delete(id)
+        if (c.length === 0) {
+          audioCache.delete(id)
+          // Varias canciones seguidas sin audio: por un rato no se espera (se evita la demora)
+          if (++audioFailStreak >= 3) audioDownUntil = Date.now() + 10 * 60 * 1000
+        } else {
+          audioFailStreak = 0
+          audioDownUntil = 0
+        }
         return c
       })
     audioCache.set(id, p)
@@ -96,6 +108,8 @@ const MUSIC_AUDIO_ONLY = true
 const AUTO_RESUME_WINDOW_MS = 5000
 // Sin avance del audio durante este tiempo: la fuente se considera caída
 const STALL_MS = 15000
+// Sin empezar a sonar en este tiempo: se prueba la siguiente fuente
+const START_MS = 7000
 // Radio: más margen antes de reconectar (con señal débil el audio puede tardar en volver solo)
 const LIVE_STALL_MS = 25000
 const RESUME_KEY = 'cpn-resume-playing'
@@ -318,7 +332,7 @@ export default function MusicPlayerBar() {
   const isPending = !!currentVideo?.pending
   // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
   // YouTube y pasa al audio propio al bloquear la pantalla o salir de la app (si ya está listo).
-  const wantAudio = !!currentId && !audioFailedIds.has(currentId)
+  const wantAudio = !!currentId && !audioFailedIds.has(currentId) && !audioSourcesDown()
   const [quickStartId, setQuickStartId] = useState<string | null>(null)
   const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
   // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
@@ -407,7 +421,7 @@ export default function MusicPlayerBar() {
   const markAudioFailed = useCallback(
     async (id: string) => {
       if (isLocalTrack(id)) return skipUnplayable(id)
-      if (await tryAlternative(id, 2)) return
+      // (Antes se buscaba otra subida de la canción: casi nunca ayudaba y demoraba cada canción)
       const st = useMusicStore.getState()
       if (st.queue[st.currentIndex]?.id !== id) return
       if (document.visibilityState === 'hidden') skipUnplayable(id)
@@ -564,7 +578,9 @@ export default function MusicPlayerBar() {
         if (lastTime >= 0) lastProgressRef.current = Date.now()
         lastTime = el.currentTime
       }
-      if (Date.now() - lastProgressRef.current < (isLive ? LIVE_STALL_MS : STALL_MS)) return
+      // Una fuente que no arranca en 7 s se cambia por la siguiente (antes se esperaban 15 s)
+      const limit = isLive ? LIVE_STALL_MS : lastTime <= 0 ? START_MS : STALL_MS
+      if (Date.now() - lastProgressRef.current < limit) return
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()
       else markAudioFailed(currentId)
