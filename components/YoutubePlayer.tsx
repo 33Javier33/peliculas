@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2 } from 'lucide-react'
+import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, Play } from 'lucide-react'
+import CastButton from '@/components/CastButton'
 import { useMusicStore } from '@/store/musicStore'
 
 interface YoutubePlayerProps {
@@ -65,6 +66,19 @@ export default function YoutubePlayer({
     }
   })
   const [qualityOpen, setQualityOpen] = useState(false)
+  // Transmitir a la TV: YouTube no deja enviar sus videos desde otra web; se abre en la app de
+  // YouTube (que sí transmite) en el mismo segundo, o se usa la fuente alternativa con Chromecast
+  const [castOpen, setCastOpen] = useState(false)
+  const altVideoRef = useRef<HTMLVideoElement>(null)
+  const openInYouTubeApp = () => {
+    const t = Math.floor(timeRef.current)
+    const web = `https://www.youtube.com/watch?v=${videoId}${t > 5 ? `&t=${t}s` : ''}`
+    const android = /Android/i.test(navigator.userAgent)
+    // En Android se abre directo la app de YouTube; si no está, la web
+    window.location.href = android
+      ? `intent://www.youtube.com/watch?v=${videoId}${t > 5 ? `&t=${t}s` : ''}#Intent;package=com.google.android.youtube;scheme=https;S.browser_fallback_url=${encodeURIComponent(web)};end`
+      : web
+  }
   // Segundo en que va el video (para seguir desde ahí al cambiar la calidad)
   const timeRef = useRef(0)
   const [startAt, setStartAt] = useState(0)
@@ -216,6 +230,14 @@ export default function YoutubePlayer({
               <Heart className={`w-5 h-5 ${liked ? 'fill-violet-300' : ''}`} />
             </button>
           )}
+          <button
+            onClick={() => setCastOpen(true)}
+            className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
+            aria-label="Ver en la TV"
+            title="Ver en la TV"
+          >
+            <Cast className="w-5 h-5" />
+          </button>
           <a
             href={`https://www.youtube.com/watch?v=${videoId}`}
             target="_blank"
@@ -249,6 +271,7 @@ export default function YoutubePlayer({
               />
             ) : altStatus === 'ready' && alt ? (
               <video
+                ref={altVideoRef}
                 key={alt.candidates[alt.index].url}
                 src={alt.candidates[alt.index].url}
                 controls
@@ -338,6 +361,59 @@ export default function YoutubePlayer({
           )}
         </div>
       </div>
+      {castOpen && (
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setCastOpen(false)}>
+          <div
+            className="w-full sm:max-w-md bg-surface-1 border border-white/10 rounded-t-3xl sm:rounded-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Ver en la TV"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-bold font-display text-lg">Ver en la TV</h3>
+              <button onClick={() => setCastOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400" aria-label="Cerrar">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-slate-400 text-sm mb-4">
+              YouTube no permite enviar sus videos a la TV desde otras páginas. Estas opciones sí funcionan:
+            </p>
+            <button
+              onClick={openInYouTubeApp}
+              className="w-full flex items-center gap-3 text-left rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 px-4 py-3 mb-2"
+            >
+              <span className="shrink-0 w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center">
+                <Play className="w-5 h-5 fill-white" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-white font-semibold text-sm">Abrir en la app de YouTube</span>
+                <span className="block text-slate-400 text-xs">Sigue en el mismo segundo. Ahí toca el ícono de transmitir y elige tu TV.</span>
+              </span>
+            </button>
+            {mode === 'alt' && altStatus === 'ready' && alt && (
+              <div className="flex items-center gap-3 rounded-2xl bg-violet-500/10 border border-violet-500/30 px-4 py-3 mb-2">
+                <CastButton videoRef={altVideoRef} media={{ url: alt.candidates[alt.index].url, title, poster: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` }} />
+                <span className="text-slate-300 text-sm">Enviar esta fuente con Chromecast o AirPlay</span>
+              </div>
+            )}
+            <div className="rounded-2xl bg-surface-2/60 border border-white/8 p-4">
+              <p className="flex items-center gap-2 text-white font-semibold text-sm mb-2">
+                <MonitorSmartphone className="w-5 h-5 text-violet-300" /> Duplicar pantalla
+              </p>
+              <ul className="text-slate-400 text-sm space-y-1.5 list-disc pl-5">
+                <li>
+                  <b className="text-slate-200">Android:</b> baja la barra de notificaciones y toca <i>Smart View</i>, <i>Transmitir</i> o{' '}
+                  <i>Duplicar pantalla</i>.
+                </li>
+                <li>
+                  <b className="text-slate-200">iPhone:</b> Centro de control → <i>Duplicar pantalla</i>.
+                </li>
+                <li>Luego pon el video en pantalla completa.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
