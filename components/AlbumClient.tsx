@@ -55,6 +55,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
         duration: formatDuration(t.duration),
         album: album.title,
         pending: { artist: t.artist || album.artist.name, title: t.title, duration: t.duration },
+        artistId: album.artist.id || undefined,
       })),
     [album]
   )

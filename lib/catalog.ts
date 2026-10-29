@@ -4,6 +4,7 @@
 //   canciones en orden) vía Piped y, si no está, cada canción por separado. Sin cuota.
 import { getInstances, fetchJson } from '@/lib/audio-sources'
 import { publicSearch, formatSeconds } from '@/lib/public-search'
+import { bestTrack } from '@/lib/track-match'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 // Se puede cambiar con DEEZER_API_BASE (p. ej. para pruebas)
@@ -192,8 +193,14 @@ async function findYouTubeMusicAlbum(artist: string, title: string): Promise<{ i
 /** Busca una canción suelta, preferentemente con una duración parecida. */
 async function findTrack(artist: string, title: string, duration: number): Promise<string | null> {
   const results = await publicSearch(`${artist} - ${title} audio`).catch(() => [])
-  const close = results.find((r) => r.lengthSeconds && Math.abs(r.lengthSeconds - duration) <= 15)
-  return (close ?? results[0])?.id ?? null
+  // Solo si es esa canción de ese artista (nunca otra canción "parecida")
+  const best = bestTrack(
+    results.map((r) => ({ id: r.id, title: r.title, channel: r.author, seconds: r.lengthSeconds })),
+    artist,
+    title,
+    duration
+  )
+  return best?.id ?? null
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -286,7 +293,40 @@ export async function getQuickAlbum(id: string): Promise<MusicVideo[]> {
     duration: formatSeconds(t.duration),
     album: album.title,
     pending: { artist: t.artist || artist, title: t.title, duration: t.duration },
+    artistId: album.artist.id || undefined,
   }))
+}
+
+/**
+ * Canciones más escuchadas de un artista (por ID o por nombre exacto), listas para la cola como
+ * "pendientes". Sirve para seguir con el mismo artista o grupo cuando termina lo que sonaba.
+ */
+export async function getArtistTopTracks(opts: { id?: number; name?: string }, limit = 40): Promise<MusicVideo[]> {
+  let id = opts.id
+  if (!id && opts.name) {
+    const found = await deezer<{ data: DzArtist[] }>(`/search/artist?q=${encodeURIComponent(opts.name)}&limit=5`, 86400).catch(() => ({ data: [] }))
+    const want = normalize(opts.name)
+    id = found.data.find((a) => normalize(a.name) === want)?.id
+  }
+  if (!id) return []
+  const top = await deezer<{
+    data: { id: number; title: string; duration: number; artist?: { id: number; name: string }; album?: { title?: string; cover_xl?: string; cover_big?: string } }[]
+  }>(`/artist/${id}/top?limit=${limit}`, 21600)
+  return top.data.map((t) => {
+    const artist = t.artist?.name || opts.name || ''
+    return {
+      id: `dz-${t.id}`,
+      title: `${artist} - ${t.title}`,
+      channelTitle: artist,
+      thumbnail: t.album?.cover_xl || t.album?.cover_big || '',
+      publishedAt: '',
+      description: t.album?.title || '',
+      duration: formatSeconds(t.duration),
+      album: t.album?.title,
+      pending: { artist, title: t.title, duration: t.duration },
+      artistId: id,
+    }
+  })
 }
 
 const resolveCache = new Map<string, { at: number; id: string }>()
@@ -297,14 +337,14 @@ export async function resolveTrack(artist: string, title: string, duration: numb
   const hit = resolveCache.get(key)
   if (hit && Date.now() - hit.at < 7 * 24 * 60 * 60 * 1000) return hit.id
 
-  const pick = (list: { id: string; seconds?: number }[]) =>
-    (list.find((r) => r.seconds && duration && Math.abs(r.seconds - duration) <= 15) ?? list[0])?.id ?? null
+  const pick = (list: { id: string; title: string; channel: string; seconds?: number }[]) =>
+    bestTrack(list, artist, title, duration)?.id ?? null
   const viaPublic = findTrack(artist, title, duration)
   // Si la búsqueda gratuita no responde en 4 s, se usa la oficial (rápida, con cuota diaria)
   const viaApi = new Promise<string | null>((resolve) => setTimeout(resolve, 4000, null)).then(async () => {
     const { searchMusicVideos } = await import('@/lib/youtube-music')
     const r = await searchMusicVideos(`${artist} ${title}`, undefined, 8).catch(() => ({ videos: [] as MusicVideo[] }))
-    return pick(r.videos.map((v) => ({ id: v.id, seconds: secondsOf(v.duration) })))
+    return pick(r.videos.map((v) => ({ id: v.id, title: v.title, channel: v.channelTitle, seconds: secondsOf(v.duration) })))
   })
   const id = await Promise.any([viaPublic.then((v) => v ?? Promise.reject()), viaApi.then((v) => v ?? Promise.reject())]).catch(() => null)
   if (id) {

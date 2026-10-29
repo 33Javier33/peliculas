@@ -32,6 +32,7 @@ import { useLiveStore } from '@/store/liveStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
+import { bestTrack } from '@/lib/track-match'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -223,14 +224,35 @@ export default function MusicPlayerBar() {
     const params = new URLSearchParams({ ids: ids.join(','), genres: '1' })
     artists.forEach((a) => params.append('artist', a))
     setIsRadioLoading(true)
-    fetch(`/api/youtube/for-you?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : null))
+
+    // Primero, más canciones del MISMO artista o grupo (lo que se espera de una app de música);
+    // solo si no hay, canciones parecidas de otros artistas
+    const songKey = (t: MusicVideo) => normSong(t.title.replace(/^[^-–]+[-–]\s*/, ''))
+    const inQueue = new Set(useMusicStore.getState().queue.map(songKey))
+    const artistParams = currentVideo.artistId
+      ? `id=${currentVideo.artistId}`
+      : currentArtist
+        ? `name=${encodeURIComponent(currentArtist.replace(/\s*-\s*topic$/i, '').replace(/vevo$/i, ''))}`
+        : ''
+    const sameArtist: Promise<MusicVideo[]> = artistParams
+      ? fetch(`/api/catalog/artist-tracks?${artistParams}`)
+          .then((r) => (r.ok ? r.json() : { tracks: [] }))
+          .then((d: { tracks?: MusicVideo[] }) => (d.tracks ?? []).filter((t) => !inQueue.has(songKey(t))))
+          .catch(() => [])
+      : Promise.resolve([])
+
+    sameArtist
+      .then(async (own) => {
+        if (own.length >= 3) return { videos: own.slice(0, 20) }
+        const r = await fetch(`/api/youtube/for-you?${params.toString()}`)
+        return r.ok ? ((await r.json()) as { videos?: MusicVideo[] }) : null
+      })
       .then((data: { videos?: MusicVideo[] } | null) => {
         const list = data?.videos ?? []
         // Preferimos lo que no has escuchado nunca; si queda poco, se completa con lo demás
         const heard = new Set(useMusicStore.getState().history.map((h) => h.id))
         const fresh = list.filter((v) => !heard.has(v.id))
-        const added = appendToQueue((fresh.length >= 5 ? fresh : list).slice(0, 15))
+        const added = appendToQueue((fresh.length >= 5 ? fresh : list).slice(0, 20))
         if (added > 0 && waitingForRadioRef.current) useMusicStore.getState().playNext()
       })
       .catch(() => {
@@ -1564,8 +1586,17 @@ async function findAlternativeId(track: MusicVideo, tried: Set<string>): Promise
     const data = (await res.json()) as { videos?: MusicVideo[] }
     const want = durationSeconds(track.duration)
     const options = (data.videos ?? []).filter((v) => !tried.has(v.id))
-    const close = options.find((v) => want > 0 && Math.abs(durationSeconds(v.duration) - want) <= 20) ?? options[0]
-    return close?.id ?? null
+    // Solo la misma canción del mismo artista: si no aparece, mejor saltarla que poner otra
+    const meta = parseTrackMeta(track)
+    const artist = track.pending?.artist || meta.artist || track.channelTitle
+    const song = track.pending?.title || track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title
+    const best = bestTrack(
+      options.map((v) => ({ id: v.id, title: v.title, channel: v.channelTitle, seconds: durationSeconds(v.duration) })),
+      artist,
+      song,
+      want
+    )
+    return best?.id ?? null
   } catch {
     return null
   }
@@ -1606,3 +1637,12 @@ function resolvePendingId(track: MusicVideo): Promise<string | null> {
   }
   return job
 }
+
+const normSong = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\(.*?\)|\[.*?\]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
