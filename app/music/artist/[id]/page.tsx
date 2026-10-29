@@ -7,6 +7,7 @@ import { getArtist, type CatalogAlbum } from '@/lib/catalog'
 import BackButton from '@/components/BackButton'
 import FollowArtistButton from '@/components/FollowArtistButton'
 import ArtistPlayButtons from '@/components/ArtistPlayButtons'
+import MusicInfoPanel from '@/components/MusicInfoPanel'
 
 interface Props {
   params: { id: string }
@@ -97,6 +98,10 @@ export default async function ArtistPage({ params }: Props) {
           </div>
         </div>
 
+        <div className="mb-10 -mt-10">
+          <MusicInfoPanel artist={{ id: artist.id, name: artist.name, picture: artist.picture, fans: artist.fans, albums: albums.length }} />
+        </div>
+
         {SECTIONS.map(({ type, title }) => {
           const list = albums.filter((a) => (a.type || 'album') === type)
           if (list.length === 0) return null
@@ -108,7 +113,7 @@ export default async function ArtistPage({ params }: Props) {
           )
         })}
 
-        <p className="text-slate-600 text-xs">Discografía: Deezer · Audio: YouTube</p>
+        <p className="text-slate-600 text-xs">Discografía: Deezer · Audio: YouTube · Biografías: Wikipedia</p>
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ import { useMusicStore } from '@/store/musicStore'
 import type { CatalogAlbumDetail } from '@/lib/catalog'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
+import MusicInfoPanel from '@/components/MusicInfoPanel'
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -209,6 +210,20 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
             )
           })}
         </ol>
+
+        <MusicInfoPanel
+          artist={{ id: album.artist.id || undefined, name: album.artist.name, picture: album.artistPicture }}
+          album={{
+            title: album.title,
+            type: album.type,
+            releaseDate: album.releaseDate,
+            label: album.label,
+            genres: album.genres,
+            tracks: album.trackList.length,
+            duration: album.duration,
+            fans: album.fans,
+          }}
+        />
 
         {album.label && <p className="text-slate-600 text-xs mt-4">℗ {album.label}</p>}
         <p className="text-slate-600 text-xs mt-1">Información del álbum: Deezer · Audio: YouTube</p>

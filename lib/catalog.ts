@@ -39,6 +39,9 @@ export interface CatalogAlbumDetail extends CatalogAlbum {
   genres: string[]
   duration: number
   label?: string
+  releaseDate?: string // AAAA-MM-DD
+  fans?: number
+  artistPicture?: string
   trackList: CatalogTrack[]
 }
 
@@ -112,7 +115,13 @@ export async function getArtist(id: string) {
 
 export async function getAlbum(id: string): Promise<CatalogAlbumDetail> {
   const album = await deezer<
-    DzAlbum & { duration?: number; label?: string; genres?: { data?: { name: string }[] } }
+    DzAlbum & {
+      duration?: number
+      label?: string
+      fans?: number
+      genres?: { data?: { name: string }[] }
+      artist?: { id: number; name: string; picture_xl?: string; picture_big?: string; picture_medium?: string }
+    }
   >(`/album/${id}`)
   const tracks = await deezer<{
     data: { id: number; title: string; duration: number; track_position?: number; artist?: { name: string } }[]
@@ -122,6 +131,9 @@ export async function getAlbum(id: string): Promise<CatalogAlbumDetail> {
     genres: album.genres?.data?.map((g) => g.name) ?? [],
     duration: album.duration ?? tracks.data.reduce((sum, t) => sum + (t.duration || 0), 0),
     label: album.label,
+    releaseDate: album.release_date,
+    fans: album.fans,
+    artistPicture: album.artist?.picture_xl || album.artist?.picture_big || album.artist?.picture_medium,
     trackList: tracks.data.map((t, i) => ({
       id: t.id,
       title: t.title,
