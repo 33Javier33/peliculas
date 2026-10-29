@@ -16,6 +16,8 @@ export interface MusicVideo {
   streamUrl?: string
   // Canciones de un álbum del catálogo: nombre del álbum
   album?: string
+  // Archivo de audio desde un enlace (MP3, M4A, OGG…): se reproduce directo
+  audioUrl?: string
   // Artista en el catálogo (Deezer): para seguir con más canciones suyas al terminar la cola
   artistId?: number
   // Video (no canción): se muestra en la ventana de video aunque esté el modo audio

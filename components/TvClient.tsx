@@ -4,6 +4,7 @@ import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 import { useSearchParams } from 'next/navigation'
 import { Search, Tv, Loader2, AlertCircle, X, Heart, ChevronUp, ChevronDown, Maximize, Minimize, Cast } from 'lucide-react'
 import CastButton, { useIsCasting, useCastStore } from '@/components/CastButton'
+import HlsQualityMenu, { levelFor, readQualityPref, type QualityPref } from '@/components/HlsQuality'
 import type { TvChannel } from '@/lib/live'
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -428,6 +429,24 @@ const TvPlayer = forwardRef<
   }, [channel, src, onUnavailable])
   const failedRef = useRef(failed)
   failedRef.current = failed
+  // Calidad de video (se recuerda entre canales)
+  const hlsRef = useRef<import('hls.js').default | null>(null)
+  const [levels, setLevels] = useState<{ height?: number }[]>([])
+  const [quality, setQuality] = useState<QualityPref>('max')
+  const qualityRef = useRef<QualityPref>('max')
+  useEffect(() => {
+    const q = readQualityPref()
+    qualityRef.current = q
+    setQuality(q)
+  }, [])
+  const changeQuality = (q: QualityPref) => {
+    qualityRef.current = q
+    setQuality(q)
+    const h = hlsRef.current
+    if (!h) return
+    h.capLevelToPlayerSize = q === 'auto'
+    h.currentLevel = levelFor(q, h.levels)
+  }
   // Mientras se ve en la TV, el teléfono no reproduce el canal (solo hace de control remoto)
   const casting = useIsCasting()
   const castDevice = useCastStore((s) => s.device)
@@ -495,8 +514,8 @@ const TvPlayer = forwardRef<
           maxBufferLength: 30,
           maxMaxBufferLength: 60,
           backBufferLength: 30,
-          // Calidad según el tamaño de la pantalla y la conexión
-          capLevelToPlayerSize: true,
+          // Calidad: la elegida (por defecto la más alta); en "Automática", según pantalla y conexión
+          capLevelToPlayerSize: qualityRef.current === 'auto',
           startLevel: -1,
           // Reintentos ante una red inestable
           manifestLoadingMaxRetry: 3,
@@ -506,6 +525,12 @@ const TvPlayer = forwardRef<
           nudgeMaxRetry: 10,
         })
         hls = instance
+        hlsRef.current = instance
+        instance.on(Hls.Events.MANIFEST_PARSED, () => {
+          setLevels(instance.levels.map((l) => ({ height: l.height })))
+          const lvl = levelFor(qualityRef.current, instance.levels)
+          if (lvl >= 0) instance.currentLevel = lvl
+        })
         let networkRetries = 0
         let mediaRecoveries = 0
         instance.on(Hls.Events.FRAG_LOADED, () => {
@@ -542,6 +567,8 @@ const TvPlayer = forwardRef<
       video.removeEventListener('stalled', onWaiting)
       video.removeEventListener('ended', onEnded)
       hls?.destroy()
+      hlsRef.current = null
+      setLevels([])
       video.removeAttribute('src')
       video.load()
     }
@@ -703,6 +730,10 @@ const TvPlayer = forwardRef<
             <p className="text-white font-semibold">Viendo en {castDevice || 'la TV'}</p>
             <p className="text-slate-400 text-sm">Usa CH ▲▼ para cambiar de canal en la TV.</p>
           </div>
+        )}
+        {/* Calidad del video */}
+        {!casting && levels.length > 0 && (
+          <HlsQualityMenu levels={levels} pref={quality} onChange={changeQuality} className={`absolute z-20 ${full ? 'top-16 left-4' : 'top-2 left-12'}`} />
         )}
         {/* Botón de pantalla completa (arriba a la izquierda, sobre el video) */}
         {!full && (

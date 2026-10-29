@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle } from 'lucide-react'
+import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 
 interface YoutubePlayerProps {
@@ -19,6 +19,17 @@ interface VideoCandidate {
   url: string
   quality: number
 }
+
+// Calidades que se pueden pedir a YouTube (vq). "Máxima" pide la más alta que tenga el video.
+const QUALITIES = [
+  { id: 'highres', label: 'Máxima (4K si hay)' },
+  { id: 'hd1080', label: '1080p' },
+  { id: 'hd720', label: '720p' },
+  { id: 'large', label: '480p' },
+  { id: 'medium', label: '360p' },
+  { id: 'auto', label: 'Automática' },
+]
+const QUALITY_HEIGHT: Record<string, number> = { highres: 9999, hd1080: 1080, hd720: 720, large: 480, medium: 360, auto: 9999 }
 
 // Si YouTube no confirma que el reproductor cargó en este tiempo, se ofrece otra fuente
 const LOAD_TIMEOUT_MS = 12000
@@ -45,6 +56,27 @@ export default function YoutubePlayer({
   const [autoSwitched, setAutoSwitched] = useState(false)
   const [alt, setAlt] = useState<{ candidates: VideoCandidate[]; index: number } | null>(null)
   const [altStatus, setAltStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  // Calidad pedida a YouTube (se recuerda). Por defecto la más alta disponible.
+  const [quality, setQuality] = useState<string>(() => {
+    try {
+      return localStorage.getItem('cpn-video-quality') || 'highres'
+    } catch {
+      return 'highres'
+    }
+  })
+  const [qualityOpen, setQualityOpen] = useState(false)
+  // Segundo en que va el video (para seguir desde ahí al cambiar la calidad)
+  const timeRef = useRef(0)
+  const [startAt, setStartAt] = useState(0)
+  const chooseQuality = (q: string) => {
+    setQualityOpen(false)
+    if (q === quality) return
+    try {
+      localStorage.setItem('cpn-video-quality', q)
+    } catch {}
+    setStartAt(Math.floor(timeRef.current))
+    setQuality(q)
+  }
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -83,6 +115,8 @@ export default function YoutubePlayer({
         return
       }
       if (data.event === 'onReady' || data.event === 'initialDelivery' || data.event === 'infoDelivery') setYtReady(true)
+      const info = data.info as { currentTime?: number } | undefined
+      if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
       if (data.event === 'onError') switchToAlt(true)
     }
     window.addEventListener('message', onMessage)
@@ -97,9 +131,14 @@ export default function YoutubePlayer({
   const handleIframeLoad = () => {
     const win = iframeRef.current?.contentWindow
     if (!win) return
-    const send = () => win.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*')
+    const send = () => {
+      win.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*')
+      // Pide la calidad elegida (YouTube la respeta si el video la tiene y la conexión alcanza)
+      if (quality !== 'auto') win.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackQuality', args: [quality] }), '*')
+    }
     send()
     setTimeout(send, 1000)
+    setTimeout(send, 3000)
   }
 
   // Fuente alternativa
@@ -113,7 +152,11 @@ export default function YoutubePlayer({
       .then((d: { candidates?: VideoCandidate[] }) => {
         if (cancelled) return
         if (d.candidates?.length) {
-          setAlt({ candidates: d.candidates, index: 0 })
+          // La fuente alternativa más cercana a la calidad elegida (sin pasarse)
+          const want = QUALITY_HEIGHT[quality] ?? 9999
+          const sorted = [...d.candidates].sort((a, b) => b.quality - a.quality)
+          const idx = Math.max(0, sorted.findIndex((c) => c.quality <= want))
+          setAlt({ candidates: sorted, index: idx })
           setAltStatus('ready')
         } else setAltStatus('error')
       })
@@ -121,6 +164,7 @@ export default function YoutubePlayer({
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, videoId])
 
   const handleAltError = () => {
@@ -193,8 +237,10 @@ export default function YoutubePlayer({
             {mode === 'youtube' ? (
               <iframe
                 ref={iframeRef}
-                key={videoId}
-                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(origin)}`}
+                key={`${videoId}-${quality}`}
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&enablejsapi=1${
+                  quality !== 'auto' ? `&vq=${quality}` : ''
+                }${startAt ? `&start=${startAt}` : ''}&origin=${encodeURIComponent(origin)}`}
                 title={title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
@@ -236,6 +282,31 @@ export default function YoutubePlayer({
 
         {/* Cambiar de fuente a mano (si queda en negro, sin sonido, etc.) */}
         <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+          <div className="relative">
+            <button
+              onClick={() => setQualityOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
+              aria-haspopup="menu"
+              aria-expanded={qualityOpen}
+            >
+              <Settings2 className="w-4 h-4" /> Calidad: {QUALITIES.find((q) => q.id === quality)?.label ?? 'Máxima'}
+            </button>
+            {qualityOpen && (
+              <div role="menu" className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 w-44 rounded-xl bg-surface-1 border border-white/10 shadow-2xl overflow-hidden">
+                {QUALITIES.map((q) => (
+                  <button
+                    key={q.id}
+                    role="menuitemradio"
+                    aria-checked={q.id === quality}
+                    onClick={() => chooseQuality(q.id)}
+                    className={`w-full text-left px-4 py-2.5 text-sm ${q.id === quality ? 'bg-violet-500/20 text-violet-200 font-semibold' : 'text-slate-200 hover:bg-white/5'}`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {mode === 'youtube' ? (
             <button
               onClick={() => switchToAlt(false)}

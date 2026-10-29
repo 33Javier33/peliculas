@@ -6,6 +6,7 @@ import type { FreeMovie, FreeMovieRow } from '@/lib/pluto'
 import { useMusicStore } from '@/store/musicStore'
 import { readSession, writeSession } from '@/lib/session-cache'
 import CastButton, { useIsCasting, useCastStore } from '@/components/CastButton'
+import HlsQualityMenu, { levelFor, readQualityPref, type QualityPref } from '@/components/HlsQuality'
 
 // Películas completas, gratis y legales: Pluto TV a la carta e Internet Archive.
 
@@ -241,6 +242,24 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
 
   // Mientras se ve en la TV, el teléfono no la reproduce; al dejar de transmitir sigue desde ese punto
   const casting = useIsCasting()
+  // Calidad de video (por defecto la más alta; se recuerda)
+  const hlsRef = useRef<import('hls.js').default | null>(null)
+  const [levels, setLevels] = useState<{ height?: number }[]>([])
+  const [quality, setQuality] = useState<QualityPref>('max')
+  const qualityRef = useRef<QualityPref>('max')
+  useEffect(() => {
+    const q = readQualityPref()
+    qualityRef.current = q
+    setQuality(q)
+  }, [])
+  const changeQuality = (q: QualityPref) => {
+    qualityRef.current = q
+    setQuality(q)
+    const h = hlsRef.current
+    if (!h) return
+    h.capLevelToPlayerSize = q === 'auto'
+    h.currentLevel = levelFor(q, h.levels)
+  }
   const castDevice = useCastStore((s) => s.device)
   const resumeAt = useRef(0)
 
@@ -274,8 +293,14 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
           return
         }
         hls?.destroy()
-        const instance = new Hls({ enableWorker: true, maxBufferLength: 60, capLevelToPlayerSize: true, fragLoadingMaxRetry: 6 })
+        const instance = new Hls({ enableWorker: true, maxBufferLength: 60, capLevelToPlayerSize: qualityRef.current === 'auto', fragLoadingMaxRetry: 6 })
         hls = instance
+        hlsRef.current = instance
+        instance.on(Hls.Events.MANIFEST_PARSED, () => {
+          setLevels(instance.levels.map((l) => ({ height: l.height })))
+          const lvl = levelFor(qualityRef.current, instance.levels)
+          if (lvl >= 0) instance.currentLevel = lvl
+        })
         let recoveries = 0
         instance.on(Hls.Events.ERROR, (_e, data) => {
           if (!data.fatal || destroyed) return
@@ -309,6 +334,9 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
       <div className="max-w-5xl mx-auto sm:pt-6">
         <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden">
           <video ref={videoRef} controls playsInline autoPlay poster={movie.backdrop} className={`w-full h-full ${casting ? 'invisible' : ''}`} />
+          {!casting && levels.length > 0 && (
+            <HlsQualityMenu levels={levels} pref={quality} onChange={changeQuality} className="absolute top-2 left-2 z-20" />
+          )}
           {casting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950 to-black text-center px-6">
               <Cast className="w-10 h-10 text-emerald-400" />

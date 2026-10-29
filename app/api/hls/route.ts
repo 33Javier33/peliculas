@@ -31,15 +31,22 @@ export async function GET(req: NextRequest) {
 
   let upstream: Response
   try {
+    // El tiempo límite es para que responda; después se deja pasar todo el contenido
+    // (un archivo de audio largo puede tardar minutos en llegar completo)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), isSegment(url) ? 20000 : 10000)
+    const range = req.headers.get('range')
     upstream = await fetch(url, {
       headers: {
         'User-Agent': headers.userAgent || 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
         ...(headers.referrer ? { Referer: headers.referrer, Origin: new URL(headers.referrer).origin } : {}),
+        ...(range ? { Range: range } : {}),
       },
       redirect: 'follow',
       cache: 'no-store',
-      signal: AbortSignal.timeout(isSegment(url) ? 20000 : 10000),
+      signal: ctrl.signal,
     })
+    clearTimeout(timer)
   } catch {
     return new Response('Canal no disponible', { status: 502, headers: CORS })
   }
@@ -82,7 +89,11 @@ export async function GET(req: NextRequest) {
     return new Response(buffer, { headers: { ...CORS, 'Content-Type': contentType || 'video/mp2t', 'Cache-Control': SEGMENT_CACHE } })
   }
 
-  return new Response(upstream.body, {
-    headers: { ...CORS, 'Content-Type': contentType || 'video/mp2t', 'Cache-Control': SEGMENT_CACHE },
-  })
+  // Archivos (segmentos, audio): se reenvían con su rango para poder adelantar
+  const out: Record<string, string> = { ...CORS, 'Content-Type': contentType || 'video/mp2t', 'Cache-Control': SEGMENT_CACHE }
+  for (const h of ['content-length', 'content-range', 'accept-ranges']) {
+    const v = upstream.headers.get(h)
+    if (v) out[h] = v
+  }
+  return new Response(upstream.body, { status: upstream.status, headers: out })
 }

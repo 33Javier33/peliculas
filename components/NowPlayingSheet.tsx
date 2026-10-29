@@ -40,6 +40,8 @@ interface NowPlayingSheetProps {
   onClose: () => void
   onOpenQueue: () => void
   onSwitchMode: (toAudio: boolean) => void
+  /** Abrir el video de la canción aparte (si tiene) */
+  onWatchVideo?: () => void
   isAudioLoading: boolean
   played: number
   duration: number
@@ -52,6 +54,7 @@ export default function NowPlayingSheet({
   onClose,
   onOpenQueue,
   onSwitchMode,
+  onWatchVideo,
   isAudioLoading,
   played,
   duration,
@@ -371,6 +374,14 @@ export default function NowPlayingSheet({
             >
               <Share2 className="w-4 h-4" /> {copied ? 'Enlace copiado' : 'Compartir'}
             </button>
+            {onWatchVideo && (
+              <button
+                onClick={onWatchVideo}
+                className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
+              >
+                <MonitorPlay className="w-4 h-4" /> Ver el video
+              </button>
+            )}
             <button
               onClick={onOpenQueue}
               className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"

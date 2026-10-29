@@ -26,7 +26,9 @@ import {
   Radio,
   Share2,
   ChevronsDownUp,
+  TvMinimalPlay,
 } from 'lucide-react'
+import YoutubePlayer from '@/components/YoutubePlayer'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
@@ -311,10 +313,13 @@ export default function MusicPlayerBar() {
   }, [currentId, currentVideo?.pending])
 
   // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
-  const isLocal = isLocalTrack(currentId)
+  const isLocalFile = isLocalTrack(currentId)
+  // Archivo de audio desde un enlace (MP3, M4A…): también por <audio>, suena bloqueado
+  const remoteFileUrl = currentVideo?.audioUrl
+  const isLocal = isLocalFile || !!remoteFileUrl
   const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
   useEffect(() => {
-    if (!isLocal || !currentId) return
+    if (!isLocalFile || !currentId) return
     let url = ''
     let cancelled = false
     getLocalBlob(currentId).then((blob) => {
@@ -327,7 +332,7 @@ export default function MusicPlayerBar() {
       cancelled = true
       if (url) URL.revokeObjectURL(url)
     }
-  }, [isLocal, currentId])
+  }, [isLocalFile, currentId])
   // Mientras se busca el video de una canción pendiente se muestra "cargando" (como el modo audio)
   const isPending = !!currentVideo?.pending
   // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
@@ -342,6 +347,8 @@ export default function MusicPlayerBar() {
   const hiddenWantRef = useRef(false)
   // Ventana de video: flotante sobre la barra; "oculta" = de vuelta en la miniatura de la barra
   const [videoHidden, setVideoHidden] = useState(false)
+  // Video de la canción abierto aparte (reproductor de Videos)
+  const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string } | null>(null)
   const useAudio =
     isLive ||
     isLocal ||
@@ -354,6 +361,8 @@ export default function MusicPlayerBar() {
     ? currentVideo?.streamUrl
     : isPending
       ? undefined
+      : remoteFileUrl
+      ? remoteFileUrl
       : isLocal
       ? localUrl?.id === currentId
         ? localUrl.url
@@ -420,7 +429,8 @@ export default function MusicPlayerBar() {
   // la pantalla bloqueada (donde YouTube no suena) se pasa a la siguiente para no quedar en silencio.
   const markAudioFailed = useCallback(
     async (id: string) => {
-      if (isLocalTrack(id)) return skipUnplayable(id)
+      const t = useMusicStore.getState().queue.find((x) => x.id === id)
+      if (isLocalTrack(id) || t?.audioUrl) return skipUnplayable(id)
       // (Antes se buscaba otra subida de la canción: casi nunca ayudaba y demoraba cada canción)
       const st = useMusicStore.getState()
       if (st.queue[st.currentIndex]?.id !== id) return
@@ -497,7 +507,8 @@ export default function MusicPlayerBar() {
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
-  const nextId = nextTrack && !nextTrack.streamUrl && !nextTrack.pending && !isLocalTrack(nextTrack.id) ? nextTrack.id : undefined
+  const nextId =
+    nextTrack && !nextTrack.streamUrl && !nextTrack.pending && !nextTrack.audioUrl && !isLocalTrack(nextTrack.id) ? nextTrack.id : undefined
   useEffect(() => {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
@@ -1124,6 +1135,9 @@ export default function MusicPlayerBar() {
     } catch {}
   }, [])
 
+  // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)
+  const canWatchVideo = !!currentVideo && !isLive && !isLocal && !isPending && /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id)
+
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -1164,6 +1178,14 @@ export default function MusicPlayerBar() {
 
   return (
     <>
+      {videoModal && (
+        <YoutubePlayer
+          videoId={videoModal.id}
+          title={videoModal.title}
+          channelTitle={videoModal.channelTitle}
+          onClose={() => setVideoModal(null)}
+        />
+      )}
       {/* Reserva el alto del reproductor para que no tape el contenido ni el footer */}
       <div aria-hidden style={{ height: barHeight }} />
 
@@ -1174,6 +1196,14 @@ export default function MusicPlayerBar() {
           closeFull()
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()
         }}
+        onWatchVideo={
+          canWatchVideo
+            ? () => {
+                closeFull()
+                setVideoModal({ id: currentVideo.id, title: currentVideo.title, channelTitle: currentVideo.channelTitle })
+              }
+            : undefined
+        }
         onSwitchMode={(toAudio) => {
           if (toAudio) {
             switchMode(true)
@@ -1550,7 +1580,17 @@ export default function MusicPlayerBar() {
                 <Sparkles className="w-4 h-4" />
               </button>
 
-              {/* Música es solo audio: sin botones de video (los videos están en la sección Videos) */}
+              {/* Ver el video de la canción: se abre aparte (pausa la música), como en la sección Videos */}
+              {canWatchVideo && (
+                <button
+                  onClick={() => setVideoModal({ id: currentVideo.id, title: currentVideo.title, channelTitle: currentVideo.channelTitle })}
+                  className={`${iconBtn} text-slate-500 hover:text-white`}
+                  title="Ver el video"
+                  aria-label="Ver el video"
+                >
+                  <TvMinimalPlay className="w-4 h-4" />
+                </button>
+              )}
 
               <button
                 onClick={toggleQueue}

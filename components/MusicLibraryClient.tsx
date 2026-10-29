@@ -1,5 +1,6 @@
 'use client'
 
+import AudioLinksSection from '@/components/AudioLinksSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
@@ -198,6 +199,8 @@ export default function MusicLibraryClient() {
         </div>
 
         <LocalMusicSection />
+
+        <AudioLinksSection />
 
         <FollowedArtistsSection showEmpty />
 

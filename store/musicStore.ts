@@ -389,6 +389,8 @@ export const useMusicStore = create<MusicStore>()(
       recordPlay: (video) => {
         // Las pendientes se anotan cuando ya tienen su video (en resolvePending)
         if (video.pending) return
+        // Los audios desde enlaces no son de YouTube: no sirven para las recomendaciones
+        if (video.audioUrl) return
         // Las radios en vivo no cuentan para el historial ni para "Para ti"
         if (video.streamUrl) return
         const meta = parseTrackMeta(video)
