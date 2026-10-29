@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
 import { decodeEntities, type MusicVideo } from '@/lib/youtube-music'
 
 export type { MusicVideo }
@@ -54,6 +54,8 @@ interface MusicState {
   // Populated after zustand rehydrates from localStorage on the client.
   // Used by the player bar to resume the previous playback position.
   resumeAt: number
+  /** Pista que ya está sonando de verdad (para mostrar "cargando" en la tarjeta tocada) */
+  soundingId: string | null
   hasHydrated: boolean
 }
 
@@ -78,6 +80,7 @@ interface MusicActions {
   setVolume: (v: number) => void
   toggleMute: () => void
   setPlayed: (p: number) => void
+  setSoundingId: (id: string | null) => void
   setDuration: (d: number) => void
   registerSeek: (fn: (fraction: number) => void) => void
   seekTo: (fraction: number) => void
@@ -131,6 +134,47 @@ export function parseTrackMeta(video: MusicVideo): { artist: string; album?: str
   return { artist, album }
 }
 
+// Guardado en el teléfono "diferido": antes se escribía todo (cola, historial, biblioteca) en
+// cada cambio, varias veces por segundo, y eso trababa la app. Ahora se escribe como mucho una
+// vez por segundo y siempre al salir o bloquear la pantalla.
+function deferredStorage<S>(): PersistStorage<S> {
+  let pending: { name: string; value: StorageValue<S> } | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const flush = () => {
+    clearTimeout(timer)
+    timer = undefined
+    if (!pending) return
+    try {
+      localStorage.setItem(pending.name, JSON.stringify(pending.value))
+    } catch {}
+    pending = null
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flush())
+  }
+  return {
+    getItem: (name) => {
+      try {
+        const raw = localStorage.getItem(name)
+        return raw ? (JSON.parse(raw) as StorageValue<S>) : null
+      } catch {
+        return null
+      }
+    },
+    setItem: (name, value) => {
+      pending = { name, value }
+      timer ??= setTimeout(flush, 1000)
+    },
+    removeItem: (name) => {
+      pending = null
+      try {
+        localStorage.removeItem(name)
+      } catch {}
+    },
+  }
+}
+
 export const useMusicStore = create<MusicStore>()(
   persist(
     (set, get) => ({
@@ -153,6 +197,7 @@ export const useMusicStore = create<MusicStore>()(
       fullPlayerRequested: false,
       shuffle: false,
       resumeAt: 0,
+      soundingId: null,
       hasHydrated: false,
 
       play: (videos, startIndex = 0) => {
@@ -266,6 +311,9 @@ export const useMusicStore = create<MusicStore>()(
       toggleMute: () => set((s) => ({ isMuted: !s.isMuted })),
 
       setPlayed: (p) => set({ played: p }),
+      setSoundingId: (id) => {
+        if (get().soundingId !== id) set({ soundingId: id })
+      },
 
       resolvePending: (pendingId, newId) => {
         const { queue } = get()
@@ -372,7 +420,7 @@ export const useMusicStore = create<MusicStore>()(
     }),
     {
       name: 'carlospn-music-store',
-      storage: createJSONStorage(() => localStorage),
+      storage: deferredStorage<Partial<MusicState>>(),
       version: 2,
       partialize: (state) => ({
         saved: state.saved,

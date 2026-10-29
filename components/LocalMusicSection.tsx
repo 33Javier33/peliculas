@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HardDriveDownload, Play, Shuffle, Trash2, Plus, Loader2, WifiOff } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
@@ -12,7 +13,7 @@ export default function LocalMusicSection() {
   const [adding, setAdding] = useState(false)
   const [message, setMessage] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-  const { play, toggleShuffle } = useMusicStore()
+  const { play, toggleShuffle } = useMusicStore(useShallow((s) => ({ play: s.play, toggleShuffle: s.toggleShuffle })))
 
   const refresh = useCallback(() => {
     listLocalTracks()

@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -58,7 +59,15 @@ export default function RadioClient() {
   // "Cerca de mí": de dónde salió la ubicación (GPS del teléfono o aproximada por la conexión)
   const [near, setNear] = useState<{ source: 'gps' | 'ip' | 'none'; city?: string } | null>(null)
 
-  const { play, queue, currentIndex, isPlaying, isVisible } = useMusicStore()
+  const { play, queue, currentIndex, isPlaying, isVisible } = useMusicStore(
+    useShallow((s) => ({
+      play: s.play,
+      queue: s.queue,
+      currentIndex: s.currentIndex,
+      isPlaying: s.isPlaying,
+      isVisible: s.isVisible,
+    }))
+  )
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
   const current = isVisible ? queue[currentIndex] : undefined
   const countryRef = useRef(country)

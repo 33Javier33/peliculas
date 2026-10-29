@@ -120,7 +120,7 @@ export default function Header() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-obsidian/95 backdrop-blur-md shadow-lg shadow-black/30 border-b border-white/8'
+          ? 'bg-obsidian/[0.98] sm:bg-obsidian/95 sm:backdrop-blur-md shadow-lg shadow-black/30 border-b border-white/8'
           : 'bg-gradient-to-b from-obsidian/80 to-transparent'
       }`}
     >
@@ -281,7 +281,7 @@ export default function Header() {
       </div>
 
       {isMobileSearchOpen && (
-        <div className="md:hidden bg-obsidian/98 backdrop-blur-md border-t border-white/8 px-4 py-3">
+        <div className="md:hidden bg-obsidian/[0.98] sm:backdrop-blur-md border-t border-white/8 px-4 py-3">
           <form onSubmit={handleSearch} className="flex items-center gap-2" role="search">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">

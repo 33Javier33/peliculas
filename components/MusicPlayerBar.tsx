@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import dynamic from 'next/dynamic'
 import { useRef, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
@@ -136,7 +137,42 @@ export default function MusicPlayerBar() {
     setRadioEnabled,
     appendToQueue,
     consumeResume,
-  } = useMusicStore()
+  } = useMusicStore(
+    useShallow((s) => ({
+      queue: s.queue,
+      currentIndex: s.currentIndex,
+      isPlaying: s.isPlaying,
+      volume: s.volume,
+      isMuted: s.isMuted,
+      played: s.played,
+      isVisible: s.isVisible,
+      isQueueOpen: s.isQueueOpen,
+      saved: s.saved,
+      audioBoost: s.audioBoost,
+      hasHydrated: s.hasHydrated,
+      playNext: s.playNext,
+      playPrev: s.playPrev,
+      togglePlay: s.togglePlay,
+      setIsPlaying: s.setIsPlaying,
+      setVolume: s.setVolume,
+      toggleMute: s.toggleMute,
+      setPlayed: s.setPlayed,
+      setDuration: s.setDuration,
+      registerSeek: s.registerSeek,
+      toggleQueue: s.toggleQueue,
+      dismiss: s.dismiss,
+      playIndex: s.playIndex,
+      removeFromQueue: s.removeFromQueue,
+      toggleSaved: s.toggleSaved,
+      setAudioBoost: s.setAudioBoost,
+      audioMode: s.audioMode,
+      setAudioMode: s.setAudioMode,
+      radioEnabled: s.radioEnabled,
+      setRadioEnabled: s.setRadioEnabled,
+      appendToQueue: s.appendToQueue,
+      consumeResume: s.consumeResume,
+    }))
+  )
 
   const currentVideo = queue[currentIndex]
 
@@ -245,7 +281,13 @@ export default function MusicPlayerBar() {
   }, [isLocal, currentId])
   // Mientras se busca el video de una canción pendiente se muestra "cargando" (como el modo audio)
   const isPending = !!currentVideo?.pending
-  const useAudio = isLive || isLocal || isPending || (audioMode && !!currentId && !audioFailedIds.has(currentId))
+  // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
+  // YouTube y pasa al audio propio al bloquear la pantalla o salir de la app (si ya está listo).
+  const wantAudio = audioMode && !!currentId && !audioFailedIds.has(currentId)
+  const [quickStartId, setQuickStartId] = useState<string | null>(null)
+  const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
+  const useAudio =
+    isLive || isLocal || isPending || (wantAudio && (quickStartId !== currentId || audioSwitchId === currentId))
   const useAudioRef = useRef(useAudio)
   useAudioRef.current = useAudio
   const audioUrl = isLive
@@ -329,7 +371,7 @@ export default function MusicPlayerBar() {
   )
 
   useEffect(() => {
-    if (!useAudio || !currentId || isLive || isLocal || isPending) return
+    if (!wantAudio || !currentId || isLive || isLocal || isPending) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
     loadAudioCandidates(currentId).then((candidates) => {
@@ -340,7 +382,34 @@ export default function MusicPlayerBar() {
     return () => {
       cancelled = true
     }
-  }, [useAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal, isPending])
+  }, [wantAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal, isPending])
+
+  const audioReady = audioSrc?.id === currentId
+  useEffect(() => {
+    if (!wantAudio || audioReady || !currentId || isLive || isLocal || isPending) return
+    const id = currentId
+    const t = setTimeout(() => {
+      // Con la pantalla bloqueada YouTube no suena: ahí se sigue esperando el audio
+      if (document.visibilityState === 'visible') setQuickStartId(id)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [wantAudio, audioReady, currentId, isLive, isLocal, isPending])
+
+  // Al salir de la app con la canción sonando por YouTube: se pasa al audio propio (sigue donde iba)
+  const localPlayedRef = useRef(0)
+  localPlayedRef.current = localPlayed
+  useEffect(() => {
+    const switchIfNeeded = () => {
+      if (document.visibilityState !== 'hidden') return
+      if (quickStartId && quickStartId === currentId && audioReady && audioSwitchId !== currentId) {
+        pendingSeekRef.current = localPlayedRef.current
+        setAudioSwitchId(currentId)
+      }
+    }
+    switchIfNeeded()
+    document.addEventListener('visibilitychange', switchIfNeeded)
+    return () => document.removeEventListener('visibilitychange', switchIfNeeded)
+  }, [quickStartId, currentId, audioReady, audioSwitchId])
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
@@ -573,15 +642,25 @@ export default function MusicPlayerBar() {
     if (!isSeeking) setLocalPlayed(played)
   }, [played, isSeeking])
 
+  const lastPlayedSaveRef = useRef(0)
   // react-player v3: onTimeUpdate receives a React.SyntheticEvent<HTMLMediaElement>
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
-      const live = !!useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl
+      const st = useMusicStore.getState()
+      const cur = st.queue[st.currentIndex]
+      // Ya suena: la tarjeta tocada deja de mostrar "cargando"
+      if (el.currentTime > 0.2 && cur && st.soundingId !== cur.id) st.setSoundingId(cur.id)
+      const live = !!cur?.streamUrl
       if (!live && !isSeeking && isFinite(el.duration) && el.duration > 0) {
         const fraction = el.currentTime / el.duration
-        setPlayed(fraction)
         setLocalPlayed(fraction)
+        // La posición global (que guarda el teléfono y leen otras pantallas) se actualiza 1 vez por segundo
+        const now = Date.now()
+        if (now - lastPlayedSaveRef.current > 1000) {
+          lastPlayedSaveRef.current = now
+          setPlayed(fraction)
+        }
       }
       lastProgressRef.current = Date.now()
       if (el.currentTime > 0 && !liveStartedRef.current) liveStartedRef.current = true
@@ -1018,7 +1097,7 @@ export default function MusicPlayerBar() {
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
         {(skipNotice || needsTap) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
-            <p className="max-w-full truncate bg-surface-2/95 backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
+            <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
               {needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`}
             </p>
           </div>
@@ -1026,7 +1105,7 @@ export default function MusicPlayerBar() {
 
         {/* ===== QUEUE PANEL ===== */}
         {isQueueOpen && (
-          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/95 backdrop-blur-xl backdrop-saturate-[1.8] border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
+          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/[0.98] sm:bg-surface-1/95 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2">
                 <ListMusic className="w-4 h-4 text-violet-400" />
@@ -1144,7 +1223,7 @@ export default function MusicPlayerBar() {
           />
         </div>
 
-        <div className="bg-surface-1/90 backdrop-blur-xl backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
+        <div className="bg-surface-1/[0.98] sm:bg-surface-1/90 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
 
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div

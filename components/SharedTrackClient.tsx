@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -10,7 +11,14 @@ import type { MusicVideo } from '@/lib/youtube-music'
 /** Página de una canción compartida: se reproduce dentro de la app. */
 export default function SharedTrackClient({ video }: { video: MusicVideo }) {
   const router = useRouter()
-  const { play, addToQueue, requestFullPlayer, isVisible } = useMusicStore()
+  const { play, addToQueue, requestFullPlayer, isVisible } = useMusicStore(
+    useShallow((s) => ({
+      play: s.play,
+      addToQueue: s.addToQueue,
+      requestFullPlayer: s.requestFullPlayer,
+      isVisible: s.isVisible,
+    }))
+  )
   const parsed = parseTrackMeta(video).artist
   const artist = parsed && parsed !== 'Desconocido' ? parsed : video.channelTitle
   const songTitle = video.title.replace(/^[^-–]+[-–]\s*/, '') || video.title

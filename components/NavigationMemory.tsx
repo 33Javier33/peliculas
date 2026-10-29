@@ -45,14 +45,15 @@ function init() {
     window.history.scrollRestoration = 'manual'
   } catch {}
 
-  // Guarda la posición mientras se desplaza (salvo durante la restauración)
-  let frame = 0
+  // Guarda la posición mientras se desplaza (salvo durante la restauración). Como mucho
+  // cada 300 ms y al terminar: escribir en cada fotograma hacía el scroll menos fluido.
+  let timer: ReturnType<typeof setTimeout> | undefined
   window.addEventListener(
     'scroll',
     () => {
-      if (nav.restoring) return
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
+      if (nav.restoring || timer) return
+      timer = setTimeout(() => {
+        timer = undefined
         if (nav.restoring) return
         const key = scrollKey(currentUrl())
         // Recién tocado un enlace/botón: el router mueve la pantalla antes de cambiar de dirección
@@ -60,7 +61,7 @@ function init() {
         try {
           sessionStorage.setItem(key, String(Math.round(window.scrollY)))
         } catch {}
-      })
+      }, 300)
     },
     { passive: true }
   )

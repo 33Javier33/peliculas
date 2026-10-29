@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { Play, Plus, Eye, Heart, Music } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
+import { TrackStateOverlay } from '@/components/TrackState'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 interface MusicCardProps {
@@ -12,8 +13,11 @@ interface MusicCardProps {
 }
 
 export default function MusicCard({ video, allVideos, index }: MusicCardProps) {
-  const { play, addToQueue, toggleSaved, saved } = useMusicStore()
-  const isSaved = saved.some((t) => t.id === video.id)
+  // Solo lo que usa la tarjeta (así no se redibuja cada vez que avanza la canción)
+  const play = useMusicStore((s) => s.play)
+  const addToQueue = useMusicStore((s) => s.addToQueue)
+  const toggleSaved = useMusicStore((s) => s.toggleSaved)
+  const isSaved = useMusicStore((s) => s.saved.some((t) => t.id === video.id))
 
   return (
     <div className="group relative bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30 hover:bg-surface-1 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-900/20">
@@ -36,6 +40,8 @@ export default function MusicCard({ video, allVideos, index }: MusicCardProps) {
             <Music className="w-10 h-10 text-slate-700" />
           </div>
         )}
+
+        <TrackStateOverlay id={video.id} />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 

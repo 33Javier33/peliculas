@@ -1,5 +1,7 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
+import { TrackStateOverlay } from '@/components/TrackState'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -7,7 +9,14 @@ import { Music2, Play, Sparkles, Heart, ChevronRight, User } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 
 export default function MusicForYouSection() {
-  const { history, saved, play, playSaved } = useMusicStore()
+  const { history, saved, play, playSaved } = useMusicStore(
+    useShallow((s) => ({
+      history: s.history,
+      saved: s.saved,
+      play: s.play,
+      playSaved: s.playSaved,
+    }))
+  )
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
@@ -120,6 +129,7 @@ export default function MusicForYouSection() {
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 flex items-center justify-center transition-colors">
                       <Play className="w-4 h-4 text-white fill-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
+                    <TrackStateOverlay id={track.id} size="sm" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-white text-sm font-medium truncate">{track.title}</p>

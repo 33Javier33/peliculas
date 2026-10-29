@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
@@ -71,7 +72,24 @@ export default function NowPlayingSheet({
     toggleSaved,
     cycleRepeat,
     toggleShuffle,
-  } = useMusicStore()
+  } = useMusicStore(
+    useShallow((s) => ({
+      queue: s.queue,
+      currentIndex: s.currentIndex,
+      isPlaying: s.isPlaying,
+      saved: s.saved,
+      audioMode: s.audioMode,
+      radioEnabled: s.radioEnabled,
+      repeatMode: s.repeatMode,
+      shuffle: s.shuffle,
+      togglePlay: s.togglePlay,
+      playNext: s.playNext,
+      playPrev: s.playPrev,
+      toggleSaved: s.toggleSaved,
+      cycleRepeat: s.cycleRepeat,
+      toggleShuffle: s.toggleShuffle,
+    }))
+  )
   const video = queue[currentIndex]
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
   const [dragValue, setDragValue] = useState<number | null>(null)

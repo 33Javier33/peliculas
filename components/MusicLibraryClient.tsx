@@ -1,5 +1,7 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
+import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect } from 'react'
@@ -30,7 +32,19 @@ type ViewMode = 'list' | 'grid'
 const VIEW_KEY = 'cpn-library-view'
 
 export default function MusicLibraryClient() {
-  const { saved, play, addToQueue, removeSaved, playSaved, queue, currentIndex, isVisible, isPlaying } = useMusicStore()
+  const { saved, play, addToQueue, removeSaved, playSaved, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
+    useShallow((s) => ({
+      saved: s.saved,
+      play: s.play,
+      addToQueue: s.addToQueue,
+      removeSaved: s.removeSaved,
+      playSaved: s.playSaved,
+      queue: s.queue,
+      currentIndex: s.currentIndex,
+      isVisible: s.isVisible,
+      isPlaying: s.isPlaying,
+    }))
+  )
   const currentId = isVisible ? queue[currentIndex]?.id : undefined
   const [mounted, setMounted] = useState(false)
   // Vista de canciones: lista o mosaico (se recuerda en el teléfono)
@@ -298,6 +312,7 @@ export default function MusicLibraryClient() {
                                 />
                               )}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                              <TrackStateOverlay id={track.id} />
                               <span className="absolute right-2 bottom-2 w-9 h-9 rounded-full bg-violet-500 shadow-glow flex items-center justify-center">
                                 {isCurrent && isPlaying ? (
                                   <span className="flex items-end gap-[2px] h-3.5">
@@ -365,6 +380,7 @@ export default function MusicLibraryClient() {
                           <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/60 flex items-center justify-center transition-colors">
                             <Play className="w-4 h-4 text-white fill-white opacity-0 group-hover/thumb:opacity-100 transition-opacity" />
                           </div>
+                          <TrackStateOverlay id={track.id} size="sm" />
                         </button>
                         <div className="min-w-0 flex-1">
                           <p className="text-white text-sm font-medium truncate">{track.title}</p>

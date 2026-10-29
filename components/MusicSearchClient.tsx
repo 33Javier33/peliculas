@@ -1,5 +1,6 @@
 'use client'
 
+import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -490,6 +491,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                         {track.thumbnail && (
                           <Image src={track.thumbnail} alt="" fill sizes="56px" className="object-cover" />
                         )}
+                        <TrackStateOverlay id={track.id} size="sm" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-white text-sm font-semibold font-display truncate">
@@ -552,6 +554,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                             />
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                          <TrackStateOverlay id={video.id} />
                           <div className="absolute left-3 right-14 bottom-3">
                             <p className="text-white font-bold font-display text-base leading-tight line-clamp-2">{video.title}</p>
                             <p className="text-slate-300 text-xs truncate mt-1">{video.channelTitle}</p>

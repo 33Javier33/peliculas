@@ -1,5 +1,6 @@
 'use client'
 
+import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -27,7 +28,19 @@ const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-�
 const TYPE_LABEL: Record<string, string> = { album: 'Álbum', single: 'Sencillo', ep: 'EP', compile: 'Recopilatorio' }
 
 export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
-  const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved, saveTrack } = useMusicStore()
+  const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved, saveTrack } = useMusicStore(
+    useShallow((s) => ({
+      play: s.play,
+      queue: s.queue,
+      currentIndex: s.currentIndex,
+      isPlaying: s.isPlaying,
+      isVisible: s.isVisible,
+      shuffle: s.shuffle,
+      toggleShuffle: s.toggleShuffle,
+      saved: s.saved,
+      saveTrack: s.saveTrack,
+    }))
+  )
   // Al abrir el álbum ya se puede reproducir: cada canción busca su video justo antes de sonar.
   // Mientras tanto se piden todas ya listas (si llegan antes de tocar Reproducir, se usan esas).
   const pendingTracks = useMemo<MusicVideo[]>(

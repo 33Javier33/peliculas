@@ -25,7 +25,7 @@ export default function MobileNav() {
 
   return (
     <nav
-      className="sm:hidden fixed bottom-0 left-0 right-0 z-[85] h-14 bg-surface-1/90 backdrop-blur-xl backdrop-saturate-[1.8] border-t border-white/8 pb-[env(safe-area-inset-bottom)]"
+      className="sm:hidden fixed bottom-0 left-0 right-0 z-[85] h-14 bg-surface-1 border-t border-white/8 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
       <ul className="grid grid-cols-5 h-full">
