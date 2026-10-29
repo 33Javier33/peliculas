@@ -169,8 +169,9 @@ export async function getPlutoChannels(userIp: string | null, country: string): 
         id: `pluto-${c.id}`,
         name: c.name,
         logo: logo.startsWith('https://') ? logo : '',
-        url,
-        // Si el navegador no puede abrirlo directo, pasa por el intermediario
+        // Pluto no deja abrir sus listas desde otra web (CORS): pasan por el intermediario y
+        // los segmentos de video van directo; si eso falla, todo por el intermediario
+        url: `${proxiedUrl(url)}&d=1`,
         fallbackUrl: proxiedUrl(url),
         group: categoryOf.get(c.id) || categoryName.get(c.categoryIDs?.[0] ?? '') || 'Pluto TV',
       }
@@ -258,7 +259,7 @@ export async function getPlutoMovies(userIp: string | null): Promise<FreeMovieRo
         duration: it.duration ? Math.round(it.duration / 60000) : undefined,
         rating: it.rating,
         genre: it.genre,
-        url,
+        url: `${proxiedUrl(url)}&d=1`,
         fallbackUrl: proxiedUrl(url),
       })
     }

@@ -24,9 +24,22 @@ async function deviceChecks(): Promise<Check[]> {
     const d = (await r.json()) as { channels?: { name: string; url: string }[] }
     const ch = d.channels?.[0]
     if (!ch) throw new Error('no hay canales para probar')
-    const text = await fetch(ch.url).then((x) => (x.ok ? x.text() : Promise.reject(new Error(`HTTP ${x.status}`))))
+    const get = (u: string) => fetch(u).then((x) => (x.ok ? x.text() : Promise.reject(new Error(`HTTP ${x.status}`))))
+    let text = await get(ch.url)
     if (!text.includes('#EXTM3U')) throw new Error('la respuesta no es video')
-    out.push({ id: 'pluto-device', area: 'Este teléfono', name: 'Pluto TV desde el teléfono', ok: true, ms: Date.now() - t0, detail: `«${ch.name}» responde` })
+    // Lista principal → primera calidad → primer segmento (este va directo desde Pluto)
+    const firstUri = (t: string) => t.split(/\r?\n/).find((l) => l.trim() && !l.startsWith('#'))?.trim() || ''
+    let uri = firstUri(text)
+    if (/\.m3u8|\/api\/hls/.test(uri) && !/\.ts(\?|$)/.test(uri)) {
+      text = await get(uri)
+      uri = firstUri(text)
+    }
+    let detail = `«${ch.name}» responde`
+    if (uri) {
+      const seg = await fetch(uri, { headers: { Range: 'bytes=0-1023' } }).catch(() => null)
+      detail += seg && (seg.ok || seg.status === 206) ? ' · video directo OK' : ' · video directo bloqueado (se usará el intermediario)'
+    }
+    out.push({ id: 'pluto-device', area: 'Este teléfono', name: 'Pluto TV desde el teléfono', ok: true, ms: Date.now() - t0, detail })
   } catch (err) {
     out.push({ id: 'pluto-device', area: 'Este teléfono', name: 'Pluto TV desde el teléfono', ok: false, ms: Date.now() - t0, detail: (err as Error).message })
   }

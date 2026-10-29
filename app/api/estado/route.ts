@@ -8,7 +8,7 @@ import { publicSearch } from '@/lib/public-search'
 import { searchMusicVideos } from '@/lib/youtube-music'
 import { getPopularMovies } from '@/lib/tmdb'
 import { searchArchiveMovies } from '@/lib/archive'
-import { getArtistInfo } from '@/lib/music-info'
+import { getArtistInfo, lastWikiError } from '@/lib/music-info'
 import { getRequestRegion } from '@/lib/region'
 import { resolveOwnAudio } from '@/lib/own-stream'
 
@@ -65,15 +65,25 @@ export async function GET(request: NextRequest) {
     }),
     check('youtube-public', 'Música', 'Búsqueda de respaldo (Piped/Invidious)', async () => need((await publicSearch('Shakira Hips')).length, 'videos')),
     check('own-audio', 'Música', 'Audio propio de la app (pantalla bloqueada)', async () => {
-      const a = await resolveOwnAudio('pRpeEdMmmQ0', true)
+      // Dos videos conocidos (Despacito y Waka Waka)
+      let a
+      try {
+        a = await resolveOwnAudio('kJQP7kiw5Fk', true)
+      } catch {
+        a = await resolveOwnAudio('pRpeEdMmmQ0', true)
+      }
       const r = await fetch(a.url, { headers: { Range: 'bytes=0-1023', 'User-Agent': a.userAgent } })
-      if (r.status !== 206 && !r.ok) throw new Error(`YouTube respondió ${r.status}`)
-      return `audio ${a.mimeType} · ${Math.round(a.bitrate / 1000)} kbps`
+      if (r.status !== 206 && !r.ok) throw new Error(`YouTube respondió ${r.status} al bajar el audio (${a.client})`)
+      return `audio ${a.mimeType} · ${Math.round(a.bitrate / 1000)} kbps · ${a.client}`
     }),
     check('audio', 'Música', 'Audio de respaldo (servidores públicos)', async () => need((await findAudioCandidates('pRpeEdMmmQ0')).length, 'fuentes de audio')),
     check('tmdb', 'Películas', 'Catálogo de películas (TMDB)', async () => need((await getPopularMovies(1)).results.length, 'películas')),
     check('archive', 'Películas', 'Clásicos (Internet Archive)', async () => need((await searchArchiveMovies('es')).length, 'películas')),
-    check('wikipedia', 'Música', 'Biografías (Wikipedia)', async () => ((await getArtistInfo('Shakira')) ? 'biografía encontrada' : Promise.reject(new Error('sin resultado')))),
+    check('wikipedia', 'Música', 'Biografías (Wikipedia)', async () => {
+      const info = await getArtistInfo('Shakira')
+      if (!info) throw new Error(`sin resultado${lastWikiError ? ` (${lastWikiError})` : ''}`)
+      return `biografía encontrada: ${info.title}`
+    }),
   ])
 
   return NextResponse.json({ at: new Date().toISOString(), region: cc, checks }, { headers: { 'Cache-Control': 'no-store' } })

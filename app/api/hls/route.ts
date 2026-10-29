@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
     if (isPlaylist(finalUrl, contentType, head)) {
       const text = new TextDecoder().decode(buffer)
       const abs = (u: string) => new URL(u, finalUrl).toString()
+      // d=1: solo las listas pasan por aquí; los segmentos de video van directo desde la CDN del canal
+      // (mucho menos tráfico por el servidor y más rápido; p. ej. Pluto TV)
+      const direct = p.get('d') === '1'
+      const isList = (u: string) => /\.m3u8?(\?|$)/i.test(u)
+      const via = async (u: string) => (direct ? `${await proxiedUrl(u, headers)}&d=1` : proxiedUrl(u, headers))
       const lines = await Promise.all(
         text.split(/\r?\n/).map(async (line) => {
           const t = line.trim()
@@ -63,10 +68,10 @@ export async function GET(req: NextRequest) {
             // URI="…" dentro de etiquetas (claves de cifrado, audios, subtítulos, mapas)
             const uris = Array.from(line.matchAll(/URI="([^"]+)"/g), (m) => m[1])
             let out = line
-            for (const u of uris) out = out.replace(`URI="${u}"`, `URI="${await proxiedUrl(abs(u), headers)}"`)
+            for (const u of uris) out = out.replace(`URI="${u}"`, `URI="${await via(abs(u))}"`)
             return out
           }
-          return proxiedUrl(abs(t), headers)
+          return direct && !isList(t) ? abs(t) : via(abs(t))
         })
       )
       // La lista cambia cada pocos segundos: se comparte un instante entre quienes miran el mismo canal

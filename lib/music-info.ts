@@ -25,7 +25,11 @@ const norm = (s: string) =>
 const base = (lang: string) => WIKI.replace('{lang}', lang)
 
 async function wikiJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'application/json' }, next: { revalidate: 7 * 86400 }, signal: AbortSignal.timeout(6000) })
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, 'Api-User-Agent': UA, Accept: 'application/json' },
+    next: { revalidate: 7 * 86400 },
+    signal: AbortSignal.timeout(8000),
+  })
   if (!res.ok) throw new Error(`Wikipedia ${res.status}`)
   return (await res.json()) as T
 }
@@ -59,6 +63,9 @@ async function summary(lang: 'es' | 'en', title: string): Promise<WikiSummary | 
 const MUSIC = /cantante|banda|grupo|music|músic|rapero|rapera|compositor|cantautor|dj|duo|dúo|orquesta|singer|band|rapper|songwriter|musician|group|producer|productor/i
 const RECORD = /album|álbum|disco|ep|sencillo|single|record|recopilatorio|mixtape|banda sonora|soundtrack/i
 
+/** Último error (para la página de diagnóstico) */
+export let lastWikiError = ''
+
 async function find(
   queries: [lang: 'es' | 'en', q: string][],
   accept: (title: string, s: WikiSummary) => boolean
@@ -66,12 +73,15 @@ async function find(
   for (const [lang, q] of queries) {
     try {
       const titles = await search(lang, q)
-      for (const t of titles.slice(0, 3)) {
-        const s = await summary(lang, t).catch(() => null)
+      for (const t of titles.slice(0, 4)) {
+        const s = await summary(lang, t).catch((err) => {
+          lastWikiError = `${lang}: ${(err as Error).message}`
+          return null
+        })
         if (s && accept(t, s)) return s
       }
-    } catch {
-      // Se prueba la siguiente búsqueda
+    } catch (err) {
+      lastWikiError = `${lang}: ${(err as Error).message}`
     }
   }
   return null
@@ -82,10 +92,11 @@ export function getArtistInfo(name: string): Promise<WikiSummary | null> {
   const n = norm(name)
   return find(
     [
-      ['es', `${name} cantante OR banda OR grupo OR músico`],
-      ['en', `${name} singer OR band OR musician`],
+      ['es', name],
+      ['es', `${name} cantante`],
+      ['en', name],
     ],
-    (t, s) => norm(t).includes(n) && MUSIC.test(`${s.description ?? ''} ${s.extract.slice(0, 300)}`)
+    (t, s) => norm(t).includes(n) && MUSIC.test(`${s.description ?? ''} ${s.extract.slice(0, 600)}`)
   )
 }
 
