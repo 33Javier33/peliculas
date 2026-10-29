@@ -9,6 +9,11 @@ const getClient = () =>
   (client ??= Innertube.create({
     // Con el reproductor se pueden descifrar las direcciones de los clientes web/TV
     retrieve_player: true,
+    // YouTube suele exigir "iniciar sesión" a los servidores (Vercel): con las cookies de una cuenta
+    // (variable YT_COOKIE en Vercel) el servidor entra como esa cuenta. Opcionales.
+    cookie: process.env.YT_COOKIE || undefined,
+    po_token: process.env.YT_PO_TOKEN || undefined,
+    visitor_data: process.env.YT_VISITOR_DATA || undefined,
     // Que una respuesta lenta de YouTube no deje la canción esperando
     fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10000) }),
   }).catch((err) => {
@@ -29,7 +34,11 @@ const cache = new Map<string, { at: number; audio: OwnAudio }>()
 const TTL = 3 * 60 * 60 * 1000 // las direcciones de YouTube duran ~6 h
 
 // Orden de prueba; el último que funcionó pasa adelante
-let order = ['ANDROID_VR', 'TV', 'WEB_EMBEDDED', 'IOS', 'MWEB', 'TV_SIMPLY', 'ANDROID'] as const
+let order = (
+  process.env.YT_COOKIE
+    ? ['TV', 'MWEB', 'WEB_EMBEDDED', 'ANDROID_VR', 'IOS', 'TV_SIMPLY', 'ANDROID']
+    : ['ANDROID_VR', 'TV', 'WEB_EMBEDDED', 'IOS', 'MWEB', 'TV_SIMPLY', 'ANDROID']
+) as readonly ('ANDROID_VR' | 'TV' | 'WEB_EMBEDDED' | 'IOS' | 'MWEB' | 'TV_SIMPLY' | 'ANDROID')[]
 type Client = (typeof order)[number]
 
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
@@ -59,6 +68,14 @@ export async function resolveOwnAudio(id: string, fresh = false): Promise<OwnAud
     } catch (err) {
       errors.push(`${c}: ${((err as Error).message || 'error').slice(0, 80)}`)
     }
+  }
+  // El motivo real que da YouTube (p. ej. "Sign in to confirm you're not a bot")
+  try {
+    const info = await yt.getBasicInfo(id, { client: 'ANDROID_VR' })
+    const ps = info.playability_status
+    if (ps && ps.status !== 'OK') errors.unshift(`YouTube: ${ps.status}${ps.reason ? ` · ${ps.reason}` : ''}`)
+  } catch (err) {
+    errors.unshift(`YouTube: ${((err as Error).message || '').slice(0, 120)}`)
   }
   throw new Error(errors.join(' | '))
 }

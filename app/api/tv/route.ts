@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-real-ip')
     try {
       const channels = await getPlutoChannels(ip || null, getRequestRegion(request))
-      return NextResponse.json({ channels, list: 'pluto' }, { headers: { 'Cache-Control': 'private, max-age=1800' } })
+      return NextResponse.json({ channels, list: 'pluto' }, { headers: { 'Cache-Control': 'private, max-age=300' } })
     } catch (err) {
       return NextResponse.json({ error: (err as Error).message, channels: [], list: 'pluto' }, { status: 502 })
     }

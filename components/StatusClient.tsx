@@ -20,7 +20,7 @@ async function deviceChecks(): Promise<Check[]> {
   // ¿El teléfono puede abrir Pluto directo (sin intermediario)?
   const t0 = Date.now()
   try {
-    const r = await fetch('/api/tv?list=pluto')
+    const r = await fetch('/api/tv?list=pluto', { cache: 'no-store' })
     const d = (await r.json()) as { channels?: { name: string; url: string }[] }
     const ch = d.channels?.[0]
     if (!ch) throw new Error('no hay canales para probar')
