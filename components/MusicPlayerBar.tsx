@@ -17,13 +17,10 @@ import {
   X,
   ChevronDown,
   Music,
-  PictureInPicture2,
   Plus,
   Heart,
   Sparkles,
   Maximize,
-  Maximize2,
-  Minimize2,
   Headphones,
   Loader2,
   Radio,
@@ -92,6 +89,8 @@ function orderCandidates(list: AudioCandidate[], highQuality: boolean): AudioCan
   )
 }
 
+// La sección Música es solo audio (los videos van en la sección Videos)
+const MUSIC_AUDIO_ONLY = true
 // Tiempo tras pasar a segundo plano en el que una pausa se considera automática (de YouTube)
 const AUTO_RESUME_WINDOW_MS = 5000
 // Sin avance del audio durante este tiempo: la fuente se considera caída
@@ -297,7 +296,7 @@ export default function MusicPlayerBar() {
   const isPending = !!currentVideo?.pending
   // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
   // YouTube y pasa al audio propio al bloquear la pantalla o salir de la app (si ya está listo).
-  const wantAudio = audioMode && !!currentId && !audioFailedIds.has(currentId)
+  const wantAudio = !!currentId && !audioFailedIds.has(currentId)
   const [quickStartId, setQuickStartId] = useState<string | null>(null)
   const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
   // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
@@ -419,7 +418,8 @@ export default function MusicPlayerBar() {
 
   const audioReady = audioSrc?.id === currentId
   useEffect(() => {
-    if (!wantAudio || audioReady || !currentId || isLive || isLocal || isPending) return
+    // Música: sin inicio con video de YouTube (se espera el audio, que sigue sonando al bloquear)
+    if (MUSIC_AUDIO_ONLY || !wantAudio || audioReady || !currentId || isLive || isLocal || isPending) return
     const id = currentId
     const t = setTimeout(() => {
       // Con la pantalla bloqueada YouTube no suena: ahí se sigue esperando el audio
@@ -629,23 +629,10 @@ export default function MusicPlayerBar() {
     },
     [setAudioMode]
   )
-  // Videos y películas (no música): se muestran en modo video aunque esté el modo audio.
-  // Al volver a una canción se regresa solo al modo audio.
-  const autoVideoRef = useRef(false)
-  const currentIsVideo = currentVideo && !isLocal && !isPending ? looksLikeVideo(currentVideo) : false
+  // Música es solo audio: si quedó guardado el modo video de versiones anteriores, se vuelve a audio
   useEffect(() => {
-    if (!currentId || isLive) return
-    if (currentIsVideo && audioMode) {
-      autoVideoRef.current = true
-      switchMode(false)
-      setVideoHidden(false)
-    } else if (!currentIsVideo && autoVideoRef.current) {
-      autoVideoRef.current = false
-      if (!audioMode) switchMode(true)
-    }
-    // Solo al cambiar de pista
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentId])
+    if (!useMusicStore.getState().audioMode) setAudioMode(true)
+  }, [setAudioMode])
 
   // Radio en vivo: el corazón guarda la emisora en "Mis radios favoritas"
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
@@ -1081,7 +1068,7 @@ export default function MusicPlayerBar() {
     : ''
 
   // Video a la vista: ventana chica flotante sobre la barra (salvo ampliado o achicado a la barra)
-  const floating = !useAudio && !isExpanded && !videoHidden && !isLive
+  const floating = !useAudio && !isExpanded && !videoHidden && !isLive && !!currentVideo?.isVideo
   useEffect(() => setVideoHidden(false), [currentId])
   const [shareNotice, setShareNotice] = useState(false)
   const shareCurrent = useCallback(async () => {
@@ -1360,7 +1347,18 @@ export default function MusicPlayerBar() {
                 />
               </>
             ) : (
-              <ReactPlayer {...playerProps} />
+              <>
+                <ReactPlayer {...playerProps} />
+                {/* Música: si solo se pudo con YouTube, igual se muestra la portada (no el video) */}
+                {!currentVideo.isVideo && (
+                  <div className="absolute inset-0 cursor-pointer" onClick={openFull}>
+                    {currentVideo.thumbnail && <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <Headphones className="w-5 h-5 text-white/90 drop-shadow" />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1379,7 +1377,7 @@ export default function MusicPlayerBar() {
                 {isLive && reconnecting ? (
                   <span className="text-amber-400">Señal interrumpida · reconectando…</span>
                 ) : audioMode && !useAudio ? (
-                  <span className="text-violet-500/90">Audio no disponible · reproduciendo video</span>
+                  <span className="text-amber-400/90">Sin audio de fondo · suena solo con la app abierta</span>
                 ) : (
                   currentVideo.channelTitle
                 )}
@@ -1514,63 +1512,7 @@ export default function MusicPlayerBar() {
                 <Sparkles className="w-4 h-4" />
               </button>
 
-              <button
-                onClick={() => {
-                  autoVideoRef.current = false
-                  switchMode(!audioMode)
-                }}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioMode ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
-                title={audioMode ? 'Modo audio: sigue sonando en segundo plano (toca para ver video)' : 'Activar modo audio (segundo plano)'}
-                aria-label="Modo audio en segundo plano"
-                aria-pressed={audioMode}
-              >
-                <Headphones className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => {
-                  // Modo audio → ventana de video; achicada → de vuelta flotante; si no, ampliar/reducir
-                  if (audioMode) {
-                    switchMode(false)
-                    setVideoHidden(false)
-                  } else if (videoHidden && !isExpanded) {
-                    setVideoHidden(false)
-                  } else {
-                    setIsExpanded((v) => !v)
-                  }
-                }}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${isExpanded ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
-                title={isExpanded ? 'Reducir video' : 'Ver video'}
-                aria-label={isExpanded ? 'Reducir video' : 'Ver video'}
-                aria-pressed={isExpanded}
-              >
-                {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </button>
-
-              <button
-                onClick={() => {
-                  if (audioMode) {
-                    switchMode(false)
-                    setIsExpanded(true)
-                  } else {
-                    handleFullscreen()
-                  }
-                }}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} text-slate-500 hover:text-white`}
-                title="Pantalla completa"
-                aria-label="Pantalla completa"
-              >
-                <Maximize className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={handlePiP}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} text-slate-500 hover:text-white hidden sm:flex`}
-                title="Picture-in-Picture"
-                aria-label="Picture-in-Picture"
-              >
-                <PictureInPicture2 className="w-4 h-4" />
-              </button>
+              {/* Música es solo audio: sin botones de video (los videos están en la sección Videos) */}
 
               <button
                 onClick={toggleQueue}

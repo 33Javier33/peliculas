@@ -334,8 +334,8 @@ export default function NowPlayingSheet({
             </button>
           </div>
 
-          {/* Modo audio / video */}
-          {!isLive && (
+          {/* Modo audio / video: Música es solo audio (los videos están en la sección Videos) */}
+          {false && !isLive && (
           <button
             onClick={() => onSwitchMode(!audioMode)}
             className="mt-6 w-full flex items-center gap-3 bg-surface-1/80 backdrop-blur-xl border border-white/8 rounded-2xl px-4 py-3 text-left"

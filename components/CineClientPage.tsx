@@ -8,7 +8,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
-import { useMusicStore } from '@/store/musicStore'
+import YoutubePlayer from '@/components/YoutubePlayer'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
 import { parseDuration, formatViewCount } from '@/lib/youtube'
@@ -16,6 +16,12 @@ import { decodeEntities } from '@/lib/youtube-music'
 
 interface VideoDetails {
   [videoId: string]: YouTubeVideoItem
+}
+
+interface PlayerState {
+  videoId: string
+  title: string
+  channelTitle: string
 }
 
 // Idiomas de la sección (búsquedas y "más vistos")
@@ -43,10 +49,9 @@ export default function CineClientPage({
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [results, setResults] = useState<YouTubeSearchItem[]>(initialItems)
   const [videoDetails, setVideoDetails] = useState<VideoDetails>(initialVideoDetails)
-  const videoDetailsRef = useRef(videoDetails)
-  videoDetailsRef.current = videoDetails
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(initialNextPageToken)
   const [isSearchMode, setIsSearchMode] = useState(false)
+  const [player, setPlayer] = useState<PlayerState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -270,29 +275,35 @@ export default function CineClientPage({
     inputRef.current?.focus()
   }, [loadTrending, router])
 
-  // El video suena en el reproductor de la app: ventana chica sobre la barra, sigue al cambiar
-  // de pantalla y, al salir o bloquear el teléfono, continúa como audio
-  const openPlayer = useCallback((videoId: string, title: string, channelTitle: string) => {
-    const details = videoDetailsRef.current[videoId]
-    useMusicStore.getState().play(
-      [
-        {
-          id: videoId,
-          title,
-          channelTitle,
-          thumbnail: thumbOf(videoId),
-          publishedAt: '',
-          description: '',
-          duration: details?.contentDetails?.duration,
-          isVideo: true,
-        },
-      ],
-      0
-    )
+  const openPlayer = useCallback(
+    (videoId: string, title: string, channelTitle: string) => {
+      setPlayer({ videoId, title, channelTitle })
+    },
+    []
+  )
+
+  const closePlayer = useCallback(() => {
+    setPlayer(null)
   }, [])
 
   return (
     <>
+      {player && (
+        <YoutubePlayer
+          videoId={player.videoId}
+          title={player.title}
+          channelTitle={player.channelTitle}
+          onClose={closePlayer}
+          liked={likedIds.has(player.videoId)}
+          later={laterIds.has(player.videoId)}
+          onToggleLike={() =>
+            toggleSaved('liked', { id: player.videoId, title: player.title, channelTitle: player.channelTitle, thumbnail: thumbOf(player.videoId) })
+          }
+          onToggleLater={() =>
+            toggleSaved('watchLater', { id: player.videoId, title: player.title, channelTitle: player.channelTitle, thumbnail: thumbOf(player.videoId) })
+          }
+        />
+      )}
 
       <div className="pt-20 min-h-screen bg-obsidian">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
