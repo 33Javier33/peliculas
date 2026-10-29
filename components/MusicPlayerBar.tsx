@@ -27,6 +27,8 @@ import {
   Headphones,
   Loader2,
   Radio,
+  Share2,
+  ChevronsDownUp,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -286,8 +288,17 @@ export default function MusicPlayerBar() {
   const wantAudio = audioMode && !!currentId && !audioFailedIds.has(currentId)
   const [quickStartId, setQuickStartId] = useState<string | null>(null)
   const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
+  // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
+  const [bgAudioId, setBgAudioId] = useState<string | null>(null)
+  const bgActiveRef = useRef(false)
+  // Ventana de video: flotante sobre la barra; "oculta" = de vuelta en la miniatura de la barra
+  const [videoHidden, setVideoHidden] = useState(false)
   const useAudio =
-    isLive || isLocal || isPending || (wantAudio && (quickStartId !== currentId || audioSwitchId === currentId))
+    isLive ||
+    isLocal ||
+    isPending ||
+    bgAudioId === currentId ||
+    (wantAudio && (quickStartId !== currentId || audioSwitchId === currentId))
   const useAudioRef = useRef(useAudio)
   useAudioRef.current = useAudio
   const audioUrl = isLive
@@ -371,18 +382,26 @@ export default function MusicPlayerBar() {
   )
 
   useEffect(() => {
-    if (!wantAudio || !currentId || isLive || isLocal || isPending) return
+    // En modo video también se prepara el audio (con unos segundos de margen): así al salir de
+    // la app o bloquear el teléfono el video sigue sonando
+    if (!currentId || isLive || isLocal || isPending || audioFailedIds.has(currentId)) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
+    const delay = wantAudio || document.visibilityState === 'hidden' ? 0 : 4000
+    const timer = setTimeout(() =>
     loadAudioCandidates(currentId).then((candidates) => {
       if (cancelled) return
-      if (candidates.length === 0) markAudioFailed(currentId)
-      else setAudioSrc({ id: currentId, candidates: orderCandidates(candidates, useMusicStore.getState().audioBoost), index: 0 })
-    })
+      if (candidates.length === 0) {
+        if (wantAudio) markAudioFailed(currentId)
+        return
+      }
+      setAudioSrc({ id: currentId, candidates: orderCandidates(candidates, useMusicStore.getState().audioBoost), index: 0 })
+    }), delay)
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
-  }, [wantAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal, isPending])
+  }, [wantAudio, currentId, audioSrc?.id, markAudioFailed, isLive, isLocal, isPending, audioFailedIds])
 
   const audioReady = audioSrc?.id === currentId
   useEffect(() => {
@@ -400,16 +419,29 @@ export default function MusicPlayerBar() {
   localPlayedRef.current = localPlayed
   useEffect(() => {
     const switchIfNeeded = () => {
-      if (document.visibilityState !== 'hidden') return
-      if (quickStartId && quickStartId === currentId && audioReady && audioSwitchId !== currentId) {
+      const st = useMusicStore.getState()
+      if (document.visibilityState === 'hidden') {
+        if (!st.isPlaying || useAudioRef.current) return
+        // Siguiente pista con la pantalla bloqueada: también por audio propio
+        if (bgActiveRef.current && currentId) return setBgAudioId(currentId)
+        if (!audioReady) return
         pendingSeekRef.current = localPlayedRef.current
-        setAudioSwitchId(currentId)
+        if (quickStartId && quickStartId === currentId) setAudioSwitchId(currentId)
+        else {
+          bgActiveRef.current = true
+          setBgAudioId(currentId ?? null)
+        }
+      } else if (bgActiveRef.current) {
+        // De vuelta en la app: otra vez el video, desde donde iba
+        bgActiveRef.current = false
+        if (bgAudioId === currentId) pendingSeekRef.current = localPlayedRef.current
+        setBgAudioId(null)
       }
     }
     switchIfNeeded()
     document.addEventListener('visibilitychange', switchIfNeeded)
     return () => document.removeEventListener('visibilitychange', switchIfNeeded)
-  }, [quickStartId, currentId, audioReady, audioSwitchId])
+  }, [quickStartId, currentId, audioReady, audioSwitchId, bgAudioId])
 
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
@@ -590,7 +622,7 @@ export default function MusicPlayerBar() {
     if (currentIsVideo && audioMode) {
       autoVideoRef.current = true
       switchMode(false)
-      setIsExpanded(true)
+      setVideoHidden(false)
     } else if (!currentIsVideo && autoVideoRef.current) {
       autoVideoRef.current = false
       if (!audioMode) switchMode(true)
@@ -1028,6 +1060,25 @@ export default function MusicPlayerBar() {
     ? `https://www.youtube.com/watch?v=${currentVideo.id}`
     : ''
 
+  // Video a la vista: ventana chica flotante sobre la barra (salvo ampliado o achicado a la barra)
+  const floating = !useAudio && !isExpanded && !videoHidden && !isLive
+  useEffect(() => setVideoHidden(false), [currentId])
+  const [shareNotice, setShareNotice] = useState(false)
+  const shareCurrent = useCallback(async () => {
+    const v = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]
+    if (!v) return
+    const url = `${window.location.origin}/play/${v.id}`
+    const text = `Mira "${v.title}" en Carlos P. Nauto Interactive`
+    try {
+      if (navigator.share) await navigator.share({ title: v.title, text, url })
+      else {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        setShareNotice(true)
+        setTimeout(() => setShareNotice(false), 2000)
+      }
+    } catch {}
+  }, [])
+
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -1223,17 +1274,41 @@ export default function MusicPlayerBar() {
           />
         </div>
 
-        <div className="bg-surface-1/[0.98] sm:bg-surface-1/90 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
+        <div className="relative bg-surface-1/[0.98] sm:bg-surface-1/90 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
 
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div
             ref={videoWrapRef}
-            className={`relative bg-obsidian overflow-hidden ${
+            className={`bg-obsidian overflow-hidden ${
               isExpanded
-                ? 'w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
-                : 'shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
+                ? 'relative w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
+                : floating
+                  ? 'absolute right-2 bottom-[calc(100%+14px)] z-10 w-[62vw] max-w-[360px] aspect-video rounded-xl border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)]'
+                  : 'relative shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
             }`}
           >
+            {/* Ventana de video: agrandar, compartir y bajarla a la barra (sigue sonando) */}
+            {floating && (
+              <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-end gap-1 p-1.5 bg-gradient-to-b from-black/70 to-transparent">
+                <button onClick={handleFullscreen} className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center" aria-label="Pantalla completa" title="Pantalla completa">
+                  <Maximize className="w-4 h-4" />
+                </button>
+                <button onClick={shareCurrent} className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center" aria-label="Compartir video" title="Compartir">
+                  <Share2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setVideoHidden(true)}
+                  className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center"
+                  aria-label="Achicar video (sigue sonando)"
+                  title="Achicar (sigue sonando)"
+                >
+                  <ChevronsDownUp className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {shareNotice && floating && (
+              <span className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded-md bg-black/70 text-white text-xs">Enlace copiado</span>
+            )}
             {useAudio ? (
               <>
                 {isLive ? (
@@ -1434,9 +1509,12 @@ export default function MusicPlayerBar() {
 
               <button
                 onClick={() => {
+                  // Modo audio → ventana de video; achicada → de vuelta flotante; si no, ampliar/reducir
                   if (audioMode) {
                     switchMode(false)
-                    setIsExpanded(true)
+                    setVideoHidden(false)
+                  } else if (videoHidden && !isExpanded) {
+                    setVideoHidden(false)
                   } else {
                     setIsExpanded((v) => !v)
                   }
@@ -1500,7 +1578,8 @@ export default function MusicPlayerBar() {
 }
 
 /** ¿Es un video o una película (no una canción)? Por el título o por durar más de una hora sin ser un mix. */
-function looksLikeVideo(v: { title: string; duration?: string; channelTitle?: string }): boolean {
+function looksLikeVideo(v: { title: string; duration?: string; channelTitle?: string; isVideo?: boolean }): boolean {
+  if (v.isVideo) return true
   const text = `${v.title} ${v.channelTitle ?? ''}`.toLowerCase()
   if (/pel[ií]cula|movie|film completo|cap[ií]tulo|episodio|temporada|documental|trailer|tr[aá]iler|serie completa|noticiero|en vivo tv/.test(text)) return true
   const secs = durationSeconds(v.duration)

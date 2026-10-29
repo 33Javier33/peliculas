@@ -16,6 +16,8 @@ export interface MusicVideo {
   streamUrl?: string
   // Canciones de un álbum del catálogo: nombre del álbum
   album?: string
+  // Video (no canción): se muestra en la ventana de video aunque esté el modo audio
+  isVideo?: boolean
   // Canción del catálogo aún sin video de YouTube: se busca justo antes de sonar
   pending?: { artist: string; title: string; duration: number }
 }
