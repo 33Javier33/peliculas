@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, Play } from 'lucide-react'
-import CastButton from '@/components/CastButton'
+import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone } from 'lucide-react'
+import CastButton, { loadCast } from '@/components/CastButton'
 import { useMusicStore } from '@/store/musicStore'
 
 interface YoutubePlayerProps {
@@ -70,14 +70,67 @@ export default function YoutubePlayer({
   // YouTube (que sí transmite) en el mismo segundo, o se usa la fuente alternativa con Chromecast
   const [castOpen, setCastOpen] = useState(false)
   const altVideoRef = useRef<HTMLVideoElement>(null)
-  const openInYouTubeApp = () => {
-    const t = Math.floor(timeRef.current)
-    const web = `https://www.youtube.com/watch?v=${videoId}${t > 5 ? `&t=${t}s` : ''}`
-    const android = /Android/i.test(navigator.userAgent)
-    // En Android se abre directo la app de YouTube; si no está, la web
-    window.location.href = android
-      ? `intent://www.youtube.com/watch?v=${videoId}${t > 5 ? `&t=${t}s` : ''}#Intent;package=com.google.android.youtube;scheme=https;S.browser_fallback_url=${encodeURIComponent(web)};end`
-      : web
+  // Transmitir desde la app: se abre YouTube en la TV (Chromecast / Google TV) y se le indica el video
+  const [tvStatus, setTvStatus] = useState<'' | 'connecting' | 'playing' | 'error' | 'unsupported'>('')
+  const [tvName, setTvName] = useState('')
+  const [tvError, setTvError] = useState('')
+  const tvSessionRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const castToTv = async () => {
+    setTvError('')
+    setTvStatus('connecting')
+    if (!(await loadCast())) return setTvStatus('unsupported')
+    const cast = (window as any).chrome?.cast // eslint-disable-line @typescript-eslint/no-explicit-any
+    const NS = 'urn:x-cast:com.google.youtube.mdx'
+    const fail = (msg: string) => {
+      setTvError(msg)
+      setTvStatus('error')
+    }
+    cast.requestSession(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (session: any) => {
+        tvSessionRef.current = session
+        setTvName(session.receiver?.friendlyName || 'tu TV')
+        let done = false
+        const timer = setTimeout(() => !done && fail('La TV no respondió. Prueba de nuevo.'), 15000)
+        session.addMessageListener(NS, async (_ns: string, message: string) => {
+          let data: { type?: string; data?: { screenId?: string } }
+          try {
+            data = JSON.parse(message)
+          } catch {
+            return
+          }
+          const screenId = data.data?.screenId
+          if (done || data.type !== 'mdxSessionStatus' || !screenId) return
+          done = true
+          clearTimeout(timer)
+          try {
+            const r = await fetch('/api/yt-cast', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ screenId, videoId, currentTime: timeRef.current }),
+            })
+            if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error || 'No se pudo enviar')
+            setTvStatus('playing')
+            // El video sigue en la TV: aquí se pausa
+            iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
+            altVideoRef.current?.pause()
+          } catch (err) {
+            fail((err as Error).message)
+          }
+        })
+        session.sendMessage(NS, { type: 'getMdxSessionStatus' }, () => {}, () => fail('No se pudo hablar con YouTube en la TV'))
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (err: any) => (/cancel/i.test(err?.code || '') ? setTvStatus('') : fail('No se pudo conectar con la TV')),
+      new cast.SessionRequest('233637DE') // la app de YouTube del Chromecast / Google TV
+    )
+  }
+  const stopTv = () => {
+    try {
+      tvSessionRef.current?.stop(() => {}, () => {})
+    } catch {}
+    tvSessionRef.current = null
+    setTvStatus('')
   }
   // Segundo en que va el video (para seguir desde ahí al cambiar la calidad)
   const timeRef = useRef(0)
@@ -375,21 +428,37 @@ export default function YoutubePlayer({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-slate-400 text-sm mb-4">
-              YouTube no permite enviar sus videos a la TV desde otras páginas. Estas opciones sí funcionan:
-            </p>
-            <button
-              onClick={openInYouTubeApp}
-              className="w-full flex items-center gap-3 text-left rounded-2xl bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 px-4 py-3 mb-2"
-            >
-              <span className="shrink-0 w-10 h-10 rounded-full bg-red-600 text-white flex items-center justify-center">
-                <Play className="w-5 h-5 fill-white" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-white font-semibold text-sm">Abrir en la app de YouTube</span>
-                <span className="block text-slate-400 text-xs">Sigue en el mismo segundo. Ahí toca el ícono de transmitir y elige tu TV.</span>
-              </span>
-            </button>
+            {tvStatus === 'playing' ? (
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-emerald-300 text-sm font-semibold truncate">Reproduciendo en {tvName}</p>
+                  <p className="text-slate-400 text-xs">Usa el control de la TV para pausar o adelantar</p>
+                </div>
+                <button onClick={stopTv} className="shrink-0 text-xs font-bold text-white bg-white/10 rounded-full px-3 py-1.5">
+                  Detener
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={castToTv}
+                disabled={tvStatus === 'connecting'}
+                className="w-full flex items-center gap-3 text-left rounded-2xl bg-violet-500/10 border border-violet-500/30 hover:bg-violet-500/20 px-4 py-3 mb-2 disabled:opacity-70"
+              >
+                <span className="shrink-0 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center">
+                  {tvStatus === 'connecting' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Cast className="w-5 h-5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-white font-semibold text-sm">
+                    {tvStatus === 'connecting' ? 'Conectando con la TV…' : 'Transmitir a Chromecast / Google TV'}
+                  </span>
+                  <span className="block text-slate-400 text-xs">La TV abre YouTube y pone este video desde el mismo segundo.</span>
+                </span>
+              </button>
+            )}
+            {tvStatus === 'unsupported' && (
+              <p className="text-amber-300 text-sm mb-2">Para transmitir abre esta app con Google Chrome (en Android o computador).</p>
+            )}
+            {tvStatus === 'error' && <p className="text-amber-300 text-sm mb-2">{tvError}</p>}
             {mode === 'alt' && altStatus === 'ready' && alt && (
               <div className="flex items-center gap-3 rounded-2xl bg-violet-500/10 border border-violet-500/30 px-4 py-3 mb-2">
                 <CastButton videoRef={altVideoRef} media={{ url: alt.candidates[alt.index].url, title, poster: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` }} />

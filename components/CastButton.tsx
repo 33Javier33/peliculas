@@ -38,7 +38,7 @@ declare global {
 }
 
 let castLoad: Promise<boolean> | null = null
-function loadCast(): Promise<boolean> {
+export function loadCast(): Promise<boolean> {
   if (castLoad) return castLoad
   castLoad = new Promise((resolve) => {
     // Solo los navegadores Chrome/Chromium pueden usar Chromecast
