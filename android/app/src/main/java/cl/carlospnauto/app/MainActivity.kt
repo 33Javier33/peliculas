@@ -2,6 +2,8 @@ package cl.carlospnauto.app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PictureInPictureParams
+import android.content.res.Configuration
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -9,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Rational
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.GeolocationPermissions
@@ -159,6 +162,34 @@ class MainActivity : AppCompatActivity() {
 
     // Importante: NO se pausa el WebView al salir de la app ni al bloquear (así la música sigue)
 
+    // ===== Video en ventana flotante (fuera de la app) =====
+    // Si hay un video sonando al salir de la app, sigue en una ventanita sobre las demás apps
+    private var videoActive = false
+
+    private fun pipParams(): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) b.setAutoEnterEnabled(videoActive).setSeamlessResizeEnabled(true)
+        return b.build()
+    }
+
+    private fun updateVideoActive(active: Boolean) {
+        if (active == videoActive) return
+        videoActive = active
+        runCatching { setPictureInPictureParams(pipParams()) }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Android 12+ entra solo (setAutoEnterEnabled); antes hay que pedirlo
+        if (videoActive && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // La web agranda el video a toda la ventanita (y lo devuelve a su lugar al volver)
+        web.evaluateJavascript("window.__cpnPip && window.__cpnPip($isInPictureInPictureMode)", null)
+    }
+
     override fun onDestroy() {
         if (current?.get() === this) current = null
         web.destroy()
@@ -168,6 +199,11 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private var current: WeakReference<MainActivity>? = null
         private val main = Handler(Looper.getMainLooper())
+
+        /** La web avisa si hay un video sonando (para la ventana flotante al salir) */
+        fun setVideoActive(active: Boolean) {
+            main.post { current?.get()?.updateVideoActive(active) }
+        }
 
         /** Botones de la notificación / pantalla bloqueada / auriculares → app web */
         fun sendAction(action: String) {

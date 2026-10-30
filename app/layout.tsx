@@ -8,6 +8,7 @@ import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
 import NavigationMemory from '@/components/NavigationMemory'
 import SplashScreen, { SPLASH_SCRIPT } from '@/components/SplashScreen'
+import NativePip from '@/components/NativePip'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-obsidian text-white font-sans pb-14 sm:pb-0">
         <SplashScreen />
+        <NativePip />
         <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
           <Header />
         </Suspense>

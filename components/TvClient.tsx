@@ -696,6 +696,7 @@ const TvPlayer = forwardRef<
     <div ref={ref} className={`sticky top-16 ${full ? 'z-[150]' : 'z-30'} -mx-4 sm:mx-0 mb-5 bg-obsidian`}>
       <div
         ref={boxRef}
+        data-cpn-video=""
         className={
           full
             ? 'fixed inset-0 z-[150] bg-black flex items-center justify-center'

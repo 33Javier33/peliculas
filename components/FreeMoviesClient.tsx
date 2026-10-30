@@ -332,7 +332,7 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
   return (
     <div className="fixed inset-0 z-[110] bg-obsidian overflow-y-auto" role="dialog" aria-label={movie.title}>
       <div className="max-w-5xl mx-auto sm:pt-6">
-        <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden">
+        <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden" data-cpn-video="">
           <video ref={videoRef} controls playsInline autoPlay poster={movie.backdrop} className={`w-full h-full ${casting ? 'invisible' : ''}`} />
           {!casting && levels.length > 0 && (
             <HlsQualityMenu levels={levels} pref={quality} onChange={changeQuality} className="absolute top-2 left-2 z-20" />

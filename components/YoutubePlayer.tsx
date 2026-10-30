@@ -57,6 +57,7 @@ export default function YoutubePlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [mode, setMode] = useState<'youtube' | 'alt'>('youtube')
   const [ytReady, setYtReady] = useState(false)
+  const [ytPlaying, setYtPlaying] = useState(false)
   const [ytSlow, setYtSlow] = useState(false)
   const [autoSwitched, setAutoSwitched] = useState(false)
   const [alt, setAlt] = useState<{ candidates: VideoCandidate[]; index: number } | null>(null)
@@ -186,8 +187,10 @@ export default function YoutubePlayer({
         return
       }
       if (data.event === 'onReady' || data.event === 'initialDelivery' || data.event === 'infoDelivery') setYtReady(true)
-      const info = data.info as { currentTime?: number } | undefined
+      const info = data.info as { currentTime?: number; playerState?: number } | undefined
       if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
+      // 1 = reproduciendo (para la ventana flotante de la app de Android)
+      if (typeof info?.playerState === 'number') setYtPlaying(info.playerState === 1)
       if (data.event === 'onError') switchToAlt(true)
     }
     window.addEventListener('message', onMessage)
@@ -312,7 +315,10 @@ export default function YoutubePlayer({
 
       <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 gap-3">
         <div className="w-full max-w-6xl">
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black">
+          <div
+            className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
+            data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
+          >
             {mode === 'youtube' ? (
               <iframe
                 ref={iframeRef}

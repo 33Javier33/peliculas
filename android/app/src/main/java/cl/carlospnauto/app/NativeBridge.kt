@@ -10,6 +10,7 @@ import org.json.JSONObject
  * Lo que la app web puede pedirle al teléfono (window.CPNNative):
  *  - audioBase(): dirección del servidor local de audio (http://127.0.0.1:PUERTO)
  *  - mediaState(json): qué suena y si está sonando → notificación y controles de pantalla bloqueada
+ *  - videoState(active): hay un video sonando → al salir de la app sigue en una ventana flotante
  */
 class NativeBridge(private val context: Context) {
     @JavascriptInterface
@@ -32,4 +33,7 @@ class NativeBridge(private val context: Context) {
         if (o.optBoolean("visible", true)) ContextCompat.startForegroundService(context, intent)
         else context.startService(intent)
     }
+
+    @JavascriptInterface
+    fun videoState(active: Boolean) = MainActivity.setVideoActive(active)
 }

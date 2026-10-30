@@ -1409,6 +1409,7 @@ export default function MusicPlayerBar() {
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div
             ref={videoWrapRef}
+            data-cpn-video={!useAudio && currentVideo && !isLive ? (isPlaying ? 'playing' : 'paused') : undefined}
             className={`bg-obsidian overflow-hidden ${
               isExpanded
                 ? 'relative w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'

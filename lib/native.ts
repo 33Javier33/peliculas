@@ -33,3 +33,15 @@ export function reportMediaState(state: { title: string; artist: string; artwork
     n.mediaState(JSON.stringify(state))
   } catch {}
 }
+
+interface CPNNativeVideo {
+  videoState?(active: boolean): void
+}
+
+/** Hay un video sonando: al salir de la app sigue en una ventana flotante (APKs nuevos) */
+export function reportVideoActive(active: boolean) {
+  const n = getNative() as (CPNNativeBridge & CPNNativeVideo) | null
+  try {
+    n?.videoState?.(active)
+  } catch {}
+}

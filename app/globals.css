@@ -86,3 +86,28 @@ body {
 html[data-splash='done'] #cpn-splash {
   display: none;
 }
+
+/* App de Android: dentro de la ventana flotante solo se ve el video */
+.cpn-pip [data-cpn-video] {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  z-index: 2147483647 !important;
+  background: #000 !important;
+}
+/* Que ningún contenedor encierre al video (transform/filtros rompen el "fixed") */
+.cpn-pip *:has([data-cpn-video]) {
+  transform: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  contain: none !important;
+}
+.cpn-pip [data-cpn-video] > :not(video):not(iframe):not(:has(video, iframe)) {
+  display: none !important;
+}
