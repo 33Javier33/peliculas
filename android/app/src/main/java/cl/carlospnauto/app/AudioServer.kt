@@ -74,8 +74,6 @@ object AudioServer {
         val url = best.content
         val loc: Localization? = null
         val ua = when {
-            YoutubeParsingHelper.isAndroidStreamingUrl(url) -> YoutubeParsingHelper.getAndroidUserAgent(loc)
-            YoutubeParsingHelper.isIosStreamingUrl(url) -> YoutubeParsingHelper.getIosUserAgent(loc)
             YoutubeParsingHelper.isVisionOsStreamingUrl(url) -> YoutubeParsingHelper.getVisionOsUserAgent(loc)
             else -> OkDownloader.USER_AGENT
         }

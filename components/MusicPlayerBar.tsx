@@ -50,9 +50,14 @@ let audioDownUntil = 0
 const audioSourcesDown = () => Date.now() < audioDownUntil
 
 function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
-  // App de Android: el propio teléfono saca el audio (no lo bloquea YouTube y es al instante)
+  // App de Android: el propio teléfono saca el audio (no lo bloquea YouTube y es al instante).
+  // Si falla, se sigue con las fuentes de siempre (loadWebCandidates).
   const native = nativeAudioUrl(id)
   if (native) return Promise.resolve([{ url: native, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' }])
+  return loadWebCandidates(id)
+}
+
+function loadWebCandidates(id: string): Promise<AudioCandidate[]> {
   let p = audioCache.get(id)
   if (!p) {
     p = fetch(`/api/audio?id=${encodeURIComponent(id)}`)
@@ -586,6 +591,16 @@ export default function MusicPlayerBar() {
     if (audioSrc.index + 1 < audioSrc.candidates.length) {
       pendingSeekRef.current = useMusicStore.getState().played
       setAudioSrc({ ...audioSrc, index: audioSrc.index + 1 })
+    } else if (audioSrc.candidates[audioSrc.index]?.source === 'device') {
+      // La app de Android no pudo sacar el audio: se prueban las fuentes de internet
+      const { id } = audioSrc
+      pendingSeekRef.current = useMusicStore.getState().played
+      loadWebCandidates(id).then((list) => {
+        const st = useMusicStore.getState()
+        if (st.queue[st.currentIndex]?.id !== id) return
+        if (list.length) setAudioSrc({ id, candidates: orderCandidates(list, st.audioBoost), index: 0 })
+        else markAudioFailed(id)
+      })
     } else {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)

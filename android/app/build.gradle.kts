@@ -69,7 +69,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.media:media:1.7.0")
     // Extrae el audio y el video de YouTube desde el propio teléfono (como NewPipe)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:6faf40681e")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Pequeño servidor local: entrega el audio al reproductor de la app
     implementation("org.nanohttpd:nanohttpd:2.3.1")
