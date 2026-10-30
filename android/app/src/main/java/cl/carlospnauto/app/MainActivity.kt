@@ -72,6 +72,9 @@ class MainActivity : AppCompatActivity() {
             userAgentString = "$userAgentString CPNApp/${BuildConfig.VERSION_NAME}"
         }
         web.addJavascriptInterface(NativeBridge(applicationContext), "CPNNative")
+        // Al salir de la app o bloquear, Android le baja la prioridad a la web y el audio se traba
+        // un momento: se mantiene con prioridad alta también en segundo plano
+        web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
 
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
