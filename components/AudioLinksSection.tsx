@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3 } from 'lucide-react'
+import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore, type LinkAlbum } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { useTrackState } from '@/components/TrackState'
 
 // "Desde un enlace": pegar la dirección de un archivo de audio (MP3, M4A, OGG…), de una lista
 // (.m3u/.pls) o de una página que tenga archivos de audio. Suenan con la pantalla bloqueada.
@@ -146,12 +147,22 @@ export default function AudioLinksSection() {
   }
 
   const byId = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks])
-  const play = (list: MusicVideo[], index: number, shuffle = false) => {
+  // shuffle: true = aleatorio, false = en orden, sin indicar = sigue el modo que esté puesto
+  const play = (list: MusicVideo[], index: number, shuffle?: boolean) => {
     if (!list.length) return
     const st = useMusicStore.getState()
-    if (shuffle !== st.shuffle) st.toggleShuffle()
+    if (shuffle !== undefined && shuffle !== st.shuffle) st.toggleShuffle()
     st.play(list, shuffle ? Math.floor(Math.random() * list.length) : index)
   }
+  const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
+  const shuffleOn = useMusicStore((s) => s.shuffle)
+  // Al entrar, queda abierto el disco que está sonando
+  useEffect(() => {
+    if (!mounted || open || !currentId) return
+    const playing = albums.find((a) => a.trackIds.includes(currentId))
+    if (playing) setOpen(playing.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted])
 
   // Discos (los más nuevos primero) y, al final, las canciones sueltas
   const groups = useMemo(() => {
@@ -178,14 +189,13 @@ export default function AudioLinksSection() {
           <p className="text-slate-400 text-xs mt-0.5">MP3 y otros audios de internet: suenan con la pantalla bloqueada</p>
         </div>
         {tracks.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => play(groups.flatMap((g) => g.items), 0)} className="w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir todo">
-              <Play className="w-4 h-4 fill-white" />
-            </button>
-            <button onClick={() => play(tracks, 0, true)} className="w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center" aria-label="Todo en aleatorio">
-              <Shuffle className="w-4 h-4" />
-            </button>
-          </div>
+          <ModeButtons
+            label="todo"
+            shuffleOn={shuffleOn}
+            active={!!currentId && byId.has(currentId)}
+            onOrder={() => play(groups.flatMap((g) => g.items), 0, false)}
+            onShuffle={() => play(groups.flatMap((g) => g.items), 0, true)}
+          />
         )}
       </div>
 
@@ -215,6 +225,8 @@ export default function AudioLinksSection() {
               open={open === album.id}
               onToggle={() => setOpen(open === album.id ? null : album.id)}
               onPlay={(i, shuffle) => play(items, i, shuffle)}
+              currentId={currentId}
+              shuffleOn={shuffleOn}
               onRemoveTrack={removeTrack}
               onRemoveAlbum={album.id === 'loose' ? () => items.forEach((t) => removeTrack(t.id)) : () => removeAlbum(album.id)}
             />
@@ -234,6 +246,8 @@ function AlbumRow({
   onPlay,
   onRemoveTrack,
   onRemoveAlbum,
+  currentId,
+  shuffleOn,
 }: {
   album: LinkAlbum
   items: MusicVideo[]
@@ -242,13 +256,17 @@ function AlbumRow({
   onPlay: (index: number, shuffle?: boolean) => void
   onRemoveTrack: (id: string) => void
   onRemoveAlbum: () => void
+  currentId?: string
+  shuffleOn: boolean
 }) {
   const [moreInfo, setMoreInfo] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
+  const playingIndex = currentId ? items.findIndex((t) => t.id === currentId) : -1
+  const playingTrack = playingIndex >= 0 ? items[playingIndex] : undefined
   const details = [album.artist, album.year, `${items.length} ${items.length === 1 ? 'canción' : 'canciones'}`].filter(Boolean).join(' · ')
   return (
-    <li className="rounded-xl bg-surface-2/60 border border-white/5 overflow-hidden">
+    <li className={`rounded-xl bg-surface-2/60 border overflow-hidden ${playingTrack ? 'border-violet-400/40' : 'border-white/5'}`}>
       <div className="flex items-center gap-3 p-2">
         <button onClick={onToggle} className="min-w-0 flex-1 flex items-center gap-3 text-left" aria-expanded={open}>
           <span className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-1 flex items-center justify-center">
@@ -261,7 +279,13 @@ function AlbumRow({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-white text-sm font-semibold truncate">{album.title}</span>
-            <span className="block text-slate-400 text-xs truncate">{details}</span>
+            {playingTrack ? (
+              <span className="block text-violet-300 text-xs truncate">
+                Sonando: {playingTrack.title.replace(/^[^-–]+[-–]\s*/, '') || playingTrack.title}
+              </span>
+            ) : (
+              <span className="block text-slate-400 text-xs truncate">{details}</span>
+            )}
           </span>
           <ChevronDown className={`shrink-0 w-4 h-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
@@ -273,9 +297,7 @@ function AlbumRow({
       {open && (
         <div className="px-3 pb-3">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <button onClick={() => onPlay(0, true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-white text-xs">
-              <Shuffle className="w-3.5 h-3.5" /> Aleatorio
-            </button>
+            <ModeButtons label={album.title} shuffleOn={shuffleOn} active={!!playingTrack} onOrder={() => onPlay(0, false)} onShuffle={() => onPlay(0, true)} />
             {album.source && (
               <a href={album.source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-slate-300 text-xs">
                 <ExternalLink className="w-3.5 h-3.5" /> Ver página
@@ -295,10 +317,10 @@ function AlbumRow({
           )}
           <ol className="divide-y divide-white/5">
             {items.map((t, i) => (
-              <li key={t.id} className="flex items-center gap-3 py-2">
-                <span className="w-6 shrink-0 text-right text-slate-500 text-xs tabular-nums">{i + 1}</span>
-                <button onClick={() => onPlay(i)} className="min-w-0 flex-1 text-left">
-                  <p className="text-white text-sm truncate">{t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title}</p>
+              <li key={t.id} className={`flex items-center gap-3 py-2 ${t.id === currentId ? 'bg-violet-500/10 -mx-2 px-2 rounded-lg' : ''}`}>
+                <TrackNumber id={t.id} n={i + 1} />
+                <button onClick={() => onPlay(i)} className="min-w-0 flex-1 text-left" aria-current={t.id === currentId ? 'true' : undefined}>
+                  <p className={`text-sm truncate ${t.id === currentId ? 'text-violet-300 font-semibold' : 'text-white'}`}>{t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title}</p>
                   {t.channelTitle !== album.artist && <p className="text-slate-500 text-xs truncate">{t.channelTitle}</p>}
                 </button>
                 {t.duration && <span className="shrink-0 text-slate-500 text-xs tabular-nums">{t.duration}</span>}
@@ -311,6 +333,52 @@ function AlbumRow({
         </div>
       )}
     </li>
+  )
+}
+
+/** "En orden" y "Aleatorio": el modo puesto se ve marcado mientras suena esta lista */
+function ModeButtons({
+  label,
+  shuffleOn,
+  active,
+  onOrder,
+  onShuffle,
+}: {
+  label: string
+  shuffleOn: boolean
+  active: boolean
+  onOrder: () => void
+  onShuffle: () => void
+}) {
+  const on = 'bg-violet-500 border-violet-400 text-white'
+  const off = 'bg-surface-1 border-white/10 text-slate-200'
+  return (
+    <div className="flex items-center gap-2">
+      <button onClick={onOrder} aria-pressed={active && !shuffleOn} aria-label={`Reproducir ${label} en orden`} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${active && !shuffleOn ? on : off}`}>
+        <ListOrdered className="w-3.5 h-3.5" /> En orden
+      </button>
+      <button onClick={onShuffle} aria-pressed={active && shuffleOn} aria-label={`Reproducir ${label} en aleatorio`} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${active && shuffleOn ? on : off}`}>
+        <Shuffle className="w-3.5 h-3.5" /> Aleatorio
+      </button>
+    </div>
+  )
+}
+
+/** Número de la canción; la que suena muestra barras (o un círculo mientras carga) */
+function TrackNumber({ id, n }: { id: string; n: number }) {
+  const state = useTrackState(id)
+  if (!state) return <span className="w-6 shrink-0 text-right text-slate-500 text-xs tabular-nums">{n}</span>
+  if (state === 'loading') return <Loader2 className="w-4 h-4 mx-1 shrink-0 text-violet-300 animate-spin" aria-label="Cargando" />
+  return (
+    <span className="w-6 shrink-0 flex items-end justify-end gap-[2px] h-3.5" aria-label={state === 'playing' ? 'Sonando' : 'En pausa'}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={`w-[3px] rounded-full bg-violet-300 origin-bottom ${state === 'playing' ? 'animate-eq' : ''}`}
+          style={{ height: `${[60, 100, 75][i]}%`, animationDelay: `${i * 140}ms` }}
+        />
+      ))}
+    </span>
   )
 }
 

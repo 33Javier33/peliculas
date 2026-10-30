@@ -221,6 +221,8 @@ export default function MusicPlayerBar() {
 
   useEffect(() => {
     if (!radioEnabled || !isLastTrack || !currentVideo || currentVideo.streamUrl || radioSeedRef.current === currentVideo.id) return
+    // Discos y listas de enlaces: no se mezclan canciones de YouTube al final
+    if (currentVideo.audioUrl) return
     // Con "repetir todo" la cola vuelve a empezar: la radio no añade canciones
     if (useMusicStore.getState().repeatMode === 'all') return
     radioSeedRef.current = currentVideo.id
@@ -1197,7 +1199,7 @@ export default function MusicPlayerBar() {
   const progressPercent = isLive ? 100 : localPlayed * 100
   // Siguiente sigue disponible en la última si se repite todo o la radio traerá más
   const isLastInQueue =
-    currentIndex >= queue.length - 1 && useMusicStore.getState().repeatMode !== 'all' && !(radioEnabled && !isLive)
+    currentIndex >= queue.length - 1 && useMusicStore.getState().repeatMode !== 'all' && !(radioEnabled && !isLive && !currentVideo?.audioUrl)
 
   const playerProps = {
     ref: playerRef,
