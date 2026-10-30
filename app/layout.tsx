@@ -101,6 +101,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               Versión {APP_VERSION} ·{' '}
               <a href="/estado" className="underline hover:text-slate-400">
                 Estado de las fuentes
+              </a> ·{' '}
+              <a href="/app-android" className="underline hover:text-slate-400">
+                App para Android
               </a>
             </p>
           </div>
