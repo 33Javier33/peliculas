@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { getRadiosByCountry } from '@/lib/live'
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Copy, Activity } from 'lucide-react'
 import { findAudioCandidates } from '@/lib/audio-sources'
 import { getNative } from '@/lib/native'
@@ -104,6 +105,15 @@ async function deviceChecks(): Promise<Check[]> {
     out.push({ id: 'audio-device', area: 'Este teléfono', name: 'Audio con pantalla bloqueada (desde el teléfono)', ok: true, ms: Date.now() - t1, detail: `suena desde ${okSource}` })
   } catch (err) {
     out.push({ id: 'audio-device', area: 'Este teléfono', name: 'Audio con pantalla bloqueada (desde el teléfono)', ok: false, ms: Date.now() - t1, detail: (err as Error).message })
+  }
+
+  // Radios pedidas desde el teléfono (respaldo cuando el servidor no llega a Radio Browser)
+  const t2 = Date.now()
+  try {
+    const list = await getRadiosByCountry('CL', 20)
+    out.push({ id: 'radio-device', area: 'Este teléfono', name: 'Radios desde el teléfono (Radio Browser)', ok: list.length > 0, ms: Date.now() - t2, detail: `${list.length} emisoras` })
+  } catch (err) {
+    out.push({ id: 'radio-device', area: 'Este teléfono', name: 'Radios desde el teléfono (Radio Browser)', ok: false, ms: Date.now() - t2, detail: (err as Error).message })
   }
 
   const chrome = /Chrome/.test(navigator.userAgent) && !/CriOS|SamsungBrowser|EdgA|OPR/.test(navigator.userAgent)

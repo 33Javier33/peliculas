@@ -33,6 +33,11 @@ export interface TvChannel {
   region?: string
 }
 
+// Radio Browser también responde directo al teléfono (permite CORS): si el servidor no llega,
+// la app la consulta desde el navegador con estas mismas funciones.
+const RADIO_HEADERS: Record<string, string> =
+  typeof window === 'undefined' ? { 'User-Agent': 'CarlosPNautoInteractive/1.0', Accept: 'application/json' } : { Accept: 'application/json' }
+
 const DEFAULT_RADIO_SERVERS = [
   'https://de1.api.radio-browser.info',
   'https://nl1.api.radio-browser.info',
@@ -86,12 +91,15 @@ interface RawStation {
 
 async function radioRequest(path: string): Promise<RadioStation[]> {
   let lastError: unknown
+  // Sin pasar los ~9 s (el servidor corta antes y la app no alcanzaría a pedirla desde el teléfono)
+  const deadline = Date.now() + 9000
   for (const base of await radioServers()) {
+    if (Date.now() > deadline) break
     try {
       const res = await fetchWithTimeout(`${base}${path}`, {
-        headers: { 'User-Agent': 'CarlosPNautoInteractive/1.0', Accept: 'application/json' },
+        headers: RADIO_HEADERS,
         next: { revalidate: 3600 },
-      })
+      }, 4000)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const raw = (await res.json()) as RawStation[]
       const seen = new Set<string>()
@@ -168,7 +176,7 @@ export async function getRadioCities(countryCode: string): Promise<{ name: strin
   for (const base of await radioServers()) {
     try {
       const res = await fetchWithTimeout(`${base}/json/states/${encodeURIComponent(countryName)}/?hidebroken=true`, {
-        headers: { 'User-Agent': 'CarlosPNautoInteractive/1.0', Accept: 'application/json' },
+        headers: RADIO_HEADERS,
         next: { revalidate: 86400 },
       })
       if (!res.ok) continue

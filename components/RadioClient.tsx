@@ -8,6 +8,13 @@ import { Search, Loader2, AlertCircle, Heart, MapPin, LocateFixed, ChevronDown }
 import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import type { RadioStation } from '@/lib/live'
+import { getRadiosByCountry, getRadiosByCity, getTopRadios, searchRadios, getNearbyRadios, getRadioCities } from '@/lib/live'
+
+/** Radio Browser consultado desde el propio teléfono (cuando el servidor no la alcanza) */
+function radiosFromPhone(cc: string, q: string, c: string): Promise<RadioStation[]> {
+  const country = cc && cc !== 'WORLD' ? cc : ''
+  return q ? searchRadios(q, country || undefined) : c && country ? getRadiosByCity(c, country) : country ? getRadiosByCountry(country) : getTopRadios()
+}
 import type { MusicVideo } from '@/lib/youtube-music'
 import { LiveHeader, CountrySelect, countryName } from '@/components/LiveTabs'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
@@ -109,13 +116,19 @@ export default function RadioClient() {
       if (q) params.set('q', q)
       else if (c) params.set('city', c)
       const res = await fetch(`/api/radio?${params.toString()}`)
-      const data = (await res.json()) as { stations?: RadioStation[]; country?: string; error?: string }
+      const data = (await res.json().catch(() => ({}))) as { stations?: RadioStation[]; country?: string; error?: string }
       // El país detectado llega incluso si falla la lista, para poder elegir otro
       if (!cc && data.country) setCountry(data.country)
       syncUrl(cc || (data.country && data.country !== 'WORLD' ? data.country : ''), q, c)
-      if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
-      setStations(data.stations ?? [])
-      writeSession(`radio:${cc || data.country || ''}:${q.toLowerCase()}:${c}`, data.stations ?? [])
+      let list = data.stations ?? []
+      if (!res.ok) {
+        // El servidor no llegó a Radio Browser: se pide desde el teléfono
+        list = await radiosFromPhone(cc || data.country || '', q, c).catch(() => {
+          throw new Error(data.error || `Error ${res.status}`)
+        })
+      }
+      setStations(list)
+      writeSession(`radio:${cc || data.country || ''}:${q.toLowerCase()}:${c}`, list)
     } catch (err) {
       setError((err as Error).message)
       setStations([])
@@ -146,7 +159,8 @@ export default function RadioClient() {
     let cancelled = false
     fetch(`/api/radio/cities?country=${country}`)
       .then((r) => (r.ok ? r.json() : { cities: [] }))
-      .then((d: { cities: { name: string; count: number }[] }) => !cancelled && setCities(d.cities))
+      .then((d: { cities: { name: string; count: number }[] }) => (d.cities?.length ? d.cities : getRadioCities(country)))
+      .then((list) => !cancelled && setCities(list))
       .catch(() => {})
     return () => {
       cancelled = true
@@ -176,12 +190,18 @@ export default function RadioClient() {
         params.set('lon', coords.longitude.toFixed(4))
       }
       const res = await fetch(`/api/radio?${params.toString()}`)
-      const data = (await res.json()) as {
+      const data = (await res.json().catch(() => ({}))) as {
         stations?: RadioStation[]
         near?: { source: 'gps' | 'ip' | 'none'; city?: string }
         error?: string
       }
-      if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
+      if (!res.ok) {
+        if (!coords) throw new Error(data.error || `Error ${res.status}`)
+        // Desde el teléfono, con la ubicación del GPS
+        setStations(await getNearbyRadios(coords.latitude, coords.longitude))
+        setNear({ source: 'gps' })
+        return
+      }
       setNear(data.near ?? { source: 'none' })
       setStations(data.stations ?? [])
     } catch (err) {
