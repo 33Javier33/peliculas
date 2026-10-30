@@ -6,6 +6,7 @@ import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
 import { toEntries, fetchAlbums, type ApiAlbum } from '@/lib/link-albums'
 import { useTrackState } from '@/components/TrackState'
+import { searchOpenverse } from '@/lib/openverse'
 
 // Free Music Archive: música con licencias libres. Se busca por artista, disco o canción (o por
 // género), se escucha al tiro o se guarda el disco en "Desde un enlace".
@@ -61,15 +62,25 @@ export default function FmaSection() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  const [source, setSource] = useState<'fma' | 'openverse' | null>(null)
 
   const run = async (params: string, page = 1) => {
     setSearching(true)
     setError('')
     try {
-      const r = await fetch(`/api/fma?${params}&page=${page}`)
-      const d = (await r.json().catch(() => ({}))) as { tracks?: FmaTrack[]; error?: string }
-      if (!r.ok) throw new Error(d.error || 'No se pudo buscar')
-      const list = d.tracks ?? []
+      const r = await fetch(`/api/fma?${params}&page=${page}`).catch(() => null)
+      const d = ((await r?.json().catch(() => ({}))) ?? {}) as { tracks?: FmaTrack[]; source?: 'fma' | 'openverse'; error?: string }
+      let list = d.tracks ?? []
+      let from = d.source ?? null
+      if (!r?.ok || !list.length) {
+        // El servidor no consiguió nada: el teléfono busca directo en Jamendo (Openverse)
+        const sp = new URLSearchParams(params)
+        list = await searchOpenverse(sp.get('q') || '', page, sp.get('genre') || '').catch(() => {
+          throw new Error(d.error || 'No se pudo buscar')
+        })
+        from = 'openverse'
+      }
+      setSource(from)
       setTracks((prev) => (page === 1 ? list : [...prev, ...list.filter((t) => !prev.some((p) => p.id === t.id))]))
       setLast({ params, page, more: list.length >= 20 })
       if (page === 1 && !list.length) setError('No se encontró nada con esa búsqueda')
@@ -125,7 +136,7 @@ export default function FmaSection() {
   return (
     <section className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
       <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
-        <Radio className="w-5 h-5 text-rose-400" /> Free Music Archive
+        <Radio className="w-5 h-5 text-rose-400" /> Free Music Archive · Jamendo
       </h2>
       <p className="text-slate-400 text-xs mt-0.5 mb-3">Música libre (Creative Commons) de artistas independientes. Suena con la pantalla bloqueada.</p>
 
@@ -225,7 +236,11 @@ export default function FmaSection() {
           )}
         </>
       )}
-      <p className="text-slate-600 text-xs mt-3">Canciones con licencias Creative Commons de freemusicarchive.org.</p>
+      <p className="text-slate-600 text-xs mt-3">
+        {source === 'openverse'
+          ? 'Resultados de Jamendo y otras bibliotecas de música libre (vía Openverse): Free Music Archive no respondió.'
+          : 'Canciones con licencias Creative Commons de freemusicarchive.org (si no responde, de Jamendo).'}
+      </p>
     </section>
   )
 }
