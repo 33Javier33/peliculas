@@ -55,7 +55,8 @@ jobs:
 
       - name: Errores de compilación (si falló)
         if: failure()
-        run: grep -E "^e: |^w: .*error|What went wrong|Could not (find|resolve)" -A4 build.log | head -80 || true
+        run: |
+          grep -E "^e: |What went wrong|Could not (find|resolve)" -A4 build.log | head -80 || true
 
       - name: Nombre del archivo
         run: cp android/app/build/outputs/apk/release/app-release.apk CarlosPNauto.apk
