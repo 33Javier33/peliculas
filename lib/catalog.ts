@@ -360,3 +360,29 @@ function secondsOf(d?: string): number {
   if (iso) return Number(iso[1] || 0) * 3600 + Number(iso[2] || 0) * 60 + Number(iso[3] || 0)
   return d.split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0)
 }
+
+const normName = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*(-\s*topic|vevo|official|oficial)\s*$/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+
+/** Álbum y artista del catálogo para una canción (para "Ir al álbum" / "Ir al artista") */
+export async function findTrackInfo(artist: string, title: string) {
+  const cleanTitle = title
+    .replace(/^\d{1,3}[\s.\-_)]+/, '')
+    .replace(/\s*[([](official|oficial|video|audio|lyric|letra|visualizer|hd|4k|remaster)[^)\]]*[)\]]/gi, '')
+    .trim()
+  const wanted = normName(artist)
+  const q = encodeURIComponent(`artist:"${artist}" track:"${cleanTitle}"`)
+  const data = await deezer<{ data: { title: string; artist: DzArtist; album: DzAlbum }[] }>(`/search/track?q=${q}&limit=10`, 86400)
+  const hit = data.data.find((t) => normName(t.artist.name) === wanted) ?? data.data[0]
+  if (!hit) return null
+  return {
+    album: { id: hit.album.id, title: hit.album.title, cover: hit.album.cover_big || hit.album.cover_medium || '' },
+    artist: { id: hit.artist.id, name: hit.artist.name },
+  }
+}

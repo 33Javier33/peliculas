@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore, type LinkAlbum } from '@/store/linksStore'
@@ -28,6 +28,16 @@ export default function AudioLinksSection() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [open, setOpen] = useState<string | null>(null)
+  // "Ir al álbum" desde el reproductor: /music/library?album=ID abre ese disco aquí
+  const sectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!mounted) return
+    const wanted = new URLSearchParams(window.location.search).get('album')
+    if (!wanted || !albums.some((a) => a.id === wanted)) return
+    setOpen(wanted)
+    setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted])
 
   // Canciones que no están en ningún disco (agregadas antes de ordenarse por disco)
   const loose = useMemo(() => {
@@ -111,7 +121,7 @@ export default function AudioLinksSection() {
 
   if (!mounted) return null
   return (
-    <section className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
+    <section ref={sectionRef} className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4 scroll-mt-20">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">

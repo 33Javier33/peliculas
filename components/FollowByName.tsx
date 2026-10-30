@@ -17,7 +17,7 @@ const norm = (s: string) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
-export default function FollowByName({ name }: { name: string }) {
+export default function FollowByName({ name, onNavigate }: { name: string; onNavigate?: (href: string) => void }) {
   const [artist, setArtist] = useState<Found>(null)
 
   useEffect(() => {
@@ -45,7 +45,14 @@ export default function FollowByName({ name }: { name: string }) {
   return (
     <div className="flex items-center gap-2 mt-2">
       <FollowArtistButton artist={artist} size="sm" />
-      <Link href={`/music/artist/${artist.id}`} className="text-xs font-semibold text-violet-300 hover:text-violet-200">
+      <Link
+        href={`/music/artist/${artist.id}#discografia`}
+        onClick={(e) => {
+          if (!onNavigate) return
+          e.preventDefault()
+          onNavigate(`/music/artist/${artist.id}#discografia`)
+        }}
+        className="text-xs font-semibold text-violet-300 hover:text-violet-200">
         Ver discografía
       </Link>
     </div>

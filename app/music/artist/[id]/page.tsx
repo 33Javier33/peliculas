@@ -107,7 +107,7 @@ export default async function ArtistPage({ params }: Props) {
           const list = albums.filter((a) => (a.type || 'album') === type)
           if (list.length === 0) return null
           return (
-            <section key={type} className="mb-10">
+            <section key={type} id={type === 'album' ? 'discografia' : undefined} className="mb-10 scroll-mt-20">
               <h2 className="text-white font-bold text-[22px] leading-7 mb-4">{title}</h2>
               <AlbumGrid albums={list} />
             </section>

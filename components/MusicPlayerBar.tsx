@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { useRef, useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Play,
   Pause,
@@ -1119,6 +1119,25 @@ export default function MusicPlayerBar() {
     if (window.history.state?.cpnFullPlayer) window.history.back()
     else setIsFullOpen(false)
   }, [])
+  // Ir a otra página desde el reproductor (álbum, artista): primero se cierra (vuelve atrás en el
+  // historial) y recién entonces se navega, si no el "atrás" anularía la navegación
+  const navRouter = useRouter()
+  const leaveFullTo = useCallback(
+    (href: string) => {
+      if (window.history.state?.cpnFullPlayer) {
+        const go = () => {
+          window.removeEventListener('popstate', go)
+          setTimeout(() => navRouter.push(href), 0)
+        }
+        window.addEventListener('popstate', go)
+        window.history.back()
+      } else {
+        setIsFullOpen(false)
+        navRouter.push(href)
+      }
+    },
+    [navRouter]
+  )
   useEffect(() => {
     const onPop = () => setIsFullOpen(!!window.history.state?.cpnFullPlayer)
     window.addEventListener('popstate', onPop)
@@ -1264,6 +1283,7 @@ export default function MusicPlayerBar() {
       <NowPlayingSheet
         open={isFullOpen}
         onClose={closeFull}
+        onNavigate={leaveFullTo}
         onOpenQueue={() => {
           closeFull()
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()

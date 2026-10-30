@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
+import TrackMenu from '@/components/TrackMenu'
 import {
   ChevronDown,
   ListMusic,
@@ -21,6 +22,7 @@ import {
   Share2,
   Radio,
   Loader2,
+  MoreVertical,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -38,6 +40,8 @@ const BARS = [30, 55, 40, 80, 50, 95, 65, 45, 85, 35, 70, 50, 90, 40, 60, 30, 75
 interface NowPlayingSheetProps {
   open: boolean
   onClose: () => void
+  /** Cerrar el reproductor e ir a otra página (álbum, artista) */
+  onNavigate: (href: string) => void
   onOpenQueue: () => void
   onSwitchMode: (toAudio: boolean) => void
   /** Abrir el video de la canción aparte (si tiene) */
@@ -52,6 +56,7 @@ interface NowPlayingSheetProps {
 export default function NowPlayingSheet({
   open,
   onClose,
+  onNavigate,
   onOpenQueue,
   onSwitchMode,
   onWatchVideo,
@@ -126,6 +131,10 @@ export default function NowPlayingSheet({
   const source = isLive ? 'Radio en vivo' : radioEnabled && isLast ? 'Radio' : `Tu cola · ${currentIndex + 1} de ${queue.length}`
 
   const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  useEffect(() => {
+    if (!open) setMenuOpen(false)
+  }, [open])
   // Enlace a la propia app (/play/ID): quien lo abra la escucha aquí, no en YouTube
   const handleShare = async () => {
     const url = `${window.location.origin}/play/${video.id}`
@@ -221,8 +230,17 @@ export default function NowPlayingSheet({
             <div className="min-w-0 flex-1">
               <h2 className="text-white text-[28px] leading-[34px] font-extrabold line-clamp-2">{songTitle}</h2>
               <p className="text-slate-400 text-base truncate mt-1">{artist}</p>
-              {!isLive && artist && <FollowByName name={artist} />}
+              {!isLive && artist && <FollowByName name={artist} onNavigate={onNavigate} />}
             </div>
+            {!isLive && (
+              <button
+                onClick={() => setMenuOpen(true)}
+                className="shrink-0 w-12 h-12 rounded-full bg-surface-2/70 border border-white/8 flex items-center justify-center text-slate-300"
+                aria-label="Más opciones: álbum, artista y discografía"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+            )}
             <button
               onClick={() => (isLive ? toggleFavoriteRadio(video) : toggleSaved(video))}
               className={`shrink-0 w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
@@ -391,6 +409,9 @@ export default function NowPlayingSheet({
           </div>
         </div>
       </div>
+      {menuOpen && !isLive && (
+        <TrackMenu video={video} artist={artist} title={songTitle} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
+      )}
     </div>
   )
 }
