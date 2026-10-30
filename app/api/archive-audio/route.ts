@@ -19,9 +19,11 @@ export async function GET(request: NextRequest) {
     // ?info=ID → carátula, canciones y año de un disco (para la lista de resultados)
     const info = (sp.get('info') || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 120)
     if (info) return NextResponse.json(await archiveSummary(info), { headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } })
-    if (by === 'artist') return NextResponse.json({ artists: await searchArchiveArtists(q) }, { headers: cache })
+    // scope=free → solo música libre (Jamendo, Free Music Archive y netlabels guardados en archive.org)
+    const scope = sp.get('scope') === 'free' ? 'free' : 'all'
+    if (by === 'artist') return NextResponse.json({ artists: await searchArchiveArtists(q, scope) }, { headers: cache })
     const collection = (sp.get('collection') || '').slice(0, 60)
-    const data = await searchArchiveAudio(q, page, collection, by)
+    const data = await searchArchiveAudio(q, page, collection, by, scope)
     return NextResponse.json(data, { headers: cache })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message || 'No se pudo buscar', results: [], artists: [], total: 0 }, { status: 502 })

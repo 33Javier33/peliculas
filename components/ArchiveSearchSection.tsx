@@ -5,6 +5,7 @@ import { Search, Play, Plus, Check, Loader2, Library, Disc3, ArrowLeft, UserRoun
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
+import { loadArchiveInfo as loadInfo, type ArchiveInfo as Info } from '@/lib/archive-info'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 // Buscador de Internet Archive: discos y grabaciones para escuchar al tiro o guardar en
@@ -33,8 +34,32 @@ const MODES: { id: Mode; label: string }[] = [
 ]
 
 const SUGGESTIONS = ['Rock', 'Jazz', 'Clásica', 'Cumbia', 'Tango', 'Conciertos en vivo']
+const TOP = 'Lo más escuchado'
+const FREE_SUGGESTIONS = [TOP, 'Rock', 'Electronic', 'Hip hop', 'Jazz', 'Ambient', 'Pop', 'Folk', 'Latin']
 
-export default function ArchiveSearchSection() {
+// "archive": todo Internet Archive. "free": solo música libre (Jamendo, Free Music Archive y
+// sellos independientes que archive.org guarda con licencias Creative Commons).
+const VARIANTS = {
+  archive: {
+    title: 'Internet Archive',
+    subtitle: 'Busca discos y conciertos de la biblioteca de archive.org. Suenan con la pantalla bloqueada.',
+    icon: 'text-amber-400',
+    suggestions: SUGGESTIONS,
+    mode: 'artist' as Mode,
+    footer: 'Escucha lo que la biblioteca ofrece libremente (dominio público, licencias libres y conciertos con permiso).',
+  },
+  free: {
+    title: 'Música libre · Jamendo y Free Music Archive',
+    subtitle: 'Artistas independientes con licencias Creative Commons (copias guardadas en archive.org). Suenan con la pantalla bloqueada.',
+    icon: 'text-rose-400',
+    suggestions: FREE_SUGGESTIONS,
+    mode: 'all' as Mode,
+    footer: 'Música de Jamendo, Free Music Archive y netlabels, libre para escuchar y compartir.',
+  },
+}
+
+export default function ArchiveSearchSection({ variant = 'archive' }: { variant?: keyof typeof VARIANTS }) {
+  const cfg = VARIANTS[variant]
   const albums = useLinksStore((s) => s.albums)
   const addAlbum = useLinksStore((s) => s.addAlbum)
   const [q, setQ] = useState('')
@@ -46,12 +71,12 @@ export default function ArchiveSearchSection() {
   const [busy, setBusy] = useState<Record<string, 'play' | 'add' | undefined>>({})
   const [notice, setNotice] = useState('')
   // Artistas: primero la lista de artistas; al tocar uno, sus discos
-  const [mode, setMode] = useState<Mode>('artist')
+  const [mode, setMode] = useState<Mode>(cfg.mode)
   const [artists, setArtists] = useState<Artist[] | null>(null)
   const [artist, setArtist] = useState<string | null>(null)
 
   const fetchJson = async <T,>(params: string): Promise<T> => {
-    const r = await fetch(`/api/archive-audio?${params}`)
+    const r = await fetch(`/api/archive-audio?${params}${variant === 'free' ? '&scope=free' : ''}`)
     const d = (await r.json()) as T & { error?: string }
     if (!r.ok) throw new Error(d.error || 'No se pudo buscar')
     return d
@@ -82,6 +107,12 @@ export default function ArchiveSearchSection() {
 
   const search = async (query: string, m: Mode = mode) => {
     const text = query.trim()
+    if (text === TOP) {
+      setArtist(null)
+      setArtists(null)
+      setResults([])
+      return searchItems('by=all&q=')
+    }
     if (!text) return
     setArtist(null)
     setResults([])
@@ -104,7 +135,8 @@ export default function ArchiveSearchSection() {
     setResults([])
     searchItems(itemsParams('', mode, name))
   }
-  const more = () => searchItems(itemsParams(q.trim(), mode === 'artist' ? 'all' : mode, artist), page + 1)
+  const more = () =>
+    searchItems(q.trim() === TOP ? 'by=all&q=' : itemsParams(q.trim(), mode === 'artist' ? 'all' : mode, artist), page + 1)
 
   const load = async (item: Result, mode: 'play' | 'add') => {
     setBusy((b) => ({ ...b, [item.id]: mode }))
@@ -132,9 +164,9 @@ export default function ArchiveSearchSection() {
   return (
     <section className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
       <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
-        <Library className="w-5 h-5 text-amber-400" /> Internet Archive
+        <Library className={`w-5 h-5 ${cfg.icon}`} /> {cfg.title}
       </h2>
-      <p className="text-slate-400 text-xs mt-0.5 mb-3">Busca discos y conciertos de la biblioteca de archive.org. Suenan con la pantalla bloqueada.</p>
+      <p className="text-slate-400 text-xs mt-0.5 mb-3">{cfg.subtitle}</p>
 
       <form
         onSubmit={(e) => {
@@ -148,7 +180,7 @@ export default function ArchiveSearchSection() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Artista, disco o género"
-          aria-label="Buscar en Internet Archive"
+          aria-label={`Buscar en ${cfg.title}`}
           className="min-w-0 flex-1 bg-surface-2 border border-white/10 text-white placeholder-slate-500 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
         />
         <button type="submit" disabled={searching || !q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500 text-black text-sm font-semibold disabled:opacity-50">
@@ -175,7 +207,7 @@ export default function ArchiveSearchSection() {
 
       {results.length === 0 && !artists && !searching && (
         <div className="flex flex-wrap gap-2 mt-3">
-          {SUGGESTIONS.map((s) => (
+          {cfg.suggestions.map((s) => (
             <button
               key={s}
               onClick={() => {
@@ -243,7 +275,7 @@ export default function ArchiveSearchSection() {
           )}
         </>
       )}
-      <p className="text-slate-600 text-xs mt-3">Escucha lo que la biblioteca ofrece libremente (dominio público, licencias libres y conciertos con permiso).</p>
+      <p className="text-slate-600 text-xs mt-3">{cfg.footer}</p>
     </section>
   )
 }
@@ -260,24 +292,6 @@ function ArtistAvatar({ src }: { src: string }) {
       )}
     </span>
   )
-}
-
-// Datos de cada disco (carátula real, canciones, año), pedidos al verse en pantalla
-interface Info {
-  cover?: string
-  tracks: number
-  year?: string
-}
-const infoCache = new Map<string, Promise<Info | null>>()
-const loadInfo = (id: string) => {
-  let p = infoCache.get(id)
-  if (!p) {
-    p = fetch(`/api/archive-audio?info=${encodeURIComponent(id)}`)
-      .then((r) => (r.ok ? (r.json() as Promise<Info>) : null))
-      .catch(() => null)
-    infoCache.set(id, p)
-  }
-  return p
 }
 
 function ResultRow({ item, busy, saved, onPlay, onAdd }: { item: Result; busy?: 'play' | 'add'; saved: boolean; onPlay: () => void; onAdd: () => void }) {

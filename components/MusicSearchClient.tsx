@@ -2,6 +2,8 @@
 
 import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
+import ArchiveInlineResults from '@/components/ArchiveInlineResults'
+import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession, patchSession } from '@/lib/session-cache'
@@ -205,6 +207,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         } catch (err) {
           setError((err as Error).message)
           setVideos([])
+          // Igual se muestran los resultados de Internet Archive (no dependen de YouTube)
+          setIsSearchMode(true)
         }
       })
     },
@@ -437,6 +441,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </div>
             )}
+            {isSearchMode && <ArchiveInlineResults query={submittedQuery} />}
             {isSearchMode && !isPending && videos.length > 0 && (catalog?.artists.length || catalog?.albums.length) ? (
               <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones y videos</h3>
             ) : null}
@@ -570,6 +575,10 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </section>
             )}
+
+            {/* ===== Internet Archive y música libre: buscar y escuchar discos completos ===== */}
+            <ArchiveSearchSection />
+            <ArchiveSearchSection variant="free" />
 
             {/* ===== Tendencias ===== */}
             <section>

@@ -2,7 +2,6 @@
 
 import AudioLinksSection from '@/components/AudioLinksSection'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
-import FmaSection from '@/components/FmaSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
@@ -223,7 +222,7 @@ export default function MusicLibraryClient() {
 
         <ArchiveSearchSection />
 
-        <FmaSection />
+        <ArchiveSearchSection variant="free" />
 
         <AudioLinksSection />
 

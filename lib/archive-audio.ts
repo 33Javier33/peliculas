@@ -24,6 +24,14 @@ interface Doc {
 
 const first = (v: unknown): string => (Array.isArray(v) ? first(v[0]) : v == null ? '' : String(v))
 
+/**
+ * Música libre: las copias que Internet Archive guarda de Jamendo, de Free Music Archive y de
+ * cientos de sellos independientes (netlabels), todo con licencias Creative Commons.
+ */
+export const FREE_MUSIC = 'collection:(jamendo-albums OR netlabels OR freemusicarchive OR fma_full)'
+export type ArchiveScope = 'all' | 'free'
+const scopeTerms = (scope: ArchiveScope) => (scope === 'free' ? [FREE_MUSIC] : [])
+
 /** Qué buscar: en todo, solo nombres de artista, solo nombres de disco, o un artista exacto */
 export type ArchiveSearchBy = 'all' | 'artist' | 'album' | 'exactArtist'
 
@@ -63,11 +71,13 @@ export async function searchArchiveAudio(
   q: string,
   page = 1,
   collection = '',
-  by: ArchiveSearchBy = 'all'
+  by: ArchiveSearchBy = 'all',
+  scope: ArchiveScope = 'all'
 ): Promise<{ results: ArchiveAudioResult[]; total: number }> {
   const text = clean(q)
   const coll = collection.replace(/[^a-z0-9_-]/gi, '')
-  if (!text && !coll) return { results: [], total: 0 }
+  // En música libre, sin texto se muestran los discos más escuchados
+  if (!text && !coll && scope !== 'free') return { results: [], total: 0 }
   const field =
     by === 'artist'
       ? `creator:(${text})`
@@ -76,7 +86,7 @@ export async function searchArchiveAudio(
         : by === 'exactArtist'
           ? `creator:("${text}")`
           : `(title:(${text}) OR creator:(${text}) OR subject:(${text}))`
-  const terms = [...(text ? [field] : []), ...(coll ? [`collection:(${coll})`] : [])]
+  const terms = [...(text ? [field] : []), ...(coll ? [`collection:(${coll})`] : []), ...scopeTerms(scope)]
   return query(terms, 30, page)
 }
 
@@ -88,10 +98,10 @@ export interface ArchiveArtist {
 }
 
 /** Artistas cuyo nombre coincide con la búsqueda (agrupando sus discos) */
-export async function searchArchiveArtists(q: string): Promise<ArchiveArtist[]> {
+export async function searchArchiveArtists(q: string, scope: ArchiveScope = 'all'): Promise<ArchiveArtist[]> {
   const text = clean(q)
   if (!text) return []
-  const { results } = await query([`creator:(${text})`], 200, 1)
+  const { results } = await query([`creator:(${text})`, ...scopeTerms(scope)], 200, 1)
   const groups = new Map<string, { name: string; count: number; downloads: number; cover: string }>()
   for (const r of results) {
     if (!r.artist) continue
