@@ -79,7 +79,7 @@ interface DzAlbum {
 const mapArtist = (a: DzArtist): CatalogArtist => ({
   id: a.id,
   name: a.name,
-  picture: a.picture_xl || a.picture_big || a.picture_medium || '',
+  picture: a.picture_big || a.picture_xl || a.picture_medium || '',
   albums: a.nb_album,
   fans: a.nb_fan,
 })
@@ -87,7 +87,7 @@ const mapArtist = (a: DzArtist): CatalogArtist => ({
 const mapAlbum = (a: DzAlbum, artist?: { id: number; name: string }): CatalogAlbum => ({
   id: a.id,
   title: a.title,
-  cover: a.cover_xl || a.cover_big || a.cover_medium || '',
+  cover: a.cover_big || a.cover_xl || a.cover_medium || '',
   artist: a.artist ?? artist ?? { id: 0, name: '' },
   year: a.release_date?.slice(0, 4),
   type: a.record_type,
@@ -134,7 +134,7 @@ export async function getAlbum(id: string): Promise<CatalogAlbumDetail> {
     label: album.label,
     releaseDate: album.release_date,
     fans: album.fans,
-    artistPicture: album.artist?.picture_xl || album.artist?.picture_big || album.artist?.picture_medium,
+    artistPicture: album.artist?.picture_big || album.artist?.picture_xl || album.artist?.picture_medium,
     trackList: tracks.data.map((t, i) => ({
       id: t.id,
       title: t.title,
@@ -318,7 +318,7 @@ export async function getArtistTopTracks(opts: { id?: number; name?: string }, l
       id: `dz-${t.id}`,
       title: `${artist} - ${t.title}`,
       channelTitle: artist,
-      thumbnail: t.album?.cover_xl || t.album?.cover_big || '',
+      thumbnail: t.album?.cover_big || t.album?.cover_xl || '',
       publishedAt: '',
       description: t.album?.title || '',
       duration: formatSeconds(t.duration),

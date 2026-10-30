@@ -10,6 +10,9 @@ const nextConfig = {
     serverComponentsExternalPackages: ['youtubei.js'],
   },
   images: {
+    // Las carátulas se cargan directo de YouTube, Deezer y TMDB (ya vienen en el tamaño justo).
+    // La optimización de Vercel tiene un límite mensual gratis: al pasarlo, dejaban de verse.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
