@@ -24,7 +24,8 @@ import {
   List,
   LayoutGrid,
 } from 'lucide-react'
-import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
+import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
+import { useLinksStore } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
 
@@ -34,13 +35,12 @@ type ViewMode = 'list' | 'grid'
 const VIEW_KEY = 'cpn-library-view'
 
 export default function MusicLibraryClient() {
-  const { saved, play, addToQueue, removeSaved, playSaved, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
+  const { liked, play, addToQueue, removeLiked, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
     useShallow((s) => ({
-      saved: s.saved,
+      liked: s.saved,
       play: s.play,
       addToQueue: s.addToQueue,
-      removeSaved: s.removeSaved,
-      playSaved: s.playSaved,
+      removeLiked: s.removeSaved,
       queue: s.queue,
       currentIndex: s.currentIndex,
       isVisible: s.isVisible,
@@ -48,6 +48,25 @@ export default function MusicLibraryClient() {
     }))
   )
   const currentId = isVisible ? queue[currentIndex]?.id : undefined
+  // La biblioteca junta las canciones guardadas con corazón y los discos agregados desde enlaces
+  // o Internet Archive (así aparecen también en Canciones, Artistas y Álbumes)
+  const linkTracks = useLinksStore((s) => s.tracks)
+  const linkAlbums = useLinksStore((s) => s.albums)
+  const removeLinkTrack = useLinksStore((s) => s.removeTrack)
+  const saved = useMemo<SavedTrack[]>(() => {
+    const addedAt = new Map<string, number>()
+    for (const a of linkAlbums) a.trackIds.forEach((id, i) => addedAt.set(id, a.addedAt - i))
+    const known = new Set(liked.map((t) => t.id))
+    const fromLinks = linkTracks
+      .filter((t) => !known.has(t.id))
+      .map((t, i) => ({ ...t, artist: t.channelTitle, album: t.album, savedAt: addedAt.get(t.id) ?? -i }))
+    return [...liked, ...fromLinks]
+  }, [liked, linkTracks, linkAlbums])
+  const removeSaved = (id: string) => (linkTracks.some((t) => t.id === id) && !liked.some((t) => t.id === id) ? removeLinkTrack(id) : removeLiked(id))
+  const playSaved = (index: number) => {
+    const list = [...saved].sort((a, b) => b.savedAt - a.savedAt)
+    if (list.length) play(list, index)
+  }
   const [mounted, setMounted] = useState(false)
   // Vista de canciones: lista o mosaico (se recuerda en el teléfono)
   const [view, setView] = useState<ViewMode>('list')
