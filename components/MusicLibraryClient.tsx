@@ -1,6 +1,7 @@
 'use client'
 
 import AudioLinksSection from '@/components/AudioLinksSection'
+import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
@@ -199,6 +200,8 @@ export default function MusicLibraryClient() {
         </div>
 
         <LocalMusicSection />
+
+        <ArchiveSearchSection />
 
         <AudioLinksSection />
 

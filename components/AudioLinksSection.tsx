@@ -6,73 +6,11 @@ import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore, type LinkAlbum } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { useTrackState } from '@/components/TrackState'
+import { toEntries, fetchAlbums } from '@/lib/link-albums'
 
 // "Desde un enlace": pegar la dirección de un archivo de audio (MP3, M4A, OGG…), de una lista
 // (.m3u/.pls) o de una página que tenga archivos de audio. Suenan con la pantalla bloqueada.
 // Las canciones quedan ordenadas por disco, con su carátula e información (p. ej. Internet Archive).
-
-interface ApiTrack {
-  title: string
-  url: string
-  playUrl: string
-  artist?: string
-  duration?: number
-}
-interface ApiAlbum {
-  title: string
-  artist?: string
-  year?: string
-  cover?: string
-  description?: string
-  source: string
-  tracks: ApiTrack[]
-}
-
-const fmt = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : undefined)
-
-function toEntries(a: ApiAlbum): { album: Omit<LinkAlbum, 'trackIds' | 'addedAt'>; tracks: MusicVideo[] } {
-  let host = ''
-  try {
-    host = new URL(a.source).hostname.replace(/^www\./, '')
-  } catch {}
-  const albumArtist = a.artist || host || 'Enlace'
-  const tracks = a.tracks.map((t) => {
-    // Sin artista: "Artista - Título" en el nombre del archivo
-    const parts = t.title.split(/\s+[-–]\s+/)
-    const artist = t.artist || (parts.length > 1 ? parts[0] : albumArtist)
-    const title = !t.artist && parts.length > 1 ? parts.slice(1).join(' - ') : t.title
-    return {
-      id: `link-${hash(t.url)}`,
-      title: `${artist} - ${title}`,
-      channelTitle: artist,
-      thumbnail: a.cover || '/icons/icon-512.png',
-      publishedAt: '',
-      description: t.url,
-      duration: fmt(t.duration),
-      album: a.title,
-      audioUrl: t.playUrl,
-    }
-  })
-  return {
-    album: {
-      id: `album-${hash(`${a.source}|${a.title}`)}`,
-      title: a.title,
-      artist: albumArtist,
-      year: a.year,
-      cover: a.cover,
-      description: a.description,
-      source: a.source,
-    },
-    tracks,
-  }
-}
-
-async function fetchAlbums(link: string): Promise<ApiAlbum[]> {
-  const r = await fetch(`/api/audio-link?url=${encodeURIComponent(link)}`)
-  const d = (await r.json()) as { albums?: ApiAlbum[]; tracks?: ApiTrack[]; error?: string }
-  if (!r.ok || !d.tracks?.length) throw new Error(d.error || 'No se encontraron archivos de audio')
-  return d.albums?.length ? d.albums : [{ title: link, source: link, tracks: d.tracks }]
-}
 
 /** Archivo de Internet Archive de una canción agregada antes (para ordenarla en su disco) */
 const archiveIdOf = (t: MusicVideo) => t.description.match(/^https:\/\/archive\.org\/download\/([^/]+)\//)?.[1]
@@ -380,10 +318,4 @@ function TrackNumber({ id, n }: { id: string; n: number }) {
       ))}
     </span>
   )
-}
-
-function hash(s: string): string {
-  let h = 5381
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
-  return (h >>> 0).toString(36)
 }
