@@ -1,22 +1,121 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Link2, Play, Shuffle, Trash2, Loader2, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
-import { useLinksStore } from '@/store/linksStore'
+import { useLinksStore, type LinkAlbum } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 // "Desde un enlace": pegar la dirección de un archivo de audio (MP3, M4A, OGG…), de una lista
 // (.m3u/.pls) o de una página que tenga archivos de audio. Suenan con la pantalla bloqueada.
+// Las canciones quedan ordenadas por disco, con su carátula e información (p. ej. Internet Archive).
+
+interface ApiTrack {
+  title: string
+  url: string
+  playUrl: string
+  artist?: string
+  duration?: number
+}
+interface ApiAlbum {
+  title: string
+  artist?: string
+  year?: string
+  cover?: string
+  description?: string
+  source: string
+  tracks: ApiTrack[]
+}
+
+const fmt = (s?: number) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : undefined)
+
+function toEntries(a: ApiAlbum): { album: Omit<LinkAlbum, 'trackIds' | 'addedAt'>; tracks: MusicVideo[] } {
+  let host = ''
+  try {
+    host = new URL(a.source).hostname.replace(/^www\./, '')
+  } catch {}
+  const albumArtist = a.artist || host || 'Enlace'
+  const tracks = a.tracks.map((t) => {
+    // Sin artista: "Artista - Título" en el nombre del archivo
+    const parts = t.title.split(/\s+[-–]\s+/)
+    const artist = t.artist || (parts.length > 1 ? parts[0] : albumArtist)
+    const title = !t.artist && parts.length > 1 ? parts.slice(1).join(' - ') : t.title
+    return {
+      id: `link-${hash(t.url)}`,
+      title: `${artist} - ${title}`,
+      channelTitle: artist,
+      thumbnail: a.cover || '/icons/icon-512.png',
+      publishedAt: '',
+      description: t.url,
+      duration: fmt(t.duration),
+      album: a.title,
+      audioUrl: t.playUrl,
+    }
+  })
+  return {
+    album: {
+      id: `album-${hash(`${a.source}|${a.title}`)}`,
+      title: a.title,
+      artist: albumArtist,
+      year: a.year,
+      cover: a.cover,
+      description: a.description,
+      source: a.source,
+    },
+    tracks,
+  }
+}
+
+async function fetchAlbums(link: string): Promise<ApiAlbum[]> {
+  const r = await fetch(`/api/audio-link?url=${encodeURIComponent(link)}`)
+  const d = (await r.json()) as { albums?: ApiAlbum[]; tracks?: ApiTrack[]; error?: string }
+  if (!r.ok || !d.tracks?.length) throw new Error(d.error || 'No se encontraron archivos de audio')
+  return d.albums?.length ? d.albums : [{ title: link, source: link, tracks: d.tracks }]
+}
+
+/** Archivo de Internet Archive de una canción agregada antes (para ordenarla en su disco) */
+const archiveIdOf = (t: MusicVideo) => t.description.match(/^https:\/\/archive\.org\/download\/([^/]+)\//)?.[1]
+const organizing = new Set<string>()
+
 export default function AudioLinksSection() {
   const tracks = useLinksStore((s) => s.tracks)
-  const addTracks = useLinksStore((s) => s.addTracks)
+  const albums = useLinksStore((s) => s.albums)
+  const addAlbum = useLinksStore((s) => s.addAlbum)
   const removeTrack = useLinksStore((s) => s.removeTrack)
+  const removeAlbum = useLinksStore((s) => s.removeAlbum)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
+
+  // Canciones que no están en ningún disco (agregadas antes de ordenarse por disco)
+  const loose = useMemo(() => {
+    const inAlbum = new Set(albums.flatMap((a) => a.trackIds))
+    return tracks.filter((t) => !inAlbum.has(t.id))
+  }, [tracks, albums])
+
+  // Las de Internet Archive se ordenan solas en su disco, con su información
+  useEffect(() => {
+    if (!mounted) return
+    const groups = new Map<string, string[]>()
+    for (const t of loose) {
+      const id = archiveIdOf(t)
+      if (id && !organizing.has(id)) groups.set(id, [...(groups.get(id) ?? []), t.id])
+    }
+    for (const [id, ids] of Array.from(groups.entries())) {
+      organizing.add(id)
+      fetchAlbums(`https://archive.org/details/${id}`)
+        .then((list) =>
+          list.forEach((a, i) => {
+            const { album, tracks: items } = toEntries(a)
+            addAlbum(album, items, i === 0 ? ids : [])
+          })
+        )
+        .catch(() => {})
+    }
+  }, [mounted, loose, addAlbum])
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,29 +124,20 @@ export default function AudioLinksSection() {
     setBusy(true)
     setMessage(null)
     try {
-      const r = await fetch(`/api/audio-link?url=${encodeURIComponent(link)}`)
-      const d = (await r.json()) as { tracks?: { title: string; url: string; playUrl: string }[]; error?: string }
-      if (!r.ok || !d.tracks?.length) throw new Error(d.error || 'No se encontraron archivos de audio')
-      let host = ''
-      try {
-        host = new URL(link).hostname.replace(/^www\./, '')
-      } catch {}
-      const list: MusicVideo[] = d.tracks.map((t) => {
-        const parts = t.title.split(/\s+[-–]\s+/)
-        const artist = parts.length > 1 ? parts[0] : host || 'Enlace'
-        const title = parts.length > 1 ? parts.slice(1).join(' - ') : t.title
-        return {
-          id: `link-${hash(t.url)}`,
-          title: `${artist} - ${title}`,
-          channelTitle: artist,
-          thumbnail: '/icons/icon-512.png',
-          publishedAt: '',
-          description: t.url,
-          audioUrl: t.playUrl,
-        }
+      const list = await fetchAlbums(link)
+      let added = 0
+      let firstId = ''
+      for (const a of list) {
+        const { album, tracks: items } = toEntries(a)
+        added += addAlbum(album, items)
+        firstId ||= album.id
+      }
+      const names = list.map((a) => a.title).join(', ')
+      setMessage({
+        ok: true,
+        text: added ? `${names}: ${added} ${added === 1 ? 'canción agregada' : 'canciones agregadas'}` : `${names} ya estaba en tu lista`,
       })
-      const n = addTracks(list)
-      setMessage({ ok: true, text: n ? `${n} ${n === 1 ? 'canción agregada' : 'canciones agregadas'}` : 'Esas canciones ya estaban en tu lista' })
+      setOpen(firstId)
       setUrl('')
     } catch (err) {
       setMessage({ ok: false, text: (err as Error).message })
@@ -55,11 +145,27 @@ export default function AudioLinksSection() {
     setBusy(false)
   }
 
-  const playAll = (index: number, shuffle = false) => {
+  const byId = useMemo(() => new Map(tracks.map((t) => [t.id, t])), [tracks])
+  const play = (list: MusicVideo[], index: number, shuffle = false) => {
+    if (!list.length) return
     const st = useMusicStore.getState()
     if (shuffle !== st.shuffle) st.toggleShuffle()
-    st.play(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : index)
+    st.play(list, shuffle ? Math.floor(Math.random() * list.length) : index)
   }
+
+  // Discos (los más nuevos primero) y, al final, las canciones sueltas
+  const groups = useMemo(() => {
+    const list = [...albums]
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .map((a) => ({ album: a, items: a.trackIds.map((id) => byId.get(id)).filter((t): t is MusicVideo => !!t) }))
+      .filter((g) => g.items.length)
+    if (loose.length)
+      list.push({
+        album: { id: 'loose', title: 'Otros enlaces', artist: 'Canciones sueltas', source: '', addedAt: 0, trackIds: [] },
+        items: loose,
+      })
+    return list
+  }, [albums, byId, loose])
 
   if (!mounted) return null
   return (
@@ -73,10 +179,10 @@ export default function AudioLinksSection() {
         </div>
         {tracks.length > 0 && (
           <div className="flex items-center gap-2">
-            <button onClick={() => playAll(0)} className="w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir enlaces">
+            <button onClick={() => play(groups.flatMap((g) => g.items), 0)} className="w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir todo">
               <Play className="w-4 h-4 fill-white" />
             </button>
-            <button onClick={() => playAll(0, true)} className="w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center" aria-label="Enlaces en aleatorio">
+            <button onClick={() => play(tracks, 0, true)} className="w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center" aria-label="Todo en aleatorio">
               <Shuffle className="w-4 h-4" />
             </button>
           </div>
@@ -99,23 +205,112 @@ export default function AudioLinksSection() {
       </form>
       {message && <p className={`text-sm mt-2 ${message.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{message.text}</p>}
 
-      {tracks.length > 0 && (
-        <ul className="mt-3 divide-y divide-white/5">
-          {tracks.map((t, i) => (
-            <li key={t.id} className="flex items-center gap-3 py-2">
-              <button onClick={() => playAll(i)} className="min-w-0 flex-1 text-left">
-                <p className="text-white text-sm font-semibold truncate">{t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title}</p>
-                <p className="text-slate-500 text-xs truncate">{t.channelTitle}</p>
-              </button>
-              <button onClick={() => removeTrack(t.id)} className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400" aria-label="Quitar de la lista">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </li>
+      {groups.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {groups.map(({ album, items }) => (
+            <AlbumRow
+              key={album.id}
+              album={album}
+              items={items}
+              open={open === album.id}
+              onToggle={() => setOpen(open === album.id ? null : album.id)}
+              onPlay={(i, shuffle) => play(items, i, shuffle)}
+              onRemoveTrack={removeTrack}
+              onRemoveAlbum={album.id === 'loose' ? () => items.forEach((t) => removeTrack(t.id)) : () => removeAlbum(album.id)}
+            />
           ))}
         </ul>
       )}
       <p className="text-slate-600 text-xs mt-3">Usa enlaces de audio que tengas derecho a escuchar (tu música, música libre, podcasts).</p>
     </section>
+  )
+}
+
+function AlbumRow({
+  album,
+  items,
+  open,
+  onToggle,
+  onPlay,
+  onRemoveTrack,
+  onRemoveAlbum,
+}: {
+  album: LinkAlbum
+  items: MusicVideo[]
+  open: boolean
+  onToggle: () => void
+  onPlay: (index: number, shuffle?: boolean) => void
+  onRemoveTrack: (id: string) => void
+  onRemoveAlbum: () => void
+}) {
+  const [moreInfo, setMoreInfo] = useState(false)
+  const [confirm, setConfirm] = useState(false)
+  const [coverFailed, setCoverFailed] = useState(false)
+  const details = [album.artist, album.year, `${items.length} ${items.length === 1 ? 'canción' : 'canciones'}`].filter(Boolean).join(' · ')
+  return (
+    <li className="rounded-xl bg-surface-2/60 border border-white/5 overflow-hidden">
+      <div className="flex items-center gap-3 p-2">
+        <button onClick={onToggle} className="min-w-0 flex-1 flex items-center gap-3 text-left" aria-expanded={open}>
+          <span className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-1 flex items-center justify-center">
+            {album.cover && !coverFailed ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={album.cover} alt="" loading="lazy" onError={() => setCoverFailed(true)} className="w-full h-full object-cover" />
+            ) : (
+              <Disc3 className="w-7 h-7 text-slate-500" />
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-white text-sm font-semibold truncate">{album.title}</span>
+            <span className="block text-slate-400 text-xs truncate">{details}</span>
+          </span>
+          <ChevronDown className={`shrink-0 w-4 h-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        <button onClick={() => onPlay(0)} className="shrink-0 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label={`Reproducir ${album.title}`}>
+          <Play className="w-4 h-4 fill-white" />
+        </button>
+      </div>
+
+      {open && (
+        <div className="px-3 pb-3">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <button onClick={() => onPlay(0, true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-white text-xs">
+              <Shuffle className="w-3.5 h-3.5" /> Aleatorio
+            </button>
+            {album.source && (
+              <a href={album.source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-slate-300 text-xs">
+                <ExternalLink className="w-3.5 h-3.5" /> Ver página
+              </a>
+            )}
+            <button
+              onClick={() => (confirm ? onRemoveAlbum() : setConfirm(true))}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs ${confirm ? 'bg-red-500/20 border-red-400/40 text-red-300' : 'bg-surface-1 border-white/10 text-slate-400'}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> {confirm ? '¿Quitar todo el disco?' : 'Quitar disco'}
+            </button>
+          </div>
+          {album.description && (
+            <button onClick={() => setMoreInfo(!moreInfo)} className={`block text-left text-slate-400 text-xs leading-relaxed mb-2 whitespace-pre-line ${moreInfo ? '' : 'line-clamp-3'}`}>
+              {album.description}
+            </button>
+          )}
+          <ol className="divide-y divide-white/5">
+            {items.map((t, i) => (
+              <li key={t.id} className="flex items-center gap-3 py-2">
+                <span className="w-6 shrink-0 text-right text-slate-500 text-xs tabular-nums">{i + 1}</span>
+                <button onClick={() => onPlay(i)} className="min-w-0 flex-1 text-left">
+                  <p className="text-white text-sm truncate">{t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title}</p>
+                  {t.channelTitle !== album.artist && <p className="text-slate-500 text-xs truncate">{t.channelTitle}</p>}
+                </button>
+                {t.duration && <span className="shrink-0 text-slate-500 text-xs tabular-nums">{t.duration}</span>}
+                <button onClick={() => onRemoveTrack(t.id)} className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400" aria-label="Quitar de la lista">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </li>
   )
 }
 

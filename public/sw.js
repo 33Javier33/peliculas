@@ -1,6 +1,6 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y abrirla sin conexión con lo último que se visitó.
-const CACHE = 'cpn-cache-v58'
+const CACHE = 'cpn-cache-v59'
 const OFFLINE_URLS = ['/', '/music', '/cine', '/music/library', '/radio', '/tv', '/peliculas']
 
 self.addEventListener('install', (event) => {

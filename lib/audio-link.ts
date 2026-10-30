@@ -15,7 +15,24 @@ export interface LinkTrack {
   url: string
   /** Dirección para el reproductor (directa si es https; si no, por el intermediario) */
   playUrl: string
+  artist?: string
+  /** Segundos */
+  duration?: number
 }
+
+/** Un disco (o la página) de donde salieron las canciones */
+export interface LinkAlbum {
+  title: string
+  artist?: string
+  year?: string
+  cover?: string
+  description?: string
+  /** Página de origen */
+  source: string
+  tracks: LinkTrack[]
+}
+
+const ARCHIVE = process.env.ARCHIVE_BASE || 'https://archive.org'
 
 function isPrivate(ip: string): boolean {
   if (isIP(ip) === 6) {
@@ -59,6 +76,7 @@ const decodeHtml = (s: string) =>
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ')
+    .replace(/\s+([.,;:!?])/g, '$1')
     .trim()
 
 function fromPage(html: string, base: URL): LinkTrack[] {
@@ -105,8 +123,156 @@ function fromPlaylist(text: string, base: URL): LinkTrack[] {
   return out.slice(0, 200)
 }
 
+// ===== Internet Archive: el disco completo con su información =====
+
+interface ArchiveFile {
+  name: string
+  source?: string
+  format?: string
+  original?: string
+  title?: string
+  track?: string
+  album?: string
+  artist?: string
+  creator?: string
+  length?: string
+}
+
+const firstText = (v: unknown): string => (Array.isArray(v) ? firstText(v[0]) : typeof v === 'string' ? v : '')
+
+/** Segundos a partir de "234.5" o "3:54" */
+function seconds(v?: string): number | undefined {
+  if (!v) return undefined
+  const p = v.split(':').map(Number)
+  const n = p.length > 1 ? p.reduce((a, b) => a * 60 + b, 0) : Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : undefined
+}
+
+// Formato preferido de cada canción (MP3 primero: liviano y suena en todos los teléfonos)
+const FORMAT_RANK: [RegExp, number][] = [
+  [/^vbr mp3$/i, 0],
+  [/^320kbps mp3$/i, 1],
+  [/^256kbps mp3$/i, 2],
+  [/mp3/i, 3],
+  [/ogg|vorbis|opus/i, 4],
+  [/m4a|aac|mpeg4/i, 5],
+  [/flac/i, 6],
+  [/wav|aiff/i, 7],
+]
+const formatRank = (f: ArchiveFile) => {
+  if (!AUDIO_EXT.test(f.name)) return -1
+  for (const [re, rank] of FORMAT_RANK) if (re.test(f.format || '')) return rank
+  return 8
+}
+
+/** Identificador de archive.org en enlaces /details/ID o /download/ID */
+function archiveId(u: URL): string | null {
+  if (!/(^|\.)archive\.org$/i.test(u.hostname)) return null
+  const m = u.pathname.match(/^\/(?:details|download|embed)\/([^/?#]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+async function readArchive(id: string, source: string): Promise<LinkAlbum[]> {
+  const res = await fetch(`${ARCHIVE}/metadata/${encodeURIComponent(id)}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
+    signal: AbortSignal.timeout(12000),
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`Internet Archive respondió ${res.status}`)
+  const data = (await res.json()) as { metadata?: Record<string, unknown>; files?: ArchiveFile[] }
+  const meta = data.metadata ?? {}
+  const files = data.files ?? []
+  if (!files.length) throw new Error('Ese enlace de Internet Archive no tiene archivos')
+
+  // Cada canción una sola vez, en su mejor formato (los derivados apuntan a su original)
+  const best = new Map<string, ArchiveFile>()
+  for (const f of files) {
+    const rank = formatRank(f)
+    if (rank < 0) continue
+    const key = (f.source === 'derivative' && f.original) || f.name
+    const prev = best.get(key)
+    if (!prev || rank < formatRank(prev)) best.set(key, f)
+  }
+  // Los datos (título, número, disco) suelen estar en el original
+  const byName = new Map(files.map((f) => [f.name, f]))
+  const info = (f: ArchiveFile): ArchiveFile => {
+    const orig = f.original ? byName.get(f.original) : undefined
+    return { ...orig, ...Object.fromEntries(Object.entries(f).filter(([, v]) => v)), name: f.name } as ArchiveFile
+  }
+  const trackNo = (f: ArchiveFile) => parseInt((f.track || '').split('/')[0], 10) || 9999
+
+  const itemTitle = firstText(meta.title) || id
+  const itemArtist = firstText(meta.creator) || firstText(meta.artist) || ''
+  const year = (firstText(meta.year) || firstText(meta.date)).slice(0, 4) || undefined
+  const description = decodeHtml(firstText(meta.description)).slice(0, 1500) || undefined
+  // Carátula: una imagen original que parezca portada; si no, la miniatura del archivo
+  const images = files.filter((f) => /\.(jpe?g|png|webp)$/i.test(f.name) && !/thumb|_itemimage|spectrogram/i.test(f.name))
+  const coverFile = images.find((f) => /cover|front|folder|portada/i.test(f.name)) || images.find((f) => f.source === 'original')
+  const fileUrl = (name: string) => `${ARCHIVE}/download/${encodeURIComponent(id)}/${name.split('/').map(encodeURIComponent).join('/')}`
+  const cover = coverFile ? fileUrl(coverFile.name) : `${ARCHIVE}/services/img/${encodeURIComponent(id)}`
+
+  // Un archivo puede traer varios discos: se separan por el disco de cada canción
+  const groups = new Map<string, ArchiveFile[]>()
+  for (const f of Array.from(best.values()).map(info)) {
+    const key = f.album?.trim() || itemTitle
+    groups.set(key, [...(groups.get(key) ?? []), f])
+  }
+  return Array.from(groups.entries()).map(([album, list]) => ({
+    title: album,
+    artist: list.find((f) => f.artist || f.creator)?.artist || list.find((f) => f.creator)?.creator || itemArtist || undefined,
+    year,
+    cover,
+    description,
+    source,
+    tracks: list
+      .sort((a, b) => trackNo(a) - trackNo(b) || a.name.localeCompare(b.name))
+      .slice(0, 300)
+      .map((f) => ({
+        ...toTrack(fileUrl(f.name), f.title),
+        artist: f.artist || f.creator || itemArtist || undefined,
+        duration: seconds(f.length),
+      })),
+  }))
+}
+
+const metaTag = (html: string, prop: string) =>
+  html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i'))?.[1] ||
+  html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, 'i'))?.[1]
+
+/** Lee un enlace y devuelve sus canciones agrupadas por disco (o por la página de donde salen) */
+export async function readAudioAlbums(raw: string): Promise<LinkAlbum[]> {
+  const url = await assertPublic(raw.trim())
+  const id = archiveId(url)
+  if (id && !AUDIO_EXT.test(url.pathname)) {
+    try {
+      const albums = await readArchive(id, `https://archive.org/details/${encodeURIComponent(id)}`)
+      if (albums.some((a) => a.tracks.length)) return albums.filter((a) => a.tracks.length)
+    } catch {}
+  }
+  let page = ''
+  const tracks = await readAudioLink(url.toString(), (html) => (page = html))
+  if (!tracks.length) return []
+  const host = url.hostname.replace(/^www\./, '')
+  const title = decodeHtml(metaTag(page, 'og:title') || page.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '') || host
+  const image = metaTag(page, 'og:image')
+  let cover: string | undefined
+  try {
+    if (image) cover = new URL(image, url).toString()
+  } catch {}
+  return [
+    {
+      title: tracks.length === 1 && !page ? tracks[0].title : title.slice(0, 120),
+      artist: decodeHtml(metaTag(page, 'og:site_name') || '') || host,
+      cover: cover?.startsWith('https://') ? cover : undefined,
+      description: decodeHtml(metaTag(page, 'og:description') || metaTag(page, 'description') || '').slice(0, 1500) || undefined,
+      source: url.toString(),
+      tracks,
+    },
+  ]
+}
+
 /** Lee un enlace y devuelve las pistas de audio que contiene */
-export async function readAudioLink(raw: string): Promise<LinkTrack[]> {
+export async function readAudioLink(raw: string, onPage?: (html: string) => void): Promise<LinkTrack[]> {
   let url = await assertPublic(raw.trim())
   if (AUDIO_EXT.test(url.pathname)) return [toTrack(url.toString())]
 
@@ -151,5 +317,6 @@ export async function readAudioLink(raw: string): Promise<LinkTrack[]> {
   if (LIST_EXT.test(url.pathname) || /mpegurl|scpls/i.test(type) || /^#EXTM3U|^\[playlist\]/i.test(text.trimStart())) {
     return fromPlaylist(text, url)
   }
+  onPage?.(text)
   return fromPage(text, url)
 }
