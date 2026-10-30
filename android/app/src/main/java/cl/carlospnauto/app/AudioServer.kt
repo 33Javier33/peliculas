@@ -26,7 +26,7 @@ object AudioServer {
     @Volatile var port: Int = 0
         private set
 
-    private data class Resolved(val url: String, val mime: String, val userAgent: String, val at: Long)
+    data class Resolved(val url: String, val mime: String, val userAgent: String, val at: Long)
     private val cache = ConcurrentHashMap<String, Resolved>()
 
     private var server: NanoHTTPD? = null
