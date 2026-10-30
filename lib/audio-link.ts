@@ -235,6 +235,37 @@ async function readArchive(id: string, source: string): Promise<LinkAlbum[]> {
   }))
 }
 
+export interface ArchiveSummary {
+  cover?: string
+  tracks: number
+  year?: string
+  artist?: string
+}
+
+/** Datos rápidos de un disco de Internet Archive para la lista de resultados */
+export async function archiveSummary(id: string): Promise<ArchiveSummary> {
+  const res = await fetch(`${ARCHIVE}/metadata/${encodeURIComponent(id)}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
+    signal: AbortSignal.timeout(10000),
+    next: { revalidate: 86400 },
+  })
+  if (!res.ok) throw new Error(`Internet Archive respondió ${res.status}`)
+  const data = (await res.json()) as { metadata?: Record<string, unknown>; files?: ArchiveFile[] }
+  const files = data.files ?? []
+  const meta = data.metadata ?? {}
+  const songs = new Set<string>()
+  for (const f of files) if (formatRank(f) >= 0) songs.add((f.source === 'derivative' && f.original) || f.name)
+  const images = files.filter((f) => /\.(jpe?g|png|webp)$/i.test(f.name) && !/thumb|_itemimage|spectrogram/i.test(f.name))
+  const coverFile = images.find((f) => /cover|front|folder|portada/i.test(f.name)) || images.find((f) => f.source === 'original')
+  return {
+    // Sin imagen propia no se usa la genérica de Internet Archive (se muestra un disco)
+    cover: coverFile ? `https://archive.org/download/${encodeURIComponent(id)}/${coverFile.name.split('/').map(encodeURIComponent).join('/')}` : undefined,
+    tracks: songs.size,
+    year: (firstText(meta.year) || firstText(meta.date)).slice(0, 4) || undefined,
+    artist: firstText(meta.creator) || undefined,
+  }
+}
+
 const metaTag = (html: string, prop: string) =>
   html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i'))?.[1] ||
   html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, 'i'))?.[1]

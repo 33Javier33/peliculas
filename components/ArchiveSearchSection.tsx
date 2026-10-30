@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Search, Play, Plus, Check, Loader2, Library, Disc3, ArrowLeft, UserRound, ChevronRight } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -262,21 +262,63 @@ function ArtistAvatar({ src }: { src: string }) {
   )
 }
 
+// Datos de cada disco (carátula real, canciones, año), pedidos al verse en pantalla
+interface Info {
+  cover?: string
+  tracks: number
+  year?: string
+}
+const infoCache = new Map<string, Promise<Info | null>>()
+const loadInfo = (id: string) => {
+  let p = infoCache.get(id)
+  if (!p) {
+    p = fetch(`/api/archive-audio?info=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<Info>) : null))
+      .catch(() => null)
+    infoCache.set(id, p)
+  }
+  return p
+}
+
 function ResultRow({ item, busy, saved, onPlay, onAdd }: { item: Result; busy?: 'play' | 'add'; saved: boolean; onPlay: () => void; onAdd: () => void }) {
   const [failed, setFailed] = useState(false)
+  const [info, setInfo] = useState<Info | null | undefined>(undefined)
+  const ref = useRef<HTMLLIElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let cancelled = false
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        loadInfo(item.id).then((d) => !cancelled && setInfo(d))
+      },
+      { rootMargin: '200px' }
+    )
+    io.observe(el)
+    return () => {
+      cancelled = true
+      io.disconnect()
+    }
+  }, [item.id])
+  const cover = info?.cover
+  const details = [item.artist, item.year || info?.year, info ? (info.tracks ? `${info.tracks} ${info.tracks === 1 ? 'canción' : 'canciones'}` : 'sin audio') : null]
+    .filter(Boolean)
+    .join(' · ')
   return (
-    <li className="flex items-center gap-3 py-2">
-      <span className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-2 flex items-center justify-center">
-        {!failed ? (
+    <li ref={ref} className={`flex items-center gap-3 py-2 ${info && !info.tracks ? 'opacity-50' : ''}`}>
+      <span className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-2 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
+        {cover && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.cover} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
-        ) : (
+          <img src={cover} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
+        ) : info !== undefined ? (
           <Disc3 className="w-7 h-7 text-slate-500" />
-        )}
+        ) : null}
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-white text-sm font-semibold line-clamp-2">{item.title}</p>
-        <p className="text-slate-400 text-xs truncate">{[item.artist, item.year].filter(Boolean).join(' · ')}</p>
+        <p className="text-slate-400 text-xs truncate">{details}</p>
       </div>
       <button
         onClick={onAdd}
