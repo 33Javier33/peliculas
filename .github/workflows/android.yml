@@ -14,6 +14,9 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    env:
+      # Carpeta fija para la firma (la de por defecto cambia en las máquinas de GitHub y no se guardaba)
+      ANDROID_USER_HOME: /home/runner/.cpn-android
     steps:
       - uses: actions/checkout@v5
 
@@ -33,8 +36,8 @@ jobs:
       - name: Firma guardada entre compilaciones
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: cpn-android-signing-v1
+          path: /home/runner/.cpn-android/debug.keystore
+          key: cpn-android-signing-v2
 
       - name: Firma propia (si está configurada)
         env:
@@ -51,7 +54,10 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -o pipefail
+          mkdir -p "$ANDROID_USER_HOME"
           gradle -p android assembleRelease 2>&1 | tee build.log
+          # Sin la firma guardada, el próximo APK no podría instalarse encima de este
+          test -f "$ANDROID_USER_HOME/debug.keystore" || { echo "No se generó la firma en $ANDROID_USER_HOME"; exit 1; }
 
       - name: Errores de compilación (si falló)
         if: failure()
