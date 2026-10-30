@@ -29,6 +29,7 @@ const LANGS: { id: VideoLang; label: string; title: string; heading: string; des
   { id: 'latino', label: '🇲🇽 Español latino', title: 'Español Latino', heading: 'Más vistos en español latino', description: 'Películas completas en español latino disponibles en YouTube.' },
   { id: 'castellano', label: '🇪🇸 Castellano', title: 'Castellano', heading: 'Más vistos en castellano', description: 'Películas completas dobladas en castellano (España) disponibles en YouTube.' },
   { id: 'ingles', label: '🇺🇸 Inglés', title: 'Inglés', heading: 'Más vistos en inglés', description: 'Full movies in English available on YouTube.' },
+  { id: 'todo', label: '▶️ Todo YouTube', title: 'YouTube', heading: 'Populares en YouTube', description: 'Cualquier video de YouTube: videoclips, artistas, programas y más.' },
 ]
 const LANG_KEY = 'cpn-video-lang'
 const SAVED_OPEN_KEY = 'cpn-saved-videos-open'
@@ -313,7 +314,7 @@ export default function CineClientPage({
               CineLatino Pro
             </div>
             <h1 className="text-4xl sm:text-5xl font-black text-white mb-3 leading-tight">
-              Películas en{' '}
+              {lang === 'todo' ? 'Videos de' : 'Películas en'}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-violet-400">
                 {langInfo.title}
               </span>
@@ -335,7 +336,7 @@ export default function CineClientPage({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar película, saga, actor..."
+                placeholder={lang === 'todo' ? 'Buscar cualquier video: artista, canción, programa...' : 'Buscar película, saga, actor...'}
                 aria-label="Buscar películas en YouTube"
                 enterKeyHint="search"
                 className="w-full bg-surface-1 border border-white/15 text-white placeholder-slate-600 rounded-full pl-12 pr-28 sm:pr-36 py-4 text-base focus:outline-none focus:border-violet-500/70 focus:bg-surface-2 focus:ring-2 focus:ring-violet-500/20 transition-all duration-200"

@@ -8,6 +8,7 @@ import BackButton from '@/components/BackButton'
 import FollowArtistButton from '@/components/FollowArtistButton'
 import ArtistPlayButtons from '@/components/ArtistPlayButtons'
 import MusicInfoPanel from '@/components/MusicInfoPanel'
+import ArtistVideos from '@/components/ArtistVideos'
 
 interface Props {
   params: { id: string }
@@ -112,6 +113,8 @@ export default async function ArtistPage({ params }: Props) {
             </section>
           )
         })}
+
+        <ArtistVideos name={artist.name} />
 
         <p className="text-slate-600 text-xs">Discografía: Deezer · Audio: YouTube · Biografías: Wikipedia</p>
       </div>

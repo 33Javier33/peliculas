@@ -70,16 +70,18 @@ function getYouTubeApiKey(): string {
 
 // ===== Idiomas de la sección Videos =====
 
-export type VideoLang = 'latino' | 'castellano' | 'ingles'
+export type VideoLang = 'latino' | 'castellano' | 'ingles' | 'todo'
 
 export const VIDEO_LANGS: Record<VideoLang, { suffix: string; trending: string; region: string; language: string }> = {
   latino: { suffix: 'pelicula completa español latino', trending: 'pelicula completa español latino HD', region: 'MX', language: 'es' },
   castellano: { suffix: 'película completa en castellano', trending: 'película completa castellano HD', region: 'ES', language: 'es' },
   ingles: { suffix: 'full movie english', trending: 'full movie english HD', region: 'US', language: 'en' },
+  // Todo YouTube: cualquier video (videoclips, artistas, programas…), sin filtro de película
+  todo: { suffix: '', trending: '', region: 'CL', language: 'es' },
 }
 
 export function parseVideoLang(value: string | null | undefined): VideoLang {
-  return value === 'castellano' || value === 'ingles' ? value : 'latino'
+  return value === 'castellano' || value === 'ingles' || value === 'todo' ? value : 'latino'
 }
 
 // ===== Respaldo sin cuota (Invidious/Piped) =====
@@ -104,9 +106,9 @@ function publicToSearchItem(v: PublicVideo): YouTubeSearchItem {
 
 const PUBLIC_PAGE = /^pub:(\d+)$/
 
-async function publicMovieSearch(query: string, page: number): Promise<YouTubeSearchResponse> {
+async function publicMovieSearch(query: string, page: number, onlyLong = true): Promise<YouTubeSearchResponse> {
   // Solo películas largas (más de 40 minutos) cuando se conoce la duración
-  const found = (await publicSearch(query, page)).filter((v) => !v.lengthSeconds || v.lengthSeconds >= 40 * 60)
+  const found = (await publicSearch(query, page)).filter((v) => !onlyLong || !v.lengthSeconds || v.lengthSeconds >= 40 * 60)
   if (found.length === 0 && page === 1) throw new Error('La búsqueda no está disponible por ahora')
   return {
     kind: 'youtube#searchListResponse',
@@ -131,7 +133,7 @@ export async function searchMoviesOnYouTube(
     }
   }
   if (!query.trim()) return searchMoviesOnYouTubeApi(query, pageToken, lang)
-  return publicMovieSearch(`${query.trim()} ${VIDEO_LANGS[lang].suffix}`, publicPage ? Number(publicPage[1]) : 1)
+  return publicMovieSearch(`${query.trim()} ${VIDEO_LANGS[lang].suffix}`.trim(), publicPage ? Number(publicPage[1]) : 1, lang !== 'todo')
 }
 
 export async function getTrendingMoviesOnYouTube(lang: VideoLang = 'latino', pageToken?: string): Promise<YouTubeSearchResponse> {
@@ -143,7 +145,7 @@ export async function getTrendingMoviesOnYouTube(lang: VideoLang = 'latino', pag
       // Respaldo abajo
     }
   }
-  return publicMovieSearch(VIDEO_LANGS[lang].trending, publicPage ? Number(publicPage[1]) : 1)
+  return publicMovieSearch(lang === 'todo' ? 'videos musicales tendencias' : VIDEO_LANGS[lang].trending, publicPage ? Number(publicPage[1]) : 1, lang !== 'todo')
 }
 
 async function searchMoviesOnYouTubeApi(
@@ -162,14 +164,14 @@ async function searchMoviesOnYouTubeApi(
     }
   }
 
-  const enhancedQuery = `${query.trim()} ${VIDEO_LANGS[lang].suffix}`
+  const enhancedQuery = `${query.trim()} ${VIDEO_LANGS[lang].suffix}`.trim()
 
   const url = new URL(`${YOUTUBE_API_BASE}/search`)
   url.searchParams.set('key', apiKey)
   url.searchParams.set('q', enhancedQuery)
   url.searchParams.set('part', 'snippet')
   url.searchParams.set('type', 'video')
-  url.searchParams.set('videoDuration', 'long')
+  if (lang !== 'todo') url.searchParams.set('videoDuration', 'long')
   url.searchParams.set('maxResults', '20')
   url.searchParams.set('relevanceLanguage', VIDEO_LANGS[lang].language)
   url.searchParams.set('regionCode', VIDEO_LANGS[lang].region)
@@ -195,6 +197,32 @@ async function searchMoviesOnYouTubeApi(
 
 async function getTrendingMoviesOnYouTubeApi(lang: VideoLang, pageToken?: string): Promise<YouTubeSearchResponse> {
   const apiKey = getYouTubeApiKey()
+
+  // Todo YouTube: lo más popular del país (1 unidad de cuota en vez de 100)
+  if (lang === 'todo') {
+    const u = new URL(`${YOUTUBE_API_BASE}/videos`)
+    u.searchParams.set('key', apiKey)
+    u.searchParams.set('chart', 'mostPopular')
+    u.searchParams.set('regionCode', VIDEO_LANGS.todo.region)
+    u.searchParams.set('part', 'snippet')
+    u.searchParams.set('maxResults', '24')
+    if (pageToken) u.searchParams.set('pageToken', pageToken)
+    const r = await fetch(u.toString(), { next: { revalidate: 3600 } })
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}))
+      const message = body?.error?.message || `YouTube API error: ${r.status}`
+      noteYouTubeError(r.status, message)
+      throw new Error(message)
+    }
+    const d = (await r.json()) as { items: { id: string; snippet: YouTubeSearchItem['snippet'] }[]; nextPageToken?: string; pageInfo?: YouTubeSearchResponse['pageInfo'] }
+    return {
+      kind: 'youtube#searchListResponse',
+      etag: '',
+      nextPageToken: d.nextPageToken,
+      pageInfo: d.pageInfo ?? { totalResults: d.items.length, resultsPerPage: d.items.length },
+      items: d.items.map((v) => ({ kind: 'youtube#searchResult', etag: '', id: { kind: 'youtube#video', videoId: v.id }, snippet: v.snippet })),
+    }
+  }
 
   const url = new URL(`${YOUTUBE_API_BASE}/search`)
   url.searchParams.set('key', apiKey)
