@@ -389,15 +389,20 @@ export default function MusicLibraryClient() {
                 ) : (
                   <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
                     {filtered.map((track, idx) => (
+                      // Toda la fila pone a sonar la canción (los botones de la fila hacen lo suyo)
                       <li
                         key={track.id}
-                        className="group flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-white/5 transition-colors"
+                        onClick={() => playList(filtered, idx)}
+                        className={`group flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10 transition-colors ${track.id === currentId ? 'bg-emerald-500/5' : ''}`}
                       >
                         <div className="w-6 text-center text-slate-600 text-xs tabular-nums shrink-0 hidden sm:block">
                           {idx + 1}
                         </div>
                         <button
-                          onClick={() => playList(filtered, idx)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playList(filtered, idx)
+                          }}
                           className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-surface-2 group/thumb"
                           title="Reproducir"
                         >
@@ -409,14 +414,7 @@ export default function MusicLibraryClient() {
                           </div>
                           <TrackStateOverlay id={track.id} size="sm" />
                         </button>
-                        {/* Toda la fila (título incluido) pone a sonar la canción */}
-                        <div
-                          className="min-w-0 flex-1 cursor-pointer"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => playList(filtered, idx)}
-                          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && playList(filtered, idx)}
-                        >
+                        <div className="min-w-0 flex-1">
                           <p className={`text-sm font-medium truncate ${track.id === currentId ? 'text-emerald-400' : 'text-white'}`}>
                             {track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}
                           </p>
@@ -455,14 +453,20 @@ export default function MusicLibraryClient() {
                         )}
                         <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => addToQueue(track)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              addToQueue(track)
+                            }}
                             className="p-2 text-slate-600 hover:text-violet-400 opacity-0 group-hover:opacity-100 transition-all"
                             title="Añadir a la cola"
                           >
                             <Plus className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => removeSaved(track.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeSaved(track.id)
+                            }}
                             className="p-2 text-purple-500 hover:text-purple-400 transition-colors"
                             title="Quitar de guardadas"
                           >
