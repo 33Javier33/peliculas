@@ -66,7 +66,16 @@ object AudioServer {
     fun resolve(id: String, fresh: Boolean = false): Resolved {
         val hit = cache[id]
         if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
-        val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+        // Sacar el audio de YouTube usa harto procesador (descifra su código): se hace con
+        // prioridad baja para que la pantalla de la app no se trabe mientras tanto
+        val thread = android.os.Process.myTid()
+        val prevPriority = android.os.Process.getThreadPriority(thread)
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+        val info = try {
+            StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+        } finally {
+            android.os.Process.setThreadPriority(prevPriority)
+        }
         val streams = info.audioStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
         val best: AudioStream = streams.filter { it.format == MediaFormat.M4A }.maxByOrNull { it.averageBitrate }
             ?: streams.maxByOrNull { it.averageBitrate }
