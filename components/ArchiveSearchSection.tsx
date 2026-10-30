@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Play, Plus, Check, Loader2, Library, Disc3 } from 'lucide-react'
+import { Search, Play, Plus, Check, Loader2, Library, Disc3, ArrowLeft, UserRound, ChevronRight } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
@@ -19,6 +19,19 @@ interface Result {
   url: string
 }
 
+interface Artist {
+  name: string
+  count: number
+  cover: string
+}
+
+type Mode = 'artist' | 'album' | 'all'
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'artist', label: 'Artistas' },
+  { id: 'album', label: 'Discos' },
+  { id: 'all', label: 'Todo' },
+]
+
 const SUGGESTIONS = ['Rock', 'Jazz', 'Clásica', 'Cumbia', 'Tango', 'Conciertos en vivo']
 
 export default function ArchiveSearchSection() {
@@ -32,18 +45,24 @@ export default function ArchiveSearchSection() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<Record<string, 'play' | 'add' | undefined>>({})
   const [notice, setNotice] = useState('')
+  // Artistas: primero la lista de artistas; al tocar uno, sus discos
+  const [mode, setMode] = useState<Mode>('artist')
+  const [artists, setArtists] = useState<Artist[] | null>(null)
+  const [artist, setArtist] = useState<string | null>(null)
 
-  const search = async (query: string, nextPage = 1) => {
-    const text = query.trim()
-    if (!text) return
+  const fetchJson = async <T,>(params: string): Promise<T> => {
+    const r = await fetch(`/api/archive-audio?${params}`)
+    const d = (await r.json()) as T & { error?: string }
+    if (!r.ok) throw new Error(d.error || 'No se pudo buscar')
+    return d
+  }
+
+  /** Discos: de la búsqueda (por disco o en todo) o de un artista elegido */
+  const searchItems = async (params: string, nextPage = 1) => {
     setSearching(true)
     setError('')
     try {
-      // "Conciertos en vivo": la colección de grabaciones de conciertos (Live Music Archive)
-      const params = text === 'Conciertos en vivo' ? 'collection=etree' : `q=${encodeURIComponent(text)}`
-      const r = await fetch(`/api/archive-audio?${params}&page=${nextPage}`)
-      const d = (await r.json()) as { results?: Result[]; total?: number; error?: string }
-      if (!r.ok) throw new Error(d.error || 'No se pudo buscar')
+      const d = await fetchJson<{ results?: Result[]; total?: number }>(`${params}&page=${nextPage}`)
       setResults((prev) => (nextPage === 1 ? d.results ?? [] : [...prev, ...(d.results ?? [])]))
       setTotal(d.total ?? 0)
       setPage(nextPage)
@@ -53,6 +72,39 @@ export default function ArchiveSearchSection() {
     }
     setSearching(false)
   }
+
+  const itemsParams = (text: string, m: Mode, who: string | null) =>
+    who
+      ? `by=exactArtist&q=${encodeURIComponent(who)}`
+      : text === 'Conciertos en vivo'
+        ? 'collection=etree' // grabaciones de conciertos (Live Music Archive)
+        : `by=${m}&q=${encodeURIComponent(text)}`
+
+  const search = async (query: string, m: Mode = mode) => {
+    const text = query.trim()
+    if (!text) return
+    setArtist(null)
+    setResults([])
+    setArtists(null)
+    if (m !== 'artist' || text === 'Conciertos en vivo') return searchItems(itemsParams(text, m === 'artist' ? 'all' : m, null))
+    setSearching(true)
+    setError('')
+    try {
+      const d = await fetchJson<{ artists?: Artist[] }>(`by=artist&q=${encodeURIComponent(text)}`)
+      setArtists(d.artists ?? [])
+      if (!d.artists?.length) setError('No se encontraron artistas con ese nombre. Prueba en "Discos" o "Todo".')
+    } catch (err) {
+      setError((err as Error).message)
+    }
+    setSearching(false)
+  }
+
+  const openArtist = (name: string) => {
+    setArtist(name)
+    setResults([])
+    searchItems(itemsParams('', mode, name))
+  }
+  const more = () => searchItems(itemsParams(q.trim(), mode === 'artist' ? 'all' : mode, artist), page + 1)
 
   const load = async (item: Result, mode: 'play' | 'add') => {
     setBusy((b) => ({ ...b, [item.id]: mode }))
@@ -100,18 +152,36 @@ export default function ArchiveSearchSection() {
           className="min-w-0 flex-1 bg-surface-2 border border-white/10 text-white placeholder-slate-500 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
         />
         <button type="submit" disabled={searching || !q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500 text-black text-sm font-semibold disabled:opacity-50">
-          {searching && page === 1 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
+          {searching && page === 1 && !artist ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
         </button>
       </form>
 
-      {results.length === 0 && !searching && (
+      <div className="flex gap-2 mt-3" role="tablist" aria-label="Buscar por">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            role="tab"
+            aria-selected={mode === m.id}
+            onClick={() => {
+              setMode(m.id)
+              if (q.trim()) search(q, m.id)
+            }}
+            className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold ${mode === m.id ? 'bg-amber-500 border-amber-400 text-black' : 'bg-surface-2 border-white/10 text-slate-300'}`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {results.length === 0 && !artists && !searching && (
         <div className="flex flex-wrap gap-2 mt-3">
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
               onClick={() => {
                 setQ(s)
-                search(s)
+                setMode('all')
+                search(s, 'all')
               }}
               className="px-3 py-1.5 rounded-full bg-surface-2 border border-white/10 text-slate-300 text-xs hover:border-amber-400/50"
             >
@@ -123,9 +193,40 @@ export default function ArchiveSearchSection() {
       {error && <p className="text-amber-300 text-sm mt-2">{error}</p>}
       {notice && <p className="text-emerald-300 text-sm mt-2">{notice}</p>}
 
-      {results.length > 0 && (
+      {/* Artistas encontrados */}
+      {artists && artists.length > 0 && !artist && (
+        <ul className="mt-3 divide-y divide-white/5">
+          {artists.map((a) => (
+            <li key={a.name}>
+              <button onClick={() => openArtist(a.name)} className="w-full flex items-center gap-3 py-2 text-left">
+                <ArtistAvatar src={a.cover} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-white text-sm font-semibold truncate">{a.name}</span>
+                  <span className="block text-slate-400 text-xs">{a.count >= 200 ? 'Muchos' : a.count} {a.count === 1 ? 'disco' : 'discos'}</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Discos de un artista */}
+      {artist && (
+        <div className="mt-3 flex items-center gap-2">
+          <button onClick={() => setArtist(null)} className="shrink-0 w-9 h-9 rounded-full bg-surface-2 border border-white/10 text-slate-200 flex items-center justify-center" aria-label="Volver a los artistas">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="min-w-0">
+            <p className="text-white font-semibold truncate">{artist}</p>
+            <p className="text-slate-400 text-xs">{searching && !results.length ? 'Buscando discos…' : `${total.toLocaleString('es')} ${total === 1 ? 'disco' : 'discos'}`}</p>
+          </div>
+        </div>
+      )}
+
+      {results.length > 0 && (mode !== 'artist' || artist || q.trim() === 'Conciertos en vivo') && (
         <>
-          <p className="text-slate-500 text-xs mt-3">{total.toLocaleString('es')} resultados</p>
+          {!artist && <p className="text-slate-500 text-xs mt-3">{total.toLocaleString('es')} resultados</p>}
           <ul className="mt-2 divide-y divide-white/5">
             {results.map((item) => (
               <ResultRow key={item.id} item={item} busy={busy[item.id]} saved={saved.has(item.url)} onPlay={() => load(item, 'play')} onAdd={() => load(item, 'add')} />
@@ -133,7 +234,7 @@ export default function ArchiveSearchSection() {
           </ul>
           {results.length < total && (
             <button
-              onClick={() => search(q, page + 1)}
+              onClick={more}
               disabled={searching}
               className="mt-3 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-full bg-surface-2 border border-white/10 text-slate-200 text-sm disabled:opacity-50"
             >
@@ -144,6 +245,20 @@ export default function ArchiveSearchSection() {
       )}
       <p className="text-slate-600 text-xs mt-3">Escucha lo que la biblioteca ofrece libremente (dominio público, licencias libres y conciertos con permiso).</p>
     </section>
+  )
+}
+
+function ArtistAvatar({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span className="shrink-0 w-12 h-12 rounded-full overflow-hidden bg-surface-2 flex items-center justify-center">
+      {!failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
+      ) : (
+        <UserRound className="w-6 h-6 text-slate-500" />
+      )}
+    </span>
   )
 }
 
