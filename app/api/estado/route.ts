@@ -8,6 +8,8 @@ import { publicSearch } from '@/lib/public-search'
 import { searchMusicVideos } from '@/lib/youtube-music'
 import { getPopularMovies } from '@/lib/tmdb'
 import { searchArchiveMovies } from '@/lib/archive'
+import { searchFma } from '@/lib/fma'
+import { searchArchiveAudio } from '@/lib/archive-audio'
 import { getArtistInfo, lastWikiError } from '@/lib/music-info'
 import { getRequestRegion } from '@/lib/region'
 import { resolveOwnAudio } from '@/lib/own-stream'
@@ -55,6 +57,8 @@ export async function GET(request: NextRequest) {
     }),
     check('tv-national', 'TV', `Canales nacionales (${cc})`, async () => need((await getNationalChannels(cc)).length, 'canales')),
     check('radio', 'Radio', `Radios de ${cc} (Radio Browser)`, async () => need((await getRadiosByCountry(cc, 20)).length, 'emisoras')),
+    check('archive-audio', 'Música', 'Discos de Internet Archive', async () => need((await searchArchiveAudio('jazz')).results.length, 'discos')),
+    check('fma', 'Música', 'Free Music Archive', async () => need((await searchFma('', 1, 'Jazz')).length, 'canciones')),
     check('deezer', 'Música', 'Catálogo de álbumes (Deezer)', async () => {
       const r = await searchCatalog('Shakira')
       return need(r.artists.length + r.albums.length, 'resultados')

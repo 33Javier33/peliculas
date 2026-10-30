@@ -5,6 +5,7 @@
 import { lookup } from 'dns/promises'
 import { isIP } from 'net'
 import { proxiedUrl } from '@/lib/hls-sign'
+import { isFmaUrl, readFmaPage } from '@/lib/fma'
 
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|weba)(\?|#|$)/i
 const LIST_EXT = /\.(m3u8?|pls)(\?|#|$)/i
@@ -279,6 +280,26 @@ export async function readAudioAlbums(raw: string): Promise<LinkAlbum[]> {
       const albums = await readArchive(id, `https://archive.org/details/${encodeURIComponent(id)}`)
       if (albums.some((a) => a.tracks.length)) return albums.filter((a) => a.tracks.length)
     } catch {}
+  }
+  // Free Music Archive: canciones con sus datos, agrupadas por disco
+  if (isFmaUrl(url)) {
+    const fma = await readFmaPage(url.toString())
+    if (fma.tracks.length) {
+      const groups = new Map<string, typeof fma.tracks>()
+      for (const t of fma.tracks) {
+        const key = t.album || fma.title || 'Free Music Archive'
+        groups.set(key, [...(groups.get(key) ?? []), t])
+      }
+      const single = groups.size === 1
+      return Array.from(groups.entries()).map(([title, list]) => ({
+        title: title.replace(/\s*\|\s*Free Music Archive$/i, ''),
+        artist: list[0].artist,
+        cover: list.find((t) => t.image)?.image || (single ? fma.image : undefined),
+        description: single ? fma.description : undefined,
+        source: single ? url.toString() : list[0].albumUrl || url.toString(),
+        tracks: list.map((t) => ({ ...toTrack(t.url, t.title), artist: t.artist, duration: t.duration })),
+      }))
+    }
   }
   let page = ''
   const tracks = await readAudioLink(url.toString(), (html) => (page = html))
