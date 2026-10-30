@@ -35,6 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
+import { nativeAudioUrl, reportMediaState, isNativeApp } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,6 +50,9 @@ let audioDownUntil = 0
 const audioSourcesDown = () => Date.now() < audioDownUntil
 
 function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
+  // App de Android: el propio teléfono saca el audio (no lo bloquea YouTube y es al instante)
+  const native = nativeAudioUrl(id)
+  if (native) return Promise.resolve([{ url: native, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' }])
   let p = audioCache.get(id)
   if (!p) {
     p = fetch(`/api/audio?id=${encodeURIComponent(id)}`)
@@ -1161,6 +1165,28 @@ export default function MusicPlayerBar() {
         setTimeout(() => setShareNotice(false), 2000)
       }
     } catch {}
+  }, [])
+
+  // App de Android: notificación con controles y pantalla bloqueada
+  useEffect(() => {
+    if (!isNativeApp()) return
+    reportMediaState({
+      title: currentVideo ? currentVideo.title.replace(/^[^-–]+[-–]\s*/, '') || currentVideo.title : '',
+      artist: currentVideo?.channelTitle || '',
+      artwork: currentVideo?.thumbnail?.startsWith('http') ? currentVideo.thumbnail : undefined,
+      playing: isPlaying,
+      visible: isVisible && !!currentVideo,
+    })
+  }, [currentVideo, isPlaying, isVisible])
+  useEffect(() => {
+    if (!isNativeApp()) return
+    ;(window as unknown as { __cpnNativeAction?: (a: string) => void }).__cpnNativeAction = (a: string) => {
+      const st = useMusicStore.getState()
+      if (a === 'play') st.setIsPlaying(true)
+      else if (a === 'pause') st.setIsPlaying(false)
+      else if (a === 'next') st.playNext()
+      else if (a === 'prev') st.playPrev()
+    }
   }, [])
 
   // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)

@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.CPN" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/obsidian</item>
+        <item name="android:statusBarColor">@color/obsidian</item>
+        <item name="android:navigationBarColor">@color/obsidian</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <color name="obsidian">#0B0C10</color>
+</resources>

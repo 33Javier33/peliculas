@@ -1,0 +1,71 @@
+name: App Android (APK)
+
+# Arma el APK en cada cambio de la carpeta android/ y lo publica en la versión
+# "android-latest" de GitHub (enlace fijo para descargarlo desde el teléfono).
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      # La firma se guarda en la caché privada de GitHub (no en el repositorio): así cada APK
+      # nuevo actualiza al anterior. Opcional: una firma propia en los secretos ANDROID_KEYSTORE_*.
+      - name: Firma guardada entre compilaciones
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: cpn-android-signing-v1
+
+      - name: Firma propia (si está configurada)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Armar el APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle -p android assembleRelease --stacktrace
+
+      - name: Nombre del archivo
+        run: cp android/app/build/outputs/apk/release/app-release.apk CarlosPNauto.apk
+
+      - name: Publicar en "android-latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: App Android (última versión)
+          body: |
+            Descarga **CarlosPNauto.apk** e instálalo (Android te pedirá permitir "instalar apps desconocidas").
+            Compilación ${{ github.run_number }} · ${{ github.sha }}
+          files: CarlosPNauto.apk
+          make_latest: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CarlosPNauto-${{ github.run_number }}
+          path: CarlosPNauto.apk

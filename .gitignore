@@ -34,3 +34,7 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firmas de Android (nunca al repositorio)
+*.keystore
+*.jks

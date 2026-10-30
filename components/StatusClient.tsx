@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Copy, Activity } from 'lucide-react'
 import { findAudioCandidates } from '@/lib/audio-sources'
+import { getNative } from '@/lib/native'
 
 // Página de diagnóstico: prueba cada fuente (Pluto, TV, radio, música, películas) desde el
 // servidor y algunas cosas desde este teléfono (Pluto directo, transmitir a la TV).
@@ -44,6 +45,34 @@ async function deviceChecks(): Promise<Check[]> {
   } catch (err) {
     out.push({ id: 'pluto-device', area: 'Este teléfono', name: 'Pluto TV desde el teléfono', ok: false, ms: Date.now() - t0, detail: (err as Error).message })
   }
+  // App de Android: audio sacado por el propio teléfono
+  const native = getNative()
+  if (native) {
+    const t2 = Date.now()
+    const ok = await new Promise<string>((resolve) => {
+      const a = new Audio()
+      a.muted = true
+      a.preload = 'auto'
+      const done = (v: string) => {
+        a.removeAttribute('src')
+        a.load()
+        resolve(v)
+      }
+      a.oncanplay = () => done('')
+      a.onerror = () => done('el teléfono no pudo obtener el audio')
+      setTimeout(() => done('sin respuesta en 15 s'), 15000)
+      a.src = `${native.audioBase()}/yt/kJQP7kiw5Fk`
+    })
+    out.push({
+      id: 'native-audio',
+      area: 'Este teléfono',
+      name: `App de Android ${native.version()}: audio desde el teléfono`,
+      ok: !ok,
+      ms: Date.now() - t2,
+      detail: ok || 'funciona: la música sigue con la pantalla bloqueada',
+    })
+  }
+
   // Audio para pantalla bloqueada, buscado desde este teléfono (como lo hace la música)
   const t1 = Date.now()
   try {
