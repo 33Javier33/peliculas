@@ -409,11 +409,21 @@ export default function MusicLibraryClient() {
                           </div>
                           <TrackStateOverlay id={track.id} size="sm" />
                         </button>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-white text-sm font-medium truncate">{track.title}</p>
+                        {/* Toda la fila (título incluido) pone a sonar la canción */}
+                        <div
+                          className="min-w-0 flex-1 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => playList(filtered, idx)}
+                          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && playList(filtered, idx)}
+                        >
+                          <p className={`text-sm font-medium truncate ${track.id === currentId ? 'text-emerald-400' : 'text-white'}`}>
+                            {track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}
+                          </p>
                           <p className="text-slate-500 text-xs truncate">
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation()
                                 setTab('artists')
                                 setSelectedArtist(track.artist ?? parseTrackMeta(track).artist)
                               }}
@@ -425,7 +435,8 @@ export default function MusicLibraryClient() {
                               <>
                                 <span className="text-slate-700"> · </span>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation()
                                     setTab('albums')
                                     setSelectedAlbum(track.album!)
                                   }}
