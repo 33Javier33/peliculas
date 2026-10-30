@@ -195,7 +195,7 @@ export default function ArchiveSearchSection() {
 
       {/* Artistas encontrados */}
       {artists && artists.length > 0 && !artist && (
-        <ul className="mt-3 divide-y divide-white/5">
+        <ul className="mt-3 divide-y divide-white/5 max-h-[26rem] overflow-y-auto overscroll-contain">
           {artists.map((a) => (
             <li key={a.name}>
               <button onClick={() => openArtist(a.name)} className="w-full flex items-center gap-3 py-2 text-left">
@@ -227,7 +227,7 @@ export default function ArchiveSearchSection() {
       {results.length > 0 && (mode !== 'artist' || artist || q.trim() === 'Conciertos en vivo') && (
         <>
           {!artist && <p className="text-slate-500 text-xs mt-3">{total.toLocaleString('es')} resultados</p>}
-          <ul className="mt-2 divide-y divide-white/5">
+          <ul className="mt-2 divide-y divide-white/5 max-h-[26rem] overflow-y-auto overscroll-contain">
             {results.map((item) => (
               <ResultRow key={item.id} item={item} busy={busy[item.id]} saved={saved.has(item.url)} onPlay={() => load(item, 'play')} onAdd={() => load(item, 'add')} />
             ))}

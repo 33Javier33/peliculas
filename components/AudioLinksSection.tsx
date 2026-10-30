@@ -94,13 +94,6 @@ export default function AudioLinksSection() {
   }
   const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
   const shuffleOn = useMusicStore((s) => s.shuffle)
-  // Al entrar, queda abierto el disco que está sonando
-  useEffect(() => {
-    if (!mounted || open || !currentId) return
-    const playing = albums.find((a) => a.trackIds.includes(currentId))
-    if (playing) setOpen(playing.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted])
 
   // Discos (los más nuevos primero) y, al final, las canciones sueltas
   const groups = useMemo(() => {
@@ -153,24 +146,38 @@ export default function AudioLinksSection() {
       </form>
       {message && <p className={`text-sm mt-2 ${message.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{message.text}</p>}
 
+      {/* Discos en una fila que se desliza de lado (así la sección no se alarga); el elegido se abre abajo */}
       {groups.length > 0 && (
-        <ul className="mt-4 space-y-2">
+        <div className="mt-4 -mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 [scrollbar-width:none] pb-1">
           {groups.map(({ album, items }) => (
-            <AlbumRow
+            <AlbumCard
               key={album.id}
               album={album}
+              count={items.length}
+              selected={open === album.id}
+              playing={!!currentId && items.some((t) => t.id === currentId)}
+              onClick={() => setOpen(open === album.id ? null : album.id)}
+            />
+          ))}
+        </div>
+      )}
+      {groups
+        .filter((g) => g.album.id === open)
+        .map(({ album, items }) => (
+          <ul key={album.id} className="mt-3">
+            <AlbumRow
+              album={album}
               items={items}
-              open={open === album.id}
-              onToggle={() => setOpen(open === album.id ? null : album.id)}
+              open
+              onToggle={() => setOpen(null)}
               onPlay={(i, shuffle) => play(items, i, shuffle)}
               currentId={currentId}
               shuffleOn={shuffleOn}
               onRemoveTrack={removeTrack}
               onRemoveAlbum={album.id === 'loose' ? () => items.forEach((t) => removeTrack(t.id)) : () => removeAlbum(album.id)}
             />
-          ))}
-        </ul>
-      )}
+          </ul>
+        ))}
       <p className="text-slate-600 text-xs mt-3">Usa enlaces de audio que tengas derecho a escuchar (tu música, música libre, podcasts).</p>
     </section>
   )
@@ -253,7 +260,7 @@ function AlbumRow({
               {album.description}
             </button>
           )}
-          <ol className="divide-y divide-white/5">
+          <ol className="divide-y divide-white/5 max-h-80 overflow-y-auto overscroll-contain">
             {items.map((t, i) => (
               <li key={t.id} className={`flex items-center gap-3 py-2 ${t.id === currentId ? 'bg-violet-500/10 -mx-2 px-2 rounded-lg' : ''}`}>
                 <TrackNumber id={t.id} n={i + 1} />
@@ -271,6 +278,49 @@ function AlbumRow({
         </div>
       )}
     </li>
+  )
+}
+
+function AlbumCard({
+  album,
+  count,
+  selected,
+  playing,
+  onClick,
+}: {
+  album: LinkAlbum
+  count: number
+  selected: boolean
+  playing: boolean
+  onClick: () => void
+}) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <button onClick={onClick} aria-pressed={selected} className="snap-start shrink-0 w-28 text-left group">
+      <span
+        className={`relative block w-28 h-28 rounded-xl overflow-hidden bg-surface-2 border-2 ${selected ? 'border-violet-400' : playing ? 'border-violet-400/50' : 'border-transparent'}`}
+      >
+        {album.cover && !failed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={album.cover} alt="" loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center">
+            <Disc3 className="w-10 h-10 text-slate-500" />
+          </span>
+        )}
+        {playing && (
+          <span className="absolute bottom-1.5 left-1.5 flex items-end gap-[2px] h-4 px-1.5 py-0.5 rounded bg-black/60">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="w-[3px] rounded-full bg-violet-300 origin-bottom animate-eq" style={{ height: `${[60, 100, 75][i]}%`, animationDelay: `${i * 140}ms` }} />
+            ))}
+          </span>
+        )}
+      </span>
+      <span className={`block mt-1.5 text-xs font-semibold truncate ${selected ? 'text-violet-300' : 'text-white'}`}>{album.title}</span>
+      <span className="block text-[11px] text-slate-500 truncate">
+        {album.artist} · {count}
+      </span>
+    </button>
   )
 }
 
