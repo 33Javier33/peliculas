@@ -27,6 +27,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import java.lang.ref.WeakReference
@@ -63,6 +64,17 @@ class MainActivity : AppCompatActivity() {
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(root)
         current = WeakReference(this)
+        root.setBackgroundColor(0xFF0B0C10.toInt())
+        // Android 15 dibuja la app detrás de la barra de estado y la de navegación: se deja el
+        // espacio de ambas (y del teclado) para que la página no quede tapada. En pantalla
+        // completa y en la ventana flotante, el video usa todo.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            if (fullView != null || isInPictureInPictureMode) v.setPadding(0, 0, 0, 0)
+            else v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            WindowInsetsCompat.CONSUMED
+        }
 
         with(web.settings) {
             javaScriptEnabled = true
@@ -102,6 +114,7 @@ class MainActivity : AppCompatActivity() {
                     hide(WindowInsetsCompat.Type.systemBars())
                     systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 }
+                ViewCompat.requestApplyInsets(root)
             }
 
             override fun onHideCustomView() {
@@ -110,6 +123,7 @@ class MainActivity : AppCompatActivity() {
                 fullCallback?.onCustomViewHidden()
                 fullCallback = null
                 WindowInsetsControllerCompat(window, root).show(WindowInsetsCompat.Type.systemBars())
+                ViewCompat.requestApplyInsets(root)
             }
 
             // "Agregar música" (archivos del teléfono)
@@ -190,6 +204,7 @@ class MainActivity : AppCompatActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         // La web agranda el video a toda la ventanita (y lo devuelve a su lugar al volver)
         web.evaluateJavascript("window.__cpnPip && window.__cpnPip($isInPictureInPictureMode)", null)
+        ViewCompat.requestApplyInsets(root)
     }
 
     override fun onDestroy() {
