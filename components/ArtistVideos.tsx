@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PlayCircle } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
+import { continueInMiniPlayer } from '@/lib/video-handoff'
 import { decodeEntities } from '@/lib/youtube-music'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 
@@ -46,7 +47,11 @@ export default function ArtistVideos({ name }: { name: string }) {
           )
         })}
       </div>
-      {open && <YoutubePlayer videoId={open.id} title={open.title} channelTitle={open.channel} onClose={() => setOpen(null)} />}
+      {open && <YoutubePlayer videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
+            // Sigue en la ventana chica del reproductor desde el mismo segundo
+            continueInMiniPlayer({ id: open.id, title: open.title, channelTitle: open.channel }, t)
+            setOpen(null)
+          }} />}
     </section>
   )
 }

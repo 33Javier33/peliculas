@@ -1,5 +1,6 @@
 'use client'
 
+import { continueInMiniPlayer } from '@/lib/video-handoff'
 import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -283,9 +284,14 @@ export default function CineClientPage({
     []
   )
 
-  const closePlayer = useCallback(() => {
-    setPlayer(null)
-  }, [])
+  // Al salir del video en grande, sigue en la ventana chica del reproductor (no se corta)
+  const closePlayer = useCallback(
+    (t?: number) => {
+      if (player) continueInMiniPlayer({ id: player.videoId, title: player.title, channelTitle: player.channelTitle }, t)
+      setPlayer(null)
+    },
+    [player]
+  )
 
   return (
     <>

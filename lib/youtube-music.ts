@@ -22,6 +22,8 @@ export interface MusicVideo {
   artistId?: number
   // Video (no canción): se muestra en la ventana de video aunque esté el modo audio
   isVideo?: boolean
+  // Segundo desde el que empieza (video que sigue en la ventana chica tras verlo en grande)
+  startAt?: number
   // Canción del catálogo aún sin video de YouTube: se busca justo antes de sonar
   pending?: { artist: string; title: string; duration: number }
 }

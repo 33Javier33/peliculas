@@ -337,7 +337,8 @@ export default function MusicPlayerBar() {
   const isPending = !!currentVideo?.pending
   // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
   // YouTube y pasa al audio propio al bloquear la pantalla o salir de la app (si ya está listo).
-  const wantAudio = !!currentId && !audioFailedIds.has(currentId) && !audioSourcesDown()
+  // Los videos (no canciones) se ven en la ventana chica; las canciones van en audio
+  const wantAudio = !!currentId && !currentVideo?.isVideo && !audioFailedIds.has(currentId) && !audioSourcesDown()
   const [quickStartId, setQuickStartId] = useState<string | null>(null)
   const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
   // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
@@ -744,6 +745,7 @@ export default function MusicPlayerBar() {
   }, [played, isSeeking])
 
   const lastPlayedSaveRef = useRef(0)
+  const startAppliedRef = useRef<string | null>(null)
   // react-player v3: onTimeUpdate receives a React.SyntheticEvent<HTMLMediaElement>
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
@@ -930,6 +932,15 @@ export default function MusicPlayerBar() {
   const handleLoadedMetadata = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
+      // Video que se venía viendo en grande: sigue desde ese segundo
+      const st = useMusicStore.getState()
+      const cur = st.queue[st.currentIndex]
+      if (cur?.startAt && startAppliedRef.current !== cur.id) {
+        startAppliedRef.current = cur.id
+        el.currentTime = cur.startAt
+        hasResumedRef.current = true
+        return
+      }
       // Cambio de modo audio/video o de fuente: seguir donde iba
       if (pendingSeekRef.current >= 0) {
         const f = pendingSeekRef.current
