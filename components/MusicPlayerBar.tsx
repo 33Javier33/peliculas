@@ -348,7 +348,24 @@ export default function MusicPlayerBar() {
   // Ventana de video: flotante sobre la barra; "oculta" = de vuelta en la miniatura de la barra
   const [videoHidden, setVideoHidden] = useState(false)
   // Video de la canción abierto aparte (reproductor de Videos)
-  const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string } | null>(null)
+  const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string; startTime: number } | null>(null)
+  // Ver el video desde donde va la canción (y al cerrarlo, la canción sigue desde donde quedó el video)
+  const openVideo = useCallback(() => {
+    const st = useMusicStore.getState()
+    const v = st.queue[st.currentIndex]
+    if (!v) return
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    const startTime = el && isFinite(el.currentTime) ? el.currentTime : 0
+    setVideoModal({ id: v.id, title: v.title, channelTitle: v.channelTitle, startTime })
+  }, [])
+  const closeVideo = useCallback((t?: number) => {
+    setVideoModal(null)
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (el && typeof t === 'number' && t > 0 && isFinite(el.duration) && el.duration > 0) {
+      el.currentTime = Math.min(t, el.duration - 1)
+    }
+    useMusicStore.getState().setIsPlaying(true)
+  }, [])
   const useAudio =
     isLive ||
     isLocal ||
@@ -1183,7 +1200,8 @@ export default function MusicPlayerBar() {
           videoId={videoModal.id}
           title={videoModal.title}
           channelTitle={videoModal.channelTitle}
-          onClose={() => setVideoModal(null)}
+          startTime={videoModal.startTime}
+          onClose={closeVideo}
         />
       )}
       {/* Reserva el alto del reproductor para que no tape el contenido ni el footer */}
@@ -1200,7 +1218,7 @@ export default function MusicPlayerBar() {
           canWatchVideo
             ? () => {
                 closeFull()
-                setVideoModal({ id: currentVideo.id, title: currentVideo.title, channelTitle: currentVideo.channelTitle })
+                openVideo()
               }
             : undefined
         }
@@ -1583,7 +1601,7 @@ export default function MusicPlayerBar() {
               {/* Ver el video de la canción: se abre aparte (pausa la música), como en la sección Videos */}
               {canWatchVideo && (
                 <button
-                  onClick={() => setVideoModal({ id: currentVideo.id, title: currentVideo.title, channelTitle: currentVideo.channelTitle })}
+                  onClick={openVideo}
                   className={`${iconBtn} text-slate-500 hover:text-white`}
                   title="Ver el video"
                   aria-label="Ver el video"

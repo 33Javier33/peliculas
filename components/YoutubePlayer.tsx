@@ -9,7 +9,10 @@ interface YoutubePlayerProps {
   videoId: string
   title: string
   channelTitle: string
-  onClose: () => void
+  /** Al cerrar recibe el segundo en que iba el video (para seguir la música desde ahí) */
+  onClose: (currentTime?: number) => void
+  /** Segundo desde el que empieza el video (p. ej. donde iba la música) */
+  startTime?: number
   liked?: boolean
   later?: boolean
   onToggleLike?: () => void
@@ -45,6 +48,7 @@ export default function YoutubePlayer({
   title,
   channelTitle,
   onClose,
+  startTime = 0,
   liked,
   later,
   onToggleLike,
@@ -133,8 +137,8 @@ export default function YoutubePlayer({
     setTvStatus('')
   }
   // Segundo en que va el video (para seguir desde ahí al cambiar la calidad)
-  const timeRef = useRef(0)
-  const [startAt, setStartAt] = useState(0)
+  const timeRef = useRef(startTime)
+  const [startAt, setStartAt] = useState(Math.floor(startTime))
   const chooseQuality = (q: string) => {
     setQualityOpen(false)
     if (q === quality) return
@@ -147,7 +151,7 @@ export default function YoutubePlayer({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onClose(timeRef.current)
     },
     [onClose]
   )
@@ -246,7 +250,7 @@ export default function YoutubePlayer({
     <div
       className="fixed inset-0 z-[100] flex flex-col bg-black/95 backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) onClose(timeRef.current)
       }}
     >
       <div className="flex items-center justify-between px-4 py-3 bg-obsidian border-b border-white/10 shrink-0">
@@ -300,7 +304,7 @@ export default function YoutubePlayer({
           >
             <ExternalLink className="w-4 h-4" />
           </a>
-          <button onClick={onClose} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
+          <button onClick={() => onClose(timeRef.current)} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -326,6 +330,12 @@ export default function YoutubePlayer({
               <video
                 ref={altVideoRef}
                 key={alt.candidates[alt.index].url}
+                onLoadedMetadata={(e) => {
+                  if (timeRef.current > 1) e.currentTarget.currentTime = timeRef.current
+                }}
+                onTimeUpdate={(e) => {
+                  timeRef.current = e.currentTarget.currentTime
+                }}
                 src={alt.candidates[alt.index].url}
                 controls
                 autoPlay
