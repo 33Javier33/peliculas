@@ -57,3 +57,37 @@ export function nativePrefetch(videoId: string): boolean {
     return false
   }
 }
+
+const isArchive = (url: string) => {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && (u.hostname === 'archive.org' || u.hostname.endsWith('.archive.org'))
+  } catch {
+    return false
+  }
+}
+
+type FileBridge = CPNNativeBridge & { prefetchFile?(url: string): void }
+
+/** App de Android (1.0.14+): audio de archive.org por el teléfono (comienzo listo y ecualizador) */
+export function nativeFileUrl(url: string): string | null {
+  const n = getNative() as FileBridge | null
+  if (!n?.prefetchFile || !isArchive(url)) return null
+  try {
+    return `${n.audioBase()}/f?u=${encodeURIComponent(url)}`
+  } catch {
+    return null
+  }
+}
+
+/** App de Android: dejar lista la siguiente canción de un disco de archive.org */
+export function nativePrefetchFile(url: string): boolean {
+  const n = getNative() as FileBridge | null
+  if (!n?.prefetchFile || !isArchive(url)) return false
+  try {
+    n.prefetchFile(url)
+    return true
+  } catch {
+    return false
+  }
+}

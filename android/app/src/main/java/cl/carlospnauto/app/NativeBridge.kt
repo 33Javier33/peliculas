@@ -41,4 +41,8 @@ class NativeBridge(private val context: Context) {
     /** Preparar la siguiente canción (buscar su audio y descargar el comienzo) */
     @JavascriptInterface
     fun prefetch(id: String) = AudioServer.prefetch(id)
+
+    /** Preparar la siguiente canción de un disco de archive.org */
+    @JavascriptInterface
+    fun prefetchFile(url: String) = AudioServer.prefetchFile(url)
 }

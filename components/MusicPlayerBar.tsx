@@ -2,7 +2,7 @@
 
 import { useShallow } from 'zustand/react/shallow'
 import dynamic from 'next/dynamic'
-import { useRef, useCallback, useEffect, useState } from 'react'
+import { useRef, useCallback, useEffect, useState, useMemo } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import { usePathname, useRouter } from 'next/navigation'
@@ -35,7 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, nativePrefetchFile } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useEqStore } from '@/store/eqStore'
@@ -332,10 +332,21 @@ export default function MusicPlayerBar() {
   // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
   const isLocalFile = isLocalTrack(currentId)
   // Archivo de audio desde un enlace (MP3, M4A…): también por <audio>, suena bloqueado
-  // Si el MP3 no carga directo (servidor que lo bloquea o tarda), se reintenta por el intermediario
-  const [remoteRetry, setRemoteRetry] = useState<{ id: string; url: string } | null>(null)
-  const remoteFileUrl =
-    currentVideo?.audioUrl && remoteRetry?.id === currentId ? remoteRetry.url : currentVideo?.audioUrl
+  // Fuentes de un archivo, en orden: por la app de Android (archive.org: comienzo listo y
+  // ecualizador), directo, y por el servidor de la app (si el sitio lo bloquea o tarda)
+  const remoteCandidates = useMemo(() => {
+    const direct = currentVideo?.audioUrl
+    if (!direct) return [] as string[]
+    const list: string[] = []
+    const viaPhone = nativeFileUrl(direct)
+    if (viaPhone) list.push(viaPhone)
+    list.push(direct)
+    if (/^https?:\/\//.test(direct)) list.push(`/api/link-audio?u=${encodeURIComponent(direct)}`)
+    return list
+  }, [currentVideo?.audioUrl])
+  const [remoteAttempt, setRemoteAttempt] = useState<{ id: string; n: number } | null>(null)
+  const remoteIndex = remoteAttempt?.id === currentId ? remoteAttempt.n : 0
+  const remoteFileUrl = remoteCandidates[remoteIndex] ?? currentVideo?.audioUrl
   const isLocal = isLocalFile || !!remoteFileUrl
   const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
   useEffect(() => {
@@ -580,6 +591,7 @@ export default function MusicPlayerBar() {
     const timer = setTimeout(async () => {
       let url = fileUrl
       // App de Android: el teléfono deja el comienzo de la siguiente canción en memoria
+      if (url && nativePrefetchFile(url)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {
         const list = await loadAudioCandidates(id).catch(() => [] as AudioCandidate[])
@@ -637,15 +649,15 @@ export default function MusicPlayerBar() {
   }, [currentVideo?.streamUrl])
 
   const handleAudioError = useCallback(() => {
-    // La app de Android no dejó pasar su audio por el ecualizador: se sigue sin él
-    if (eqActive && isNativeSrc) {
+    // La app de Android no dejó pasar su audio de YouTube por el ecualizador: se sigue sin él
+    if (eqActive && isNativeSrc && !currentVideo?.audioUrl) {
       pendingSeekRef.current = useMusicStore.getState().played
       return setEqNativeBlocked(true)
     }
-    const direct = currentVideo?.audioUrl
-    if (direct && currentId && remoteRetry?.id !== currentId && /^https?:\/\//.test(direct)) {
+    // Archivo: se prueba la fuente siguiente (por el teléfono → directo → por el servidor)
+    if (currentVideo?.audioUrl && currentId && remoteIndex + 1 < remoteCandidates.length) {
       pendingSeekRef.current = useMusicStore.getState().played
-      return setRemoteRetry({ id: currentId, url: `/api/link-audio?u=${encodeURIComponent(direct)}` })
+      return setRemoteAttempt({ id: currentId, n: remoteIndex + 1 })
     }
     if (isLocal && currentId) return skipUnplayable(currentId)
     if (isLive && currentId) {
@@ -677,7 +689,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteRetry, currentVideo?.audioUrl, eqActive, isNativeSrc])
+  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteIndex, remoteCandidates, currentVideo?.audioUrl, eqActive, isNativeSrc])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())

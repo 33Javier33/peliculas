@@ -51,6 +51,18 @@ object AudioServer {
     private fun handle(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response {
         val path = session.uri
         if (path == "/health") return cors(NanoHTTPD.newFixedLengthResponse("ok"))
+        // Archivos de audio de archive.org: pasan por aquí para salir rápido (comienzo ya
+        // descargado) y con permiso para el ecualizador
+        if (path == "/f") {
+            val u = session.parameters["u"]?.firstOrNull() ?: ""
+            if (!fileAllowed(u)) return cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.FORBIDDEN, "text/plain", "no"))
+            return try {
+                streamFile(u, session.headers["range"])
+            } catch (e: Exception) {
+                Log.w(TAG, "Sin archivo $u: ${e.message}")
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
+            }
+        }
         val m = Regex("^/yt/([A-Za-z0-9_-]{11})$").find(path)
             ?: return cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "no"))
         val id = m.groupValues[1]
@@ -125,6 +137,72 @@ object AudioServer {
         }.start()
     }
 
+    fun fileAllowed(u: String): Boolean = runCatching {
+        val url = URL(u)
+        url.protocol == "https" && (url.host == "archive.org" || url.host.endsWith(".archive.org"))
+    }.getOrDefault(false)
+
+    private fun openRange(url: String, start: Long, end: Long, ua: String = OkDownloader.USER_AGENT): HttpURLConnection =
+        (URL(url).openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", ua)
+            setRequestProperty("Range", "bytes=$start-$end")
+            connectTimeout = 15000
+            readTimeout = 30000
+        }
+
+    /** Dejar listo el comienzo de un archivo (la siguiente canción de un disco de archive.org) */
+    fun prefetchFile(u: String) {
+        if (!fileAllowed(u)) return
+        val key = "u:$u"
+        val hit = heads[key]
+        if (hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000) return
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            runCatching {
+                val conn = openRange(u, 0, HEAD_BYTES - 1)
+                if (conn.responseCode == 200 || conn.responseCode == 206) {
+                    val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
+                        ?: conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+                    val mime = conn.contentType ?: "audio/mpeg"
+                    val bytes = conn.inputStream.use { it.readNBytesCompat(HEAD_BYTES.toInt()) }
+                    if (heads.size >= 4) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) }
+                    heads[key] = Head(bytes, total, mime, System.currentTimeMillis())
+                }
+                conn.disconnect()
+            }.onFailure { Log.w(TAG, "No se pudo preparar $u: ${it.message}") }
+        }.start()
+    }
+
+    private fun serveHead(head: Head, start: Long, reqEnd: Long?): NanoHTTPD.Response {
+        val last = minOf(reqEnd ?: Long.MAX_VALUE, head.bytes.size.toLong() - 1)
+        val slice = head.bytes.copyOfRange(start.toInt(), (last + 1).toInt())
+        val res = NanoHTTPD.newFixedLengthResponse(
+            NanoHTTPD.Response.Status.PARTIAL_CONTENT, head.mime, java.io.ByteArrayInputStream(slice), slice.size.toLong()
+        )
+        res.addHeader("Content-Range", "bytes $start-$last/${head.total}")
+        return cors(res)
+    }
+
+    private fun streamFile(u: String, rangeHeader: String?): NanoHTTPD.Response {
+        val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
+        val head = heads["u:$u"]
+        if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
+        val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
+        val conn = openRange(u, start, end)
+        val code = conn.responseCode
+        if (code != 200 && code != 206) {
+            conn.disconnect()
+            throw IllegalStateException("archive.org respondió $code")
+        }
+        val length = conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+        val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
+        val res = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.PARTIAL_CONTENT, conn.contentType ?: "audio/mpeg", conn.inputStream, length)
+        if (length >= 0) res.addHeader("Content-Range", "bytes $start-${start + length - 1}/${total ?: "*"}")
+        return cors(res)
+    }
+
     private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(16 * 1024)
@@ -143,15 +221,7 @@ object AudioServer {
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
         val head = heads[id]
-        if (head != null && start < head.bytes.size && head.total > 0) {
-            val last = minOf(reqEnd ?: Long.MAX_VALUE, head.bytes.size.toLong() - 1)
-            val slice = head.bytes.copyOfRange(start.toInt(), (last + 1).toInt())
-            val res = NanoHTTPD.newFixedLengthResponse(
-                NanoHTTPD.Response.Status.PARTIAL_CONTENT, head.mime, java.io.ByteArrayInputStream(slice), slice.size.toLong()
-            )
-            res.addHeader("Content-Range", "bytes $start-$last/${head.total}")
-            return cors(res)
-        }
+        if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
         val r = resolve(id, fresh = !retry)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)

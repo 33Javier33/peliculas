@@ -87,13 +87,14 @@ export function resumeEqualizer() {
 }
 
 /** ¿Esta dirección se puede pasar por el ecualizador sin quedar en silencio? (mismo sitio,
- * archivos del teléfono o el servidor local de la app de Android) */
+ * archivos del teléfono, el servidor local de la app de Android o archive.org) */
 export function eqSafeUrl(url: string | undefined): boolean {
   if (!url) return false
   if (url.startsWith('/') || url.startsWith('blob:')) return true
   try {
     const u = new URL(url, window.location.href)
-    return u.origin === window.location.origin || u.hostname === '127.0.0.1'
+    // archive.org da permiso (CORS) a sus audios: se pueden ecualizar directo
+    return u.origin === window.location.origin || u.hostname === '127.0.0.1' || u.hostname === 'archive.org' || u.hostname.endsWith('.archive.org')
   } catch {
     return false
   }

@@ -38,7 +38,7 @@ export default function EqualizerSheet() {
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           {applies
             ? 'Se aplica a la canción que suena ahora.'
-            : 'Se aplica a las canciones de la app de Android y a tu música del teléfono. Esta canción se escucha sin ecualizar (radios, discos de archive.org y YouTube en el navegador).'}
+            : 'Se aplica a los discos de archive.org, a tu música del teléfono y a las canciones de la app de Android. Esta canción se escucha sin ecualizar (radios, YouTube en el navegador u otros sitios).'}
         </p>
 
         {/* Preajustes */}
