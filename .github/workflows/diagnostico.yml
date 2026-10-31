@@ -1,5 +1,8 @@
 name: Diagnóstico temporal (archive.org)
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
   workflow_dispatch:
     inputs:
       item:
@@ -11,7 +14,7 @@ jobs:
     steps:
       - name: Metadatos y descarga de prueba
         env:
-          ITEM: ${{ inputs.item }}
+          ITEM: ${{ inputs.item || 'black-album' }}
         run: |
           curl -s "https://archive.org/metadata/$ITEM" > meta.json
           python3 - <<'PY'
