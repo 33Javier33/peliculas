@@ -1,0 +1,28 @@
+name: Diagnóstico temporal (página en vivo)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir t && cd t && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright')
+          ;(async () => {
+            const b = await chromium.launch()
+            for (const path of ['/', '/app-android', '/music', '/music/library']) {
+              const p = await b.newPage({ viewport: { width: 400, height: 800 } })
+              p.on('pageerror', (e) => console.log(path, 'PAGEERROR', e.message))
+              await p.goto('https://peliculas-neon.vercel.app' + path, { waitUntil: 'networkidle' })
+              await p.waitForTimeout(3000)
+              const t = await p.locator('body').innerText()
+              console.log(path, t.includes('Application error') ? 'CRASH' : 'OK', (t.match(/v\d+\.\d+\.\d+/) || [''])[0])
+              await p.close()
+            }
+            await b.close()
+          })()
+          JS
+          node t.js
