@@ -45,7 +45,7 @@ function isPrivate(ip: string): boolean {
 }
 
 /** Solo direcciones públicas de internet (no la red interna del servidor) */
-async function assertPublic(raw: string): Promise<URL> {
+export async function assertPublic(raw: string): Promise<URL> {
   const u = new URL(raw)
   if (!/^https?:$/.test(u.protocol)) throw new Error('Solo enlaces http o https')
   if (/^(localhost|.*\.local|.*\.internal)$/i.test(u.hostname) && process.env.AUDIO_LINK_ALLOW_PRIVATE !== '1') throw new Error('Dirección no permitida')
@@ -182,7 +182,10 @@ async function readArchive(id: string, source: string): Promise<LinkAlbum[]> {
   if (!res.ok) throw new Error(`Internet Archive respondió ${res.status}`)
   const data = (await res.json()) as { metadata?: Record<string, unknown>; files?: ArchiveFile[] }
   const meta = data.metadata ?? {}
-  const files = data.files ?? []
+  // Archivos privados (o un disco solo para préstamo) no se pueden escuchar fuera de archive.org
+  const files = (data.files ?? []).filter((f) => String((f as { private?: unknown }).private) !== 'true')
+  if (String(meta['access-restricted-item']) === 'true' || (data.files?.length && !files.some((f) => formatRank(f) >= 0)))
+    throw new Error('Este disco de Internet Archive está restringido: solo se puede escuchar en archive.org')
   if (!files.length) throw new Error('Ese enlace de Internet Archive no tiene archivos')
 
   // Cada canción una sola vez, en su mejor formato (los derivados apuntan a su original)
@@ -252,8 +255,9 @@ export async function archiveSummary(id: string): Promise<ArchiveSummary> {
   })
   if (!res.ok) throw new Error(`Internet Archive respondió ${res.status}`)
   const data = (await res.json()) as { metadata?: Record<string, unknown>; files?: ArchiveFile[] }
-  const files = data.files ?? []
   const meta = data.metadata ?? {}
+  const restricted = String(meta['access-restricted-item']) === 'true'
+  const files = restricted ? [] : (data.files ?? []).filter((f) => String((f as { private?: unknown }).private) !== 'true')
   const songs = new Set<string>()
   for (const f of files) if (formatRank(f) >= 0) songs.add((f.source === 'derivative' && f.original) || f.name)
   const images = files.filter((f) => /\.(jpe?g|png|webp)$/i.test(f.name) && !/thumb|_itemimage|spectrogram/i.test(f.name))

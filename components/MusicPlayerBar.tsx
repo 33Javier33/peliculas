@@ -327,7 +327,10 @@ export default function MusicPlayerBar() {
   // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
   const isLocalFile = isLocalTrack(currentId)
   // Archivo de audio desde un enlace (MP3, M4A…): también por <audio>, suena bloqueado
-  const remoteFileUrl = currentVideo?.audioUrl
+  // Si el MP3 no carga directo (servidor que lo bloquea o tarda), se reintenta por el intermediario
+  const [remoteRetry, setRemoteRetry] = useState<{ id: string; url: string } | null>(null)
+  const remoteFileUrl =
+    currentVideo?.audioUrl && remoteRetry?.id === currentId ? remoteRetry.url : currentVideo?.audioUrl
   const isLocal = isLocalFile || !!remoteFileUrl
   const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
   useEffect(() => {
@@ -576,6 +579,11 @@ export default function MusicPlayerBar() {
   }, [currentVideo?.streamUrl])
 
   const handleAudioError = useCallback(() => {
+    const direct = currentVideo?.audioUrl
+    if (direct && currentId && remoteRetry?.id !== currentId && /^https?:\/\//.test(direct)) {
+      pendingSeekRef.current = useMusicStore.getState().played
+      return setRemoteRetry({ id: currentId, url: `/api/link-audio?u=${encodeURIComponent(direct)}` })
+    }
     if (isLocal && currentId) return skipUnplayable(currentId)
     if (isLive && currentId) {
       if (liveStartedRef.current) return reconnectLive()
@@ -606,7 +614,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive])
+  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteRetry, currentVideo?.audioUrl])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
