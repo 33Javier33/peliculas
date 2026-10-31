@@ -69,6 +69,18 @@ export function updateEqualizer(el: HTMLMediaElement, gains: number[], leveler: 
   c.out.gain.setTargetAtTime(Math.pow(10, -boost / 2 / 20), t, 0.05)
 }
 
+/** Cerrar el sistema de audio (al cambiar de parlante o audífonos: el nuevo sale por el actual) */
+export function resetEqualizer() {
+  const old = ctx
+  ctx = null
+  old?.close().catch(() => {})
+}
+
+/** ¿El sistema de audio quedó detenido (p. ej. tras cambiar la salida de sonido)? */
+export function equalizerStalled(): boolean {
+  return !!ctx && ctx.state !== 'running'
+}
+
 /** El navegador pausa el sistema de audio hasta que se toca la pantalla: se reanuda al sonar */
 export function resumeEqualizer() {
   if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {})

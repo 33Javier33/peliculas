@@ -39,7 +39,7 @@ import { nativeAudioUrl, reportMediaState, isNativeApp } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useEqStore } from '@/store/eqStore'
-import { attachEqualizer, updateEqualizer, resumeEqualizer, eqSafeUrl } from '@/lib/equalizer'
+import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -419,6 +419,8 @@ export default function MusicPlayerBar() {
   const eqSafe =
     useAudio && !isLive && !!audioUrl && (isLocal || (isNativeSrc ? !eqNativeBlocked : eqSafeUrl(audioUrl)))
   const eqActive = eqEnabled && eqSafe
+  // Al cambiar la salida de sonido (audífonos ↔ parlante Bluetooth) se arma un <audio> nuevo
+  const [eqEpoch, setEqEpoch] = useState(0)
   useEffect(() => useEqStore.getState().setApplies(eqSafe), [eqSafe])
 
   // Canción que no se puede reproducir: se salta para que la música siga fluida
@@ -759,6 +761,45 @@ export default function MusicPlayerBar() {
     : false
   const hasResumedRef = useRef(false)
 
+  // ===== Cambio de salida de sonido (Bluetooth, audífonos, parlante del teléfono) =====
+  // El ecualizador queda unido a la salida que había al empezar: al cambiarla seguía avanzando en
+  // silencio. Se rearma (mismo segundo) y, sin ecualizador, se le da un "empujón" al audio.
+  const eqActiveNowRef = useRef(eqActive)
+  eqActiveNowRef.current = eqActive
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onRouteChange = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        const st = useMusicStore.getState()
+        const el = playerRef.current as unknown as HTMLMediaElement | null
+        if (!useAudioRef.current || !el) return
+        if (eqActiveNowRef.current) {
+          pendingSeekRef.current = st.played
+          resetEqualizer()
+          setEqEpoch((n) => n + 1)
+        } else if (st.isPlaying && !el.paused) {
+          el.pause()
+          el.play().catch(() => {})
+        }
+      }, 700)
+    }
+    window.addEventListener('cpn-audio-route', onRouteChange)
+    navigator.mediaDevices?.addEventListener?.('devicechange', onRouteChange)
+    // Vigilante: sonando con el ecualizador detenido (otra salida, llamada) → se reanuda o rearma
+    const watch = setInterval(() => {
+      if (!eqActiveNowRef.current || !useMusicStore.getState().isPlaying || !equalizerStalled()) return
+      resumeEqualizer()
+      setTimeout(() => equalizerStalled() && onRouteChange(), 1000)
+    }, 3000)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(watch)
+      window.removeEventListener('cpn-audio-route', onRouteChange)
+      navigator.mediaDevices?.removeEventListener?.('devicechange', onRouteChange)
+    }
+  }, [])
+
   // Al prender o apagar el ecualizador se cambia de <audio>: sigue en el mismo segundo
   const eqActiveRef = useRef(eqActive)
   useEffect(() => {
@@ -769,7 +810,7 @@ export default function MusicPlayerBar() {
     const el = playerRef.current as unknown as HTMLMediaElement | null
     if (!eqActive || !el) return
     if (attachEqualizer(el)) updateEqualizer(el, eqGains, eqLeveler, true)
-  }, [eqActive, eqGains, eqLeveler, audioUrl])
+  }, [eqActive, eqGains, eqLeveler, audioUrl, eqEpoch])
 
   useEffect(() => {
     const el = playerRef.current
@@ -786,12 +827,12 @@ export default function MusicPlayerBar() {
     } else if (!isPlaying && !el.paused) {
       el.pause()
     }
-  }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked, eqActive])
+  }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked, eqActive, eqEpoch])
 
   useEffect(() => {
     const el = playerRef.current
     if (useAudio && el) el.volume = isMuted ? 0 : volume
-  }, [useAudio, audioUrl, volume, isMuted, eqActive])
+  }, [useAudio, audioUrl, volume, isMuted, eqActive, eqEpoch])
 
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
@@ -1265,6 +1306,7 @@ export default function MusicPlayerBar() {
       else if (a === 'pause') st.setIsPlaying(false)
       else if (a === 'next') st.playNext()
       else if (a === 'prev') st.playPrev()
+      else if (a === 'route') window.dispatchEvent(new Event('cpn-audio-route'))
     }
   }, [])
 
@@ -1540,7 +1582,7 @@ export default function MusicPlayerBar() {
                   )}
                 </div>
                 <audio
-                  key={eqActive ? 'eq' : 'plain'}
+                  key={eqActive ? `eq-${eqEpoch}` : 'plain'}
                   ref={playerRef as unknown as React.Ref<HTMLAudioElement>}
                   crossOrigin={eqActive ? 'anonymous' : undefined}
                   src={audioUrl}

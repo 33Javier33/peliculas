@@ -4,6 +4,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
 import android.content.res.Configuration
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -154,6 +157,21 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // Cambio de salida de sonido (parlante Bluetooth, audífonos): la web rearma su audio para que
+        // siga sonando por la salida nueva (si no, avanzaba en silencio)
+        val registeredAt = System.currentTimeMillis()
+        val callback = object : AudioDeviceCallback() {
+            private fun changed(devices: Array<out AudioDeviceInfo>) {
+                // Al registrarse Android informa los dispositivos actuales: eso no es un cambio
+                if (System.currentTimeMillis() - registeredAt < 2000) return
+                if (devices.any { it.isSink }) sendAction("route")
+            }
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = changed(addedDevices)
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = changed(removedDevices)
+        }
+        audioCallback = callback
+        getSystemService(AudioManager::class.java).registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
+
         requestStartupPermissions()
         val start = intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: BuildConfig.WEB_URL
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(start)
@@ -207,7 +225,10 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.requestApplyInsets(root)
     }
 
+    private var audioCallback: AudioDeviceCallback? = null
+
     override fun onDestroy() {
+        audioCallback?.let { getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(it) }
         if (current?.get() === this) current = null
         web.destroy()
         super.onDestroy()
