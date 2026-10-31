@@ -1,0 +1,30 @@
+name: Diagnóstico temporal (archive.org)
+on:
+  workflow_dispatch:
+    inputs:
+      item:
+        description: Identificador de archive.org
+        default: black-album
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Metadatos y descarga de prueba
+        env:
+          ITEM: ${{ inputs.item }}
+        run: |
+          curl -s "https://archive.org/metadata/$ITEM" > meta.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('meta.json'))
+          m = d.get('metadata', {})
+          print('title:', m.get('title'), '| collection:', m.get('collection'), '| restricted:', m.get('access-restricted-item'))
+          print('is_dark:', d.get('is_dark'), '| server:', d.get('server'), '| dir:', d.get('dir'))
+          for f in d.get('files', [])[:40]:
+              print(f.get('name'), '|', f.get('format'), '|', f.get('source'), '| private:', f.get('private'), '| size:', f.get('size'))
+          PY
+          NAME=$(python3 -c "import json,urllib.parse;d=json.load(open('meta.json'));fs=[f['name'] for f in d.get('files',[]) if f['name'].lower().endswith(('.mp3','.flac','.ogg'))];print(urllib.parse.quote(fs[0]) if fs else '')")
+          echo "--- prueba de descarga: $NAME"
+          curl -s -o /dev/null -D - -r 0-999 "https://archive.org/download/$ITEM/$NAME" | head -20
+          echo "--- con Origin (como la app)"
+          curl -s -o /dev/null -D - -r 0-999 -H "Origin: https://peliculas-neon.vercel.app" -L "https://archive.org/download/$ITEM/$NAME" | grep -iE "^HTTP|access-control|content-type|location" | head -20
