@@ -6,6 +6,7 @@ import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
+import { trackShareUrl } from '@/lib/share'
 import {
   ChevronDown,
   ListMusic,
@@ -135,9 +136,9 @@ export default function NowPlayingSheet({
   useEffect(() => {
     if (!open) setMenuOpen(false)
   }, [open])
-  // Enlace a la propia app (/play/ID): quien lo abra la escucha aquí, no en YouTube
+  // Enlace a la propia app: quien lo abra la escucha aquí (YouTube, discos de archive.org y MP3)
   const handleShare = async () => {
-    const url = `${window.location.origin}/play/${video.id}`
+    const url = await trackShareUrl(video)
     const text = `Escucha "${songTitle}"${artist ? ` de ${artist}` : ''} en Carlos P. Nauto Interactive`
     try {
       if (navigator.share) {

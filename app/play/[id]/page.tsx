@@ -25,6 +25,17 @@ export async function generateMetadata({ params }: PlayPageProps): Promise<Metad
 }
 
 export default async function PlayPage({ params }: PlayPageProps) {
+  // Enlaces antiguos de canciones de discos o MP3 (/play/link-…): no traían la canción
+  if (params.id.startsWith('link-'))
+    return (
+      <div className="pt-32 min-h-screen text-center px-6">
+        <p className="text-white text-lg font-semibold">Este enlace es de una versión anterior de la app</p>
+        <p className="text-slate-400 text-sm mt-2">Pide que te compartan la canción de nuevo: ahora el enlace la abre directo.</p>
+        <a href="/music" className="inline-block mt-6 text-violet-300 underline">
+          Ir a Música
+        </a>
+      </div>
+    )
   if (!isYouTubeId(params.id)) notFound()
   const video = await getSharedVideo(params.id)
   return <SharedTrackClient video={video} />

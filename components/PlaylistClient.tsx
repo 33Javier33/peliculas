@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Play, Shuffle, Pencil, Trash2, ArrowUp, ArrowDown, X, ListMusic, Check } from 'lucide-react'
+import { Play, Shuffle, Pencil, Trash2, ArrowUp, ArrowDown, X, ListMusic, Check, Share2 } from 'lucide-react'
+import { playlistShareUrl, shareLink } from '@/lib/share'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
 import PlaylistCover from '@/components/PlaylistCover'
@@ -22,6 +23,7 @@ export default function PlaylistClient({ id }: { id: string }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   if (!mounted) return <div className="pt-20 min-h-screen bg-obsidian" />
   if (!playlist)
@@ -98,6 +100,21 @@ export default function PlaylistClient({ id }: { id: string }) {
               </button>
               <button onClick={() => play(0, true)} disabled={!tracks.length} className="inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm disabled:opacity-50">
                 <Shuffle className="w-4 h-4" /> Aleatorio
+              </button>
+              <button
+                onClick={async () => {
+                  const url = await playlistShareUrl(playlist.name, tracks)
+                  const r = await shareLink(playlist.name, `Escucha mi playlist "${playlist.name}" (${tracks.length} canciones) en Carlos P. Nauto Interactive`, url)
+                  if (r === 'copied') {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }
+                }}
+                disabled={!tracks.length}
+                className="h-10 px-4 rounded-full bg-surface-1 border border-white/10 text-slate-200 flex items-center justify-center gap-1.5 text-sm disabled:opacity-50"
+                aria-label="Compartir la playlist"
+              >
+                <Share2 className="w-4 h-4" /> {copied ? 'Enlace copiado' : 'Compartir'}
               </button>
               <button
                 onClick={() => {

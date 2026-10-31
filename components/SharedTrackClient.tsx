@@ -4,7 +4,8 @@ import { useShallow } from 'zustand/react/shallow'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Play, Plus, Music2 } from 'lucide-react'
+import { Play, Plus, Music2, ListPlus } from 'lucide-react'
+import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
 
@@ -63,6 +64,13 @@ export default function SharedTrackClient({ video }: { video: MusicVideo }) {
             <Plus className="w-5 h-5" /> Añadir a mi cola
           </button>
         )}
+
+        <button
+          onClick={() => usePlaylistStore.getState().openAdd([video])}
+          className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 text-slate-200 font-semibold font-display py-3.5 rounded-full"
+        >
+          <ListPlus className="w-5 h-5" /> Agregar a mis playlists
+        </button>
 
         <Link
           href="/music"

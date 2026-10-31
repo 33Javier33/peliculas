@@ -37,6 +37,7 @@ import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
 import { nativeAudioUrl, reportMediaState, isNativeApp } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
+import { trackShareUrl } from '@/lib/share'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -1191,8 +1192,8 @@ export default function MusicPlayerBar() {
   const shareCurrent = useCallback(async () => {
     const v = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]
     if (!v) return
-    const url = `${window.location.origin}/play/${v.id}`
-    const text = `Mira "${v.title}" en Carlos P. Nauto Interactive`
+    const url = await trackShareUrl(v)
+    const text = `Escucha "${v.title}" en Carlos P. Nauto Interactive`
     try {
       if (navigator.share) await navigator.share({ title: v.title, text, url })
       else {
