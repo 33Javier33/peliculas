@@ -67,6 +67,23 @@ jobs:
       - name: Nombre del archivo
         run: cp android/app/build/outputs/apk/release/app-release.apk CarlosPNauto.apk
 
+      # Versión publicada y qué trae: la página avisa a quien tenga una versión anterior
+      - name: Datos de la versión
+        env:
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          python3 - <<'PY'
+          import json, os, datetime
+          notes = (os.environ.get('NOTES') or '').split('\n')[0].replace('APK: ', '').strip()
+          json.dump({
+            'version': '1.0.' + os.environ['GITHUB_RUN_NUMBER'],
+            'build': int(os.environ['GITHUB_RUN_NUMBER']),
+            'notes': notes,
+            'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
+          }, open('version.json', 'w'), ensure_ascii=False)
+          PY
+          cat version.json
+
       - name: Publicar en "android-latest"
         uses: softprops/action-gh-release@v2
         with:
@@ -75,7 +92,9 @@ jobs:
           body: |
             Descarga **CarlosPNauto.apk** e instálalo (Android te pedirá permitir "instalar apps desconocidas").
             Compilación ${{ github.run_number }} · ${{ github.sha }}
-          files: CarlosPNauto.apk
+          files: |
+            CarlosPNauto.apk
+            version.json
           make_latest: true
 
       - uses: actions/upload-artifact@v4

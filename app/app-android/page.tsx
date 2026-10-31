@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { Download, ShieldCheck, Smartphone } from 'lucide-react'
+import { Download, ShieldCheck, Smartphone, RefreshCw } from 'lucide-react'
+import ApkVersionInfo from '@/components/ApkVersionInfo'
 
 export const metadata: Metadata = { title: 'App para Android', robots: { index: false } }
 
@@ -14,6 +15,8 @@ export default function AndroidAppPage() {
         <p className="text-slate-400 text-sm mt-2">
           La música sigue sonando con el teléfono bloqueado y en otras apps, con controles en la notificación.
         </p>
+
+        <ApkVersionInfo />
 
         <a
           href="/api/apk"
@@ -32,6 +35,31 @@ export default function AndroidAppPage() {
             de Google Play).
           </li>
           <li>Ábrela y acepta los permisos de notificaciones.</li>
+        </ol>
+
+        <h2 className="mt-10 flex items-center gap-2 text-lg font-bold text-white font-display">
+          <RefreshCw className="w-5 h-5 text-violet-300" /> Cómo actualizar la app
+        </h2>
+        <p className="text-slate-400 text-sm mt-1">
+          Cuando hay una versión nueva, la app te avisa arriba con <b>Actualizar</b>. Las mejoras de la página llegan solas; solo hay que
+          instalar un APK nuevo cuando cambia algo del teléfono (audio, notificaciones, pantalla bloqueada).
+        </p>
+        <ol className="mt-4 space-y-3 text-slate-300 text-sm list-decimal pl-5">
+          <li>
+            Toca <b>Descargar la app</b> aquí arriba (siempre es la última versión).
+          </li>
+          <li>
+            Abre el archivo descargado y toca <b>Actualizar</b> (o <b>Instalar</b>). <b>No desinstales la anterior</b>: la nueva se instala
+            encima y conservas tus canciones guardadas, playlists, artistas seguidos y discos.
+          </li>
+          <li>
+            Para ver qué versión tienes: mantén presionado el ícono de la app → <b>Información de la app</b> (abajo dice la versión), o
+            entra a esta página desde la app.
+          </li>
+          <li>
+            Si Android dice <b>&quot;conflicto con un paquete&quot;</b> (solo pasa con versiones anteriores a la 1.0.8), desinstala la vieja
+            una única vez y luego instala la nueva.
+          </li>
         </ol>
 
         <p className="mt-6 flex items-start gap-2 text-slate-500 text-xs">
