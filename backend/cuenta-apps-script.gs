@@ -8,9 +8,9 @@
 //  1. Crea un Google Sheet nuevo (p. ej. "CPN Cuentas"). Copia su ID de la dirección:
 //     https://docs.google.com/spreadsheets/d/ESTE_ES_EL_ID/edit
 //  2. En el Sheet: Extensiones → Apps Script. Borra lo que haya y pega todo este archivo.
-//  3. Configuración del proyecto (engranaje) → Propiedades de la secuencia de comandos:
-//       SHEET_ID     = el ID del paso 1
-//       CODE_SALT    = cualquier texto largo y secreto (p. ej. 40 letras al azar)
+//  3. (Opcional) Configuración del proyecto (engranaje) → Propiedades de la secuencia de comandos:
+//       SHEET_ID  = solo si el script NO se creó desde el Sheet (acepta el ID o la dirección)
+//       CODE_SALT = se crea solo; puedes poner uno propio (texto largo y secreto)
 //  4. Ejecuta la función "instalar" una vez (pide permisos: Sheets y enviar correos).
 //  5. Implementar → Nueva implementación → Tipo: Aplicación web
 //       Ejecutar como: Yo   ·   Quién tiene acceso: Cualquier persona
@@ -23,8 +23,25 @@ const CHUNK = 40000 // una celda admite hasta 50.000 caracteres
 const CODE_MINUTES = 15
 const MAX_ATTEMPTS = 5
 
+// El Sheet donde se creó este script (Extensiones → Apps Script). SHEET_ID es opcional: solo si
+// el script se creó aparte. Acepta el ID o la dirección completa del Sheet.
 function ss() {
-  return SpreadsheetApp.openById(PROPS.getProperty('SHEET_ID'))
+  const raw = String(PROPS.getProperty('SHEET_ID') || '').trim()
+  const id = (raw.match(/\/d\/([a-zA-Z0-9_-]{20,})/) || [])[1] || raw
+  if (id) return SpreadsheetApp.openById(id)
+  const active = SpreadsheetApp.getActiveSpreadsheet()
+  if (!active) throw new Error('Crea este script desde el Sheet (Extensiones → Apps Script) o agrega la propiedad SHEET_ID')
+  return active
+}
+
+// Clave para guardar los códigos cifrados: si no se configuró CODE_SALT, se crea una sola vez
+function salt() {
+  let s = PROPS.getProperty('CODE_SALT')
+  if (!s) {
+    s = Utilities.getUuid() + Utilities.getUuid()
+    PROPS.setProperty('CODE_SALT', s)
+  }
+  return s
 }
 
 function sheet(name, header) {
@@ -45,8 +62,8 @@ const sesiones = () => sheet('Sesiones', ['token', 'email', 'creado', 'ultimoUso
 const datos = () => sheet('Datos', ['email', 'parte', 'contenido', 'actualizado'])
 
 function instalar() {
-  usuarios(); codigos(); sesiones(); datos()
-  Logger.log('Listo: hojas creadas. Ahora implementa como aplicación web.')
+  usuarios(); codigos(); sesiones(); datos(); salt()
+  Logger.log('Listo: hojas creadas en "' + ss().getName() + '". Ahora implementa como aplicación web.')
 }
 
 // ══════════════ HTTP ══════════════
@@ -117,7 +134,7 @@ function requestCode(body) {
   if (prev) sh.deleteRow(prev.row)
 
   const code = String(Math.floor(100000 + Math.random() * 900000))
-  sh.appendRow([email, sha(email + ':' + code + ':' + PROPS.getProperty('CODE_SALT')), new Date().toISOString(), 0])
+  sh.appendRow([email, sha(email + ':' + code + ':' + salt()), new Date().toISOString(), 0])
 
   MailApp.sendEmail({
     to: email,
@@ -150,7 +167,7 @@ function verifyCode(body) {
     return { ok: false, error: 'El código venció. Pide uno nuevo.' }
   }
   const attempts = Number(hit.values[3]) + 1
-  if (sha(email + ':' + code + ':' + PROPS.getProperty('CODE_SALT')) !== String(hit.values[1])) {
+  if (sha(email + ':' + code + ':' + salt()) !== String(hit.values[1])) {
     if (attempts >= MAX_ATTEMPTS) {
       sh.deleteRow(hit.row)
       return { ok: false, error: 'Demasiados intentos. Pide un código nuevo.' }
