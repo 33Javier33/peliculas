@@ -568,6 +568,40 @@ export default function MusicPlayerBar() {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
 
+  // Unos segundos después de que la canción empieza a sonar se prepara la siguiente: el teléfono
+  // (o el servidor) ya busca su audio y empieza a descargarlo, así el cambio de tema es inmediato
+  const soundingId = useMusicStore((s) => s.soundingId)
+  const nextKey = nextTrack && !nextTrack.streamUrl && !nextTrack.pending ? `${nextTrack.id}|${nextTrack.audioUrl ?? ''}` : ''
+  useEffect(() => {
+    if (!nextKey || !currentId || soundingId !== currentId) return
+    const [id, fileUrl] = nextKey.split('|')
+    let warm: HTMLAudioElement | null = null
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      let url = fileUrl
+      if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {
+        const list = await loadAudioCandidates(id).catch(() => [] as AudioCandidate[])
+        url = orderCandidates(list, useMusicStore.getState().audioBoost)[0]?.url ?? ''
+      }
+      if (!url || cancelled) return
+      warm = new Audio()
+      warm.preload = 'auto'
+      warm.muted = true
+      warm.src = url
+    }, 6000)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      // Se suelta un poco después: si justo ahora pasa a sonar, su descarga ya quedó guardada
+      const w = warm
+      if (w)
+        setTimeout(() => {
+          w.removeAttribute('src')
+          w.load()
+        }, 15000)
+    }
+  }, [nextKey, currentId, soundingId])
+
   // ===== Radio en vivo: reconectar en vez de saltar =====
   // Las emisoras cortan la conexión a veces (cambio de Wi-Fi a datos, servidor que reinicia,
   // señal débil). Si la radio ya estaba sonando, se vuelve a conectar a la misma emisora;
