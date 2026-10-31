@@ -1313,7 +1313,7 @@ export default function MusicPlayerBar() {
       />
 
       {/* ===== PLAYER BAR ===== */}
-      <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none">
+      <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col">
         {(skipNotice || needsTap) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
             <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
@@ -1416,8 +1416,10 @@ export default function MusicPlayerBar() {
           </div>
         )}
 
-        {/* Scrubber bar (área táctil más alta que la barra visible) */}
-        <div className="relative h-1.5 sm:h-1 group cursor-pointer bg-white/12">
+        {/* Barra de progreso. En el teléfono va debajo del reproductor, fina y sin tocarla (como en
+            Spotify: así no se adelanta la canción al desplazar la página; se adelanta en la pantalla
+            completa). En computador va arriba y se puede arrastrar. */}
+        <div className="relative order-last sm:order-none h-0.5 sm:h-1 group sm:cursor-pointer bg-white/12">
           <div
             className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-purple-500 pointer-events-none"
             style={{ width: `${progressPercent}%` }}
@@ -1434,10 +1436,10 @@ export default function MusicPlayerBar() {
             onKeyUp={handleSeekEnd}
             disabled={isLive}
             aria-label="Progreso"
-            className="absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none disabled:hidden"
+            className="hidden sm:block absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none disabled:hidden"
           />
           <div
-            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)] pointer-events-none sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+            className="hidden sm:block absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ left: `clamp(0px, calc(${progressPercent}% - 6px), calc(100% - 12px))` }}
           />
         </div>
