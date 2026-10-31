@@ -45,3 +45,15 @@ export function reportVideoActive(active: boolean) {
     n?.videoState?.(active)
   } catch {}
 }
+
+/** App de Android: dejar lista la siguiente canción (su audio y el comienzo descargado) */
+export function nativePrefetch(videoId: string): boolean {
+  const n = getNative() as (CPNNativeBridge & { prefetch?(id: string): void }) | null
+  if (!n?.prefetch) return false
+  try {
+    n.prefetch(videoId)
+    return true
+  } catch {
+    return false
+  }
+}

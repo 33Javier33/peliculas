@@ -35,7 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useEqStore } from '@/store/eqStore'
@@ -579,6 +579,8 @@ export default function MusicPlayerBar() {
     let cancelled = false
     const timer = setTimeout(async () => {
       let url = fileUrl
+      // App de Android: el teléfono deja el comienzo de la siguiente canción en memoria
+      if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {
         const list = await loadAudioCandidates(id).catch(() => [] as AudioCandidate[])
         url = orderCandidates(list, useMusicStore.getState().audioBoost)[0]?.url ?? ''

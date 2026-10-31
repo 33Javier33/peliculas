@@ -11,6 +11,7 @@ import org.json.JSONObject
  *  - audioBase(): dirección del servidor local de audio (http://127.0.0.1:PUERTO)
  *  - mediaState(json): qué suena y si está sonando → notificación y controles de pantalla bloqueada
  *  - videoState(active): hay un video sonando → al salir de la app sigue en una ventana flotante
+ *  - prefetch(id): dejar lista la siguiente canción
  */
 class NativeBridge(private val context: Context) {
     @JavascriptInterface
@@ -36,4 +37,8 @@ class NativeBridge(private val context: Context) {
 
     @JavascriptInterface
     fun videoState(active: Boolean) = MainActivity.setVideoActive(active)
+
+    /** Preparar la siguiente canción (buscar su audio y descargar el comienzo) */
+    @JavascriptInterface
+    fun prefetch(id: String) = AudioServer.prefetch(id)
 }

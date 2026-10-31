@@ -91,11 +91,69 @@ object AudioServer {
         return r
     }
 
+    // ===== Siguiente canción lista de antemano =====
+    // Mientras suena una canción, la app pide preparar la siguiente: se busca su audio y se
+    // descarga el comienzo (en memoria). Al cambiar de tema empieza a sonar al instante.
+    private class Head(val bytes: ByteArray, val total: Long, val mime: String, val at: Long)
+    private val heads = ConcurrentHashMap<String, Head>()
+    private const val HEAD_BYTES = 768L * 1024
+
+    fun prefetch(id: String) {
+        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id)) return
+        val hit = heads[id]
+        if (hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000) return
+        Thread {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            runCatching {
+                val r = resolve(id)
+                val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
+                    setRequestProperty("User-Agent", r.userAgent)
+                    setRequestProperty("Range", "bytes=0-${HEAD_BYTES - 1}")
+                    connectTimeout = 15000
+                    readTimeout = 30000
+                }
+                if (conn.responseCode == 200 || conn.responseCode == 206) {
+                    val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
+                        ?: conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+                    val bytes = conn.inputStream.use { it.readNBytesCompat(HEAD_BYTES.toInt()) }
+                    // Solo las últimas canciones preparadas (poca memoria)
+                    if (heads.size >= 3) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) }
+                    heads[id] = Head(bytes, total, r.mime, System.currentTimeMillis())
+                }
+                conn.disconnect()
+            }.onFailure { Log.w(TAG, "No se pudo preparar $id: ${it.message}") }
+        }.start()
+    }
+
+    private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        while (out.size() < max) {
+            val n = read(buf, 0, minOf(buf.size, max - out.size()))
+            if (n < 0) break
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
+
     private fun stream(id: String, rangeHeader: String?, retry: Boolean): NanoHTTPD.Response {
-        val r = resolve(id, fresh = !retry)
         // Rango pedido por el reproductor (o desde el inicio), en tramos
         val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
+
+        // Comienzo ya descargado: se entrega al instante desde la memoria
+        val head = heads[id]
+        if (head != null && start < head.bytes.size && head.total > 0) {
+            val last = minOf(reqEnd ?: Long.MAX_VALUE, head.bytes.size.toLong() - 1)
+            val slice = head.bytes.copyOfRange(start.toInt(), (last + 1).toInt())
+            val res = NanoHTTPD.newFixedLengthResponse(
+                NanoHTTPD.Response.Status.PARTIAL_CONTENT, head.mime, java.io.ByteArrayInputStream(slice), slice.size.toLong()
+            )
+            res.addHeader("Content-Range", "bytes $start-$last/${head.total}")
+            return cors(res)
+        }
+
+        val r = resolve(id, fresh = !retry)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
