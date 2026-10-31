@@ -38,6 +38,8 @@ import { bestTrack } from '@/lib/track-match'
 import { nativeAudioUrl, reportMediaState, isNativeApp } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
+import { useEqStore } from '@/store/eqStore'
+import { attachEqualizer, updateEqualizer, resumeEqualizer, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -405,6 +407,20 @@ export default function MusicPlayerBar() {
       : undefined
   const isAudioLoading = useAudio && !audioUrl
 
+  // ===== Ecualizador =====
+  // Solo con fuentes que lo permiten (la app de Android, archivos, discos y MP3 de enlaces, o por
+  // el servidor de la app). Radios y YouTube en la web quedan sin ecualizador: si no, el navegador
+  // las dejaría en silencio. Al cambiar entre una y otra se usa un <audio> distinto (key).
+  const eqEnabled = useEqStore((s) => s.enabled)
+  const eqGains = useEqStore((s) => s.gains)
+  const eqLeveler = useEqStore((s) => s.leveler)
+  const [eqNativeBlocked, setEqNativeBlocked] = useState(false)
+  const isNativeSrc = !!audioUrl?.startsWith('http://127.0.0.1')
+  const eqSafe =
+    useAudio && !isLive && !!audioUrl && (isLocal || (isNativeSrc ? !eqNativeBlocked : eqSafeUrl(audioUrl)))
+  const eqActive = eqEnabled && eqSafe
+  useEffect(() => useEqStore.getState().setApplies(eqSafe), [eqSafe])
+
   // Canción que no se puede reproducir: se salta para que la música siga fluida
   const [skipNotice, setSkipNotice] = useState<string | null>(null)
   const skipUnplayable = useCallback((id: string) => {
@@ -579,6 +595,11 @@ export default function MusicPlayerBar() {
   }, [currentVideo?.streamUrl])
 
   const handleAudioError = useCallback(() => {
+    // La app de Android no dejó pasar su audio por el ecualizador: se sigue sin él
+    if (eqActive && isNativeSrc) {
+      pendingSeekRef.current = useMusicStore.getState().played
+      return setEqNativeBlocked(true)
+    }
     const direct = currentVideo?.audioUrl
     if (direct && currentId && remoteRetry?.id !== currentId && /^https?:\/\//.test(direct)) {
       pendingSeekRef.current = useMusicStore.getState().played
@@ -614,7 +635,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteRetry, currentVideo?.audioUrl])
+  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteRetry, currentVideo?.audioUrl, eqActive, isNativeSrc])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
@@ -738,9 +759,22 @@ export default function MusicPlayerBar() {
     : false
   const hasResumedRef = useRef(false)
 
+  // Al prender o apagar el ecualizador se cambia de <audio>: sigue en el mismo segundo
+  const eqActiveRef = useRef(eqActive)
+  useEffect(() => {
+    if (eqActiveRef.current !== eqActive && audioUrl) pendingSeekRef.current = useMusicStore.getState().played
+    eqActiveRef.current = eqActive
+  }, [eqActive, audioUrl])
+  useEffect(() => {
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (!eqActive || !el) return
+    if (attachEqualizer(el)) updateEqualizer(el, eqGains, eqLeveler, true)
+  }, [eqActive, eqGains, eqLeveler, audioUrl])
+
   useEffect(() => {
     const el = playerRef.current
     if (!useAudio || !el || !audioUrl) return
+    if (isPlaying && eqActive) resumeEqualizer()
     if (isPlaying && el.paused) {
       el.play()
         .then(() => {
@@ -752,12 +786,12 @@ export default function MusicPlayerBar() {
     } else if (!isPlaying && !el.paused) {
       el.pause()
     }
-  }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked])
+  }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked, eqActive])
 
   useEffect(() => {
     const el = playerRef.current
     if (useAudio && el) el.volume = isMuted ? 0 : volume
-  }, [useAudio, audioUrl, volume, isMuted])
+  }, [useAudio, audioUrl, volume, isMuted, eqActive])
 
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
@@ -1506,7 +1540,9 @@ export default function MusicPlayerBar() {
                   )}
                 </div>
                 <audio
+                  key={eqActive ? 'eq' : 'plain'}
                   ref={playerRef as unknown as React.Ref<HTMLAudioElement>}
+                  crossOrigin={eqActive ? 'anonymous' : undefined}
                   src={audioUrl}
                   preload="auto"
                   onTimeUpdate={handleTimeUpdate}

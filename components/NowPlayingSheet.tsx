@@ -6,6 +6,7 @@ import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
+import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
 import {
   ChevronDown,
@@ -24,6 +25,7 @@ import {
   Radio,
   Loader2,
   MoreVertical,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -133,6 +135,7 @@ export default function NowPlayingSheet({
 
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const eqOn = useEqStore((s) => s.enabled && s.applies)
   useEffect(() => {
     if (!open) setMenuOpen(false)
   }, [open])
@@ -407,6 +410,16 @@ export default function NowPlayingSheet({
             >
               <ListMusic className="w-4 h-4" /> Cola ({queue.length})
             </button>
+            {!isLive && (
+              <button
+                onClick={() => useEqStore.getState().setOpen(true)}
+                className={`flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${
+                  eqOn ? 'bg-violet-500/15 border-violet-400/40 text-violet-200' : 'bg-surface-1/80 border-white/8 text-slate-200'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" /> Ecualizador{eqOn ? ' · activo' : ''}
+              </button>
+            )}
           </div>
         </div>
       </div>
