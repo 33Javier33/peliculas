@@ -1,5 +1,6 @@
 'use client'
 
+import TranslatableText from '@/components/TranslatableText'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Search, Loader2, AlertCircle, X, Film, Clock, Cast } from 'lucide-react'
 import type { FreeMovie, FreeMovieRow } from '@/lib/pluto'
@@ -381,7 +382,11 @@ function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void
               <X className="w-5 h-5" />
             </button>
           </div>
-          {movie.summary && <p className="text-slate-300 text-sm leading-relaxed mt-3">{movie.summary}</p>}
+          {movie.summary && (
+            <div className="mt-3">
+              <TranslatableText text={movie.summary} className="text-slate-300 text-sm leading-relaxed" />
+            </div>
+          )}
         </div>
       </div>
     </div>

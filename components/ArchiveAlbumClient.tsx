@@ -1,5 +1,6 @@
 'use client'
 
+import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useState } from 'react'
 import { Play, Shuffle, Plus, Check, ListPlus, ExternalLink, Loader2, Disc3, AlertCircle, Share2 } from 'lucide-react'
 import { fetchAlbums, toEntries, type ApiAlbum } from '@/lib/link-albums'
@@ -126,7 +127,11 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
                 {notice && <p className="text-emerald-300 text-sm mt-2">{notice}</p>}
               </div>
             </div>
-            {first?.description && <p className="text-slate-400 text-sm leading-relaxed mb-5 line-clamp-4 whitespace-pre-line">{first.description}</p>}
+            {first?.description && (
+              <div className="mb-5">
+                <TranslatableText text={first.description} className="text-slate-400 text-sm leading-relaxed" />
+              </div>
+            )}
             <TrackTiles
               tracks={tracks}
               view={view}

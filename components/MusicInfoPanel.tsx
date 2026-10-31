@@ -1,5 +1,6 @@
 'use client'
 
+import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -36,17 +37,10 @@ function minutes(seconds: number) {
 }
 
 function WikiText({ info }: { info: WikiSummary }) {
-  const [open, setOpen] = useState(false)
-  const long = info.extract.length > 320
   return (
     <div>
-      <p className={`text-slate-300 text-sm leading-relaxed ${!open && long ? 'line-clamp-5' : ''}`}>{info.extract}</p>
+      <TranslatableText text={info.extract} className="text-slate-300 text-sm leading-relaxed" />
       <div className="flex items-center gap-4 mt-2">
-        {long && (
-          <button onClick={() => setOpen((v) => !v)} className="text-violet-300 text-sm font-semibold">
-            {open ? 'Leer menos' : 'Leer más'}
-          </button>
-        )}
         <a href={info.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs">
           Wikipedia{info.lang === 'en' ? ' (en inglés)' : ''} <ExternalLink className="w-3 h-3" />
         </a>

@@ -1,5 +1,6 @@
 'use client'
 
+import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered, ListPlus } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
@@ -248,7 +249,6 @@ function AlbumRow({
   currentId?: string
   shuffleOn: boolean
 }) {
-  const [moreInfo, setMoreInfo] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [coverFailed, setCoverFailed] = useState(false)
   const playingIndex = currentId ? items.findIndex((t) => t.id === currentId) : -1
@@ -306,9 +306,9 @@ function AlbumRow({
             </button>
           </div>
           {album.description && (
-            <button onClick={() => setMoreInfo(!moreInfo)} className={`block text-left text-slate-400 text-xs leading-relaxed mb-2 whitespace-pre-line ${moreInfo ? '' : 'line-clamp-3'}`}>
-              {album.description}
-            </button>
+            <div className="mb-2">
+              <TranslatableText text={album.description} className="text-slate-400 text-xs leading-relaxed" />
+            </div>
           )}
           <ol className="divide-y divide-white/5 max-h-80 overflow-y-auto overscroll-contain">
             {items.map((t, i) => (
