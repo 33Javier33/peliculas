@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // /api/cuenta → reenvía al Apps Script de cuentas (Google Sheet): pedir código, verificarlo,
-// cargar y guardar el respaldo. La dirección del script va en CUENTA_GAS_URL (Vercel).
+// cargar y guardar el respaldo. La dirección del script (pública) puede cambiarse con CUENTA_GAS_URL.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
+const GAS_URL =
+  process.env.CUENTA_GAS_URL ||
+  'https://script.google.com/macros/s/AKfycbyqgT_H1zaJcbMVGK_sieVFe91WsSqSDwU5VygB1SFW5DX-9AhO0DDuAWoxIfrYcGjGEw/exec'
+
 const ACTIONS = new Set(['requestCode', 'verifyCode', 'load', 'save', 'logout'])
 
 export async function POST(request: NextRequest) {
-  const url = process.env.CUENTA_GAS_URL
+  const url = GAS_URL
   if (!url) return NextResponse.json({ ok: false, error: 'not_configured' })
   const body = (await request.json().catch(() => null)) as { action?: string } | null
   if (!body?.action || !ACTIONS.has(body.action)) return NextResponse.json({ ok: false, error: 'Acción no válida' }, { status: 400 })
@@ -36,5 +40,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ configured: !!process.env.CUENTA_GAS_URL })
+  return NextResponse.json({ configured: !!GAS_URL })
 }
