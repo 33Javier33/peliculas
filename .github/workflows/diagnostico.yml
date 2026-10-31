@@ -16,7 +16,8 @@ jobs:
         env:
           ITEM: ${{ inputs.item || 'black-album' }}
         run: |
-          curl -s "https://archive.org/metadata/$ITEM" > meta.json
+          for id in black-album Black-album "Black-%C3%A1lbum"; do echo "== $id"; curl -sL -D - -o /tmp/m.json "https://archive.org/metadata/$id" | head -5; head -c 300 /tmp/m.json; echo; if python3 -c "import json;d=json.load(open('/tmp/m.json'));assert d.get('files')" 2>/dev/null; then cp /tmp/m.json meta.json; ITEM=$id; fi; done
+          test -f meta.json || exit 0
           python3 - <<'PY'
           import json
           d = json.load(open('meta.json'))
