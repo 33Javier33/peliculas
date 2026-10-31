@@ -104,6 +104,25 @@ export default function NowPlayingSheet({
   const video = queue[currentIndex]
   const { favoriteRadios, toggleFavoriteRadio } = useLiveStore()
   const [dragValue, setDragValue] = useState<number | null>(null)
+  // La barra no puede quedar "agarrada": se suelta al cambiar de canción, al cerrar y, por si el
+  // teléfono no avisó que se soltó el dedo (deslizó como scroll), a los 2 s sin moverla
+  const dragTimer = useRef<ReturnType<typeof setTimeout>>()
+  const startDrag = (v: number) => {
+    setDragValue(v)
+    clearTimeout(dragTimer.current)
+    dragTimer.current = setTimeout(() => setDragValue(null), 2000)
+  }
+  const endDrag = (v?: number) => {
+    clearTimeout(dragTimer.current)
+    setDragValue((cur) => {
+      const target = v ?? cur
+      if (target !== null && target !== undefined) onSeek(target)
+      return null
+    })
+  }
+  useEffect(() => {
+    setDragValue(null)
+  }, [video?.id, open])
   const rootRef = useRef<HTMLDivElement>(null)
 
   // Cerrado: fuera del foco y de los lectores de pantalla
@@ -121,6 +140,13 @@ export default function NowPlayingSheet({
     }
   }, [open])
 
+  const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const eqOn = useEqStore((s) => s.enabled && s.applies)
+  useEffect(() => {
+    if (!open) setMenuOpen(false)
+  }, [open])
+
   if (!video) return null
 
   const isLive = !!video.streamUrl
@@ -133,12 +159,6 @@ export default function NowPlayingSheet({
   const isLast = currentIndex >= queue.length - 1
   const source = isLive ? 'Radio en vivo' : radioEnabled && isLast ? 'Radio' : `Tu cola · ${currentIndex + 1} de ${queue.length}`
 
-  const [copied, setCopied] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const eqOn = useEqStore((s) => s.enabled && s.applies)
-  useEffect(() => {
-    if (!open) setMenuOpen(false)
-  }, [open])
   // Enlace a la propia app: quien lo abra la escucha aquí (YouTube, discos de archive.org y MP3)
   const handleShare = async () => {
     const url = await trackShareUrl(video)
@@ -299,15 +319,16 @@ export default function NowPlayingSheet({
                 max={1}
                 step={0.001}
                 value={value}
-                onChange={(e) => setDragValue(parseFloat(e.target.value))}
-                onPointerUp={(e) => {
-                  onSeek(parseFloat(e.currentTarget.value))
+                onChange={(e) => startDrag(parseFloat(e.target.value))}
+                onPointerUp={(e) => endDrag(parseFloat(e.currentTarget.value))}
+                onTouchEnd={(e) => endDrag(parseFloat(e.currentTarget.value))}
+                onLostPointerCapture={() => endDrag()}
+                onPointerCancel={() => {
+                  clearTimeout(dragTimer.current)
                   setDragValue(null)
                 }}
-                onKeyUp={(e) => {
-                  onSeek(parseFloat(e.currentTarget.value))
-                  setDragValue(null)
-                }}
+                onBlur={() => endDrag()}
+                onKeyUp={(e) => endDrag(parseFloat(e.currentTarget.value))}
                 aria-label="Progreso"
                 className="absolute inset-0 w-full opacity-0 cursor-pointer touch-none"
               />
