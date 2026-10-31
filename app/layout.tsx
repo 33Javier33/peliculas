@@ -14,6 +14,8 @@ import EqualizerSheet from '@/components/EqualizerSheet'
 import ScrollTopButton from '@/components/ScrollTopButton'
 import FocusIntoView from '@/components/FocusIntoView'
 import AppUpdateBanner from '@/components/AppUpdateBanner'
+import AccountSync from '@/components/AccountSync'
+import AccountSheet from '@/components/AccountSheet'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -91,6 +93,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ScrollTopButton />
         <FocusIntoView />
         <AppUpdateBanner />
+        <AccountSync />
+        <AccountSheet />
         <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
           <Header />
         </Suspense>

@@ -1,5 +1,6 @@
 'use client'
 
+import AccountButton from '@/components/AccountButton'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -219,6 +220,8 @@ export default function Header() {
 
           <div className="flex items-center gap-2">
             <InstallAppButton />
+            {/* Cuenta (respaldo de la biblioteca): en Biblioteca, al lado de la lupa */}
+            {pathname.startsWith('/music/library') && <AccountButton />}
             <button
               onClick={() => setIsMobileSearchOpen(true)}
               className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-surface-1 rounded-lg transition-all duration-200"
