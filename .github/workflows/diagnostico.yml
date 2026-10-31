@@ -1,4 +1,4 @@
-name: Diagnóstico temporal (página en vivo)
+name: Diagnóstico temporal (página en vivo, 2)
 on:
   push:
     branches: [main]
