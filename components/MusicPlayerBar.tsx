@@ -126,6 +126,9 @@ const STALL_MS = 15000
 const START_MS = 7000
 // Radio: más margen antes de reconectar (con señal débil el audio puede tardar en volver solo)
 const LIVE_STALL_MS = 25000
+// Archivos (archive.org, MP3, música del teléfono): una sola fuente, con datos lentos tarda más
+const FILE_START_MS = 40000
+const FILE_STALL_MS = 45000
 const RESUME_KEY = 'cpn-resume-playing'
 
 function formatTime(seconds: number): string {
@@ -648,6 +651,7 @@ export default function MusicPlayerBar() {
     if (!useAudio || !isPlaying || !currentId) return
     lastProgressRef.current = Date.now()
     let lastTime = -1
+    let lastBuffered = -1
     const timer = setInterval(() => {
       // Interrumpida por otra app (WhatsApp, llamada) o buscando la canción: no es una fuente caída
       if (interruptedAtRef.current || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.pending) {
@@ -661,15 +665,24 @@ export default function MusicPlayerBar() {
         if (lastTime >= 0) lastProgressRef.current = Date.now()
         lastTime = el.currentTime
       }
-      // Una fuente que no arranca en 7 s se cambia por la siguiente (antes se esperaban 15 s)
-      const limit = isLive ? LIVE_STALL_MS : lastTime <= 0 ? START_MS : STALL_MS
+      // Si sigue descargando (conexión lenta, p. ej. 3G), no está caída: se espera
+      if (el && !isLive && el.buffered.length) {
+        const end = el.buffered.end(el.buffered.length - 1)
+        if (end > lastBuffered + 0.05) {
+          if (lastBuffered >= 0) lastProgressRef.current = Date.now()
+          lastBuffered = end
+        }
+      }
+      // Una fuente de YouTube que no arranca en 7 s se cambia por la siguiente (hay varias). Un
+      // archivo (disco de archive.org, MP3, música del teléfono) tiene una sola: se le da más tiempo
+      const limit = isLive ? LIVE_STALL_MS : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? START_MS : STALL_MS
       if (Date.now() - lastProgressRef.current < limit) return
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()
       else markAudioFailed(currentId)
     }, 3000)
     return () => clearInterval(timer)
-  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed, isLive])
+  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed, isLive, isLocal])
 
   // Al volver la conexión (cambio de Wi-Fi a datos, túnel…) la radio se reconecta al instante
   useEffect(() => {
