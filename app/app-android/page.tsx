@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import { Download, ShieldCheck, Smartphone, RefreshCw } from 'lucide-react'
+import { ShieldCheck, Smartphone, RefreshCw } from 'lucide-react'
 import ApkVersionInfo from '@/components/ApkVersionInfo'
+import DownloadApkButton from '@/components/DownloadApkButton'
 
 export const metadata: Metadata = { title: 'App para Android', robots: { index: false } }
 
@@ -18,13 +19,7 @@ export default function AndroidAppPage() {
 
         <ApkVersionInfo />
 
-        <a
-          href="/api/apk"
-          download="CarlosPNauto.apk"
-          className="mt-6 flex items-center justify-center gap-2 w-full rounded-full bg-violet-500 text-white font-bold py-4 shadow-glow"
-        >
-          <Download className="w-5 h-5" /> Descargar la app (5 MB)
-        </a>
+        <DownloadApkButton />
 
         <ol className="mt-8 space-y-3 text-slate-300 text-sm list-decimal pl-5">
           <li>Toca <b>Descargar la app</b>. Si el navegador avisa que el archivo puede ser dañino, elige <b>Descargar de todos modos</b>.</li>
@@ -49,7 +44,8 @@ export default function AndroidAppPage() {
             Toca <b>Descargar la app</b> aquí arriba (siempre es la última versión).
           </li>
           <li>
-            Abre el archivo descargado y toca <b>Actualizar</b> (o <b>Instalar</b>). <b>No desinstales la anterior</b>: la nueva se instala
+            Dentro de la app, al terminar la descarga se abre solo el instalador (la primera vez Android pide <b>permitir instalar desde
+            esta app</b>). En el navegador, abre el archivo descargado. Toca <b>Actualizar</b> (o <b>Instalar</b>). <b>No desinstales la anterior</b>: la nueva se instala
             encima y conservas tus canciones guardadas, playlists, artistas seguidos y discos.
           </li>
           <li>

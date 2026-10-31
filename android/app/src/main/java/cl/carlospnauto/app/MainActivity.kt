@@ -17,7 +17,13 @@ import android.os.Looper
 import android.util.Rational
 import android.view.View
 import android.view.ViewGroup
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.os.Environment
 import android.webkit.GeolocationPermissions
+import android.widget.Toast
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -106,6 +112,12 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
+        // Descargas (la actualización de la app): las hace Android y al terminar abre el instalador
+        web.setDownloadListener { url, userAgent, _, mimeType, _ -> downloadUpdate(url, userAgent, mimeType) }
+        ContextCompat.registerReceiver(
+            this, downloadDone, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), ContextCompat.RECEIVER_EXPORTED
+        )
+
         web.webChromeClient = object : WebChromeClient() {
             // Pantalla completa de los videos
             override fun onShowCustomView(view: View, callback: CustomViewCallback) {
@@ -227,8 +239,55 @@ class MainActivity : AppCompatActivity() {
 
     private var audioCallback: AudioDeviceCallback? = null
 
+    // ===== Actualización de la app =====
+    private var updateDownloadId = -1L
+
+    private fun downloadUpdate(url: String, userAgent: String, mimeType: String?) {
+        val absolute = Uri.parse(BuildConfig.WEB_URL).buildUpon().build().let { base ->
+            if (url.startsWith("http")) Uri.parse(url) else Uri.parse(base.toString().trimEnd('/') + url)
+        }
+        runCatching {
+            val dm = getSystemService(DownloadManager::class.java)
+            val request = DownloadManager.Request(absolute)
+                .setTitle("Carlos P. Nauto: actualización")
+                .setDescription("Descargando la nueva versión de la app")
+                .setMimeType(mimeType?.takeIf { it.isNotBlank() } ?: "application/vnd.android.package-archive")
+                .addRequestHeader("User-Agent", userAgent)
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "CarlosPNauto-${System.currentTimeMillis()}.apk")
+            updateDownloadId = dm.enqueue(request)
+            Toast.makeText(this, "Descargando la actualización… se abrirá el instalador al terminar", Toast.LENGTH_LONG).show()
+        }.onFailure {
+            // Si no se pudo, que lo descargue el navegador
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW, absolute)) }
+        }
+    }
+
+    private val downloadDone = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+            if (id == -1L || id != updateDownloadId) return
+            val dm = getSystemService(DownloadManager::class.java)
+            val uri = dm.getUriForDownloadedFile(id) ?: run {
+                Toast.makeText(context, "No se pudo descargar la actualización", Toast.LENGTH_LONG).show()
+                return
+            }
+            // Abrir el instalador de Android (pide permitir instalar desde esta app la primera vez)
+            runCatching {
+                startActivity(
+                    Intent(Intent.ACTION_VIEW)
+                        .setDataAndType(uri, "application/vnd.android.package-archive")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }.onFailure {
+                Toast.makeText(context, "Abre la descarga desde la notificación para instalarla", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onDestroy() {
         audioCallback?.let { getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(it) }
+        runCatching { unregisterReceiver(downloadDone) }
         if (current?.get() === this) current = null
         web.destroy()
         super.onDestroy()

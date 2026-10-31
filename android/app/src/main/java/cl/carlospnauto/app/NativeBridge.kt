@@ -45,4 +45,8 @@ class NativeBridge(private val context: Context) {
     /** Preparar la siguiente canción de un disco de archive.org */
     @JavascriptInterface
     fun prefetchFile(url: String) = AudioServer.prefetchFile(url)
+
+    /** La app sabe descargar e instalar su actualización (APK 1.0.16+) */
+    @JavascriptInterface
+    fun canDownload(): Boolean = true
 }
