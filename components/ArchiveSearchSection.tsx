@@ -8,6 +8,7 @@ import { useLinksStore } from '@/store/linksStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
 import { loadArchiveInfo as loadInfo, type ArchiveInfo as Info } from '@/lib/archive-info'
 import { useView } from '@/components/ViewToggle'
+import { readSession, patchSession } from '@/lib/session-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 // Buscador de Internet Archive: discos y grabaciones para escuchar al tiro o guardar en
@@ -77,6 +78,45 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
   const [mode, setMode] = useState<Mode>(cfg.mode)
   const [artists, setArtists] = useState<Artist[] | null>(null)
   const [artist, setArtist] = useState<string | null>(null)
+
+  // Al volver atrás (p. ej. desde la página de un disco) todo queda como estaba: búsqueda,
+  // resultados, artista abierto y la posición en la página y en la lista
+  const KEY = `archive-search:${variant}`
+  const restored = useRef(false)
+  const listRef = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    const saved = readSession<{
+      q: string
+      results: Result[]
+      total: number
+      page: number
+      mode: Mode
+      artists: Artist[] | null
+      artist: string | null
+      scrollY?: number
+      listTop?: number
+    }>(KEY)
+    if (saved) {
+      setQ(saved.q)
+      setResults(saved.results)
+      setTotal(saved.total)
+      setPage(saved.page)
+      setMode(saved.mode)
+      setArtists(saved.artists)
+      setArtist(saved.artist)
+      if (saved.scrollY || saved.listTop)
+        setTimeout(() => {
+          if (saved.scrollY) window.scrollTo(0, saved.scrollY)
+          if (listRef.current && saved.listTop) listRef.current.scrollTop = saved.listTop
+        }, 80)
+    }
+    restored.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    if (restored.current) patchSession(KEY, { q, results, total, page, mode, artists, artist })
+  }, [KEY, q, results, total, page, mode, artists, artist])
+  const rememberScroll = () => patchSession(KEY, { scrollY: window.scrollY, listTop: listRef.current?.scrollTop ?? 0 })
 
   const fetchJson = async <T,>(params: string): Promise<T> => {
     const r = await fetch(`/api/archive-audio?${params}${variant === 'free' ? '&scope=free' : ''}`)
@@ -165,7 +205,7 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
   const saved = new Set(albums.map((a) => a.source))
 
   return (
-    <section className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
+    <section onClickCapture={rememberScroll} className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
       <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
         <Library className={`w-5 h-5 ${cfg.icon}`} /> {cfg.title}
       </h2>
@@ -262,7 +302,7 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
       {results.length > 0 && (mode !== 'artist' || artist || q.trim() === 'Conciertos en vivo') && (
         <>
           {!artist && <p className="text-slate-500 text-xs mt-3">{total.toLocaleString('es')} resultados</p>}
-          <ul className={`mt-2 max-h-[26rem] overflow-y-auto overscroll-contain ${view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3' : 'divide-y divide-white/5'}`}>
+          <ul ref={listRef} className={`mt-2 max-h-[26rem] overflow-y-auto overscroll-contain ${view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3' : 'divide-y divide-white/5'}`}>
             {results.map((item) => (
               <ResultRow key={item.id} grid={view === 'grid'} item={item} busy={busy[item.id]} saved={saved.has(item.url)} onPlay={() => load(item, 'play')} onAdd={() => load(item, 'add')} />
             ))}

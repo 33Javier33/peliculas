@@ -6,7 +6,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { readSession, patchSession } from '@/lib/session-cache'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -76,14 +77,34 @@ export default function MusicLibraryClient() {
   const playlists = usePlaylistStore((s) => s.playlists)
   const openAdd = usePlaylistStore((s) => s.openAdd)
   const [tab, setTab] = useState<Tab>('all')
-  // /music/library?tab=playlists abre directo las playlists
+  // Al volver atrás se ve la misma pestaña y filtro; /music/library?tab=playlists abre las playlists
+  const libRestored = useRef(false)
   useEffect(() => {
+    const saved = readSession<{ tab: Tab; artist: string | null; album: string | null; query: string; scrollY: number }>('library-view')
     if (new URLSearchParams(window.location.search).get('tab') === 'playlists') setTab('playlists')
+    else if (saved) {
+      setTab(saved.tab)
+      setSelectedArtist(saved.artist)
+      setSelectedAlbum(saved.album)
+      setQuery(saved.query)
+      if (saved.scrollY) setTimeout(() => window.scrollTo(0, saved.scrollY), 120)
+    }
+    libRestored.current = true
+    const save = () => patchSession('library-view', { scrollY: window.scrollY })
+    window.addEventListener('pagehide', save)
+    document.addEventListener('click', save, true)
+    return () => {
+      window.removeEventListener('pagehide', save)
+      document.removeEventListener('click', save, true)
+    }
   }, [])
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOrder>('recent')
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null)
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null)
+  useEffect(() => {
+    if (libRestored.current) patchSession('library-view', { tab, artist: selectedArtist, album: selectedAlbum, query })
+  }, [tab, selectedArtist, selectedAlbum, query])
 
   // Persisted state via zustand is only populated after mount on the client.
   useEffect(() => setMounted(true), [])
