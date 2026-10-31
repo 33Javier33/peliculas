@@ -6,6 +6,7 @@ import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
 import { loadArchiveInfo as loadInfo, type ArchiveInfo as Info } from '@/lib/archive-info'
+import { useView } from '@/components/ViewToggle'
 import type { MusicVideo } from '@/lib/youtube-music'
 
 // Buscador de Internet Archive: discos y grabaciones para escuchar al tiro o guardar en
@@ -60,6 +61,7 @@ const VARIANTS = {
 
 export default function ArchiveSearchSection({ variant = 'archive' }: { variant?: keyof typeof VARIANTS }) {
   const cfg = VARIANTS[variant]
+  const view = useView()
   const albums = useLinksStore((s) => s.albums)
   const addAlbum = useLinksStore((s) => s.addAlbum)
   const [q, setQ] = useState('')
@@ -259,9 +261,9 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
       {results.length > 0 && (mode !== 'artist' || artist || q.trim() === 'Conciertos en vivo') && (
         <>
           {!artist && <p className="text-slate-500 text-xs mt-3">{total.toLocaleString('es')} resultados</p>}
-          <ul className="mt-2 divide-y divide-white/5 max-h-[26rem] overflow-y-auto overscroll-contain">
+          <ul className={`mt-2 max-h-[26rem] overflow-y-auto overscroll-contain ${view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3' : 'divide-y divide-white/5'}`}>
             {results.map((item) => (
-              <ResultRow key={item.id} item={item} busy={busy[item.id]} saved={saved.has(item.url)} onPlay={() => load(item, 'play')} onAdd={() => load(item, 'add')} />
+              <ResultRow key={item.id} grid={view === 'grid'} item={item} busy={busy[item.id]} saved={saved.has(item.url)} onPlay={() => load(item, 'play')} onAdd={() => load(item, 'add')} />
             ))}
           </ul>
           {results.length < total && (
@@ -294,7 +296,21 @@ function ArtistAvatar({ src }: { src: string }) {
   )
 }
 
-function ResultRow({ item, busy, saved, onPlay, onAdd }: { item: Result; busy?: 'play' | 'add'; saved: boolean; onPlay: () => void; onAdd: () => void }) {
+function ResultRow({
+  item,
+  busy,
+  saved,
+  onPlay,
+  onAdd,
+  grid = false,
+}: {
+  item: Result
+  busy?: 'play' | 'add'
+  saved: boolean
+  onPlay: () => void
+  onAdd: () => void
+  grid?: boolean
+}) {
   const [failed, setFailed] = useState(false)
   const [info, setInfo] = useState<Info | null | undefined>(undefined)
   const ref = useRef<HTMLLIElement>(null)
@@ -320,6 +336,34 @@ function ResultRow({ item, busy, saved, onPlay, onAdd }: { item: Result; busy?: 
   const details = [item.artist, item.year || info?.year, info ? (info.tracks ? `${info.tracks} ${info.tracks === 1 ? 'canción' : 'canciones'}` : 'sin audio') : null]
     .filter(Boolean)
     .join(' · ')
+  const addIcon = busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />
+  const playIcon = busy === 'play' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />
+  if (grid)
+    return (
+      <li ref={ref} className={info && !info.tracks ? 'opacity-50' : ''}>
+        <div className={`relative aspect-square rounded-xl overflow-hidden bg-surface-2 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
+          {cover && !failed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cover} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
+          ) : info !== undefined ? (
+            <Disc3 className="w-10 h-10 text-slate-500" />
+          ) : null}
+          <button
+            onClick={onAdd}
+            disabled={!!busy || saved}
+            className={`absolute top-1.5 right-1.5 w-8 h-8 rounded-full bg-black/60 border flex items-center justify-center ${saved ? 'border-emerald-400/50 text-emerald-300' : 'border-white/20 text-white'}`}
+            aria-label={saved ? 'Guardado' : `Guardar ${item.title}`}
+          >
+            {addIcon}
+          </button>
+          <button onClick={onPlay} disabled={!!busy} className="absolute bottom-1.5 right-1.5 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-lg" aria-label={`Escuchar ${item.title}`}>
+            {playIcon}
+          </button>
+        </div>
+        <p className="text-white text-sm font-semibold leading-tight line-clamp-2 mt-2">{item.title}</p>
+        <p className="text-slate-400 text-xs truncate">{details}</p>
+      </li>
+    )
   return (
     <li ref={ref} className={`flex items-center gap-3 py-2 ${info && !info.tracks ? 'opacity-50' : ''}`}>
       <span className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-2 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
@@ -340,10 +384,10 @@ function ResultRow({ item, busy, saved, onPlay, onAdd }: { item: Result; busy?: 
         className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center ${saved ? 'border-emerald-400/40 text-emerald-300' : 'border-white/10 text-slate-200'} disabled:cursor-default`}
         aria-label={saved ? 'Guardado' : `Guardar ${item.title}`}
       >
-        {busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        {addIcon}
       </button>
       <button onClick={onPlay} disabled={!!busy} className="shrink-0 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center disabled:opacity-60" aria-label={`Escuchar ${item.title}`}>
-        {busy === 'play' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
+        {playIcon}
       </button>
     </li>
   )

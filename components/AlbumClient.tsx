@@ -4,7 +4,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle } from 'lucide-react'
+import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle, ListPlus } from 'lucide-react'
+import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
 import type { CatalogAlbumDetail } from '@/lib/catalog'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -177,6 +178,15 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
             title={allSaved ? 'Guardado en tu biblioteca' : 'Guardar en mi biblioteca'}
           >
             <Heart className={`w-5 h-5 ${allSaved ? 'fill-violet-300' : ''}`} />
+          </button>
+          <button
+            onClick={() => playable?.length && usePlaylistStore.getState().openAdd(playable)}
+            disabled={!playable?.length}
+            className={`w-12 h-12 rounded-full border bg-surface-2/80 border-white/10 text-slate-200 flex items-center justify-center ${!playable?.length ? 'opacity-50' : ''}`}
+            aria-label="Agregar el álbum a una playlist"
+            title="Agregar a playlist"
+          >
+            <ListPlus className="w-5 h-5" />
           </button>
         </div>
 

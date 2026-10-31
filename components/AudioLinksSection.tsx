@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered } from 'lucide-react'
+import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered, ListPlus } from 'lucide-react'
+import { usePlaylistStore } from '@/store/playlistStore'
+import { useView } from '@/components/ViewToggle'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore, type LinkAlbum } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -28,6 +30,7 @@ export default function AudioLinksSection() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [open, setOpen] = useState<string | null>(null)
+  const view = useView()
   // "Ir al álbum" desde el reproductor: /music/library?album=ID abre ese disco aquí
   const sectionRef = useRef<HTMLElement>(null)
   useEffect(() => {
@@ -157,7 +160,38 @@ export default function AudioLinksSection() {
       {message && <p className={`text-sm mt-2 ${message.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{message.text}</p>}
 
       {/* Discos en una fila que se desliza de lado (así la sección no se alarga); el elegido se abre abajo */}
-      {groups.length > 0 && (
+      {/* Vista Lista: los discos uno bajo otro (con altura fija, para no alargar la página) */}
+      {groups.length > 0 && view === 'list' && (
+        <ul className="mt-4 divide-y divide-white/5 max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-white/5">
+          {groups.map(({ album, items }) => {
+            const playing = !!currentId && items.some((t) => t.id === currentId)
+            return (
+              <li
+                key={album.id}
+                onClick={() => setOpen(open === album.id ? null : album.id)}
+                className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-white/5 ${open === album.id ? 'bg-violet-500/10' : ''}`}
+              >
+                <span className="w-10 h-10 rounded-lg overflow-hidden bg-surface-2 shrink-0 flex items-center justify-center">
+                  {album.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={album.cover} alt="" loading="lazy" className="w-full h-full object-cover" />
+                  ) : (
+                    <Disc3 className="w-5 h-5 text-slate-500" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-semibold truncate ${playing ? 'text-violet-300' : 'text-white'}`}>{album.title}</span>
+                  <span className="block text-slate-500 text-xs truncate">
+                    {album.artist} · {items.length} {items.length === 1 ? 'canción' : 'canciones'}
+                  </span>
+                </span>
+                {playing && <span className="text-violet-300 text-[11px] font-semibold shrink-0">Sonando</span>}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {groups.length > 0 && view === 'grid' && (
         <div className="mt-4 -mx-4 px-4 flex gap-3 overflow-x-auto snap-x scroll-px-4 [scrollbar-width:none] pb-1">
           {groups.map(({ album, items }) => (
             <AlbumCard
@@ -253,6 +287,12 @@ function AlbumRow({
         <div className="px-3 pb-3">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <ModeButtons label={album.title} shuffleOn={shuffleOn} active={!!playingTrack} onOrder={() => onPlay(0, false)} onShuffle={() => onPlay(0, true)} />
+            <button
+              onClick={() => usePlaylistStore.getState().openAdd(items)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-slate-200 text-xs"
+            >
+              <ListPlus className="w-3.5 h-3.5" /> A playlist
+            </button>
             {album.source && (
               <a href={album.source} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-slate-300 text-xs">
                 <ExternalLink className="w-3.5 h-3.5" /> Ver página

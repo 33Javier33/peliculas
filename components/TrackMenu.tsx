@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Disc3, UserRound, Library, Loader2, X } from 'lucide-react'
+import { Disc3, UserRound, Library, Loader2, X, ListPlus } from 'lucide-react'
+import { usePlaylistStore } from '@/store/playlistStore'
 import { useLinksStore } from '@/store/linksStore'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -69,6 +70,19 @@ export default function TrackMenu({
           </button>
         </div>
 
+        <button
+          className={item}
+          onClick={() => {
+            onClose()
+            usePlaylistStore.getState().openAdd([video])
+          }}
+        >
+          <ListPlus className="w-5 h-5 text-violet-300" />
+          <span className="min-w-0">
+            <span className="block font-semibold">Agregar a playlist</span>
+            <span className="block text-slate-400 text-xs truncate">Guárdala en una de tus listas</span>
+          </span>
+        </button>
         <button className={item} disabled={!albumHref} onClick={() => albumHref && go(albumHref)}>
           {loading && !linkAlbum ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : <Disc3 className="w-5 h-5 text-violet-300" />}
           <span className="min-w-0">

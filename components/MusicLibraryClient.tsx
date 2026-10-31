@@ -23,16 +23,19 @@ import {
   Shuffle,
   List,
   LayoutGrid,
+  ListPlus,
+  ListMusic,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
+import { usePlaylistStore } from '@/store/playlistStore'
+import ViewToggle, { useView } from '@/components/ViewToggle'
+import PlaylistCover from '@/components/PlaylistCover'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
 
-type Tab = 'all' | 'artists' | 'albums'
+type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 type SortOrder = 'recent' | 'title' | 'artist'
-type ViewMode = 'list' | 'grid'
-const VIEW_KEY = 'cpn-library-view'
 
 export default function MusicLibraryClient() {
   const { liked, play, addToQueue, removeLiked, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
@@ -68,20 +71,15 @@ export default function MusicLibraryClient() {
     if (list.length) play(list, index)
   }
   const [mounted, setMounted] = useState(false)
-  // Vista de canciones: lista o mosaico (se recuerda en el teléfono)
-  const [view, setView] = useState<ViewMode>('list')
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(VIEW_KEY) === 'grid') setView('grid')
-    } catch {}
-  }, [])
-  const changeView = (v: ViewMode) => {
-    setView(v)
-    try {
-      localStorage.setItem(VIEW_KEY, v)
-    } catch {}
-  }
+  // Vista Lista o Mosaico: la misma en todas las secciones
+  const view = useView()
+  const playlists = usePlaylistStore((s) => s.playlists)
+  const openAdd = usePlaylistStore((s) => s.openAdd)
   const [tab, setTab] = useState<Tab>('all')
+  // /music/library?tab=playlists abre directo las playlists
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'playlists') setTab('playlists')
+  }, [])
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOrder>('recent')
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null)
@@ -229,7 +227,7 @@ export default function MusicLibraryClient() {
         <FollowedArtistsSection showEmpty />
 
         {/* Empty state */}
-        {saved.length === 0 ? (
+        {saved.length === 0 && playlists.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 border border-dashed border-white/10 rounded-2xl">
             <Heart className="w-14 h-14 text-slate-800" />
             <div className="text-center">
@@ -252,6 +250,10 @@ export default function MusicLibraryClient() {
               <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
               <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
+              <TabButton active={tab === 'playlists'} onClick={() => { setTab('playlists'); clearSubFilters() }} icon={<ListMusic className="w-4 h-4" />} label={`Playlists (${playlists.length})`} />
+            </div>
+            <div className="flex justify-end -mt-2 mb-4">
+              <ViewToggle />
             </div>
 
             {/* Sub filter chip */}
@@ -264,6 +266,12 @@ export default function MusicLibraryClient() {
                 >
                   {selectedArtist ? `Artista: ${selectedArtist}` : `Álbum: ${selectedAlbum}`}
                   <X className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => openAdd(filtered)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white"
+                >
+                  <ListPlus className="w-3.5 h-3.5" /> Todas a una playlist
                 </button>
               </div>
             )}
@@ -292,23 +300,6 @@ export default function MusicLibraryClient() {
                     <option value="title">Título (A-Z)</option>
                     <option value="artist">Artista (A-Z)</option>
                   </select>
-                  <div className="inline-flex bg-surface-1 border border-white/10 rounded-full p-1" role="group" aria-label="Vista">
-                    {([
-                      ['list', List, 'Lista'],
-                      ['grid', LayoutGrid, 'Mosaico'],
-                    ] as const).map(([value, Icon, label]) => (
-                      <button
-                        key={value}
-                        onClick={() => changeView(value)}
-                        aria-pressed={view === value}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                          view === value ? 'bg-violet-500 text-white' : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" /> {label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {/* Track list */}
@@ -365,6 +356,14 @@ export default function MusicLibraryClient() {
                             </div>
                           </button>
                           <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+                            <button
+                              onClick={() => openAdd([track])}
+                              className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white hover:text-violet-300"
+                              aria-label="Agregar a playlist"
+                              title="Agregar a playlist"
+                            >
+                              <ListPlus className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => addToQueue(track)}
                               className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white hover:text-violet-300"
@@ -455,6 +454,17 @@ export default function MusicLibraryClient() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
+                              openAdd([track])
+                            }}
+                            className="p-2 text-slate-500 hover:text-violet-400 transition-colors"
+                            title="Agregar a playlist"
+                            aria-label="Agregar a playlist"
+                          >
+                            <ListPlus className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
                               addToQueue(track)
                             }}
                             className="p-2 text-slate-600 hover:text-violet-400 opacity-0 group-hover:opacity-100 transition-all"
@@ -481,7 +491,24 @@ export default function MusicLibraryClient() {
             )}
 
             {/* ARTISTS TAB */}
-            {tab === 'artists' && !selectedArtist && !selectedAlbum && (
+            {tab === 'artists' && !selectedArtist && !selectedAlbum && view === 'list' && (
+              <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
+                {artists.map((a) => (
+                  <li key={a.name} onClick={() => setSelectedArtist(a.name)} className="flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10">
+                    <span className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 bg-surface-2 flex items-center justify-center">
+                      {a.cover ? <Image src={a.cover} alt="" fill sizes="48px" className="object-cover" /> : <User className="w-5 h-5 text-slate-600" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-white text-sm font-semibold truncate">{a.name}</span>
+                      <span className="block text-slate-500 text-xs">
+                        {a.count} {a.count === 1 ? 'canción' : 'canciones'}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {tab === 'artists' && !selectedArtist && !selectedAlbum && view === 'grid' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {artists.map((a) => (
                   <button
@@ -520,6 +547,26 @@ export default function MusicLibraryClient() {
                       Los álbumes se extraen del título del video cuando están disponibles.
                     </p>
                   </div>
+                ) : view === 'list' ? (
+                  <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
+                    {albums.map((al) => (
+                      <li
+                        key={`${al.name}-${al.artist}`}
+                        onClick={() => setSelectedAlbum(al.name)}
+                        className="flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10"
+                      >
+                        <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2 flex items-center justify-center">
+                          {al.cover ? <Image src={al.cover} alt="" fill sizes="48px" className="object-cover" /> : <Disc3 className="w-5 h-5 text-slate-600" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-white text-sm font-semibold truncate">{al.name}</span>
+                          <span className="block text-slate-500 text-xs truncate">
+                            {al.artist} · {al.count} {al.count === 1 ? 'canción' : 'canciones'}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {albums.map((al) => (
@@ -550,6 +597,8 @@ export default function MusicLibraryClient() {
                 )}
               </>
             )}
+            {/* PLAYLISTS TAB */}
+            {tab === 'playlists' && !selectedArtist && !selectedAlbum && <PlaylistsTab view={view} />}
           </>
         )}
       </div>
@@ -580,5 +629,70 @@ function TabButton({
       {icon}
       {label}
     </button>
+  )
+}
+
+function PlaylistsTab({ view }: { view: 'list' | 'grid' }) {
+  const playlists = usePlaylistStore((s) => s.playlists)
+  const create = usePlaylistStore((s) => s.create)
+  const [name, setName] = useState('')
+  return (
+    <div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          create(name.trim() || `Mi playlist ${playlists.length + 1}`)
+          setName('')
+        }}
+        className="flex gap-2 mb-4 max-w-md"
+      >
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre de una playlist nueva"
+          aria-label="Nombre de la playlist nueva"
+          maxLength={60}
+          className="min-w-0 flex-1 bg-surface-1 border border-white/10 text-white placeholder-slate-600 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500/50"
+        />
+        <button type="submit" className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-violet-500 text-white text-sm font-semibold">
+          <Plus className="w-4 h-4" /> Crear
+        </button>
+      </form>
+      {playlists.length === 0 ? (
+        <div className="text-center py-14 border border-dashed border-white/10 rounded-xl text-slate-500 text-sm px-4">
+          Crea una playlist aquí o, en cualquier canción, toca el botón <ListPlus className="inline w-4 h-4 -mt-0.5" /> (o ⋮ en el reproductor).
+        </div>
+      ) : view === 'list' ? (
+        <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
+          {playlists.map((p) => (
+            <li key={p.id}>
+              <Link href={`/music/playlist/${p.id}`} className="flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-white/5 active:bg-white/10">
+                <PlaylistCover tracks={p.tracks} className="w-12 h-12 rounded-lg shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-white text-sm font-semibold truncate">{p.name}</span>
+                  <span className="block text-slate-500 text-xs">
+                    Playlist · {p.tracks.length} {p.tracks.length === 1 ? 'canción' : 'canciones'}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {playlists.map((p) => (
+            <Link key={p.id} href={`/music/playlist/${p.id}`} className="group bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30">
+              <PlaylistCover tracks={p.tracks} className="aspect-square w-full" />
+              <span className="block p-3">
+                <span className="block text-white font-semibold text-sm truncate">{p.name}</span>
+                <span className="block text-slate-500 text-xs mt-0.5">
+                  {p.tracks.length} {p.tracks.length === 1 ? 'canción' : 'canciones'}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

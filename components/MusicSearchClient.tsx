@@ -4,6 +4,7 @@ import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import ArchiveInlineResults from '@/components/ArchiveInlineResults'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
+import ViewToggle, { useView } from '@/components/ViewToggle'
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession, patchSession } from '@/lib/session-cache'
@@ -31,6 +32,7 @@ interface MusicSearchClientProps {
 
 export default function MusicSearchClient({ initialVideos }: MusicSearchClientProps) {
   const savedCount = useMusicStore((s) => s.saved.length)
+  const view = useView()
   const [query, setQuery] = useState('')
   const [videos, setVideos] = useState<MusicVideo[]>(initialVideos)
   // Tendencias del país donde estás (la página trae México como respaldo)
@@ -397,6 +399,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               <h2 className="text-white font-bold text-[22px] leading-7 min-w-0 truncate">
                 {isPending ? 'Buscando...' : <>Resultados: <span className="text-violet-300">&ldquo;{submittedQuery}&rdquo;</span></>}
               </h2>
+              <span className="ml-auto">
+                <ViewToggle compact />
+              </span>
               {isSearchMode && (
                 <button
                   onClick={handleClear}
@@ -449,9 +454,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
             {isPending ? (
               <GridSkeleton />
             ) : videos.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+              <div className={view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4' : 'divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian'}>
                 {videos.map((video, index) => (
-                  <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} />
+                  <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} view={view} />
                 ))}
               </div>
             ) : (
@@ -586,13 +591,16 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 <TrendingUp className="w-5 h-5 text-violet-400" />
                 <h2 className="text-white font-bold text-[22px] leading-7">Tendencias</h2>
                 <span className="text-slate-500 text-sm">{regionName}</span>
+                <span className="ml-auto">
+                  <ViewToggle compact />
+                </span>
               </div>
               {!trendRegion ? (
                 <GridSkeleton />
               ) : videos.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                <div className={view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4' : 'divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian'}>
                   {videos.map((video, index) => (
-                    <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} />
+                    <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} view={view} />
                   ))}
                 </div>
               ) : (
