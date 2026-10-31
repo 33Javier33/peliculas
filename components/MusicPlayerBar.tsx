@@ -345,7 +345,7 @@ export default function MusicPlayerBar() {
     return list
   }, [currentVideo?.audioUrl])
   const [remoteAttempt, setRemoteAttempt] = useState<{ id: string; n: number } | null>(null)
-  const remoteIndex = remoteAttempt?.id === currentId ? remoteAttempt.n : 0
+  const remoteIndex = remoteAttempt && currentId && remoteAttempt.id === currentId ? remoteAttempt.n : 0
   const remoteFileUrl = remoteCandidates[remoteIndex] ?? currentVideo?.audioUrl
   const isLocal = isLocalFile || !!remoteFileUrl
   const [localUrl, setLocalUrl] = useState<{ id: string; url: string } | null>(null)
