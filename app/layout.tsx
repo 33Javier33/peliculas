@@ -106,6 +106,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </a> ·{' '}
               <a href="/app-android" className="underline hover:text-slate-400">
                 App para Android
+              </a> ·{' '}
+              <a href="/app-iphone" className="underline hover:text-slate-400">
+                App para iPhone
               </a>
             </p>
           </div>

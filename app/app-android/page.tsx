@@ -37,6 +37,13 @@ export default function AndroidAppPage() {
         <p className="mt-6 flex items-start gap-2 text-slate-500 text-xs">
           <ShieldCheck className="w-4 h-4 shrink-0" /> Las versiones nuevas se instalan encima de la anterior, sin perder nada.
         </p>
+        <p className="mt-3 text-slate-500 text-xs">
+          ¿Tienes iPhone?{' '}
+          <a href="/app-iphone" className="text-violet-300 underline">
+            Instálala desde Safari
+          </a>
+          .
+        </p>
       </div>
     </div>
   )
