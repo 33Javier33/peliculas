@@ -33,13 +33,13 @@ export default function EqualizerSheet() {
           </button>
         </div>
 
-        {enabled && !applies && (
-          <p className="flex items-start gap-2 mt-3 text-amber-300/90 text-xs leading-relaxed">
-            <Info className="w-4 h-4 shrink-0" />
-            Lo que suena ahora (radio o YouTube desde la web) no permite ecualizar: suena normal. Sí funciona en la app de Android, con
-            discos de Internet Archive, enlaces MP3 y tu música del teléfono.
-          </p>
-        )}
+        {/* Nota informativa (no es un error): dónde se aplica el ecualizador */}
+        <p className="flex items-start gap-2 mt-3 text-slate-500 text-xs leading-relaxed">
+          <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          {applies
+            ? 'Se aplica a la canción que suena ahora.'
+            : 'Se aplica a las canciones de la app de Android y a tu música del teléfono. Esta canción se escucha sin ecualizar (radios, discos de archive.org y YouTube en el navegador).'}
+        </p>
 
         {/* Preajustes */}
         <div className="flex flex-wrap gap-2 mt-4">

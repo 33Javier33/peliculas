@@ -267,7 +267,7 @@ export default function MusicLibraryClient() {
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
+            <div data-scroll-step className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
               <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
               <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />

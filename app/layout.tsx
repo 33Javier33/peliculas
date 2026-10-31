@@ -11,6 +11,7 @@ import SplashScreen, { SPLASH_SCRIPT } from '@/components/SplashScreen'
 import NativePip from '@/components/NativePip'
 import AddToPlaylistSheet from '@/components/AddToPlaylistSheet'
 import EqualizerSheet from '@/components/EqualizerSheet'
+import ScrollTopButton from '@/components/ScrollTopButton'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -85,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <NativePip />
         <AddToPlaylistSheet />
         <EqualizerSheet />
+        <ScrollTopButton />
         <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
           <Header />
         </Suspense>

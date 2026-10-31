@@ -140,8 +140,12 @@ export default function Header() {
               className="w-10 h-10 rounded-xl shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200"
             />
             <div className="flex flex-col leading-none">
-              <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
-                Carlos P. Nauto
+              <span className="flex items-baseline gap-1.5">
+                <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
+                  Carlos P. Nauto
+                </span>
+                {/* Versión de la app (para saber si ya llegó la última) */}
+                <span className="text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
               </span>
               <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] whitespace-nowrap">
                 <span className="text-slate-400">Interactive</span>
