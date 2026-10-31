@@ -15,7 +15,9 @@ const CORS = { 'Access-Control-Allow-Origin': '*' }
 const SEGMENT_CACHE = 'public, max-age=60, s-maxage=120'
 
 // Segmentos de video/audio: se reenvían sin esperar a que terminen de bajar
-const isSegment = (url: string) => /\.(ts|aac|m4s|mp4|m4a|m4v|mp3|vtt|webvtt|key)(\?|$)/i.test(url)
+const isSegment = (url: string) => /\.(ts|aac|m4s|mp4|m4a|m4v|mp3|vtt|webvtt|key|flac|ogg|oga|opus|wav|weba|webm|aiff?)(\?|$)/i.test(url)
+// Audios (p. ej. de archive.org) que a veces llegan como "octet-stream": también se reenvían tal cual
+const isAudioFile = (url: string, contentType: string) => /^audio\//i.test(contentType) || /\/(download|serve)\//.test(url)
 
 function isPlaylist(url: string, contentType: string, head: string) {
   return /mpegurl/i.test(contentType) || /\.m3u8?(\?|$)/i.test(url) || head.startsWith('#EXTM3U')
@@ -56,7 +58,7 @@ export async function GET(req: NextRequest) {
   const finalUrl = upstream.url || url
 
   // ¿Lista de reproducción? Se reescribe; si no, se reenvía el segmento tal cual
-  if (!isSegment(finalUrl) && (/mpegurl|text|octet-stream/i.test(contentType) || /\.m3u8?(\?|$)/i.test(finalUrl))) {
+  if (!isSegment(finalUrl) && !isAudioFile(finalUrl, contentType) && (/mpegurl|text|octet-stream/i.test(contentType) || /\.m3u8?(\?|$)/i.test(finalUrl))) {
     const buffer = await upstream.arrayBuffer()
     const head = new TextDecoder().decode(buffer.slice(0, 16))
     if (isPlaylist(finalUrl, contentType, head)) {
