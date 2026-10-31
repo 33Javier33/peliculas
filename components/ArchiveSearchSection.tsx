@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Search, Play, Plus, Check, Loader2, Library, Disc3, ArrowLeft, UserRound, ChevronRight } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -336,18 +337,22 @@ function ResultRow({
   const details = [item.artist, item.year || info?.year, info ? (info.tracks ? `${info.tracks} ${info.tracks === 1 ? 'canción' : 'canciones'}` : 'sin audio') : null]
     .filter(Boolean)
     .join(' · ')
+  // Tocar el disco abre su página con todas las canciones
+  const href = `/music/archive/${encodeURIComponent(item.id)}`
   const addIcon = busy === 'add' ? <Loader2 className="w-4 h-4 animate-spin" /> : saved ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />
   const playIcon = busy === 'play' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />
   if (grid)
     return (
       <li ref={ref} className={info && !info.tracks ? 'opacity-50' : ''}>
         <div className={`relative aspect-square rounded-xl overflow-hidden bg-surface-2 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
-          {cover && !failed ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
-          ) : info !== undefined ? (
-            <Disc3 className="w-10 h-10 text-slate-500" />
-          ) : null}
+          <Link href={href} className="absolute inset-0 flex items-center justify-center" aria-label={`Ver ${item.title}`}>
+            {cover && !failed ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={cover} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
+            ) : info !== undefined ? (
+              <Disc3 className="w-10 h-10 text-slate-500" />
+            ) : null}
+          </Link>
           <button
             onClick={onAdd}
             disabled={!!busy || saved}
@@ -360,12 +365,15 @@ function ResultRow({
             {playIcon}
           </button>
         </div>
-        <p className="text-white text-sm font-semibold leading-tight line-clamp-2 mt-2">{item.title}</p>
+        <Link href={href} className="block text-white text-sm font-semibold leading-tight line-clamp-2 mt-2">
+          {item.title}
+        </Link>
         <p className="text-slate-400 text-xs truncate">{details}</p>
       </li>
     )
   return (
     <li ref={ref} className={`flex items-center gap-3 py-2 ${info && !info.tracks ? 'opacity-50' : ''}`}>
+      <Link href={href} className="min-w-0 flex-1 flex items-center gap-3">
       <span className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-surface-2 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
         {cover && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -378,6 +386,7 @@ function ResultRow({
         <p className="text-white text-sm font-semibold line-clamp-2">{item.title}</p>
         <p className="text-slate-400 text-xs truncate">{details}</p>
       </div>
+      </Link>
       <button
         onClick={onAdd}
         disabled={!!busy || saved}

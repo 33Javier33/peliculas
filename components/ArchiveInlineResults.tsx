@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Play, Plus, Check, Loader2, Disc3, Library } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -105,12 +106,14 @@ function Card({ r, busy, saved, onPlay, onAdd }: { r: Result; busy: string | nul
   return (
     <div ref={ref} className={`shrink-0 w-36 sm:w-40 snap-start ${noAudio ? 'opacity-50' : ''}`}>
       <div className={`relative aspect-square rounded-xl overflow-hidden bg-surface-2 border border-white/8 flex items-center justify-center ${info === undefined ? 'animate-pulse' : ''}`}>
-        {info?.cover && !failed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={info.cover} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
-        ) : info !== undefined ? (
-          <Disc3 className="w-12 h-12 text-slate-500" />
-        ) : null}
+        <Link href={`/music/archive/${encodeURIComponent(r.id)}`} className="absolute inset-0 flex items-center justify-center" aria-label={`Ver ${r.title}`}>
+          {info?.cover && !failed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={info.cover} alt="" loading="lazy" onError={() => setFailed(true)} className="absolute inset-0 w-full h-full object-cover" />
+          ) : info !== undefined ? (
+            <Disc3 className="w-12 h-12 text-slate-500" />
+          ) : null}
+        </Link>
         <button
           onClick={onAdd}
           disabled={!!busy || saved || !!noAudio}
@@ -128,7 +131,9 @@ function Card({ r, busy, saved, onPlay, onAdd }: { r: Result; busy: string | nul
           {busy === `play:${r.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
         </button>
       </div>
-      <p className="text-white text-sm font-semibold font-display leading-tight line-clamp-2 mt-2">{r.title}</p>
+      <Link href={`/music/archive/${encodeURIComponent(r.id)}`} className="block text-white text-sm font-semibold font-display leading-tight line-clamp-2 mt-2">
+        {r.title}
+      </Link>
       <p className="text-slate-500 text-xs truncate">
         {[r.artist, r.year || info?.year, info?.tracks ? `${info.tracks} canc.` : noAudio ? 'sin audio' : ''].filter(Boolean).join(' · ')}
       </p>
