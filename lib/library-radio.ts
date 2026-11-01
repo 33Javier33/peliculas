@@ -4,6 +4,7 @@
 import type { MusicVideo } from '@/lib/youtube-music'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
+import { useOfflineStore } from '@/store/offlineStore'
 
 const KEY = 'cpn-artist-genres'
 type GenreCache = Record<string, { g: string[]; at: number }>
@@ -35,53 +36,99 @@ function writeCache(c: GenreCache) {
   try {
     localStorage.setItem(KEY, JSON.stringify(c))
   } catch {}
+  // Las listas que muestran el género se actualizan solas
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('cpn-genres'))
 }
 
-/** Artista principal de una canción ("Soda Stereo - Topic", "Johnny Cash, Tennessee Two" → nombre) */
-export function songArtist(t: MusicVideo): string {
-  const a = (t as { artist?: string }).artist || parseTrackMeta(t).artist || t.channelTitle || ''
-  return a
+/** Nombre de cada género (las mismas radios de Internet Archive) */
+export const GENRE_LABELS: Record<string, string> = {
+  latina: 'Latina',
+  rock: 'Rock',
+  pop: 'Pop',
+  electronica: 'Electrónica',
+  jazz: 'Jazz',
+  blues: 'Blues y soul',
+  clasica: 'Clásica',
+  hiphop: 'Hip hop',
+  reggae: 'Reggae y ska',
+  folk: 'Folk y country',
+  metal: 'Metal',
+  ambient: 'Relajo',
+}
+
+/** Género principal de un artista (según su etiqueta más votada en MusicBrainz), si ya se conoce */
+export function genreOfArtist(artist: string, cache: GenreCache = readCache()): string | null {
+  const tags = cache[artist.trim().toLowerCase()]?.g
+  if (!tags?.length) return null
+  for (const tag of tags) for (const [id, re] of Object.entries(MATCH)) if (re.test(tag)) return id
+  return null
+}
+export const genreCacheSnapshot = readCache
+
+/** Artista principal de un crédito ("Johnny Cash, Tennessee Two" → "Johnny Cash") */
+export const mainArtistName = (a: string) =>
+  a
     .replace(/\s*-\s*topic$/i, '')
     .replace(/vevo$/i, '')
     .split(/;|,|\s&\s|\s+(?:feat\.?|ft\.?|x)\s+/i)[0]
     .trim()
+
+/** Artista principal de una canción ("Soda Stereo - Topic", "Johnny Cash, Tennessee Two" → nombre) */
+export function songArtist(t: MusicVideo): string {
+  const a = (t as { artist?: string }).artist || parseTrackMeta(t).artist || t.channelTitle || ''
+  return mainArtistName(a)
 }
 
-/** Canciones guardadas en la biblioteca (♥ y discos guardados), sin radios en vivo */
-function librarySongs(): MusicVideo[] {
+/** Canciones de la biblioteca: ♥, discos guardados (archive.org y enlaces) y todo lo descargado */
+export function librarySongs(): MusicVideo[] {
   const { saved } = useMusicStore.getState()
   const links = useLinksStore.getState().tracks
-  const all = [...saved, ...links].filter((t) => !t.streamUrl)
+  const downloaded = Object.values(useOfflineStore.getState().items).map((i) => i.track)
+  const all = [...saved, ...links, ...downloaded].filter((t) => !t.streamUrl)
   const seen = new Set<string>()
   return all.filter((t) => !seen.has(t.id) && seen.add(t.id))
 }
 
 let classifying = false
+const queue: string[] = []
+
 /**
- * Averigua (de a poco y en segundo plano) los géneros de los artistas de tu biblioteca que aún no
- * se conocen. MusicBrainz permite una consulta por segundo: se espera entre una y otra.
+ * Averigua (de a poco y en segundo plano) los géneros de estos artistas. MusicBrainz permite una
+ * consulta por segundo: se espera entre una y otra. Lo ya conocido no se vuelve a consultar.
  */
-export async function classifyLibrary(max = 6) {
-  if (classifying || typeof window === 'undefined') return
+export async function classifyArtists(names: string[], max = 60) {
+  if (typeof window === 'undefined') return
+  const cache = readCache()
+  const month = 30 * 86400000
+  for (const n of names) {
+    const name = n.trim()
+    const c = cache[name.toLowerCase()]
+    if (!name || queue.includes(name) || (c && (c.g.length > 0 || Date.now() - c.at < month))) continue
+    if (queue.length < max) queue.push(name)
+  }
+  if (classifying) return
   classifying = true
   try {
-    const cache = readCache()
-    const month = 30 * 86400000
-    const pending = Array.from(new Set(librarySongs().map(songArtist).filter(Boolean)))
-      .filter((a) => !cache[a.toLowerCase()] || (cache[a.toLowerCase()].g.length === 0 && Date.now() - cache[a.toLowerCase()].at > month))
-      .slice(0, max)
-    for (const name of pending) {
+    while (queue.length) {
+      const name = queue[0]
       const r = await fetch(`/api/artist-genres?name=${encodeURIComponent(name)}`).catch(() => null)
       if (r?.ok) {
         const d = (await r.json()) as { genres?: string[] }
+        const cache = readCache()
         cache[name.toLowerCase()] = { g: (d.genres ?? []).map((x) => x.toLowerCase()), at: Date.now() }
         writeCache(cache)
       }
+      queue.shift()
       await new Promise((res) => setTimeout(res, 1200))
     }
   } finally {
     classifying = false
   }
+}
+
+/** Géneros de todos los artistas de tu biblioteca (♥, discos guardados y descargas) */
+export function classifyLibrary(max = 60) {
+  return classifyArtists(Array.from(new Set(librarySongs().map(songArtist).filter(Boolean))), max)
 }
 
 // Canciones de la biblioteca que ya sonaron en esta radio (no se repiten hasta agotar las demás)

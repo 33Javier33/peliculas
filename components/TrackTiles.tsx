@@ -5,6 +5,8 @@ import { Play } from 'lucide-react'
 import { TrackStateOverlay } from '@/components/TrackState'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import GenreTag, { useGenreCache } from '@/components/GenreTag'
+import { songArtist } from '@/lib/library-radio'
 
 // Lista o mosaico de canciones (la misma información en las dos vistas). Toda la fila o tarjeta
 // pone a sonar la canción; "actions" agrega botones propios a cada una.
@@ -24,6 +26,8 @@ export default function TrackTiles({
   const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
   const name = (t: MusicVideo) => t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title
   const sub = (t: MusicVideo) => [t.channelTitle, t.album].filter(Boolean).join(' · ')
+  // Género del artista (MusicBrainz), cuando ya se conoce
+  const genres = useGenreCache()
 
   if (view === 'grid')
     return (
@@ -40,7 +44,10 @@ export default function TrackTiles({
             </div>
             <div className="p-2.5">
               <p className={`text-sm leading-tight font-semibold line-clamp-2 ${t.id === currentId ? 'text-emerald-400' : 'text-white'}`}>{name(t)}</p>
-              <p className="text-slate-400 text-xs truncate mt-0.5">{sub(t)}</p>
+              <p className="text-slate-400 text-xs truncate mt-0.5">
+                {sub(t)}
+                <GenreTag artist={songArtist(t)} cache={genres} />
+              </p>
             </div>
             {actions && (
               <div className="absolute right-1.5 top-1.5 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -67,7 +74,10 @@ export default function TrackTiles({
           </span>
           <span className="min-w-0 flex-1">
             <span className={`block text-sm font-medium truncate ${t.id === currentId ? 'text-emerald-400' : 'text-white'}`}>{name(t)}</span>
-            <span className="block text-slate-500 text-xs truncate">{sub(t)}</span>
+            <span className="block text-slate-500 text-xs truncate">
+              {sub(t)}
+              <GenreTag artist={songArtist(t)} cache={genres} />
+            </span>
           </span>
           {t.duration && <span className="text-slate-600 text-xs font-mono hidden sm:block">{t.duration}</span>}
           {actions && (

@@ -1,5 +1,8 @@
 'use client'
 
+import { useOfflineStore } from '@/store/offlineStore'
+import GenreTag, { useGenreCache } from '@/components/GenreTag'
+import { songArtist, genreOfArtist, GENRE_LABELS, classifyLibrary } from '@/lib/library-radio'
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import { TrackDownloadIcon, GroupDownloadIcon, OfflineCountText } from '@/components/OfflineIcons'
 import AudioLinksSection from '@/components/AudioLinksSection'
@@ -60,6 +63,7 @@ export default function MusicLibraryClient() {
   const linkTracks = useLinksStore((s) => s.tracks)
   const linkAlbums = useLinksStore((s) => s.albums)
   const removeLinkTrack = useLinksStore((s) => s.removeTrack)
+  const downloadedItems = useOfflineStore((s) => s.items)
   const saved = useMemo<SavedTrack[]>(() => {
     const addedAt = new Map<string, number>()
     for (const a of linkAlbums) a.trackIds.forEach((id, i) => addedAt.set(id, a.addedAt - i))
@@ -67,9 +71,20 @@ export default function MusicLibraryClient() {
     const fromLinks = linkTracks
       .filter((t) => !known.has(t.id))
       .map((t, i) => ({ ...t, artist: t.channelTitle, album: t.album, savedAt: addedAt.get(t.id) ?? -i }))
-    return [...liked, ...fromLinks]
-  }, [liked, linkTracks, linkAlbums])
-  const removeSaved = (id: string) => (linkTracks.some((t) => t.id === id) && !liked.some((t) => t.id === id) ? removeLinkTrack(id) : removeLiked(id))
+    fromLinks.forEach((t) => known.add(t.id))
+    // También lo descargado (discos completos de archive.org aunque no tengan ♥)
+    const fromDownloads = Object.values(downloadedItems)
+      .filter((i) => !known.has(i.track.id) && !i.track.streamUrl && known.add(i.track.id))
+      .map((i) => ({ ...i.track, artist: i.track.channelTitle, album: i.track.album || i.groupTitle, savedAt: i.savedAt }))
+    return [...liked, ...fromLinks, ...fromDownloads]
+  }, [liked, linkTracks, linkAlbums, downloadedItems])
+  const removeSaved = (id: string) => {
+    if (liked.some((t) => t.id === id)) return removeLiked(id)
+    if (linkTracks.some((t) => t.id === id)) return removeLinkTrack(id)
+    // Solo descargada: se borra del teléfono
+    const key = Object.values(downloadedItems).find((i) => i.track.id === id)?.key
+    if (key) useOfflineStore.getState().removeKeys([key])
+  }
   const playSaved = (index: number) => {
     const list = [...saved].sort((a, b) => b.savedAt - a.savedAt)
     if (list.length) play(list, index)
@@ -105,6 +120,13 @@ export default function MusicLibraryClient() {
   const [sort, setSort] = useState<SortOrder>('recent')
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null)
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null)
+  // Clasificación por género (MusicBrainz): se van conociendo en segundo plano
+  const genres = useGenreCache()
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(null)
+  useEffect(() => {
+    const t = setTimeout(() => classifyLibrary().catch(() => {}), 1200)
+    return () => clearTimeout(t)
+  }, [saved.length])
   useEffect(() => {
     if (libRestored.current) patchSession('library-view', { tab, artist: selectedArtist, album: selectedAlbum, query })
   }, [tab, selectedArtist, selectedAlbum, query])
@@ -122,6 +144,9 @@ export default function MusicLibraryClient() {
     if (selectedAlbum) {
       list = list.filter((t) => (t.album ?? parseTrackMeta(t).album) === selectedAlbum)
     }
+    if (selectedGenre) {
+      list = list.filter((t) => genreOfArtist(songArtist(t), genres) === selectedGenre)
+    }
     if (q) {
       list = list.filter(
         (t) =>
@@ -138,7 +163,17 @@ export default function MusicLibraryClient() {
     else list.sort((a, b) => b.savedAt - a.savedAt)
 
     return list
-  }, [saved, query, sort, selectedArtist, selectedAlbum])
+  }, [saved, query, sort, selectedArtist, selectedAlbum, selectedGenre, genres])
+
+  // Cuántas canciones hay de cada género (para los botones de filtro)
+  const genreCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const t of saved) {
+      const g = genreOfArtist(songArtist(t), genres)
+      if (g) m.set(g, (m.get(g) ?? 0) + 1)
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1])
+  }, [saved, genres])
 
   const artists = useMemo(() => {
     const map = new Map<string, { count: number; cover: string }>()
@@ -352,6 +387,36 @@ export default function MusicLibraryClient() {
             {/* ALL SONGS TAB */}
             {(tab === 'all' || activeSubFilter) && (
               <>
+                {/* Por género (MusicBrainz) */}
+                {genreCounts.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1 mb-4 [scrollbar-width:none]">
+                    <button
+                      onClick={() => setSelectedGenre(null)}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${!selectedGenre ? 'bg-white text-obsidian' : 'bg-surface-2/60 border border-white/8 text-slate-300'}`}
+                    >
+                      Todos los géneros
+                    </button>
+                    {genreCounts.map(([g, n]) => (
+                      <button
+                        key={g}
+                        onClick={() => setSelectedGenre(selectedGenre === g ? null : g)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold ${selectedGenre === g ? 'bg-violet-500 text-white' : 'bg-surface-2/60 border border-white/8 text-slate-300'}`}
+                      >
+                        {GENRE_LABELS[g]} <span className="opacity-70">({n})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedGenre && filtered.length > 0 && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <button onClick={() => playAll(filtered)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-violet-500 text-white">
+                      <Play className="w-3.5 h-3.5 fill-white" /> Reproducir {GENRE_LABELS[selectedGenre]}
+                    </button>
+                    <button onClick={() => playAll(filtered, true)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white">
+                      <Shuffle className="w-3.5 h-3.5" /> Aleatorio
+                    </button>
+                  </div>
+                )}
                 {/* Search + sort */}
                 <div className="flex flex-wrap items-center gap-3 mb-5">
                   <div className="relative flex-1 min-w-[200px] max-w-md">
@@ -425,7 +490,10 @@ export default function MusicLibraryClient() {
                               <p className={`text-sm leading-tight font-semibold font-display line-clamp-2 ${isCurrent ? 'text-emerald-400' : 'text-white'}`}>
                                 {track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}
                               </p>
-                              <p className="text-slate-400 text-xs truncate mt-0.5">{track.artist ?? track.channelTitle}</p>
+                              <p className="text-slate-400 text-xs truncate mt-0.5">
+                                {track.artist ?? track.channelTitle}
+                                <GenreTag artist={songArtist(track)} cache={genres} />
+                              </p>
                             </div>
                           </button>
                           <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
@@ -517,6 +585,7 @@ export default function MusicLibraryClient() {
                                 </button>
                               </>
                             )}
+                            <GenreTag artist={songArtist(track)} cache={genres} />
                           </p>
                         </div>
                         {track.duration && (

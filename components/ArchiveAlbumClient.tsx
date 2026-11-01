@@ -5,6 +5,7 @@ import DownloadButton from '@/components/DownloadButton'
 import TranslatableText from '@/components/TranslatableText'
 import MusicInfoPanel from '@/components/MusicInfoPanel'
 import Link from 'next/link'
+import { classifyArtists, mainArtistName } from '@/lib/library-radio'
 import { useEffect, useMemo, useState } from 'react'
 import { Play, Shuffle, Plus, Check, ListPlus, ExternalLink, Loader2, Disc3, AlertCircle, Share2 } from 'lucide-react'
 import { fetchAlbums, toEntries, type ApiAlbum } from '@/lib/link-albums'
@@ -39,6 +40,10 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
   const entries = useMemo(() => (albums ?? []).map(toEntries), [albums])
   const tracks = useMemo(() => entries.flatMap((e) => e.tracks), [entries])
   const first = albums?.[0]
+  // Género del artista del disco (MusicBrainz): se muestra junto a cada canción
+  useEffect(() => {
+    if (first?.artist) classifyArtists([mainArtistName(first.artist)]).catch(() => {})
+  }, [first?.artist])
   const saved = savedSources.split('|').includes(url)
 
   const play = (index: number, shuffle?: boolean) => {

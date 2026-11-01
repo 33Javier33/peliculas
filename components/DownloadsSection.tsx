@@ -1,5 +1,7 @@
 'use client'
 
+import GenreTag, { useGenreCache } from '@/components/GenreTag'
+import { songArtist } from '@/lib/library-radio'
 import { useEffect, useMemo, useState } from 'react'
 import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff } from 'lucide-react'
 import { useOfflineStore, type OfflineItem } from '@/store/offlineStore'
@@ -9,6 +11,7 @@ import { formatSize, storageEstimate } from '@/lib/offline-files'
 // "Descargadas": todo lo que se puede escuchar sin internet (discos, playlists y enlaces
 // descargados), agrupado, con cuánto ocupa y para borrarlo
 export default function DownloadsSection() {
+  const genres = useGenreCache()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const items = useOfflineStore((s) => s.items)
@@ -87,6 +90,13 @@ export default function DownloadsSection() {
                 <span className="min-w-0">
                   <span className="block text-white text-sm font-semibold truncate">{g.title}</span>
                   <span className="block text-slate-500 text-xs">
+                    {songArtist(g.list[0].track) && (
+                      <>
+                        {songArtist(g.list[0].track)}
+                        <GenreTag artist={songArtist(g.list[0].track)} cache={genres} />
+                        {' · '}
+                      </>
+                    )}
                     {g.list.length} {g.list.length === 1 ? 'canción' : 'canciones'} · {formatSize(size)}
                     {p ? ` · descargando ${p.done}/${p.total}` : ''}
                   </span>
