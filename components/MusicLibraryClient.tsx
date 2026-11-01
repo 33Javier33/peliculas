@@ -176,8 +176,31 @@ export default function MusicLibraryClient() {
 
   const playList = (videos: MusicVideo[], startIndex = 0) => play(videos, startIndex)
   // Canciones de un artista o de un álbum (para descargarlos desde la lista)
-  const tracksOfArtist = (name: string) => saved.filter((t) => (t.artist ?? parseTrackMeta(t).artist) === name)
-  const tracksOfAlbum = (name: string) => saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name)
+  // (en el orden en que se guardaron: los discos quedan en el orden de sus canciones)
+  const byOrder = (list: SavedTrack[]) => [...list].sort((a, b) => b.savedAt - a.savedAt)
+  const tracksOfArtist = (name: string) => byOrder(saved.filter((t) => (t.artist ?? parseTrackMeta(t).artist) === name))
+  const tracksOfAlbum = (name: string) => byOrder(saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name))
+  /** Reproducir una lista completa: en orden o en aleatorio */
+  const playAll = (list: MusicVideo[], shuffle = false) => {
+    if (!list.length) return
+    const st = useMusicStore.getState()
+    if (shuffle !== st.shuffle) st.toggleShuffle()
+    play(list, shuffle ? Math.floor(Math.random() * list.length) : 0)
+  }
+  const PlayBtn = ({ list, label, overlay = false }: { list: MusicVideo[]; label: string; overlay?: boolean }) => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        playAll(list)
+      }}
+      className={`shrink-0 w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center ${overlay ? 'shadow-lg' : ''}`}
+      aria-label={`Reproducir ${label}`}
+      title={`Reproducir ${label} completo`}
+    >
+      <Play className="w-4 h-4 fill-white ml-0.5" />
+    </button>
+  )
 
   const clearSubFilters = () => {
     setSelectedArtist(null)
@@ -286,7 +309,7 @@ export default function MusicLibraryClient() {
 
             {/* Sub filter chip */}
             {activeSubFilter && (
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="text-slate-500 text-xs">Filtrando por:</span>
                 <button
                   onClick={clearSubFilters}
@@ -294,6 +317,18 @@ export default function MusicLibraryClient() {
                 >
                   {selectedArtist ? `Artista: ${selectedArtist}` : `Álbum: ${selectedAlbum}`}
                   <X className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => playAll(filtered)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-violet-500 text-white"
+                >
+                  <Play className="w-3.5 h-3.5 fill-white" /> Reproducir
+                </button>
+                <button
+                  onClick={() => playAll(filtered, true)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white"
+                >
+                  <Shuffle className="w-3.5 h-3.5" /> Aleatorio
                 </button>
                 <button
                   onClick={() => openAdd(filtered)}
@@ -536,6 +571,7 @@ export default function MusicLibraryClient() {
                       </span>
                     </span>
                     <GroupDownloadIcon group={{ id: `artist-${a.name}`, title: a.name, cover: a.cover }} tracks={tracksOfArtist(a.name)} />
+                    <PlayBtn list={tracksOfArtist(a.name)} label={a.name} />
                   </li>
                 ))}
               </ul>
@@ -552,6 +588,9 @@ export default function MusicLibraryClient() {
                   >
                     <span className="absolute top-2 right-2 z-[1]">
                       <GroupDownloadIcon overlay group={{ id: `artist-${a.name}`, title: a.name, cover: a.cover }} tracks={tracksOfArtist(a.name)} />
+                    </span>
+                    <span className="absolute left-2 top-2 z-[1]">
+                      <PlayBtn overlay list={tracksOfArtist(a.name)} label={a.name} />
                     </span>
                     <div className="relative aspect-square rounded-full overflow-hidden mx-auto mb-3 w-28 sm:w-32 bg-surface-2 shadow-lg">
                       {a.cover ? (
@@ -604,6 +643,7 @@ export default function MusicLibraryClient() {
                           </span>
                         </span>
                         <GroupDownloadIcon group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
+                        <PlayBtn list={tracksOfAlbum(al.name)} label={al.name} />
                       </li>
                     ))}
                   </ul>
@@ -621,6 +661,9 @@ export default function MusicLibraryClient() {
                           <GroupDownloadIcon overlay group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
                         </span>
                         <div className="relative aspect-square bg-surface-2">
+                          <span className="absolute right-2 bottom-2 z-[1]">
+                            <PlayBtn overlay list={tracksOfAlbum(al.name)} label={al.name} />
+                          </span>
                           {al.cover ? (
                             <Image src={al.cover} alt={al.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                           ) : (
