@@ -100,7 +100,10 @@ const artistKey = (who = '') => mainArtist(who).toLowerCase().replace(/^the\s+/,
 
 /** Crédito legible: hasta dos nombres ("Amalia Mendoza, El Mariachi Vargas de Tecalitlan") */
 export const niceCredit = (who = '') => {
-  const parts = who.split(/;|,(?!\s*(?:jr|sr)\b)/i).map((x) => x.trim()).filter(Boolean)
+  const parts = who
+    .split(/;|,(?!\s*(?:jr|sr)\b)/i)
+    .map((x) => x.trim())
+    .filter((x, i, a) => x && a.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i)
   return (parts.length > 1 ? parts.slice(0, 2).join(', ') : who).replace(/\s+/g, ' ').trim()
 }
 
