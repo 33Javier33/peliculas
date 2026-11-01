@@ -160,11 +160,18 @@ interface MbArtist {
 export async function getArtistFacts(name: string): Promise<ArtistFacts | null> {
   const q = name.replace(/["\\]/g, ' ').trim()
   if (!q) return null
-  const res = await fetch(`${MB}/ws/2/artist/?query=${encodeURIComponent(`artist:"${q}"`)}&fmt=json&limit=5`, {
-    headers: { 'User-Agent': UA, Accept: 'application/json' },
-    next: { revalidate: 30 * 86400 },
-    signal: AbortSignal.timeout(8000),
-  })
+  const get = () =>
+    fetch(`${MB}/ws/2/artist/?query=${encodeURIComponent(`artist:"${q}"`)}&fmt=json&limit=5`, {
+      headers: { 'User-Agent': UA, Accept: 'application/json' },
+      next: { revalidate: 30 * 86400 },
+      signal: AbortSignal.timeout(8000),
+    })
+  let res = await get()
+  // MusicBrainz permite una consulta por segundo: si está ocupado se espera y se reintenta
+  for (let i = 0; i < 2 && (res.status === 503 || res.status === 429); i++) {
+    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800))
+    res = await get()
+  }
   if (!res.ok) throw new Error(`MusicBrainz ${res.status}`)
   const d = (await res.json()) as { artists?: MbArtist[] }
   const n = norm(name)
