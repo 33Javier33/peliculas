@@ -1,0 +1,20 @@
+name: Diagnóstico temporal (firmas del APK)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: CarlosPNauto-15, path: a15, run-id: 41243473920, github-token: '${{ github.token }}' }
+      - uses: actions/download-artifact@v4
+        with: { name: CarlosPNauto-16, path: a16, run-id: 41243947765, github-token: '${{ github.token }}' }
+      - uses: actions/download-artifact@v4
+        with: { name: CarlosPNauto-17, path: a17, run-id: 41255555604, github-token: '${{ github.token }}' }
+      - run: |
+          for d in a15 a16 a17; do echo "== $d"; keytool -printcert -jarfile $d/CarlosPNauto.apk | grep -E "SHA256:|Owner" | head -2; done
