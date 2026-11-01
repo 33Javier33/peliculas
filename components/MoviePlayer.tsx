@@ -138,7 +138,7 @@ export default function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onCl
   }, [movie, savable])
 
   // Fuentes en orden: la copia del teléfono, la de internet y la de respaldo
-  const sources = [offlineUrl, url, movie.fallbackUrl].filter((s, i, a): s is string => !!s && a.indexOf(s) === i)
+  const sources = [offlineUrl, url, ...(info?.alternates ?? []), movie.fallbackUrl].filter((s, i, a): s is string => !!s && a.indexOf(s) === i)
   const [srcIdx, setSrcIdx] = useState(0)
   useEffect(() => setSrcIdx(0), [offlineUrl, url])
   const src = offlineChecked ? sources[srcIdx] : undefined

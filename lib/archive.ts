@@ -164,6 +164,8 @@ export interface ArchiveVideo {
   /** MP4 más liviano, para descargar al teléfono */
   download: string
   downloadSize?: number
+  /** Otras versiones para probar si la primera no se puede ver (OGV, WebM, otros MP4) */
+  alternates?: string[]
   subtitles: ArchiveSubtitle[]
 }
 
@@ -191,12 +193,20 @@ export async function getArchiveVideo(identifier: string): Promise<ArchiveVideo 
   const data = (await res.json()) as { files?: ArchiveFile[] }
   const files = data.files ?? []
   const mp4 = files.filter((f) => /\.mp4$/i.test(f.name))
-  if (mp4.length === 0) return null
-  // Para ver: la versión h.264 (buena calidad y liviana), luego la de 512 kb, luego la más grande
-  const score = (f: ArchiveFile) => (/h\.264/i.test(f.format || '') ? 3 : /512kb/i.test(f.format || '') ? 2 : 1)
-  const watch = [...mp4].sort((a, b) => score(b) - score(a) || Number(b.size || 0) - Number(a.size || 0))[0]
+  const others = files.filter((f) => /\.(ogv|webm)$/i.test(f.name))
+  if (mp4.length === 0 && others.length === 0) return null
+  // Para ver: las versiones que prepara el archivo en h.264 (se ven en todos los teléfonos), luego
+  // la de 512 kb; el MP4 original al final (a veces viene en un formato que el navegador no lee)
+  const score = (f: ArchiveFile) =>
+    /h\.264/i.test(f.format || '') ? 4 : /\.ia\.mp4$/i.test(f.name) ? 3 : /512kb/i.test(f.format || '') || /512kb\.mp4$/i.test(f.name) ? 2 : 1
+  const ranked = [...mp4].sort((a, b) => score(b) - score(a) || Number(b.size || 0) - Number(a.size || 0))
+  const playable = [...ranked, ...others]
+  const watch = playable[0]
   // Para descargar: la más liviana que se vea bien (512 kb), si no, la de ver
-  const light = mp4.find((f) => /512kb/i.test(f.format || '') || /512kb\.mp4$/i.test(f.name)) || [...mp4].sort((a, b) => Number(a.size || 0) - Number(b.size || 0))[0]
+  const light =
+    mp4.find((f) => /512kb/i.test(f.format || '') || /512kb\.mp4$/i.test(f.name)) ||
+    ranked.filter((f) => score(f) >= 3).sort((a, b) => Number(a.size || 0) - Number(b.size || 0))[0] ||
+    watch
   const subs = files
     .filter((f) => /\.(srt|vtt)$/i.test(f.name))
     .map((f) => ({ ...subtitleLang(f.name), src: `/api/free-movies?sub=${encodeURIComponent(identifier)}&file=${encodeURIComponent(f.name)}` }))
@@ -207,6 +217,7 @@ export async function getArchiveVideo(identifier: string): Promise<ArchiveVideo 
     url: fileUrl(identifier, watch.name),
     download: fileUrl(identifier, light.name),
     downloadSize: Number(light.size) || undefined,
+    alternates: playable.slice(1, 4).map((f) => fileUrl(identifier, f.name)),
     subtitles: subs,
   }
 }
