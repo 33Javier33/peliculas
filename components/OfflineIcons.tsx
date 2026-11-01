@@ -25,9 +25,18 @@ export function TrackDownloadIcon({ track, overlay = false }: { track: MusicVide
   const bg = overlay ? 'bg-black/55 backdrop-blur-md' : ''
   if (done)
     return (
-      <span className={`${btn} ${bg} text-emerald-400`} title="Descargada: suena sin internet" aria-label="Descargada">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          useOfflineStore.getState().notify('Ya está descargada en tu teléfono: suena sin internet')
+        }}
+        className={`${btn} ${bg} text-emerald-400`}
+        title="Descargada: suena sin internet"
+        aria-label="Descargada"
+      >
         <CheckCircle2 className="w-4 h-4" />
-      </span>
+      </button>
     )
   if (busy)
     return (
@@ -89,9 +98,18 @@ export function GroupDownloadIcon({
     )
   if (done === total)
     return (
-      <span className={`${btn} ${bg} text-emerald-400`} title="Todo descargado" aria-label="Todo descargado">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          useOfflineStore.getState().notify(`Ya está descargado en tu teléfono: "${group.title}"`)
+        }}
+        className={`${btn} ${bg} text-emerald-400`}
+        title="Todo descargado"
+        aria-label="Todo descargado"
+      >
         <CheckCircle2 className="w-4 h-4" />
-      </span>
+      </button>
     )
   return (
     <button

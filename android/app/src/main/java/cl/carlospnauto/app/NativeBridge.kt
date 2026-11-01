@@ -49,4 +49,20 @@ class NativeBridge(private val context: Context) {
     /** La app sabe descargar e instalar su actualización (APK 1.0.16+) */
     @JavascriptInterface
     fun canDownload(): Boolean = true
+
+    /** Descargas en curso: { active, title, done, total } → notificación y la app sigue al salir */
+    @JavascriptInterface
+    fun downloadState(json: String) {
+        val o = runCatching { JSONObject(json) }.getOrNull() ?: return
+        val active = o.optBoolean("active")
+        val intent = Intent(context, DownloadService::class.java).apply {
+            putExtra("active", active)
+            putExtra("title", o.optString("title"))
+            putExtra("done", o.optInt("done"))
+            putExtra("total", o.optInt("total"))
+        }
+        runCatching {
+            if (active) ContextCompat.startForegroundService(context, intent) else context.startService(intent)
+        }
+    }
 }
