@@ -6,6 +6,7 @@ import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
+import SongDownloadButton from '@/components/SongDownloadButton'
 import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
 import {
@@ -431,6 +432,7 @@ export default function NowPlayingSheet({
             >
               <ListMusic className="w-4 h-4" /> Cola ({queue.length})
             </button>
+            {!isLive && <SongDownloadButton video={video} />}
             {!isLive && (
               <button
                 onClick={() => useEqStore.getState().setOpen(true)}

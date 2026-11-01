@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Disc3, UserRound, Library, Loader2, X, ListPlus } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
+import SongDownloadButton from '@/components/SongDownloadButton'
 import { useLinksStore } from '@/store/linksStore'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -83,6 +84,9 @@ export default function TrackMenu({
             <span className="block text-slate-400 text-xs truncate">Guárdala en una de tus listas</span>
           </span>
         </button>
+        <div className="px-5 py-2">
+          <SongDownloadButton video={video} className="w-full" />
+        </div>
         <button className={item} disabled={!albumHref} onClick={() => albumHref && go(albumHref)}>
           {loading && !linkAlbum ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : <Disc3 className="w-5 h-5 text-violet-300" />}
           <span className="min-w-0">
