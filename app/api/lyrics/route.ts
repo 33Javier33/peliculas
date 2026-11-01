@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLyrics } from '@/lib/lyrics'
 
+export const maxDuration = 25
+
 // /api/lyrics?artist=…&title=…[&duration=segundos] → letra sincronizada (karaoke) o simple
 export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams

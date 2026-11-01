@@ -59,7 +59,7 @@ async function lrc<T>(path: string): Promise<T | null> {
   const res = await fetch(`${LRCLIB}${path}`, {
     headers: { 'User-Agent': UA, 'Lrclib-Client': UA },
     next: { revalidate: 7 * 86400 },
-    signal: AbortSignal.timeout(9000),
+    signal: AbortSignal.timeout(12000),
   })
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`LRCLIB ${res.status}`)
@@ -84,15 +84,18 @@ export async function getLyrics(artistRaw: string, titleRaw: string, duration?: 
     if (!synced?.length && !it.plainLyrics) return null
     return { synced: synced?.length ? synced : null, plain: it.plainLyrics || null, source: 'LRCLIB' }
   }
-  // 1) Coincidencia exacta (con la duración, si se conoce)
+  // Coincidencia exacta (con la duración, si se conoce) y búsqueda, a la vez (responde más rápido)
   const params = new URLSearchParams({ artist_name: artist, track_name: title })
   if (duration && duration > 0) params.set('duration', String(Math.round(duration)))
-  const exact = pick(await lrc<LrcItem>(`/api/get?${params}`).catch(() => null))
+  const [exactItem, list] = await Promise.all([
+    lrc<LrcItem>(`/api/get?${params}`).catch(() => null),
+    lrc<LrcItem[]>(`/api/search?${new URLSearchParams({ track_name: title, artist_name: artist })}`).catch(() => null),
+  ])
+  const exact = pick(exactItem)
   if (exact?.synced || exact?.instrumental) return exact
-  // 2) Búsqueda: la del mismo artista y duración parecida, mejor si es sincronizada
-  const list = (await lrc<LrcItem[]>(`/api/search?${new URLSearchParams({ track_name: title, artist_name: artist })}`).catch(() => null)) ?? []
+  // De la búsqueda: el mismo artista y duración parecida, mejor si es sincronizada
   const a = norm(artist)
-  const candidates = list.filter((x) => !a || norm(x.artistName).includes(a) || a.includes(norm(x.artistName)))
+  const candidates = (list ?? []).filter((x) => !a || norm(x.artistName).includes(a) || a.includes(norm(x.artistName)))
   const close = (x: LrcItem) => !duration || !x.duration || Math.abs(x.duration - duration) < 8
   const best = candidates.find((x) => x.syncedLyrics && close(x)) || candidates.find((x) => x.syncedLyrics) || candidates.find((x) => x.plainLyrics)
   return pick(best ?? null) ?? exact

@@ -9,11 +9,9 @@ jobs:
     steps:
       - run: |
           set +e; S=https://peliculas-neon.vercel.app
-          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.62\.0' && break; sleep 10; done
+          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.62\.1' && break; sleep 10; done
           q() { curl -s -G "$S/api/lyrics" --data-urlencode "artist=$1" --data-urlencode "title=$2" | jq -c '{sinc: (.lyrics.synced|length? // 0), simple: ((.lyrics.plain // "")|length), primeras: [(.lyrics.synced // [])[0:3][] | "\(.t|floor)s \(.text)"], error}'; }
           echo "=== Soda Stereo - De Música Ligera"; q "Soda Stereo" "De Música Ligera"
-          echo "=== Queen - Bohemian Rhapsody (Official Video)"; q "Queen Official" "Bohemian Rhapsody (Official Video)"
-          echo "=== Bad Bunny - Tití Me Preguntó"; q "Bad Bunny" "Tití Me Preguntó"
-          echo "=== The Beatles - Let It Be"; q "The Beatles - Topic" "Let It Be"
+          echo "=== Los Prisioneros - Tren al sur"; q "Los Prisioneros" "Tren al sur"
           echo "=== robots"; curl -s "$S/robots.txt"; echo "=== sitemap"; curl -s "$S/sitemap.xml" | grep -c "<url>"
           curl -s "$S/" | grep -o 'application/ld+json' | head -1
