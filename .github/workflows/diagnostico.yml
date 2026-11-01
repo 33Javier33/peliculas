@@ -1,0 +1,37 @@
+name: Diagnóstico temporal (archive.org en vivo)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir t && cd t && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright')
+          async function run(eq) {
+            const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
+            const p = await b.newPage({ viewport: { width: 400, height: 860 } })
+            p.on('pageerror', (e) => console.log('PAGEERROR', e.message))
+            p.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text().slice(0, 200)))
+            p.on('response', (r) => { const u = r.url(); if (/archive\.org\/(download|0\/items)|link-audio|api\/hls/.test(u) && !/\.(jpg|png)/.test(u)) console.log('RESP', r.status(), u.slice(0, 120)) })
+            p.on('requestfailed', (r) => { if (/archive|link-audio|hls/.test(r.url())) console.log('FAILED', r.url().slice(0, 120), r.failure()?.errorText) })
+            await p.addInitScript((eq) => {
+              sessionStorage.setItem('cpn-splash-seen', '1')
+              if (eq) localStorage.setItem('cpn-eq', JSON.stringify({ state: { enabled: true, preset: 'rock', gains: [5, 2, -2, 2, 5], leveler: false }, version: 0 }))
+            }, eq)
+            await p.goto('https://peliculas-neon.vercel.app/music/archive/black-album', { waitUntil: 'networkidle' })
+            await p.waitForTimeout(3000)
+            await p.click('button:has-text("Reproducir")')
+            for (let i = 0; i < 6; i++) {
+              await p.waitForTimeout(5000)
+              const st = await p.evaluate(() => { const a = document.querySelector('audio'); const s = JSON.parse(localStorage.getItem('carlospn-music-store') || '{}').state || {}; return { idx: s.currentIndex, src: a?.currentSrc.slice(0, 70), t: a?.currentTime.toFixed(1), paused: a?.paused, err: a?.error?.code, cors: a?.crossOrigin } })
+              console.log((eq ? 'EQ ' : 'SIN-EQ ') + JSON.stringify(st), (await p.locator('body').innerText()).match(/No disponible[^\n]*/)?.[0] || '')
+            }
+            await b.close()
+          }
+          ;(async () => { await run(false); await run(true) })()
+          JS
+          node t.js
