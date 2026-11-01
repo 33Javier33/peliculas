@@ -6,14 +6,15 @@ import { useOfflineStore, canDownload } from '@/store/offlineStore'
 import { useLinksStore } from '@/store/linksStore'
 import { formatSize } from '@/lib/offline-files'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { songGroup } from '@/components/OfflineIcons'
 
 // Descargar la canción que suena (para escucharla sin internet). Queda en "Descargadas", junto
 // a su disco si es de uno guardado o en "Canciones sueltas"
 export default function SongDownloadButton({ video, className = '' }: { video: MusicVideo; className?: string }) {
   const key = video.audioUrl ?? ''
   const item = useOfflineStore((s) => (key ? s.items[key] : undefined))
-  const linkAlbum = useLinksStore((s) => s.albums.find((a) => a.trackIds.includes(video.id)))
-  const group = linkAlbum ? { id: linkAlbum.id, title: linkAlbum.title, cover: linkAlbum.cover } : { id: 'sueltas', title: 'Canciones sueltas' }
+  useLinksStore((s) => s.albums.length)
+  const group = songGroup(video)
   const progress = useOfflineStore((s) => s.progress[group.id])
   const [confirm, setConfirm] = useState(false)
   const [note, setNote] = useState('')

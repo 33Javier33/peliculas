@@ -1,5 +1,6 @@
 'use client'
 
+import { TrackDownloadIcon } from '@/components/OfflineIcons'
 import DownloadButton from '@/components/DownloadButton'
 import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useState } from 'react'
@@ -142,9 +143,12 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
               numbered
               onPlay={(i) => play(i)}
               actions={(t) => (
+                <>
+                <TrackDownloadIcon track={t} />
                 <button onClick={() => usePlaylistStore.getState().openAdd([t])} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white bg-black/40 sm:bg-transparent" aria-label="Agregar a playlist">
                   <ListPlus className="w-4 h-4" />
                 </button>
+                </>
               )}
             />
           </>

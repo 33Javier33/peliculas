@@ -1,5 +1,6 @@
 'use client'
 
+import { TrackDownloadIcon, GroupDownloadIcon, OfflineCountText } from '@/components/OfflineIcons'
 import AudioLinksSection from '@/components/AudioLinksSection'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useShallow } from 'zustand/react/shallow'
@@ -174,6 +175,9 @@ export default function MusicLibraryClient() {
   }, [saved])
 
   const playList = (videos: MusicVideo[], startIndex = 0) => play(videos, startIndex)
+  // Canciones de un artista o de un álbum (para descargarlos desde la lista)
+  const tracksOfArtist = (name: string) => saved.filter((t) => (t.artist ?? parseTrackMeta(t).artist) === name)
+  const tracksOfAlbum = (name: string) => saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name)
 
   const clearSubFilters = () => {
     setSelectedArtist(null)
@@ -380,6 +384,7 @@ export default function MusicLibraryClient() {
                             </div>
                           </button>
                           <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+                            <TrackDownloadIcon track={track} overlay />
                             <button
                               onClick={() => openAdd([track])}
                               className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white hover:text-violet-300"
@@ -475,6 +480,7 @@ export default function MusicLibraryClient() {
                           </span>
                         )}
                         <div className="flex items-center gap-1 shrink-0">
+                          <TrackDownloadIcon track={track} />
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -526,8 +532,10 @@ export default function MusicLibraryClient() {
                       <span className="block text-white text-sm font-semibold truncate">{a.name}</span>
                       <span className="block text-slate-500 text-xs">
                         {a.count} {a.count === 1 ? 'canción' : 'canciones'}
+                        <OfflineCountText tracks={tracksOfArtist(a.name)} />
                       </span>
                     </span>
+                    <GroupDownloadIcon group={{ id: `artist-${a.name}`, title: a.name, cover: a.cover }} tracks={tracksOfArtist(a.name)} />
                   </li>
                 ))}
               </ul>
@@ -535,11 +543,16 @@ export default function MusicLibraryClient() {
             {tab === 'artists' && !selectedArtist && !selectedAlbum && view === 'grid' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {artists.map((a) => (
-                  <button
+                  <div
                     key={a.name}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedArtist(a.name)}
-                    className="group text-left bg-surface-1 border border-white/8 rounded-xl p-4 hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
+                    className="relative cursor-pointer group text-left bg-surface-1 border border-white/8 rounded-xl p-4 hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
                   >
+                    <span className="absolute top-2 right-2 z-[1]">
+                      <GroupDownloadIcon overlay group={{ id: `artist-${a.name}`, title: a.name, cover: a.cover }} tracks={tracksOfArtist(a.name)} />
+                    </span>
                     <div className="relative aspect-square rounded-full overflow-hidden mx-auto mb-3 w-28 sm:w-32 bg-surface-2 shadow-lg">
                       {a.cover ? (
                         <Image src={a.cover} alt={a.name} fill sizes="128px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -552,8 +565,9 @@ export default function MusicLibraryClient() {
                     <p className="text-white font-semibold text-sm truncate text-center">{a.name}</p>
                     <p className="text-slate-500 text-xs text-center mt-0.5">
                       {a.count} {a.count === 1 ? 'canción' : 'canciones'}
+                      <OfflineCountText tracks={tracksOfArtist(a.name)} />
                     </p>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -586,19 +600,26 @@ export default function MusicLibraryClient() {
                           <span className="block text-white text-sm font-semibold truncate">{al.name}</span>
                           <span className="block text-slate-500 text-xs truncate">
                             {al.artist} · {al.count} {al.count === 1 ? 'canción' : 'canciones'}
+                            <OfflineCountText tracks={tracksOfAlbum(al.name)} />
                           </span>
                         </span>
+                        <GroupDownloadIcon group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {albums.map((al) => (
-                      <button
+                      <div
                         key={`${al.name}-${al.artist}`}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelectedAlbum(al.name)}
-                        className="group text-left bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
+                        className="relative cursor-pointer group text-left bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
                       >
+                        <span className="absolute top-2 right-2 z-[1]">
+                          <GroupDownloadIcon overlay group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
+                        </span>
                         <div className="relative aspect-square bg-surface-2">
                           {al.cover ? (
                             <Image src={al.cover} alt={al.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -613,9 +634,10 @@ export default function MusicLibraryClient() {
                           <p className="text-slate-500 text-xs truncate mt-0.5">{al.artist}</p>
                           <p className="text-slate-700 text-xs mt-0.5">
                             {al.count} {al.count === 1 ? 'canción' : 'canciones'}
+                            <OfflineCountText tracks={tracksOfAlbum(al.name)} />
                           </p>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -696,8 +718,10 @@ function PlaylistsTab({ view }: { view: 'list' | 'grid' }) {
                   <span className="block text-white text-sm font-semibold truncate">{p.name}</span>
                   <span className="block text-slate-500 text-xs">
                     Playlist · {p.tracks.length} {p.tracks.length === 1 ? 'canción' : 'canciones'}
+                    <OfflineCountText tracks={p.tracks} />
                   </span>
                 </span>
+                <GroupDownloadIcon group={{ id: p.id, title: p.name }} tracks={p.tracks} />
               </Link>
             </li>
           ))}
@@ -705,12 +729,16 @@ function PlaylistsTab({ view }: { view: 'list' | 'grid' }) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {playlists.map((p) => (
-            <Link key={p.id} href={`/music/playlist/${p.id}`} className="group bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30">
+            <Link key={p.id} href={`/music/playlist/${p.id}`} className="relative group bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30">
+              <span className="absolute top-2 right-2 z-[1]">
+                <GroupDownloadIcon overlay group={{ id: p.id, title: p.name }} tracks={p.tracks} />
+              </span>
               <PlaylistCover tracks={p.tracks} className="aspect-square w-full" />
               <span className="block p-3">
                 <span className="block text-white font-semibold text-sm truncate">{p.name}</span>
                 <span className="block text-slate-500 text-xs mt-0.5">
                   {p.tracks.length} {p.tracks.length === 1 ? 'canción' : 'canciones'}
+                  <OfflineCountText tracks={p.tracks} />
                 </span>
               </span>
             </Link>

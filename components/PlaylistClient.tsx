@@ -1,5 +1,6 @@
 'use client'
 
+import { TrackDownloadIcon } from '@/components/OfflineIcons'
 import DownloadButton from '@/components/DownloadButton'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -158,6 +159,7 @@ export default function PlaylistClient({ id }: { id: string }) {
             onPlay={(i) => play(i)}
             actions={(t, i) => (
               <>
+                <TrackDownloadIcon track={t} />
                 <button onClick={() => moveTrack(playlist.id, i, i - 1)} disabled={i === 0} className={`${btn} disabled:opacity-30`} aria-label="Subir">
                   <ArrowUp className="w-4 h-4" />
                 </button>
