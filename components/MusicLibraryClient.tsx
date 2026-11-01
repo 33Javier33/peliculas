@@ -5,6 +5,7 @@ import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
+import DownloadsSection from '@/components/DownloadsSection'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { readSession, patchSession } from '@/lib/session-cache'
@@ -236,6 +237,8 @@ export default function MusicLibraryClient() {
             </div>
           )}
         </div>
+
+        <DownloadsSection />
 
         <LocalMusicSection />
 

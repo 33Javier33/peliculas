@@ -1,5 +1,6 @@
 'use client'
 
+import DownloadButton from '@/components/DownloadButton'
 import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered, ListPlus } from 'lucide-react'
@@ -287,6 +288,7 @@ function AlbumRow({
         <div className="px-3 pb-3">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <ModeButtons label={album.title} shuffleOn={shuffleOn} active={!!playingTrack} onOrder={() => onPlay(0, false)} onShuffle={() => onPlay(0, true)} />
+            <DownloadButton compact group={{ id: album.id, title: album.title, cover: album.cover }} tracks={items} />
             <button
               onClick={() => usePlaylistStore.getState().openAdd(items)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-1 border border-white/10 text-slate-200 text-xs"

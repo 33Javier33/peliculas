@@ -38,6 +38,8 @@ import { bestTrack } from '@/lib/track-match'
 import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, nativePrefetchFile } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
+import { useOfflineStore } from '@/store/offlineStore'
+import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
@@ -334,16 +336,43 @@ export default function MusicPlayerBar() {
   // Archivo de audio desde un enlace (MP3, M4A…): también por <audio>, suena bloqueado
   // Fuentes de un archivo, en orden: por la app de Android (archive.org: comienzo listo y
   // ecualizador), directo, y por el servidor de la app (si el sitio lo bloquea o tarda)
+  // Descargada para escuchar sin conexión: se usa la copia del teléfono (primera fuente)
+  const offlineKey = currentVideo?.audioUrl
+  const isDownloaded = useOfflineStore((s) => !!(offlineKey && s.items[offlineKey]))
+  const [offlineUrl, setOfflineUrl] = useState<{ key: string; url: string } | null>(null)
+  useEffect(() => {
+    if (!isDownloaded || !offlineKey) return
+    let url = ''
+    let cancelled = false
+    getFile(offlineKey)
+      .then((blob) => {
+        if (cancelled) return
+        if (!blob) return useOfflineStore.getState().removeKeys([offlineKey])
+        url = URL.createObjectURL(blob)
+        setOfflineUrl({ key: offlineKey, url })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      // Se libera un poco después (por si el reproductor aún lo está cerrando)
+      if (url) setTimeout(() => URL.revokeObjectURL(url), 5000)
+    }
+  }, [isDownloaded, offlineKey])
+  const offlineReady = !!offlineKey && offlineUrl?.key === offlineKey
+  // Mientras se abre la copia descargada no se empieza a bajar de internet
+  const waitingOffline = isDownloaded && !offlineReady
+
   const remoteCandidates = useMemo(() => {
     const direct = currentVideo?.audioUrl
     if (!direct) return [] as string[]
     const list: string[] = []
+    if (offlineUrl && offlineUrl.key === direct) list.push(offlineUrl.url)
     const viaPhone = nativeFileUrl(direct)
     if (viaPhone) list.push(viaPhone)
     list.push(direct)
     if (/^https?:\/\//.test(direct)) list.push(`/api/link-audio?u=${encodeURIComponent(direct)}`)
     return list
-  }, [currentVideo?.audioUrl])
+  }, [currentVideo?.audioUrl, offlineUrl])
   const [remoteAttempt, setRemoteAttempt] = useState<{ id: string; n: number } | null>(null)
   const remoteIndex = remoteAttempt && currentId && remoteAttempt.id === currentId ? remoteAttempt.n : 0
   const remoteFileUrl = remoteCandidates[remoteIndex] ?? currentVideo?.audioUrl
@@ -411,7 +440,9 @@ export default function MusicPlayerBar() {
     : isPending
       ? undefined
       : remoteFileUrl
-      ? remoteFileUrl
+      ? waitingOffline
+        ? undefined
+        : remoteFileUrl
       : isLocal
       ? localUrl?.id === currentId
         ? localUrl.url
@@ -590,6 +621,8 @@ export default function MusicPlayerBar() {
     let cancelled = false
     const timer = setTimeout(async () => {
       let url = fileUrl
+      // Ya descargada: suena desde el teléfono, no hay nada que preparar
+      if (url && useOfflineStore.getState().items[url]) return
       // App de Android: el teléfono deja el comienzo de la siguiente canción en memoria
       if (url && nativePrefetchFile(url)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return

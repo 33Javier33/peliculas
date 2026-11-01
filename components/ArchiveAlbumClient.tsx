@@ -1,5 +1,6 @@
 'use client'
 
+import DownloadButton from '@/components/DownloadButton'
 import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useState } from 'react'
 import { Play, Shuffle, Plus, Check, ListPlus, ExternalLink, Loader2, Disc3, AlertCircle, Share2 } from 'lucide-react'
@@ -123,6 +124,9 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
                   <span className="ml-auto">
                     <ViewToggle />
                   </span>
+                </div>
+                <div className="mt-3">
+                  <DownloadButton group={{ id: `archive-${id}`, title: first?.title || id, cover: first?.cover }} tracks={tracks} />
                 </div>
                 {notice && <p className="text-emerald-300 text-sm mt-2">{notice}</p>}
               </div>

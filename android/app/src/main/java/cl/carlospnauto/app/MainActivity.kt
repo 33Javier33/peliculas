@@ -102,7 +102,20 @@ class MainActivity : AppCompatActivity() {
         // un momento: se mantiene con prioridad alta también en segundo plano
         web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
 
+        // Sin internet al abrir: se usa lo guardado (la página guardada por la app abre sola)
+        if (!online()) web.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+
         web.webViewClient = object : WebViewClient() {
+            // Si la página principal no carga (sin internet y nada guardado aún), aviso propio
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                if (request.isForMainFrame && !online()) view.loadUrl("file:///android_asset/offline.html")
+            }
+
+            override fun onPageFinished(view: WebView, url: String?) {
+                // Con internet otra vez: se vuelve a cargar todo normal
+                if (online()) view.settings.cacheMode = WebSettings.LOAD_DEFAULT
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 val host = Uri.parse(BuildConfig.WEB_URL).host
@@ -238,6 +251,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var audioCallback: AudioDeviceCallback? = null
+
+    private fun online(): Boolean = runCatching {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+        caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }.getOrDefault(true)
 
     // ===== Actualización de la app =====
     private var updateDownloadId = -1L

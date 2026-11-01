@@ -1,5 +1,6 @@
 'use client'
 
+import DownloadButton from '@/components/DownloadButton'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -137,6 +138,7 @@ export default function PlaylistClient({ id }: { id: string }) {
               >
                 <Trash2 className="w-4 h-4" /> {confirmDelete && '¿Eliminar playlist?'}
               </button>
+              <DownloadButton compact group={{ id: playlist.id, title: playlist.name }} tracks={tracks} />
               <span className="ml-auto">
                 <ViewToggle />
               </span>
