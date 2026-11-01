@@ -49,6 +49,8 @@ export async function assertPublic(raw: string): Promise<URL> {
   const u = new URL(raw)
   if (!/^https?:$/.test(u.protocol)) throw new Error('Solo enlaces http o https')
   if (/^(localhost|.*\.local|.*\.internal)$/i.test(u.hostname) && process.env.AUDIO_LINK_ALLOW_PRIVATE !== '1') throw new Error('Dirección no permitida')
+  // archive.org es público y conocido: no hace falta consultar su dirección (un paso menos por disco)
+  if (/^(.+\.)?archive\.org$/i.test(u.hostname)) return u
   const ips = isIP(u.hostname) ? [u.hostname] : (await lookup(u.hostname, { all: true })).map((r) => r.address)
   // (AUDIO_LINK_ALLOW_PRIVATE solo para pruebas locales)
   if (ips.length === 0 || (ips.some(isPrivate) && process.env.AUDIO_LINK_ALLOW_PRIVATE !== '1')) throw new Error('Dirección no permitida')

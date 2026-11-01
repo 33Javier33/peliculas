@@ -864,35 +864,74 @@ export default function MusicPlayerBar() {
   eqActiveNowRef.current = eqActive
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const onRouteChange = () => {
+    // Rearmar el audio solo si de verdad dejó de sonar: un rearme sin necesidad se oye como un "click"
+    const onRouteChange = (force = false) => {
       clearTimeout(timer)
+      const el0 = playerRef.current as unknown as HTMLMediaElement | null
+      const t0 = el0?.currentTime ?? 0
       timer = setTimeout(() => {
         const st = useMusicStore.getState()
         const el = playerRef.current as unknown as HTMLMediaElement | null
         if (!useAudioRef.current || !el) return
         if (eqActiveNowRef.current) {
+          // Con ecualizador: se rearma si el sistema de audio quedó detenido o si Android avisó
+          // un cambio real de salida (Bluetooth/audífonos), que deja el sonido en la salida vieja
+          if (!force && !equalizerStalled()) return
           pendingSeekRef.current = st.played
           resetEqualizer()
           setEqEpoch((n) => n + 1)
-        } else if (st.isPlaying && !el.paused) {
+        } else if (st.isPlaying && !el.paused && el.currentTime - t0 < 0.3) {
+          // Sin ecualizador: solo si quedó pegado (no avanzó)
           el.pause()
           el.play().catch(() => {})
         }
-      }, 700)
+      }, 1200)
     }
-    window.addEventListener('cpn-audio-route', onRouteChange)
-    navigator.mediaDevices?.addEventListener?.('devicechange', onRouteChange)
-    // Vigilante: sonando con el ecualizador detenido (otra salida, llamada) → se reanuda o rearma
+    const onNativeRoute = () => onRouteChange(true)
+    // El navegador avisa cambios de dispositivos (también micrófonos, y al volver a la app los que
+    // pasaron mientras estaba afuera): solo cuentan si cambiaron las salidas de sonido
+    let outputs = ''
+    const readOutputs = async () => {
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices()
+        return list
+          .filter((d) => d.kind === 'audiooutput')
+          .map((d) => d.deviceId + d.label)
+          .sort()
+          .join('|')
+      } catch {
+        return ''
+      }
+    }
+    readOutputs().then((o) => (outputs = o))
+    const onDeviceChange = async () => {
+      const now = await readOutputs()
+      if (now === outputs) return
+      outputs = now
+      onRouteChange()
+    }
+    window.addEventListener('cpn-audio-route', onNativeRoute)
+    navigator.mediaDevices?.addEventListener?.('devicechange', onDeviceChange)
+    // Vigilante: sonando con el ecualizador detenido (otra salida, llamada). Primero se reanuda; se
+    // rearma solo si sigue detenido varias veces seguidas (al salir o volver a la app Android lo
+    // detiene un instante y se recupera solo: rearmarlo ahí era el "click")
+    let stalledTicks = 0
     const watch = setInterval(() => {
-      if (!eqActiveNowRef.current || !useMusicStore.getState().isPlaying || !equalizerStalled()) return
+      if (!eqActiveNowRef.current || !useMusicStore.getState().isPlaying || !equalizerStalled()) {
+        stalledTicks = 0
+        return
+      }
       resumeEqualizer()
-      setTimeout(() => equalizerStalled() && onRouteChange(), 1000)
+      if (++stalledTicks >= 3) {
+        stalledTicks = 0
+        onRouteChange()
+      }
     }, 3000)
     return () => {
       clearTimeout(timer)
       clearInterval(watch)
-      window.removeEventListener('cpn-audio-route', onRouteChange)
-      navigator.mediaDevices?.removeEventListener?.('devicechange', onRouteChange)
+      window.removeEventListener('cpn-audio-route', onNativeRoute)
+      navigator.mediaDevices?.removeEventListener?.('devicechange', onDeviceChange)
     }
   }, [])
 

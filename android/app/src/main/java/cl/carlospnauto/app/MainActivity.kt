@@ -185,11 +185,26 @@ class MainActivity : AppCompatActivity() {
         // Cambio de salida de sonido (parlante Bluetooth, audífonos): la web rearma su audio para que
         // siga sonando por la salida nueva (si no, avanzaba en silencio)
         val registeredAt = System.currentTimeMillis()
+        val realOutputs = buildSet {
+            add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
+            add(AudioDeviceInfo.TYPE_WIRED_HEADSET)
+            add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
+            add(AudioDeviceInfo.TYPE_USB_DEVICE)
+            add(AudioDeviceInfo.TYPE_USB_ACCESSORY)
+            if (Build.VERSION.SDK_INT >= 26) add(AudioDeviceInfo.TYPE_USB_HEADSET)
+            if (Build.VERSION.SDK_INT >= 28) add(AudioDeviceInfo.TYPE_HEARING_AID)
+            if (Build.VERSION.SDK_INT >= 31) {
+                add(AudioDeviceInfo.TYPE_BLE_HEADSET)
+                add(AudioDeviceInfo.TYPE_BLE_SPEAKER)
+            }
+        }
         val callback = object : AudioDeviceCallback() {
             private fun changed(devices: Array<out AudioDeviceInfo>) {
                 // Al registrarse Android informa los dispositivos actuales: eso no es un cambio
                 if (System.currentTimeMillis() - registeredAt < 2000) return
-                if (devices.any { it.isSink }) sendAction("route")
+                // Solo salidas reales (Bluetooth, audífonos, USB): Android también agrega y quita
+                // salidas virtuales al cambiar de app o grabar, y rearmar el audio ahí sonaba a "click"
+                if (devices.any { it.isSink && it.type in realOutputs }) sendAction("route")
             }
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = changed(addedDevices)
             override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = changed(removedDevices)
