@@ -17,4 +17,5 @@ jobs:
       - uses: actions/download-artifact@v4
         with: { name: CarlosPNauto-17, path: a17, run-id: 41255555604, github-token: '${{ github.token }}' }
       - run: |
-          for d in a15 a16 a17; do echo "== $d"; keytool -printcert -jarfile $d/CarlosPNauto.apk | grep -E "SHA256:|Owner" | head -2; done
+          AS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)apksigner
+          for d in a15 a16 a17; do echo "== $d"; $AS verify --print-certs $d/CarlosPNauto.apk | grep -E "SHA-256|DN" | head -2; done
