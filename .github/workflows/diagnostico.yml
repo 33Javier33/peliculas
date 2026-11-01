@@ -8,14 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          S=https://peliculas-neon.vercel.app
-          for i in $(seq 40); do curl -s "$S/api/free-movies?source=commons&kind=es" | grep -q '"movies"' && break; sleep 10; done
+          set +e; S=https://peliculas-neon.vercel.app
+          for i in $(seq 60); do curl -s "$S/api/free-movies?archive=night_of_the_living_dead" | grep -q subtitles && break; sleep 10; done; curl -s "$S/api/estado" | head -c 200; echo
           echo "=== commons es"; curl -s "$S/api/free-movies?source=commons&kind=es" | jq -c '.movies[] | [.title, .year, .duration, .fallbackUrl[0:60]]' | head -40
           echo "=== commons classic"; curl -s "$S/api/free-movies?source=commons&kind=classic" | jq -c '.movies[] | [.title, .year, .duration]' | head -15
           echo "=== archive es"; curl -s "$S/api/free-movies?source=archive&kind=es" | jq -c '.movies[] | [.id, .title, .year, .genre]' | head -48
           echo "=== archive es p2"; curl -s "$S/api/free-movies?source=archive&kind=es&page=2" | jq -c '.movies[] | [.title, .year]' | head -48
           echo "=== archive classic"; curl -s "$S/api/free-movies?source=archive&kind=classic" | jq -c '.movies[] | [.title, .year, .genre]' | head -20
-          for g in comedia terror scifi negro western animacion mudo documental; do echo "=== $g"; curl -s "$S/api/free-movies?source=archive&kind=classic&genre=$g" | jq -c '[.movies|length, (.movies[0:4][]|.title)]'; done
+          for g in comedia terror scifi negro western animacion mudo documental; do echo "=== $g"; curl -s "$S/api/free-movies?source=archive&kind=classic&genre=$g" | jq -c "[.movies|length, (.movies[0:4][]|.title)]" || true; done
           echo "=== es terror"; curl -s "$S/api/free-movies?source=archive&kind=es&genre=terror" | jq -c '[.movies|length, (.movies[0:6][]|.title)]'
           echo "=== search"; curl -s "$S/api/free-movies?source=archive&kind=classic&q=chaplin" | jq -c '[.movies|length, (.movies[0:5][]|.title)]'
           echo "=== video"; curl -s "$S/api/free-movies?archive=night_of_the_living_dead" | jq -c .
