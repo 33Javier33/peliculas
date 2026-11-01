@@ -303,7 +303,12 @@ class MainActivity : AppCompatActivity() {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
             if (id == -1L || id != updateDownloadId) return
             val dm = getSystemService(DownloadManager::class.java)
-            val uri = dm.getUriForDownloadedFile(id) ?: run {
+            val ok = runCatching {
+                dm.query(DownloadManager.Query().setFilterById(id)).use { c ->
+                    c.moveToFirst() && c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
+                }
+            }.getOrDefault(false)
+            val uri = dm.getUriForDownloadedFile(id)?.takeIf { ok } ?: run {
                 Toast.makeText(context, "No se pudo descargar la actualización", Toast.LENGTH_LONG).show()
                 return
             }
@@ -318,6 +323,15 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(context, "Abre la descarga desde la notificación para instalarla", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    fun runJs(js: String) {
+        if (::web.isInitialized) web.evaluateJavascript(js, null)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AppUpdater.onResume(this)
     }
 
     override fun onDestroy() {
@@ -335,6 +349,15 @@ class MainActivity : AppCompatActivity() {
         /** La web avisa si hay un video sonando (para la ventana flotante al salir) */
         fun setVideoActive(active: Boolean) {
             main.post { current?.get()?.updateVideoActive(active) }
+        }
+
+        /** La web pide actualizar la app: descarga con avance, revisión e instalador */
+        fun startUpdate(url: String) {
+            main.post {
+                val a = current?.get() ?: return@post
+                val absolute = if (url.startsWith("http")) url else BuildConfig.WEB_URL.trimEnd('/') + url
+                AppUpdater.start(a, absolute)
+            }
         }
 
         /** Botones de la notificación / pantalla bloqueada / auriculares → app web */

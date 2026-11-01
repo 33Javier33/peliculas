@@ -1,30 +1,31 @@
-import { releaseAssets, fetchAsset } from '@/lib/apk-release'
+import { releaseAssets } from '@/lib/apk-release'
 
-// Descarga del APK desde la propia app (en vez del enlace de GitHub, que pasa por varias
-// redirecciones y una caché que a veces entregaba la versión anterior)
+// Descarga del APK. Antes el archivo pasaba por aquí (Vercel), pero Vercel corta las respuestas
+// de sus funciones en 4,5 MB y el APK ya pesa casi 5 MB: llegaba cortado ("archivo dañado").
+// Ahora se redirige al archivo en GitHub: la API entrega un enlace firmado y recién hecho
+// (siempre la última versión, sin la caché de los enlaces públicos de GitHub).
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
 
 const FALLBACK = 'https://github.com/33Javier33/peliculas/releases/download/android-latest/CarlosPNauto.apk'
 
 export async function GET() {
-  let upstream: Response | null = null
+  let target = ''
   try {
     const { assets } = await releaseAssets()
     const apk = assets.find((a) => a.name === 'CarlosPNauto.apk')
-    if (apk) upstream = await fetchAsset(apk)
+    if (apk) {
+      const r = await fetch(apk.url, {
+        headers: { Accept: 'application/octet-stream', 'User-Agent': 'CarlosPNautoInteractive' },
+        redirect: 'manual',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10000),
+      })
+      const loc = r.headers.get('location')
+      if (r.status >= 300 && r.status < 400 && loc?.startsWith('https://')) target = loc
+      r.body?.cancel().catch(() => {})
+    }
   } catch {}
-  if (!upstream?.ok) upstream = await fetch(FALLBACK, { redirect: 'follow', cache: 'no-store' }).catch(() => null)
-  if (!upstream || !upstream.ok || !upstream.body) {
-    return new Response('El APK no está disponible ahora. Intenta en unos minutos.', { status: 502 })
-  }
-  const headers = new Headers({
-    'Content-Type': 'application/vnd.android.package-archive',
-    'Content-Disposition': 'attachment; filename="CarlosPNauto.apk"',
-    'Cache-Control': 'no-store',
-  })
-  const len = upstream.headers.get('content-length')
-  if (len) headers.set('Content-Length', len)
-  return new Response(upstream.body, { headers })
+  if (!target) target = `${FALLBACK}?t=${Date.now()}`
+  return new Response(null, { status: 302, headers: { Location: target, 'Cache-Control': 'no-store' } })
 }
