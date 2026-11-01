@@ -1,0 +1,16 @@
+name: Diagnóstico temporal (información de artistas)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e; S=https://peliculas-neon.vercel.app
+          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.58\.0' && break; sleep 10; done
+          for a in "Soda Stereo" "Pedro Infante" "Gustavo Cerati" "Grateful Dead" "Lee Rosevere" "Kevin MacLeod" "Los Prisioneros" "Bad Bunny"; do
+            echo "=== $a"; curl -s "$S/api/music-info?artist=$(printf %s "$a" | jq -sRr @uri)" | jq -c '{bio: (.artist.description // null), texto: ((.artist.extract // "")[0:90]), facts}'
+          done
+          echo "=== album"; curl -s "$S/api/music-info?artist=Soda%20Stereo&album=Canci%C3%B3n%20animal" | jq -c '{album: (.album.title // null), texto: ((.album.extract // "")[0:90])}'

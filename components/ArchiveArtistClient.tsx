@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Play, Shuffle, Loader2, Disc3, UserRound, AlertCircle, ExternalLink } from 'lucide-react'
 import BackButton from '@/components/BackButton'
+import MusicInfoPanel from '@/components/MusicInfoPanel'
 import { useMusicStore } from '@/store/musicStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -137,6 +138,8 @@ export default function ArchiveArtistClient({ name }: { name: string }) {
             ))}
           </div>
         )}
+        {/* Biografía: Wikipedia y MusicBrainz (país, años, géneros), si tienen al artista */}
+        <MusicInfoPanel artist={{ name, albums: results?.length || undefined }} />
         <a
           href={`https://archive.org/search?query=${encodeURIComponent(`creator:"${name}"`)}`}
           target="_blank"

@@ -27,6 +27,8 @@ const STAGES: Stage[] = [
       'Nunca se detienen: antes de terminar se suman canciones de otros discos, sin repetir',
       'Solo música que se puede compartir: sellos independientes, discos antiguos digitalizados y conciertos autorizados',
       'En la sección Música y en En vivo',
+      'Menú ⋮ con Ir al álbum, al artista y discografía también en archive.org y las radios',
+      'Sobre el artista en el reproductor, la biblioteca y archive.org: biografía (Wikipedia) y país, años y géneros (MusicBrainz)',
     ],
   },
   {

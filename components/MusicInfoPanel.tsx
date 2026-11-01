@@ -6,7 +6,48 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ExternalLink, Disc3, UserRound, CalendarDays, Tag, ListMusic, Building2, Heart } from 'lucide-react'
 import FollowArtistButton from '@/components/FollowArtistButton'
-import type { WikiSummary } from '@/lib/music-info'
+import type { WikiSummary, ArtistFacts } from '@/lib/music-info'
+
+export interface MusicInfo {
+  artist: WikiSummary | null
+  album: WikiSummary | null
+  facts?: ArtistFacts | null
+}
+
+// Se guarda lo ya consultado (al volver a la misma canción o artista no se pide de nuevo)
+const memo = new Map<string, Promise<MusicInfo>>()
+export function loadMusicInfo(artist: string, album?: string): Promise<MusicInfo> {
+  const params = new URLSearchParams({ artist })
+  if (album) params.set('album', album)
+  const key = params.toString()
+  let p = memo.get(key)
+  if (!p) {
+    p = fetch(`/api/music-info?${key}`)
+      .then((r) => r.json())
+      .catch(() => ({ artist: null, album: null }))
+    memo.set(key, p)
+  }
+  return p
+}
+
+/** País, origen, años, tipo y géneros del artista (MusicBrainz) */
+export function FactsChips({ facts }: { facts?: ArtistFacts | null }) {
+  if (!facts) return null
+  const years = facts.begin ? `Desde ${facts.begin}${facts.end ? ` hasta ${facts.end}` : ''}` : undefined
+  const items = [facts.type, [facts.area, facts.country].filter(Boolean).join(', ') || undefined, years, ...facts.genres.slice(0, 4)].filter(
+    (x): x is string => !!x
+  )
+  if (!items.length) return null
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {items.map((x, i) => (
+        <span key={x + i} className={`rounded-full px-2.5 py-1 text-xs ${i >= items.length - facts.genres.slice(0, 4).length ? 'bg-violet-500/15 text-violet-200' : 'bg-white/5 text-slate-300'}`}>
+          {x}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 // "Sobre el disco" y "Sobre el artista": datos del catálogo (fecha, sello, géneros…) y un
 // resumen de Wikipedia cuando existe.
@@ -20,6 +61,9 @@ export interface AlbumFacts {
   tracks: number
   duration: number
   fans?: number
+  /** Descripción del disco desde su origen (p. ej. Internet Archive), si Wikipedia no tiene */
+  description?: string
+  year?: string
 }
 
 const TYPE_LABEL: Record<string, string> = { album: 'Álbum', single: 'Sencillo', ep: 'EP', compile: 'Recopilatorio' }
@@ -56,16 +100,12 @@ export default function MusicInfoPanel({
   artist: { id?: number; name: string; picture?: string; fans?: number; albums?: number }
   album?: AlbumFacts
 }) {
-  const [info, setInfo] = useState<{ artist: WikiSummary | null; album: WikiSummary | null } | null>(null)
+  const [info, setInfo] = useState<MusicInfo | null>(null)
 
   useEffect(() => {
-    const params = new URLSearchParams({ artist: artist.name })
-    if (album) params.set('album', album.title)
     let cancelled = false
-    fetch(`/api/music-info?${params}`)
-      .then((r) => r.json())
-      .then((d) => !cancelled && setInfo(d))
-      .catch(() => !cancelled && setInfo({ artist: null, album: null }))
+    setInfo(null)
+    loadMusicInfo(artist.name, album?.title).then((d) => !cancelled && setInfo(d))
     return () => {
       cancelled = true
     }
@@ -74,9 +114,9 @@ export default function MusicInfoPanel({
   const picture = artist.picture || info?.artist?.image
   const facts: [React.ReactNode, string, string | undefined][] = album
     ? [
-        [<CalendarDays key="d" className="w-4 h-4" />, 'Lanzamiento', longDate(album.releaseDate)],
+        [<CalendarDays key="d" className="w-4 h-4" />, 'Lanzamiento', longDate(album.releaseDate) || album.year],
         [<Disc3 key="t" className="w-4 h-4" />, 'Tipo', TYPE_LABEL[album.type || 'album'] || 'Álbum'],
-        [<ListMusic key="c" className="w-4 h-4" />, 'Canciones', `${album.tracks} · ${minutes(album.duration)}`],
+        [<ListMusic key="c" className="w-4 h-4" />, 'Canciones', album.duration ? `${album.tracks} · ${minutes(album.duration)}` : String(album.tracks)],
         [<Tag key="g" className="w-4 h-4" />, 'Género', album.genres.join(', ') || undefined],
         [<Building2 key="l" className="w-4 h-4" />, 'Sello', album.label],
         [<Heart key="f" className="w-4 h-4" />, 'Fans en Deezer', album.fans ? album.fans.toLocaleString('es') : undefined],
@@ -110,6 +150,8 @@ export default function MusicInfoPanel({
             </div>
           ) : info.album ? (
             <WikiText info={info.album} />
+          ) : album.description ? (
+            <TranslatableText text={album.description} className="text-slate-300 text-sm leading-relaxed" />
           ) : null}
         </section>
       )}
@@ -136,6 +178,7 @@ export default function MusicInfoPanel({
             )}
           </div>
         </div>
+        <FactsChips facts={info?.facts} />
         {info === null ? (
           <div className="space-y-2" aria-hidden>
             <div className="h-3 rounded bg-white/5 w-full animate-pulse" />
@@ -143,6 +186,8 @@ export default function MusicInfoPanel({
           </div>
         ) : info.artist ? (
           <WikiText info={info.artist} />
+        ) : info.facts?.note ? (
+          <p className="text-slate-400 text-sm first-letter:uppercase">{info.facts.note}</p>
         ) : (
           <p className="text-slate-500 text-sm">No encontramos una biografía de {artist.name}.</p>
         )}

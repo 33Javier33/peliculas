@@ -6,6 +6,7 @@ import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
+import ArtistAboutCard from '@/components/ArtistAboutCard'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
@@ -444,6 +445,9 @@ export default function NowPlayingSheet({
               </button>
             )}
           </div>
+
+          {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
+          {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" />}
         </div>
       </div>
       {menuOpen && !isLive && (

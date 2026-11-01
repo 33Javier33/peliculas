@@ -3,6 +3,8 @@
 import { TrackDownloadIcon } from '@/components/OfflineIcons'
 import DownloadButton from '@/components/DownloadButton'
 import TranslatableText from '@/components/TranslatableText'
+import MusicInfoPanel from '@/components/MusicInfoPanel'
+import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Play, Shuffle, Plus, Check, ListPlus, ExternalLink, Loader2, Disc3, AlertCircle, Share2 } from 'lucide-react'
 import { fetchAlbums, toEntries, type ApiAlbum } from '@/lib/link-albums'
@@ -151,6 +153,21 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
                 </>
               )}
             />
+            {/* Sobre el disco y el artista (Wikipedia y MusicBrainz, si los tienen) */}
+            {first?.artist && (
+              <MusicInfoPanel
+                artist={{ name: first.artist }}
+                album={{ title: first.title, year: first.year, genres: [], tracks: tracks.length, duration: 0 }}
+              />
+            )}
+            {first?.artist && (
+              <Link
+                href={`/music/archive-artist/${encodeURIComponent(first.artist)}`}
+                className="mt-4 inline-flex items-center px-5 py-2.5 rounded-full bg-surface-2 border border-white/10 text-white text-sm font-semibold hover:border-violet-400"
+              >
+                Ver discografía de {first.artist}
+              </Link>
+            )}
           </>
         )}
       </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import ArtistAboutCard from '@/components/ArtistAboutCard'
 import { TrackDownloadIcon, GroupDownloadIcon, OfflineCountText } from '@/components/OfflineIcons'
 import AudioLinksSection from '@/components/AudioLinksSection'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
@@ -337,6 +338,15 @@ export default function MusicLibraryClient() {
                   <ListPlus className="w-3.5 h-3.5" /> Todas a una playlist
                 </button>
               </div>
+            )}
+
+            {/* Biografía del artista (y reseña del álbum) al ver uno */}
+            {activeSubFilter && (selectedArtist || filtered[0]?.channelTitle) && (
+              <ArtistAboutCard
+                artist={selectedArtist || filtered[0]?.channelTitle || ''}
+                album={selectedAlbum || undefined}
+                className="mb-5"
+              />
             )}
 
             {/* ALL SONGS TAB */}
