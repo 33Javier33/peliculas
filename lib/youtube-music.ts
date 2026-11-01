@@ -28,6 +28,8 @@ export interface MusicVideo {
   pending?: { artist: string; title: string; duration: number }
   // Radio de Internet Archive: género de la radio (la cola se va llenando sola)
   archiveRadio?: string
+  // Canción de tu biblioteca que la radio sumó (por su género)
+  fromLibrary?: boolean
 }
 
 export interface MusicSearchResult {

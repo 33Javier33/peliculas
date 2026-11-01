@@ -2,6 +2,7 @@
 // el reproductor. La cola se rellena sola antes de terminar (ver MusicPlayerBar).
 import type { MusicVideo } from '@/lib/youtube-music'
 import { toEntries, type ApiAlbum } from '@/lib/link-albums'
+import { librarySongsFor, classifyLibrary } from '@/lib/library-radio'
 
 export interface RadioGenreInfo {
   id: string
@@ -29,5 +30,16 @@ export async function fetchRadioTracks(genre: string, played: MusicVideo[] = [])
     const j = Math.floor(Math.random() * (i + 1))
     ;[tracks[i], tracks[j]] = [tracks[j], tracks[i]]
   }
-  return tracks
+  // De tu biblioteca, del mismo género: una cada tres o cuatro canciones de archive.org
+  const inQueue = new Set(played.map((t) => t.id))
+  const mine = librarySongsFor(genre, Math.max(1, Math.floor(tracks.length / 4)), inQueue).map((t) => ({ ...t, archiveRadio: genre, fromLibrary: true }))
+  const mixed: MusicVideo[] = []
+  let k = 0
+  tracks.forEach((t, i) => {
+    mixed.push(t)
+    if (i % 4 === 2 && k < mine.length) mixed.push(mine[k++])
+  })
+  // Sigue conociendo los géneros de tu biblioteca (para las próximas tandas)
+  classifyLibrary().catch(() => {})
+  return mixed
 }

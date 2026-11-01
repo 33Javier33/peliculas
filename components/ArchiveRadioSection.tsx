@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2, Radio, Pause, Play, AlertCircle } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
+import { classifyLibrary } from '@/lib/library-radio'
 
 // Radio de Internet Archive: una radio por género que no se detiene, hecha solo con música de
 // archive.org (cada tanda trae canciones de discos distintos; el reproductor pide más solo).
@@ -29,6 +30,11 @@ export default function ArchiveRadioSection({ className = '' }: { className?: st
   const isPlaying = useMusicStore((s) => s.isPlaying)
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Se van conociendo los géneros de tu biblioteca: así las radios suman tus canciones guardadas
+  useEffect(() => {
+    const t = setTimeout(() => classifyLibrary().catch(() => {}), 1500)
+    return () => clearTimeout(t)
+  }, [])
 
   const start = async (id: string) => {
     const st = useMusicStore.getState()
@@ -54,7 +60,7 @@ export default function ArchiveRadioSection({ className = '' }: { className?: st
         <Radio className="w-5 h-5 text-violet-300" />
         <h2 className="text-white font-bold text-lg font-display">Radios de Internet Archive</h2>
       </div>
-      <p className="text-slate-400 text-xs mb-3">Música sin parar por género, solo con discos de archive.org. Nunca se termina.</p>
+      <p className="text-slate-400 text-xs mb-3">Música sin parar por género con discos de archive.org, mezclada con las canciones de tu biblioteca de ese género. Nunca se termina.</p>
       <div className="grid grid-rows-2 grid-flow-col auto-cols-[42%] sm:auto-cols-[22%] lg:auto-cols-[13.5%] gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x [scrollbar-width:none]">
         {ARCHIVE_RADIO_GENRES.map((g) => {
           const on = current === g.id

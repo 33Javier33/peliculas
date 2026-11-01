@@ -254,6 +254,11 @@ export default function NowPlayingSheet({
           {/* Título + favorito */}
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
+              {video.archiveRadio && (
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-violet-300">
+                  {video.fromLibrary ? '♥ De tu biblioteca · ' : ''}Radio de Internet Archive
+                </p>
+              )}
               <h2 className="text-white text-[28px] leading-[34px] font-extrabold line-clamp-2">{songTitle}</h2>
               <p className="text-slate-400 text-base truncate mt-1">{artist}</p>
               {!isLive && artist && <FollowByName name={artist} onNavigate={onNavigate} />}

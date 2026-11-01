@@ -237,7 +237,7 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     if (!radioEnabled || !isLastTrack || !currentVideo || currentVideo.streamUrl || radioSeedRef.current === currentVideo.id) return
     // Discos y listas de enlaces: no se mezclan canciones de YouTube al final
-    if (currentVideo.audioUrl) return
+    if (currentVideo.audioUrl || currentVideo.archiveRadio) return
     // Con "repetir todo" la cola vuelve a empezar: la radio no añade canciones
     if (useMusicStore.getState().repeatMode === 'all') return
     radioSeedRef.current = currentVideo.id
