@@ -24,15 +24,14 @@ jobs:
               d=get('https://archive.org/advancedsearch.php?'+urllib.parse.urlencode(p)).get('response',{})
               print('===',name,d.get('numFound'))
               for x in d.get('docs',[]): print('   ',x.get('year'),'|',str(x.get('title'))[:70],'|',x.get('identifier')[:50],'|',[c for c in x.get('collection',[]) if not c.startswith('fav-')][:3])
-          base=FILM+' AND mediatype:(movies) AND '+EX
-          q('ES curated', base+' AND '+SP+' AND ((year:[1890 TO 1977] AND '+CUR+') OR year:[1890 TO 1930] OR licenseurl:(*creativecommons*))',60)
-          q('ES cc only', base+' AND '+SP+' AND licenseurl:(*creativecommons*)',10)
-          q('CLASSIC', base+' AND (year:[1890 TO 1970] OR licenseurl:(*creativecommons*))',30)
-          q('CLASSIC cc', base+' AND licenseurl:(*creativecommons*)',10)
-          q('CLASSIC terror', base+' AND (year:[1890 TO 1970] OR licenseurl:(*creativecommons*)) AND (subject:(horror OR terror OR zombie OR vampire OR monster))',8)
-          q('CLASSIC animacion', base+' AND (year:[1890 TO 1970] OR licenseurl:(*creativecommons*)) AND (collection:(classic_cartoons OR animationandcartoons) OR subject:(animation OR animated OR cartoon OR cartoons OR animación))',8)
-          q('CLASSIC mudo', base+' AND (year:[1890 TO 1970] OR licenseurl:(*creativecommons*)) AND (collection:(silent_films) OR subject:(silent OR "silent film" OR "cine mudo"))',8)
-          q('CLASSIC chaplin', base+' AND (year:[1890 TO 1970] OR licenseurl:(*creativecommons*)) AND (title:(chaplin) OR creator:(chaplin) OR subject:(chaplin))',8)
+          RIP='NOT identifier:(y-2-mate* OR yt-1s* OR *dvdrip* OR *tvrip* OR *1080p* OR *720p* OR *webrip* OR *.mkv)'
+          base=FILM+' AND mediatype:(movies) AND '+EX+' AND '+RIP
+          q('RIP count check', FILM+' AND mediatype:(movies) AND '+RIP, 3)
+          q('ES strict', base+' AND '+SP+' AND year:[1890 TO 1977] AND (year:[1890 TO 1930] OR subject:("public domain" OR "dominio público" OR "dominio publico") OR title:("spanish subtitles" OR subtitulada OR "subtítulos en español" OR "doblada al español"))',80)
+          q('ES PD wider (no FILM)', 'mediatype:(movies) AND '+EX+' AND '+RIP+' AND '+SP+' AND year:[1890 TO 1977] AND subject:("public domain" OR "dominio público" OR "dominio publico") AND NOT collection:(opensource_movies OR community)',20)
+          q('CLASSIC strict', base+' AND year:[1890 TO 1970]',20)
+          q('CLASSIC terror', base+' AND year:[1890 TO 1970] AND (subject:(horror OR terror OR zombie OR vampire OR monster))',8)
+          q('CLASSIC drama', base+' AND year:[1890 TO 1970] AND (subject:(drama OR melodrama))',8)
           for i in ['dra-cula.-esp.-mp-4.','frankenstein-1931-doblada-al-espanol','ElHotelDelTerror1960Espanol']:
               m=get('https://archive.org/metadata/'+i)
               print('META',i,[ (f['name'],f.get('format')) for f in m.get('files',[]) if f['name'].lower().endswith(('.mp4','.srt','.vtt','.webm','.ogv'))][:8])

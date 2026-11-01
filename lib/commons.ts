@@ -83,24 +83,36 @@ export async function searchCommonsMovies(kind: CommonsKind, q = '', page = 1): 
   if (!res.ok) throw new Error(`Commons ${res.status}`)
   const data = (await res.json()) as { query?: { pages?: Page[] | Record<string, Page> } }
   const pages = data.query?.pages ? (Array.isArray(data.query.pages) ? data.query.pages : Object.values(data.query.pages)) : []
+  const seen = new Set<string>()
   return pages
     .map((p) => {
       const ii = p.imageinfo?.[0]
       if (!ii?.url || !(ii.duration && ii.duration >= 20 * 60)) return null
+      // Commons agrega parámetros de seguimiento a la dirección: se quitan
+      const url = ii.url.split('?')[0]
       const meta = ii.extmetadata ?? {}
       const parsed = parseTitle(p.title)
+      const named = plain(meta.ObjectName?.value)
+      const title = (named.length < 90 && parseTitle(named).title) || parsed.title
+      // Fuera los que tienen nombre de archivo en vez de título ("15M-ExcelenteRevulsivo…H264")
+      if (!/\s/.test(title) && title.length > 18) return null
+      if (/\b(h264|x264|1080p|720p|v\d\.\d)\b/i.test(title)) return null
+      // La misma película subida dos veces (misma duración y mismo comienzo del título)
+      const dup = `${Math.round(ii.duration / 60)}|${title.toLowerCase().slice(0, 8)}`
+      if (seen.has(dup)) return null
+      seen.add(dup)
       const year = parsed.year || plain(meta.DateTimeOriginal?.value).match(/\b(18|19|20)\d\d\b/)?.[0]
       const movie: FreeMovie = {
         id: `commons-${p.title.replace(/^File:/, '')}`,
-        title: (plain(meta.ObjectName?.value).length < 90 && parseTitle(plain(meta.ObjectName?.value)).title) || parsed.title,
-        poster: ii.thumburl || '',
+        title,
+        poster: (ii.thumburl || '').split('?')[0],
         summary: plain(meta.ImageDescription?.value).slice(0, 600),
         year,
         duration: Math.round(ii.duration / 60),
         genre: /public domain/i.test(plain(meta.LicenseShortName?.value)) ? 'Dominio público' : plain(meta.LicenseShortName?.value) || undefined,
-        url: ii.url,
-        // Respaldo y descarga: la versión de 480p que Commons prepara (más liviana)
-        fallbackUrl: commonsTranscode(ii.url, '480p.vp9.webm'),
+        url,
+        // Respaldo: la versión de 480p que Commons prepara (más liviana)
+        fallbackUrl: commonsTranscode(url, '480p.vp9.webm'),
         source: 'commons',
         spanish: kind === 'es',
         landscape: true,

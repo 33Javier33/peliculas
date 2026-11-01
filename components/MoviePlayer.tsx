@@ -28,7 +28,7 @@ export const canSaveMovie = (m: FreeMovie) => m.source === 'archive' || m.source
 export default function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [info, setInfo] = useState<ArchiveVideo | null>(
-    movie.source === 'archive' ? null : { url: movie.url, download: movie.fallbackUrl || movie.url, subtitles: [] }
+    movie.source === 'archive' ? null : { url: movie.url, download: movie.url, subtitles: [] }
   )
   const [url, setUrl] = useState(movie.source === 'archive' ? '' : movie.url)
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
@@ -223,7 +223,7 @@ export default function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onCl
   // Subtítulos en español activados de entrada si la película no está hablada en español
   const defaultSub = movie.spanish ? -1 : subtitles.findIndex((s) => s.lang === 'es')
 
-  const downloadUrl = info?.download || (movie.source === 'commons' ? movie.fallbackUrl || movie.url : '')
+  const downloadUrl = info?.download || (movie.source === 'commons' ? movie.url : '')
   const pct = progress !== undefined ? Math.round(progress * 100) : null
 
   return (
