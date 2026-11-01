@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Disc3, UserRound, Library, Loader2, X, ListPlus } from 'lucide-react'
+import { Disc3, UserRound, Library, Loader2, X, ListPlus, Radio } from 'lucide-react'
+import { archiveItemOf } from '@/lib/archive-radio-client'
+import { ARCHIVE_RADIO_GENRES } from '@/components/ArchiveRadioSection'
 import { usePlaylistStore } from '@/store/playlistStore'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import { useLinksStore } from '@/store/linksStore'
@@ -10,7 +12,10 @@ import type { MusicVideo } from '@/lib/youtube-music'
 
 // Menú "⋮" de la canción que suena (como en Spotify): ir al álbum, al artista o a su discografía.
 
-type Info = { album: { id: number; title: string; cover: string }; artist: { id: number; name: string } } | null
+type Info = {
+  album: { id: number; title: string; cover: string }
+  artist: { id: number; name: string }
+} | null
 
 export default function TrackMenu({
   video,
@@ -29,8 +34,15 @@ export default function TrackMenu({
   const [info, setInfo] = useState<Info | undefined>(undefined)
   // Disco guardado desde un enlace o Internet Archive que contiene esta canción
   const linkAlbum = useLinksStore((s) => s.albums.find((a) => a.trackIds.includes(video.id)))
+  // Canción de Internet Archive (radio, discos, buscador): sus páginas están en archive.org, no en
+  // el catálogo (ahí casi nunca está y mostraba "No se encontró")
+  const source = video.description || video.audioUrl || ''
+  const archiveItem = /archive\.org\/download\//.test(source) || video.archiveRadio ? archiveItemOf(video) : null
+  const archiveArtist = (video.channelTitle || artist || '').trim()
+  const radio = video.archiveRadio ? ARCHIVE_RADIO_GENRES.find((g) => g.id === video.archiveRadio) : undefined
 
   useEffect(() => {
+    if (archiveItem) return setInfo(null)
     const key = `track-info:${artist}|${title}`.toLowerCase()
     const cached = readSession<Info | 'none'>(key)
     if (cached) return setInfo(cached === 'none' ? null : cached)
@@ -45,7 +57,7 @@ export default function TrackMenu({
     return () => {
       cancelled = true
     }
-  }, [artist, title])
+  }, [artist, title, archiveItem])
 
   const go = (href: string) => {
     onClose()
@@ -66,7 +78,11 @@ export default function TrackMenu({
             <p className="text-white font-semibold truncate">{title}</p>
             <p className="text-slate-400 text-sm truncate">{artist}</p>
           </div>
-          <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300"
+            aria-label="Cerrar"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -87,29 +103,82 @@ export default function TrackMenu({
         <div className="px-5 py-2">
           <SongDownloadButton video={video} className="w-full" />
         </div>
-        <button className={item} disabled={!albumHref} onClick={() => albumHref && go(albumHref)}>
-          {loading && !linkAlbum ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : <Disc3 className="w-5 h-5 text-violet-300" />}
-          <span className="min-w-0">
-            <span className="block font-semibold">Ir al álbum</span>
-            <span className="block text-slate-400 text-xs truncate">
-              {albumName ?? (loading ? 'Buscando…' : 'No se encontró el álbum en el catálogo')}
-            </span>
-          </span>
-        </button>
-        <button className={item} disabled={!info} onClick={() => info && go(`/music/artist/${info.artist.id}`)}>
-          {loading ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : <UserRound className="w-5 h-5 text-violet-300" />}
-          <span className="min-w-0">
-            <span className="block font-semibold">Ir al artista</span>
-            <span className="block text-slate-400 text-xs truncate">{info?.artist.name ?? (loading ? 'Buscando…' : 'No se encontró al artista')}</span>
-          </span>
-        </button>
-        <button className={item} disabled={!info} onClick={() => info && go(`/music/artist/${info.artist.id}#discografia`)}>
-          <Library className="w-5 h-5 text-violet-300" />
-          <span className="min-w-0">
-            <span className="block font-semibold">Ver discografía</span>
-            <span className="block text-slate-400 text-xs truncate">Todos los álbumes{info ? ` de ${info.artist.name}` : ''}</span>
-          </span>
-        </button>
+        {archiveItem ? (
+          <>
+            {radio && (
+              <button className={item} onClick={() => go('/radio')}>
+                <Radio className="w-5 h-5 text-violet-300" />
+                <span className="min-w-0">
+                  <span className="block font-semibold">Ir a las radios</span>
+                  <span className="block text-slate-400 text-xs truncate">Sonando: Radio {radio.label} · cambiar de género</span>
+                </span>
+              </button>
+            )}
+            <button className={item} onClick={() => go(`/music/archive/${encodeURIComponent(archiveItem)}`)}>
+              <Disc3 className="w-5 h-5 text-violet-300" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Ir al álbum</span>
+                <span className="block text-slate-400 text-xs truncate">{video.album || 'Disco en Internet Archive'}</span>
+              </span>
+            </button>
+            <button
+              className={item}
+              disabled={!archiveArtist}
+              onClick={() => go(`/music/archive-artist/${encodeURIComponent(archiveArtist)}`)}
+            >
+              <UserRound className="w-5 h-5 text-violet-300" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Ir al artista</span>
+                <span className="block text-slate-400 text-xs truncate">{archiveArtist || 'Artista desconocido'}</span>
+              </span>
+            </button>
+            <button
+              className={item}
+              disabled={!archiveArtist}
+              onClick={() => go(`/music/archive-artist/${encodeURIComponent(archiveArtist)}#discografia`)}
+            >
+              <Library className="w-5 h-5 text-violet-300" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Ver discografía</span>
+                <span className="block text-slate-400 text-xs truncate">
+                  Todos los discos de {archiveArtist || 'este artista'} en Internet Archive
+                </span>
+              </span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button className={item} disabled={!albumHref} onClick={() => albumHref && go(albumHref)}>
+              {loading && !linkAlbum ? (
+                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+              ) : (
+                <Disc3 className="w-5 h-5 text-violet-300" />
+              )}
+              <span className="min-w-0">
+                <span className="block font-semibold">Ir al álbum</span>
+                <span className="block text-slate-400 text-xs truncate">
+                  {albumName ?? (loading ? 'Buscando…' : 'No se encontró el álbum en el catálogo')}
+                </span>
+              </span>
+            </button>
+            <button className={item} disabled={!info} onClick={() => info && go(`/music/artist/${info.artist.id}`)}>
+              {loading ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : <UserRound className="w-5 h-5 text-violet-300" />}
+              <span className="min-w-0">
+                <span className="block font-semibold">Ir al artista</span>
+                <span className="block text-slate-400 text-xs truncate">
+                  {info?.artist.name ?? (loading ? 'Buscando…' : 'No se encontró al artista')}
+                </span>
+              </span>
+            </button>
+            <button className={item} disabled={!info} onClick={() => info && go(`/music/artist/${info.artist.id}#discografia`)}>
+              <Library className="w-5 h-5 text-violet-300" />
+              <span className="min-w-0">
+                <span className="block font-semibold">Ver discografía</span>
+                <span className="block text-slate-400 text-xs truncate">Todos los álbumes{info ? ` de ${info.artist.name}` : ''}</span>
+              </span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
