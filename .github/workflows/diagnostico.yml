@@ -1,0 +1,38 @@
+name: Diagnóstico temporal (películas libres)
+on:
+  push:
+    branches: [ccr-119ea479-72dpe7]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          A='https://archive.org/advancedsearch.php'
+          q() { echo "=== $1"; curl -s -G "$A" --data-urlencode "q=$1" -d rows=8 -d output=json -d 'fl[]=identifier' -d 'fl[]=title' -d 'fl[]=year' -d 'fl[]=language' -d 'fl[]=collection' -d 'sort[]=downloads desc' | jq -c '.response.numFound, (.response.docs[] | [.identifier, .title, .year, .language, (.collection|tostring)[0:80]])'; }
+          q 'collection:(feature_films) AND mediatype:(movies)'
+          q 'collection:(feature_films) AND mediatype:(movies) AND language:(spa OR Spanish OR español OR Español)'
+          q 'collection:(moviesandfilms) AND mediatype:(movies) AND language:(spa OR Spanish OR español OR Español)'
+          q 'mediatype:(movies) AND language:(spa OR Spanish OR español OR Español) AND (collection:(feature_films OR Film_Noir OR SciFi_Horror OR Comedy_Films OR silent_films OR classic_cartoons OR prelinger OR moviesandfilms OR animationandcartoons OR cinemocracy))'
+          q 'mediatype:(movies) AND (title:(latino) OR subject:(latino OR "español latino" OR doblaje)) AND collection:(feature_films OR moviesandfilms)'
+          q 'mediatype:(movies) AND language:(spa OR Spanish OR español) AND subject:("public domain" OR "dominio público" OR "dominio publico")'
+          for c in Film_Noir SciFi_Horror Comedy_Films silent_films classic_cartoons animationandcartoons prelinger documentaries feature_films_westerns westerns cinemocracy classic_tv; do q "collection:($c) AND mediatype:(movies)" | head -4; done
+          q 'collection:(feature_films) AND subject:(western OR westerns)' | head -3
+          q 'collection:(feature_films) AND subject:(drama)' | head -3
+          q 'collection:(feature_films) AND subject:(horror OR terror)' | head -3
+          q 'collection:(feature_films) AND subject:(comedy OR comedia)' | head -3
+          echo "=== COMMONS"
+          C='https://commons.wikimedia.org/w/api.php'
+          cq() { echo "--- $1"; curl -s -G "$C" -H 'User-Agent: CPNtest/1.0' -d action=query -d list=search --data-urlencode "srsearch=$1" -d srnamespace=6 -d srlimit=8 -d format=json | jq -c '.query.searchinfo.totalhits, (.query.search[]|.title)'; }
+          cq 'filetype:video incategory:"Spanish-language_films"'
+          cq 'filetype:video deepcat:"Films in Spanish"'
+          cq 'filetype:video incategory:"Spanish-language films"'
+          cq 'filetype:video película'
+          cq 'filetype:video incategory:"Feature films"'
+          cq 'filetype:video incategory:"Feature films in the public domain"'
+          cq 'filetype:video "public domain" feature film'
+          curl -s -G "$C" -H 'User-Agent: CPNtest/1.0' -d action=query -d list=categorymembers -d 'cmtitle=Category:Videos of feature films' -d cmlimit=10 -d format=json | jq -c '.query.categorymembers[]?.title'
+          curl -s -G "$C" -H 'User-Agent: CPNtest/1.0' -d action=query -d list=allcategories -d acprefix='Spanish-language films' -d aclimit=10 -d format=json | jq -c '.query.allcategories'
+          curl -s -G "$C" -H 'User-Agent: CPNtest/1.0' -d action=query -d list=allcategories -d acprefix='Feature films' -d aclimit=20 -d format=json -d acprop=size | jq -c '.query.allcategories'
+          echo "=== META sample"
+          curl -s https://archive.org/metadata/night_of_the_living_dead | jq -c '[.metadata.language, .metadata.subject, (.files[]|select(.name|test("mp4|srt|vtt|ogv";"i"))|[.name,.format,.size])]' | head -c 1500
