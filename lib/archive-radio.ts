@@ -52,32 +52,112 @@ const pick = <T,>(list: T[], n: number) => {
   return a.slice(0, n)
 }
 
-// Lista de discos por género (se guarda un rato: no hace falta buscarla en cada pedido)
-const pools = new Map<string, { at: number; ids: string[] }>()
+/**
+ * De dónde sale la música de cada radio. Además de los sellos independientes, cada género toma
+ * artistas conocidos de colecciones legítimas: discos originales de 78 rpm (Bill Haley, Elvis,
+ * Pedro Infante, Duke Ellington…) y conciertos del Live Music Archive (Grateful Dead, Smashing
+ * Pumpkins…). El peso dice cuántas veces más se elige cada fuente.
+ */
+const R78 = `mediatype:(audio) AND collection:(78rpm) AND NOT title:${ADULT}`
+const ROCK_ROLL_ARTISTS =
+  'creator:("Elvis Presley" OR "Chuck Berry" OR "Bill Haley" OR "Buddy Holly" OR "Little Richard" OR "Fats Domino" OR "Jerry Lee Lewis" OR "Everly Brothers" OR "Carl Perkins" OR "Johnny Cash" OR "Ritchie Valens" OR "Eddie Cochran" OR "Gene Vincent" OR "Bo Diddley" OR "The Platters" OR "Ray Charles")'
+const SOURCES: Record<string, { q: string; weight: number }[]> = {
+  rock: [
+    { q: `${R78} AND (${ROCK_ROLL_ARTISTS} OR subject:("rock and roll" OR "rock & roll" OR "rock 'n' roll" OR "rock n roll" OR rockabilly))`, weight: 3 },
+    { q: LIVE, weight: 3 },
+    { q: `${MUSIC_ONLY} AND subject:(rock OR "rock and roll" OR "classic rock" OR "indie rock" OR punk)`, weight: 1 },
+  ],
+  latina: [
+    { q: `${R78} AND subject:(latin OR latina OR bolero OR tango OR rumba OR mambo OR ranchera OR guaracha OR cha-cha OR merengue OR cumbia OR "son cubano")`, weight: 3 },
+    { q: `${MUSIC_ONLY} AND subject:(latin OR latina OR latino OR salsa OR cumbia OR bolero OR tango OR merengue OR bachata OR reggaeton OR "música latina")`, weight: 1 },
+  ],
+  jazz: [
+    { q: `${R78} AND subject:(jazz OR swing OR bebop OR "big band")`, weight: 3 },
+    { q: `${MUSIC_ONLY} AND subject:(jazz OR swing OR bebop OR "big band")`, weight: 1 },
+  ],
+  blues: [
+    { q: `${R78} AND subject:(blues OR "rhythm and blues")`, weight: 3 },
+    { q: `${MUSIC_ONLY} AND subject:(blues)`, weight: 1 },
+  ],
+  folk: [
+    { q: `${R78} AND subject:(country OR hillbilly OR western OR folk OR bluegrass)`, weight: 2 },
+    { q: `${MUSIC_ONLY} AND subject:(folk OR acoustic OR country OR bluegrass OR "singer-songwriter")`, weight: 1 },
+  ],
+  pop: [
+    { q: `${R78} AND subject:(pop OR vocal OR "popular music" OR crooner OR "doo-wop")`, weight: 1 },
+    { q: `${MUSIC_ONLY} AND subject:(pop OR "pop music" OR synthpop OR "indie pop")`, weight: 2 },
+  ],
+}
+const sourcesOf = (g: RadioGenre) => SOURCES[g.id] ?? [{ q: g.id === 'envivo' ? LIVE : `${MUSIC_ONLY} AND (${g.terms})`, weight: 1 }]
 
-async function genrePool(g: RadioGenre): Promise<string[]> {
-  const hit = pools.get(g.id)
-  if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000 && hit.ids.length) return hit.ids
-  // Dos páginas al azar entre los 1.000 discos más escuchados del género (variedad sin rarezas)
-  const pages = pick([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 2)
+interface PoolItem {
+  id: string
+  creator: string
+}
+// Discos de cada fuente (se guardan un rato: no hace falta buscarlos en cada pedido)
+const pools = new Map<string, { at: number; items: PoolItem[] }>()
+
+async function sourcePool(key: string, q: string): Promise<PoolItem[]> {
+  const hit = pools.get(key)
+  if (hit && Date.now() - hit.at < 6 * 60 * 60 * 1000 && hit.items.length) return hit.items
+  // Dos páginas al azar entre los 600 discos más escuchados (conocidos, con variedad)
+  const pages = pick([1, 2, 3, 4, 5, 6], 2)
   const lists = await Promise.all(
     pages.map(async (page) => {
-      const params = new URLSearchParams({ q: g.id === 'envivo' ? LIVE : `${MUSIC_ONLY} AND (${g.terms})`, rows: '100', page: String(page), output: 'json' })
+      const params = new URLSearchParams({ q, rows: '100', page: String(page), output: 'json' })
       params.append('fl[]', 'identifier')
+      params.append('fl[]', 'creator')
       params.append('sort[]', 'downloads desc')
       const res = await fetch(`${ARCHIVE}/advancedsearch.php?${params}`, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
         signal: AbortSignal.timeout(12000),
         cache: 'no-store',
-      })
-      if (!res.ok) return []
-      const d = (await res.json()) as { response?: { docs?: { identifier: string }[] } }
-      return (d.response?.docs ?? []).map((x) => x.identifier).filter(Boolean)
+      }).catch(() => null)
+      if (!res?.ok) return []
+      const d = (await res.json()) as { response?: { docs?: { identifier: string; creator?: string | string[] }[] } }
+      return (d.response?.docs ?? [])
+        .filter((x) => x.identifier)
+        .map((x) => ({ id: x.identifier, creator: String((Array.isArray(x.creator) ? x.creator[0] : x.creator) || x.identifier).toLowerCase() }))
     })
   )
-  const ids = Array.from(new Set(lists.flat()))
-  if (ids.length) pools.set(g.id, { at: Date.now(), ids })
-  return ids
+  const seen = new Set<string>()
+  const items = lists.flat().filter((x) => !seen.has(x.id) && seen.add(x.id))
+  if (items.length) pools.set(key, { at: Date.now(), items })
+  return items
+}
+
+/** Discos para la próxima tanda: según el peso de cada fuente y sin repetir artista */
+async function nextItems(g: RadioGenre, used: Set<string>, n: number, artists: Set<string>): Promise<string[]> {
+  const sources = sourcesOf(g)
+  const lists = await Promise.all(
+    sources.map(async (src, i) => {
+      const key = `${g.id}:${i}`
+      let items = (await sourcePool(key, src.q)).filter((x) => !used.has(x.id))
+      if (items.length < 4) {
+        // Se recorrió todo lo guardado de esta fuente: otra tanda
+        pools.delete(key)
+        items = (await sourcePool(key, src.q)).filter((x) => !used.has(x.id))
+      }
+      return pick(items, items.length)
+    })
+  )
+  const out: string[] = []
+  const total = sources.reduce((a, s) => a + s.weight, 0)
+  for (let tries = 0; out.length < n && tries < n * 12; tries++) {
+    // Fuente al azar según su peso
+    let r = Math.random() * total
+    let i = 0
+    while (i < sources.length - 1 && (r -= sources[i].weight) > 0) i++
+    const list = lists[i].length ? lists[i] : lists.find((l) => l.length)
+    if (!list) break
+    const item = list.shift()!
+    // Un disco por artista en cada tanda (si no, Grateful Dead llenaría la radio de rock)
+    const who = item.creator.replace(/\s+(and|y|with|con)\s+.*$/, '').replace(/[^a-z0-9]+/g, ' ').trim()
+    if (artists.has(who) || out.includes(item.id)) continue
+    artists.add(who)
+    out.push(item.id)
+  }
+  return out
 }
 
 /**
@@ -88,18 +168,14 @@ export async function radioBatch(genreId: string, skip: string[] = [], want = 12
   const g = RADIO_GENRES.find((x) => x.id === genreId)
   if (!g) throw new Error('Género desconocido')
   const used = new Set(skip)
-  let pool = (await genrePool(g)).filter((id) => !used.has(id))
-  if (pool.length < 4) {
-    // Se recorrió todo lo guardado: otra tanda de discos
-    pools.delete(g.id)
-    pool = (await genrePool(g)).filter((id) => !used.has(id))
-  }
   const albums: LinkAlbum[] = []
   let count = 0
+  const artists = new Set<string>()
   // De a 4 discos a la vez, hasta juntar las canciones pedidas (máximo 3 rondas)
-  for (let round = 0; round < 3 && count < want && pool.length; round++) {
-    const batch = pick(pool, 4)
-    pool = pool.filter((id) => !batch.includes(id))
+  for (let round = 0; round < 3 && count < want; round++) {
+    const batch = await nextItems(g, used, 4, artists)
+    if (!batch.length) break
+    batch.forEach((id) => used.add(id))
     const read = await Promise.all(
       batch.map((id) =>
         readArchive(id, `https://archive.org/details/${encodeURIComponent(id)}`)
@@ -111,6 +187,13 @@ export async function radioBatch(genreId: string, skip: string[] = [], want = 12
       // Canciones de largo normal (ni cortinas ni conciertos enteros en un solo archivo)
       const songs = list.flatMap((a) => a.tracks.map((t) => ({ a, t }))).filter(({ t }) => !t.duration || (t.duration >= 60 && t.duration <= 15 * 60))
       if (!songs.length) continue
+      // La misma canción en varias versiones (78 rpm: original, restaurada…): una sola
+      const seenTitle = new Set<string>()
+      for (let k = songs.length - 1; k >= 0; k--) {
+        const key = (songs[k].t.title || '').toLowerCase().replace(/[^a-z0-9áéíóúñ]+/g, ' ').replace(/\b(restored|restaurad[oa]|version|take \d+)\b/g, '').trim()
+        if (seenTitle.has(key)) songs.splice(k, 1)
+        else seenTitle.add(key)
+      }
       // 2 o 3 canciones por disco: así la radio va cambiando de artista
       const chosen = pick(songs, Math.min(songs.length, g.id === 'antiguos' ? 2 : 3))
       const byAlbum = new Map<LinkAlbum, LinkAlbum['tracks']>()

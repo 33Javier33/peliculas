@@ -1,39 +1,15 @@
-name: Diagnóstico temporal (artistas conocidos)
+name: Diagnóstico temporal (radio con artistas conocidos)
 on:
   push:
-    branches: [ccr-119ea479-72dpe7]
+    branches: [main]
     paths: ['.github/workflows/diagnostico.yml']
 jobs:
   revisar:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          cat > t.py <<'PY'
-          import json, urllib.request, urllib.parse, collections
-          UA={'User-Agent':'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)'}
-          def get(u):
-              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=40))
-              except Exception as e: print('ERR',e); return {}
-          def top(name,q,rows=300):
-              p=[('q',q),('rows',rows),('output','json'),('sort[]','downloads desc'),('fl[]','creator'),('fl[]','identifier'),('fl[]','year')]
-              d=get('https://archive.org/advancedsearch.php?'+urllib.parse.urlencode(p)).get('response',{})
-              c=collections.Counter()
-              for x in d.get('docs',[]):
-                  cr=x.get('creator'); cr=cr[0] if isinstance(cr,list) else cr
-                  if cr: c[cr]+=1
-              print('===',name,d.get('numFound'),'| artistas:',', '.join(f'{k}({v})' for k,v in c.most_common(30)))
-          R78='collection:(78rpm) AND mediatype:(audio)'
-          top('78 rock and roll',R78+' AND subject:("rock and roll" OR "rock & roll" OR "rock \'n\' roll" OR rockabilly OR "rock n roll" OR doo-wop OR "rhythm and blues" OR "r&b")')
-          top('78 rock (titulo/creador)',R78+' AND (creator:("Elvis Presley" OR "Chuck Berry" OR "Bill Haley" OR "Buddy Holly" OR "Little Richard" OR "Fats Domino" OR "Jerry Lee Lewis" OR "Everly Brothers" OR "Carl Perkins" OR "Johnny Cash" OR "Ritchie Valens" OR "Eddie Cochran" OR "Gene Vincent" OR "Bo Diddley" OR "The Platters" OR "Ray Charles"))')
-          top('etree todo','collection:(etree) AND mediatype:(etree)')
-          top('78 jazz',R78+' AND subject:(jazz OR swing)')
-          top('78 blues',R78+' AND subject:(blues)')
-          top('78 pop / vocal',R78+' AND subject:(pop OR vocal OR "popular music" OR crooner)')
-          top('78 country',R78+' AND subject:(country OR hillbilly OR western)')
-          top('78 latina',R78+' AND subject:(latin OR bolero OR tango OR rumba OR mambo OR ranchera)')
-          top('netlabels rock','collection:(netlabels) AND subject:(rock)')
-          # una presentación de etree: ¿tiene canciones sueltas?
-          m=get('https://archive.org/metadata/gd1977-05-08.shure57.stevenson.29303.flac16')
-          print('META etree', [ (f['name'][:40], f.get('format'), f.get('length'), f.get('title')) for f in m.get('files',[]) if 'MP3' in (f.get('format') or '')][:6])
-          PY
-          python3 t.py
+          set +e; S=https://peliculas-neon.vercel.app
+          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.59\.0' && break; sleep 10; done
+          for g in rock rock rock latina jazz blues folk; do
+            echo "=== $g"; curl -s "$S/api/archive-radio?genre=$g" | jq -r '.error // empty, (.albums[] | "   \(.artist // "?") — \(.tracks | map(.title) | join(" / "))")'
+          done

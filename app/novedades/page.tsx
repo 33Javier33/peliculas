@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
       '14 radios por género (Latina, Rock, Pop, Electrónica, Jazz, Blues, Clásica, Hip hop, Reggae, Folk, Metal, Relajo, 78 rpm y Conciertos en vivo)',
       'Nunca se detienen: antes de terminar se suman canciones de otros discos, sin repetir',
       'Solo música que se puede compartir: sellos independientes, discos antiguos digitalizados y conciertos autorizados',
+      'Artistas conocidos en las radios: rock and roll de los 50, conciertos de Grateful Dead o Smashing Pumpkins, Pedro Infante, Duke Ellington…',
       'En la sección Música y en En vivo',
       'Menú ⋮ con Ir al álbum, al artista y discografía también en archive.org y las radios',
       'Sobre el artista en el reproductor, la biblioteca y archive.org: biografía (Wikipedia) y país, años y géneros (MusicBrainz)',
