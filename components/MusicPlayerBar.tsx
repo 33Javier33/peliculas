@@ -466,7 +466,10 @@ export default function MusicPlayerBar() {
   // (Los MP3 de otros sitios, como archive.org, no: si no dan permiso CORS el audio fallaba y se
   // saltaban las canciones. Pasan por el ecualizador solo si vienen por el servidor de la app.)
   const eqSafe = useAudio && !isLive && !!audioUrl && (isLocalFile || (isNativeSrc ? !eqNativeBlocked : eqSafeUrl(audioUrl)))
-  const eqActive = eqEnabled && eqSafe
+  // En "Normal" (todas las bandas en 0 y sin nivelador) no hay nada que procesar: el audio va
+  // directo, sin pasar por el sistema de audio (cero riesgo de chasquidos)
+  const eqDoesSomething = eqLeveler || eqGains.some((g) => Math.abs(g) > 0.05)
+  const eqActive = eqEnabled && eqSafe && eqDoesSomething
   // Al cambiar la salida de sonido (audífonos ↔ parlante Bluetooth) se arma un <audio> nuevo
   const [eqEpoch, setEqEpoch] = useState(0)
   useEffect(() => useEqStore.getState().setApplies(eqSafe), [eqSafe])

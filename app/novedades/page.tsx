@@ -29,6 +29,7 @@ const STAGES: Stage[] = [
       'Subtítulos en español automáticos cuando la película los trae',
       'Descargar películas para verlas sin internet (por partes, se retoma si se corta)',
       'Sin "click" ni cortes de audio al salir o volver a la app',
+      'Ecualizador sin chisporroteo: ya no satura (limitador) y usa un búfer de audio más grande',
       'archive.org suena directo y la app de Android queda solo como respaldo (ya no salta canciones)',
     ],
   },

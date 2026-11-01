@@ -11,7 +11,18 @@ interface Chain {
   dry: GainNode
   wet: GainNode
   out: GainNode
+  limiter: DynamicsCompressorNode
 }
+
+/** Nivelador: cuánto se sube lo procesado (el compresor baja lo fuerte y esto lo vuelve a subir) */
+export const LEVELER_MAKEUP = 1.3
+
+/**
+ * Margen para no saturar: se baja el total exactamente lo que sube la banda más alta. Antes se
+ * bajaba la mitad y en canciones fuertes la señal pasaba el máximo: eso se oía como un
+ * chisporroteo ("radio que pierde la señal").
+ */
+export const headroom = (gains: number[], on: boolean) => (on ? Math.pow(10, -Math.max(0, ...gains) / 20) : 1)
 
 let ctx: AudioContext | null = null
 const chains = new WeakMap<HTMLMediaElement, Chain>()
@@ -21,7 +32,9 @@ export function attachEqualizer(el: HTMLMediaElement): Chain | null {
   const hit = chains.get(el)
   if (hit) return hit
   try {
-    ctx ??= new AudioContext()
+    // "playback": búfer de audio más grande. Con el de baja latencia (para juegos), en Android el
+    // sonido se quedaba sin datos cada vez que el teléfono se ocupaba un instante → chasquidos
+    ctx ??= new AudioContext({ latencyHint: 'playback' })
     const source = ctx.createMediaElementSource(el)
     const filters = EQ_BANDS.map((b) => {
       const f = ctx!.createBiquadFilter()
@@ -47,8 +60,16 @@ export function attachEqualizer(el: HTMLMediaElement): Chain | null {
     comp.connect(wet)
     dry.connect(out)
     wet.connect(out)
-    out.connect(ctx.destination)
-    const chain = { ctx, filters, comp, dry, wet, out }
+    // Limitador final: atrapa cualquier pico que igual pase el máximo (nunca satura)
+    const limiter = ctx.createDynamicsCompressor()
+    limiter.threshold.value = -1.5
+    limiter.knee.value = 0
+    limiter.ratio.value = 20
+    limiter.attack.value = 0.002
+    limiter.release.value = 0.15
+    out.connect(limiter)
+    limiter.connect(ctx.destination)
+    const chain = { ctx, filters, comp, dry, wet, out, limiter }
     chains.set(el, chain)
     return chain
   } catch {
@@ -63,10 +84,8 @@ export function updateEqualizer(el: HTMLMediaElement, gains: number[], leveler: 
   const t = c.ctx.currentTime
   c.filters.forEach((f, i) => f.gain.setTargetAtTime(on ? gains[i] ?? 0 : 0, t, 0.05))
   c.dry.gain.setTargetAtTime(on && leveler ? 0 : 1, t, 0.05)
-  c.wet.gain.setTargetAtTime(on && leveler ? 1.6 : 0, t, 0.05)
-  // Al subir bandas se baja un poco el total para que no sature
-  const boost = on ? Math.max(0, ...gains) : 0
-  c.out.gain.setTargetAtTime(Math.pow(10, -boost / 2 / 20), t, 0.05)
+  c.wet.gain.setTargetAtTime(on && leveler ? LEVELER_MAKEUP : 0, t, 0.05)
+  c.out.gain.setTargetAtTime(headroom(gains, on), t, 0.05)
 }
 
 /** Cerrar el sistema de audio (al cambiar de parlante o audífonos: el nuevo sale por el actual) */
