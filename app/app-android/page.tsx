@@ -1,9 +1,13 @@
+import ShareAppButton from '@/components/ShareAppButton'
 import type { Metadata } from 'next'
 import { ShieldCheck, Smartphone, RefreshCw } from 'lucide-react'
 import ApkVersionInfo from '@/components/ApkVersionInfo'
 import DownloadApkButton from '@/components/DownloadApkButton'
 
-export const metadata: Metadata = { title: 'App para Android', robots: { index: false } }
+export const metadata: Metadata = {
+  title: 'Descargar la app para Android (APK)',
+  description: 'Descarga gratis la app de Carlos P. Nauto Interactive para Android: música con la pantalla bloqueada, radios, TV y películas.',
+}
 
 // Página para instalar la app de Android (APK)
 export default function AndroidAppPage() {
@@ -20,6 +24,9 @@ export default function AndroidAppPage() {
         <ApkVersionInfo />
 
         <DownloadApkButton />
+        <div className="mt-3">
+          <ShareAppButton label="Compartir la app de Android" />
+        </div>
 
         <ol className="mt-8 space-y-3 text-slate-300 text-sm list-decimal pl-5">
           <li>Toca <b>Descargar la app</b>. Si el navegador avisa que el archivo puede ser dañino, elige <b>Descargar de todos modos</b>.</li>

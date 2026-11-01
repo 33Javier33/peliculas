@@ -37,15 +37,31 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://peliculas-neon.vercel.app'),
   title: {
-    default: 'Carlos P. Nauto Interactive — Películas, videos y música',
+    default: 'Carlos P. Nauto Interactive — Música, radios, TV y películas gratis',
     template: '%s | Carlos P. Nauto Interactive',
   },
   description:
-    'Reproductor de películas, videos musicales y música. Descubre estrenos, tendencias y tus canciones favoritas.',
-  keywords: ['películas', 'cine', 'videos musicales', 'música', 'reproductor', 'estrenos', 'trailer', 'TMDB'],
+    'Carlos P. Nauto Interactive: escucha música con letra karaoke, radios en vivo y radios infinitas por género, TV en vivo y películas gratis. App gratis para Android, iPhone y web.',
+  keywords: [
+    'Carlos P. Nauto',
+    'Carlos P. Nauto Interactive',
+    'CarlosPNauto',
+    'Musica Carlos P Nauto',
+    'música gratis',
+    'radio online',
+    'radios en vivo',
+    'TV en vivo',
+    'películas gratis',
+    'letras de canciones',
+    'karaoke',
+    'app de música',
+    'Internet Archive',
+  ],
+  // Verificación de Google Search Console (la clave se pone en Vercel: NEXT_PUBLIC_GOOGLE_VERIFICATION)
+  verification: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } : undefined,
   openGraph: {
     title: 'Carlos P. Nauto Interactive',
-    description: 'Películas, videos musicales y música en un solo reproductor.',
+    description: 'Música con letra karaoke, radios, TV en vivo y películas gratis. App para Android, iPhone y web.',
     type: 'website',
     locale: 'es_ES',
     images: [{ url: '/brand/og.jpg', width: 1200, height: 630, alt: 'Carlos P. Nauto Interactive' }],
@@ -84,6 +100,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${inter.variable} ${jakarta.variable}`} suppressHydrationWarning>
       <head>
+        {/* Para Google: qué es la app (nombre, tipo y que es gratis) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebApplication',
+              name: 'Carlos P. Nauto Interactive',
+              alternateName: ['Carlos P. Nauto', 'Música Carlos P. Nauto', 'CarlosPNauto'],
+              url: process.env.NEXT_PUBLIC_SITE_URL || 'https://peliculas-neon.vercel.app',
+              applicationCategory: 'MultimediaApplication',
+              operatingSystem: 'Android, iOS, Web',
+              inLanguage: 'es',
+              description: 'Música con letra karaoke, radios en vivo y por género, TV en vivo y películas gratis.',
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            }),
+          }}
+        />
         <script dangerouslySetInnerHTML={{ __html: SPLASH_SCRIPT }} />
         <link rel="preload" href="/brand/splash-poster.webp" as="image" />
       </head>

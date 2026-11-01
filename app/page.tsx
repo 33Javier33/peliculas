@@ -1,3 +1,4 @@
+import ShareAppButton from '@/components/ShareAppButton'
 import { getTrendingMovies, getPopularMovies } from '@/lib/tmdb'
 import HeroSection from '@/components/HeroSection'
 import MovieGrid from '@/components/MovieGrid'
@@ -40,6 +41,7 @@ export default async function HomePage() {
         <Link href="/novedades" className="-mt-12 flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <Sparkles className="w-4 h-4 text-fuchsia-300" /> Novedades: cómo ha crecido la app
         </Link>
+        <ShareAppButton className="-mt-12" />
 
         <MusicForYouSection />
 

@@ -5,6 +5,8 @@ interface CPNNativeBridge {
   audioBase(): string
   version(): string
   mediaState(json: string): void
+  /** APK 1.0.21+: menú Compartir de Android */
+  share?(text: string): void
 }
 
 export function getNative(): CPNNativeBridge | null {

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
+import LyricsSheet from '@/components/LyricsSheet'
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import { useEqStore } from '@/store/eqStore'
@@ -27,6 +28,7 @@ import {
   Radio,
   Loader2,
   MoreVertical,
+  Mic2,
   SlidersHorizontal,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
@@ -144,6 +146,7 @@ export default function NowPlayingSheet({
 
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [lyricsOpen, setLyricsOpen] = useState(false)
   const eqOn = useEqStore((s) => s.enabled && s.applies)
   useEffect(() => {
     if (!open) setMenuOpen(false)
@@ -220,6 +223,14 @@ export default function NowPlayingSheet({
                 {source}
               </p>
             </div>
+            {!isLive && (
+              <button
+                onClick={() => setLyricsOpen(true)}
+                className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
+              >
+                <Mic2 className="w-4 h-4" /> Letra
+              </button>
+            )}
             <button
               onClick={onOpenQueue}
               className="w-11 h-11 rounded-full bg-surface-2/70 border border-white/8 flex items-center justify-center text-slate-200"
@@ -455,6 +466,7 @@ export default function NowPlayingSheet({
           {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" />}
         </div>
       </div>
+      {lyricsOpen && !isLive && <LyricsSheet artist={artist} title={songTitle} onClose={() => setLyricsOpen(false)} />}
       {menuOpen && !isLive && (
         <TrackMenu video={video} artist={artist} title={songTitle} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
       )}

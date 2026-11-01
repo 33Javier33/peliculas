@@ -20,6 +20,17 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun version(): String = BuildConfig.VERSION_NAME
 
+    /** Menú "Compartir" de Android (WhatsApp, Telegram, correo…) con un texto y su enlace */
+    @JavascriptInterface
+    fun share(text: String) {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooser = Intent.createChooser(send, "Compartir").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(chooser) }
+    }
+
     @JavascriptInterface
     fun mediaState(json: String) {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return

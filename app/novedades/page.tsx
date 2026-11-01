@@ -1,3 +1,4 @@
+import ShareAppButton from '@/components/ShareAppButton'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Sparkles, Music2, Radio, Clapperboard, Smartphone, Download, SlidersHorizontal, Rocket } from 'lucide-react'
@@ -17,6 +18,18 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
+  {
+    date: '2 nov 2026',
+    title: 'Letras karaoke y compartir la app',
+    Icon: Music2,
+    color: 'from-fuchsia-500 to-violet-500',
+    items: [
+      'Letra de la canción que sigue la música como karaoke (toca una línea para ir a ese momento)',
+      'Si la letra no está en español, se puede ver traducida bajo cada línea',
+      'Botón para compartir la app: la descarga de Android, la instalación en iPhone o la web, según el teléfono',
+      'Más fácil de encontrar en Google (mapa del sitio y descripción de la app)',
+    ],
+  },
   {
     date: '1 nov 2026',
     title: 'Radios infinitas de Internet Archive',
@@ -189,6 +202,7 @@ export default function NovedadesPage() {
           <Link href="/app-iphone" className="rounded-full bg-surface-2 border border-white/10 px-4 py-2 text-sm text-white">
             App para iPhone
           </Link>
+          <ShareAppButton />
         </div>
       </div>
     </div>

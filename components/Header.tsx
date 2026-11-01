@@ -1,5 +1,6 @@
 'use client'
 
+import ShareAppButton from '@/components/ShareAppButton'
 import AccountButton from '@/components/AccountButton'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -220,6 +221,7 @@ export default function Header() {
 
           <div className="flex items-center gap-2">
             <InstallAppButton />
+            <ShareAppButton compact />
             {/* Cuenta (respaldo de la biblioteca): en Biblioteca, al lado de la lupa */}
             {pathname.startsWith('/music/library') && <AccountButton />}
             <button

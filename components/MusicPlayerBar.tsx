@@ -1006,6 +1006,18 @@ export default function MusicPlayerBar() {
     if (useAudio && el) el.volume = isMuted ? 0 : volume
   }, [useAudio, audioUrl, volume, isMuted, eqActive, eqEpoch])
 
+  // Segundo exacto y duración de lo que suena (la letra karaoke los lee varias veces por segundo)
+  useEffect(() => {
+    const w = window as unknown as { __cpnTime?: () => { t: number; d: number; paused: boolean } }
+    w.__cpnTime = () => {
+      const el = playerRef.current as unknown as HTMLMediaElement | null
+      return { t: el?.currentTime ?? 0, d: el && isFinite(el.duration) ? el.duration : 0, paused: !el || el.paused }
+    }
+    return () => {
+      delete w.__cpnTime
+    }
+  }, [])
+
   // Register seekTo using the native HTMLVideoElement API
   useEffect(() => {
     registerSeek((fraction: number) => {

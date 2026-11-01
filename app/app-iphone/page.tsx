@@ -1,7 +1,11 @@
+import ShareAppButton from '@/components/ShareAppButton'
 import type { Metadata } from 'next'
 import { Share, PlusSquare, Smartphone, Music2, Radio, Info } from 'lucide-react'
 
-export const metadata: Metadata = { title: 'App para iPhone', robots: { index: false } }
+export const metadata: Metadata = {
+  title: 'Instalar la app en iPhone',
+  description: 'Instala gratis Carlos P. Nauto Interactive en tu iPhone desde Safari: música, radios, TV y películas.',
+}
 
 // iPhone: Apple no deja instalar apps fuera de la App Store, así que la app se instala desde
 // Safari ("Agregar a pantalla de inicio"): queda con su ícono y se abre a pantalla completa.
@@ -43,6 +47,9 @@ export default function IphoneAppPage() {
             </span>
           </li>
         </ol>
+        <div className="mt-6">
+          <ShareAppButton label="Compartir la app" />
+        </div>
 
         <div className="mt-8 rounded-2xl bg-surface-1/60 border border-white/8 p-4 space-y-3 text-sm">
           <p className="flex items-start gap-2 text-slate-300">
