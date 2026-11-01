@@ -19,6 +19,18 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '1 nov 2026',
+    title: 'Radios infinitas de Internet Archive',
+    Icon: Radio,
+    color: 'from-orange-500 to-rose-500',
+    items: [
+      '14 radios por género (Latina, Rock, Pop, Electrónica, Jazz, Blues, Clásica, Hip hop, Reggae, Folk, Metal, Relajo, 78 rpm y Conciertos en vivo)',
+      'Nunca se detienen: antes de terminar se suman canciones de otros discos, sin repetir',
+      'Solo música que se puede compartir: sellos independientes, discos antiguos digitalizados y conciertos autorizados',
+      'En la sección Música y en En vivo',
+    ],
+  },
+  {
+    date: '1 nov 2026',
     title: 'Películas gratis en español y audio más estable',
     Icon: Clapperboard,
     color: 'from-violet-500 to-fuchsia-500',

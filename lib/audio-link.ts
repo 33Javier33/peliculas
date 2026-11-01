@@ -175,7 +175,7 @@ function archiveId(u: URL): string | null {
   return m ? decodeURIComponent(m[1]) : null
 }
 
-async function readArchive(id: string, source: string): Promise<LinkAlbum[]> {
+export async function readArchive(id: string, source: string): Promise<LinkAlbum[]> {
   const res = await fetch(`${ARCHIVE}/metadata/${encodeURIComponent(id)}`, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
     signal: AbortSignal.timeout(12000),

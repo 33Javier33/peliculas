@@ -1,5 +1,6 @@
 'use client'
 
+import ArchiveRadioSection from '@/components/ArchiveRadioSection'
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -263,6 +264,7 @@ export default function RadioClient() {
     <div className="pt-20 min-h-screen bg-obsidian pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <LiveHeader active="radio" />
+        <ArchiveRadioSection className="mb-6" />
 
         {/* Favoritas (plegables) */}
         {mounted && favoriteRadios.length > 0 && (

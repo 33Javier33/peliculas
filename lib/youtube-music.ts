@@ -26,6 +26,8 @@ export interface MusicVideo {
   startAt?: number
   // Canción del catálogo aún sin video de YouTube: se busca justo antes de sonar
   pending?: { artist: string; title: string; duration: number }
+  // Radio de Internet Archive: género de la radio (la cola se va llenando sola)
+  archiveRadio?: string
 }
 
 export interface MusicSearchResult {

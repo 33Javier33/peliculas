@@ -3,6 +3,7 @@
 import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import ArchiveInlineResults from '@/components/ArchiveInlineResults'
+import ArchiveRadioSection from '@/components/ArchiveRadioSection'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import ViewToggle, { useView } from '@/components/ViewToggle'
 import { useState, useCallback, useTransition, useRef, useEffect, useMemo } from 'react'
@@ -580,6 +581,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </section>
             )}
+
+            {/* ===== Radios de Internet Archive por género (no se detienen) ===== */}
+            <ArchiveRadioSection />
 
             {/* ===== Internet Archive y música libre: buscar y escuchar discos completos ===== */}
             <ArchiveSearchSection />

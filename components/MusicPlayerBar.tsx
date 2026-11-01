@@ -41,6 +41,7 @@ import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
 import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
+import { fetchRadioTracks } from '@/lib/archive-radio-client'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,6 +226,7 @@ export default function MusicPlayerBar() {
 
   // ===== Radio: al empezar la última canción de la cola, se añade música parecida =====
   const [isRadioLoading, setIsRadioLoading] = useState(false)
+  const [radioRetry, setRadioRetry] = useState(0)
   const isRadioLoadingRef = useRef(false)
   isRadioLoadingRef.current = isRadioLoading
   const radioSeedRef = useRef<string | null>(null)
@@ -298,6 +300,38 @@ export default function MusicPlayerBar() {
         setIsRadioLoading(false)
       })
   }, [radioEnabled, isLastTrack, currentVideo, queue, appendToQueue])
+
+  // ===== Radio de Internet Archive por género: nunca se detiene =====
+  // Cuando quedan pocas canciones se piden más del mismo género (otros discos, sin repetir)
+  const archiveRadioGenre = currentVideo?.archiveRadio
+  const archiveRadioLoadingRef = useRef(false)
+  const archiveRadioFailsRef = useRef(0)
+  useEffect(() => {
+    if (!archiveRadioGenre || archiveRadioLoadingRef.current) return
+    if (queue.length - 1 - currentIndex > 3) return
+    archiveRadioLoadingRef.current = true
+    setIsRadioLoading(true)
+    useMusicStore.getState().trimPlayed(40)
+    fetchRadioTracks(archiveRadioGenre, useMusicStore.getState().queue)
+      .then((tracks) => {
+        const added = appendToQueue(tracks)
+        archiveRadioFailsRef.current = added > 0 ? 0 : archiveRadioFailsRef.current + 1
+        if (added > 0 && waitingForRadioRef.current) useMusicStore.getState().playNext()
+      })
+      .catch(() => {
+        archiveRadioFailsRef.current++
+      })
+      .finally(() => {
+        waitingForRadioRef.current = false
+        setIsRadioLoading(false)
+        // Si archive.org no respondió, se reintenta en un rato (sin quedar en silencio para siempre)
+        const wait = archiveRadioFailsRef.current ? Math.min(60000, 5000 * archiveRadioFailsRef.current) : 0
+        setTimeout(() => {
+          archiveRadioLoadingRef.current = false
+          if (wait) setRadioRetry((n) => n + 1)
+        }, wait)
+      })
+  }, [archiveRadioGenre, currentIndex, queue.length, appendToQueue, radioRetry])
 
   // ===== Modo audio (segundo plano real) =====
   const [audioSrc, setAudioSrc] = useState<{ id: string; candidates: AudioCandidate[]; index: number } | null>(null)
@@ -483,7 +517,7 @@ export default function MusicPlayerBar() {
     pendingSeekRef.current = -1
     setSkipNotice(cur.title)
     if (st.currentIndex < st.queue.length - 1) st.playNext()
-    else if (st.radioEnabled) waitingForRadioRef.current = true
+    else if (st.radioEnabled || cur.archiveRadio) waitingForRadioRef.current = true
   }, [])
 
   const skipUnplayableRef = useRef(skipUnplayable)
@@ -1137,7 +1171,7 @@ export default function MusicPlayerBar() {
       }
       return
     }
-    if (i >= q.length - 1 && isRadioLoadingRef.current) waitingForRadioRef.current = true
+    if (i >= q.length - 1 && (isRadioLoadingRef.current || q[i]?.archiveRadio)) waitingForRadioRef.current = true
     playNext()
   }, [playNext, reconnectLive])
   const handlePlay = useCallback(() => {

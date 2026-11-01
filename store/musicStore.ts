@@ -63,6 +63,8 @@ interface MusicActions {
   play: (videos: MusicVideo[], startIndex?: number) => void
   addToQueue: (video: MusicVideo) => void
   appendToQueue: (videos: MusicVideo[]) => number
+  /** Radio infinita: olvida las canciones ya escuchadas más antiguas (la cola no crece sin fin) */
+  trimPlayed: (keep: number) => void
   setRadioEnabled: (v: boolean) => void
   cycleRepeat: () => void
   requestFullPlayer: (v: boolean) => void
@@ -226,6 +228,13 @@ export const useMusicStore = create<MusicStore>()(
           })
         }
         return fresh.length
+      },
+
+      trimPlayed: (keep) => {
+        const { queue, currentIndex } = get()
+        if (currentIndex <= keep) return
+        const cut = currentIndex - keep
+        set({ queue: queue.slice(cut), currentIndex: currentIndex - cut })
       },
 
       setRadioEnabled: (v) => set({ radioEnabled: v }),
