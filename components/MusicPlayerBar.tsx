@@ -35,7 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, nativePrefetchFile } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -334,8 +334,8 @@ export default function MusicPlayerBar() {
   // Música guardada en el teléfono: siempre por <audio> (suena sin conexión y bloqueado)
   const isLocalFile = isLocalTrack(currentId)
   // Archivo de audio desde un enlace (MP3, M4A…): también por <audio>, suena bloqueado
-  // Fuentes de un archivo, en orden: por la app de Android (archive.org: comienzo listo y
-  // ecualizador), directo, y por el servidor de la app (si el sitio lo bloquea o tarda)
+  // Fuentes de un archivo, en orden: directo, por la app de Android (respaldo) y por el
+  // servidor de la app (si el sitio lo bloquea o tarda)
   // Descargada para escuchar sin conexión: se usa la copia del teléfono (primera fuente)
   const offlineKey = currentVideo?.audioUrl
   const isDownloaded = useOfflineStore((s) => !!(offlineKey && s.items[offlineKey]))
@@ -367,9 +367,11 @@ export default function MusicPlayerBar() {
     if (!direct) return [] as string[]
     const list: string[] = []
     if (offlineUrl && offlineUrl.key === direct) list.push(offlineUrl.url)
+    // Directo primero (comprobado en todos los navegadores, con ecualizador incluido); por el
+    // teléfono queda de respaldo (en algunos Android ese camino no suena y saltaba las canciones)
+    list.push(direct)
     const viaPhone = nativeFileUrl(direct)
     if (viaPhone) list.push(viaPhone)
-    list.push(direct)
     if (/^https?:\/\//.test(direct)) list.push(`/api/link-audio?u=${encodeURIComponent(direct)}`)
     return list
   }, [currentVideo?.audioUrl, offlineUrl])
@@ -623,8 +625,7 @@ export default function MusicPlayerBar() {
       let url = fileUrl
       // Ya descargada: suena desde el teléfono, no hay nada que preparar
       if (url && useOfflineStore.getState().items[url]) return
-      // App de Android: el teléfono deja el comienzo de la siguiente canción en memoria
-      if (url && nativePrefetchFile(url)) return
+      // (Los archivos suenan directo: se precargan con el navegador, más abajo)
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {
         const list = await loadAudioCandidates(id).catch(() => [] as AudioCandidate[])
