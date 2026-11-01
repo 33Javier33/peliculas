@@ -90,6 +90,38 @@ const SOURCES: Record<string, { q: string; weight: number }[]> = {
 }
 const sourcesOf = (g: RadioGenre) => SOURCES[g.id] ?? [{ q: g.id === 'envivo' ? LIVE : `${MUSIC_ONLY} AND (${g.terms})`, weight: 1 }]
 
+/** Primer artista de un crédito ("Johnny Cash, Tennessee Two" · "Amalia Mendoza;Mariachi…") */
+export const mainArtist = (who = '') =>
+  who
+    .split(/;|,|\s&\s|\s+(?:and|y|with|con|feat\.?|ft\.?)\s+/i)[0]
+    .replace(/\s+/g, ' ')
+    .trim()
+const artistKey = (who = '') => mainArtist(who).toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9áéíóúñ]+/g, ' ').trim()
+
+/** Crédito legible: hasta dos nombres ("Amalia Mendoza, El Mariachi Vargas de Tecalitlan") */
+export const niceCredit = (who = '') => {
+  const parts = who.split(/;|,(?!\s*(?:jr|sr)\b)/i).map((x) => x.trim()).filter(Boolean)
+  return (parts.length > 1 ? parts.slice(0, 2).join(', ') : who).replace(/\s+/g, ' ').trim()
+}
+
+/** Título legible: sin número de catálogo, guiones de nombre de archivo ni el crédito repetido */
+export function niceTitle(title: string, artist: string): string {
+  let t = title.replace(/\[[^\]]*\]/g, '').trim()
+  t = t.replace(/^\d{3,}[-_\s]*(?:[A-Z]{1,2}\s*-\s*)?/, '').trim()
+  // "HOW COME? - KENNY BOWERS - Jimmy Carroll…" → "How come?"
+  const first = artistKey(artist).split(' ')[0]
+  const segs = t.split(/\s+-\s+/)
+  if (segs.length > 1 && first && segs.slice(1).some((x) => x.toLowerCase().includes(first))) t = segs[0]
+  // "Kay Kyser and his orchestra - Chopsticks" → "Chopsticks"
+  else if (segs.length > 1 && first && segs[0].toLowerCase().includes(first)) t = segs.slice(1).join(' - ')
+  t = t.replace(/\s*\((restored|restaurad[oa])\)\s*$/i, '')
+  // "Dont-you-know" → "Dont you know"
+  if (!/\s/.test(t) && /[-_]/.test(t)) t = t.replace(/[-_]+/g, ' ')
+  // TODO EN MAYÚSCULAS → Tipo título
+  if (t.length > 3 && t === t.toUpperCase()) t = t.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase())
+  return t.trim() || title
+}
+
 interface PoolItem {
   id: string
   creator: string
@@ -152,7 +184,7 @@ async function nextItems(g: RadioGenre, used: Set<string>, n: number, artists: S
     if (!list) break
     const item = list.shift()!
     // Un disco por artista en cada tanda (si no, Grateful Dead llenaría la radio de rock)
-    const who = item.creator.replace(/\s+(and|y|with|con)\s+.*$/, '').replace(/[^a-z0-9]+/g, ' ').trim()
+    const who = artistKey(item.creator)
     if (artists.has(who) || out.includes(item.id)) continue
     artists.add(who)
     out.push(item.id)
@@ -171,6 +203,8 @@ export async function radioBatch(genreId: string, skip: string[] = [], want = 12
   const albums: LinkAlbum[] = []
   let count = 0
   const artists = new Set<string>()
+  // La misma canción del mismo artista desde dos discos distintos: una sola vez
+  const songKeys = new Set<string>()
   // De a 4 discos a la vez, hasta juntar las canciones pedidas (máximo 3 rondas)
   for (let round = 0; round < 3 && count < want; round++) {
     const batch = await nextItems(g, used, 4, artists)
@@ -194,11 +228,23 @@ export async function radioBatch(genreId: string, skip: string[] = [], want = 12
         if (seenTitle.has(key)) songs.splice(k, 1)
         else seenTitle.add(key)
       }
+      // Títulos y créditos legibles; fuera los títulos que son listas larguísimas
+      for (const x of songs) {
+        const credit = niceCredit(x.t.artist || x.a.artist || '')
+        x.t = { ...x.t, artist: credit || undefined, title: niceTitle(x.t.title, credit) }
+      }
+      const fresh = songs.filter(({ t }) => {
+        if (t.title.length > 90) return false
+        const key = `${artistKey(t.artist)}|${t.title.toLowerCase().replace(/[^a-z0-9]+/g, '')}`
+        return !songKeys.has(key)
+      })
+      if (!fresh.length) continue
       // 2 o 3 canciones por disco: así la radio va cambiando de artista
-      const chosen = pick(songs, Math.min(songs.length, g.id === 'antiguos' ? 2 : 3))
+      const chosen = pick(fresh, Math.min(fresh.length, g.id === 'antiguos' ? 2 : 3))
+      chosen.forEach(({ t }) => songKeys.add(`${artistKey(t.artist)}|${t.title.toLowerCase().replace(/[^a-z0-9]+/g, '')}`))
       const byAlbum = new Map<LinkAlbum, LinkAlbum['tracks']>()
       for (const { a, t } of chosen) byAlbum.set(a, [...(byAlbum.get(a) ?? []), t])
-      for (const [a, tracks] of Array.from(byAlbum.entries())) albums.push({ ...a, source: a.source || `https://archive.org/details/${encodeURIComponent(id)}`, tracks })
+      for (const [a, tracks] of Array.from(byAlbum.entries())) albums.push({ ...a, artist: niceCredit(a.artist) || a.artist, source: a.source || `https://archive.org/details/${encodeURIComponent(id)}`, tracks })
       count += chosen.length
     }
   }

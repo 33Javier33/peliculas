@@ -9,7 +9,12 @@ import { loadMusicInfo, FactsChips, type MusicInfo } from '@/components/MusicInf
 // datos de MusicBrainz (país, años, tipo, géneros) de lo que suene, venga de donde venga.
 export default function ArtistAboutCard({ artist, album, className = '' }: { artist: string; album?: string; className?: string }) {
   const [info, setInfo] = useState<MusicInfo | null>(null)
-  const name = artist.replace(/\s*-\s*topic$/i, '').replace(/vevo$/i, '').trim()
+  // Créditos con varios nombres ("Amalia Mendoza;Mariachi Vargas", "Bill Haley and his Comets"): el principal
+  const name = artist
+    .split(/;|\s+(?:and his|y su|with his|con su)\s+/i)[0]
+    .replace(/\s*-\s*topic$/i, '')
+    .replace(/vevo$/i, '')
+    .trim()
 
   useEffect(() => {
     if (!name) return

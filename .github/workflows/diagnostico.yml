@@ -9,7 +9,7 @@ jobs:
     steps:
       - run: |
           set +e; S=https://peliculas-neon.vercel.app
-          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.59\.0' && break; sleep 10; done
-          for g in rock rock rock latina jazz blues folk; do
+          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.59\.1' && break; sleep 10; done
+          for g in rock rock latina; do
             echo "=== $g"; curl -s "$S/api/archive-radio?genre=$g" | jq -r '.error // empty, (.albums[] | "   \(.artist // "?") — \(.tracks | map(.title) | join(" / "))")'
           done

@@ -38,7 +38,10 @@ export default function TrackMenu({
   // el catálogo (ahí casi nunca está y mostraba "No se encontró")
   const source = video.description || video.audioUrl || ''
   const archiveItem = /archive\.org\/download\//.test(source) || video.archiveRadio ? archiveItemOf(video) : null
-  const archiveArtist = (video.channelTitle || artist || '').trim()
+  // Artista principal del crédito ("Johnny Cash, Tennessee Two" → "Johnny Cash")
+  const archiveArtist = (video.channelTitle || artist || '')
+    .split(/;|,|\s&\s|\s+(?:and his|y su|with|con|feat\.?|ft\.?)\s+/i)[0]
+    .trim()
   const radio = video.archiveRadio ? ARCHIVE_RADIO_GENRES.find((g) => g.id === video.archiveRadio) : undefined
 
   useEffect(() => {
