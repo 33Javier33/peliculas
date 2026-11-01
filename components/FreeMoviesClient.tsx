@@ -1,45 +1,76 @@
 'use client'
 
-import TranslatableText from '@/components/TranslatableText'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, Loader2, AlertCircle, X, Film, Clock, Cast } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Search, Loader2, AlertCircle, Film, CheckCircle2, Download, Trash2, X } from 'lucide-react'
 import type { FreeMovie, FreeMovieRow } from '@/lib/pluto'
-import { useMusicStore } from '@/store/musicStore'
+import { ARCHIVE_GENRES } from '@/lib/archive'
 import { readSession, writeSession } from '@/lib/session-cache'
-import CastButton, { useIsCasting, useCastStore } from '@/components/CastButton'
-import HlsQualityMenu, { levelFor, readQualityPref, type QualityPref } from '@/components/HlsQuality'
+import { formatSize } from '@/lib/offline-files'
+import { useMovieStore } from '@/store/movieStore'
+import MoviePlayer from '@/components/MoviePlayer'
 
-// Películas completas, gratis y legales: Pluto TV a la carta e Internet Archive.
+// Películas completas, gratis y legales: en español y clásicos de dominio público (Internet
+// Archive y Wikimedia Commons), Pluto TV a la carta y "Mis películas" (seguir viendo y descargadas).
 
-type Tab = 'pluto' | 'es' | 'classic'
+type Tab = 'es' | 'classic' | 'pluto' | 'saved'
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'es', label: 'En español' },
+  { id: 'classic', label: 'Clásicos' },
   { id: 'pluto', label: 'Pluto TV' },
-  { id: 'es', label: 'Clásicos en español' },
-  { id: 'classic', label: 'Clásicos del cine' },
+  { id: 'saved', label: 'Mis películas' },
 ]
+type Sort = 'popular' | 'new' | 'old'
+const SORTS: { id: Sort; label: string }[] = [
+  { id: 'popular', label: 'Más vistas' },
+  { id: 'old', label: 'Más antiguas' },
+  { id: 'new', label: 'Más recientes' },
+]
+const PAGE = 48
+
+interface Saved {
+  tab: Tab
+  genre: string
+  sort: Sort
+  submitted: string
+}
 
 export default function FreeMoviesClient() {
-  const [tab, setTab] = useState<Tab>('pluto')
-  // La pestaña elegida se recuerda en la sesión (se lee después de dibujar, para no chocar con el HTML del servidor)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    const saved = readSession<Tab>('free-tab')
-    if (saved && TABS.some((t) => t.id === saved)) setTab(saved)
-    setReady(true)
-  }, [])
-  const [rows, setRows] = useState<FreeMovieRow[]>([])
-  const [movies, setMovies] = useState<FreeMovie[]>([])
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
+  const [tab, setTab] = useState<Tab>('es')
+  const [genre, setGenre] = useState('')
+  const [sort, setSort] = useState<Sort>('popular')
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState('')
+  // Lo elegido se recuerda en la sesión (se lee después de dibujar, para no chocar con el HTML del servidor)
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const s = readSession<Saved>('free-movies')
+    const fromUrl = new URLSearchParams(window.location.search).get('tab') as Tab | null
+    const t = fromUrl && TABS.some((x) => x.id === fromUrl) ? fromUrl : s?.tab
+    if (t && TABS.some((x) => x.id === t)) setTab(t)
+    if (s) {
+      if (s.genre && ARCHIVE_GENRES[s.genre]) setGenre(s.genre)
+      if (SORTS.some((x) => x.id === s.sort)) setSort(s.sort)
+      if (s.submitted) {
+        setSubmitted(s.submitted)
+        setQuery(s.submitted)
+      }
+    }
+    setReady(true)
+  }, [])
+  useEffect(() => {
+    if (ready) writeSession<Saved>('free-movies', { tab, genre, sort, submitted })
+  }, [tab, genre, sort, submitted, ready])
+
+  const [rows, setRows] = useState<FreeMovieRow[]>([])
+  const [movies, setMovies] = useState<FreeMovie[]>([])
+  const [commons, setCommons] = useState<FreeMovie[]>([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [more, setMore] = useState(false)
   const [error, setError] = useState(false)
   const [current, setCurrent] = useState<FreeMovie | null>(null)
-
-  useEffect(() => {
-    if (ready) writeSession('free-tab', tab)
-  }, [tab, ready])
+  const catalog = tab === 'es' || tab === 'classic'
 
   // Pluto TV: filas por categoría
   useEffect(() => {
@@ -57,49 +88,78 @@ export default function FreeMoviesClient() {
     }
   }, [tab, ready])
 
-  // Internet Archive: cuadrícula con búsqueda y "ver más"
-  const loadArchive = useCallback(async (kind: Tab, q: string, p: number) => {
-    const params = new URLSearchParams({ source: 'archive', kind, page: String(p) })
-    if (q) params.set('q', q)
+  // Internet Archive: cuadrícula con búsqueda, género, orden y "ver más"
+  const loadArchive = useCallback(async (p: number) => {
+    const params = new URLSearchParams({ source: 'archive', kind: tab, page: String(p), sort })
+    if (submitted) params.set('q', submitted)
+    if (genre) params.set('genre', genre)
     const r = await fetch(`/api/free-movies?${params}`)
     if (!r.ok) throw new Error()
     return ((await r.json()) as { movies: FreeMovie[] }).movies
-  }, [])
+  }, [tab, sort, submitted, genre])
 
   useEffect(() => {
-    if (!ready || tab === 'pluto') return
+    if (!ready || !catalog) return
     let cancelled = false
     setLoading(true)
     setError(false)
     setPage(1)
-    loadArchive(tab, submitted, 1)
+    setMovies([])
+    loadArchive(1)
       .then((list) => {
         if (cancelled) return
         setMovies(list)
-        setHasMore(list.length >= 48)
+        setHasMore(list.length >= PAGE)
       })
       .catch(() => !cancelled && (setError(true), setMovies([])))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [tab, submitted, loadArchive, ready])
+  }, [loadArchive, ready, catalog])
 
-  const more = async () => {
+  // Wikimedia Commons: películas restauradas (fila arriba, sin filtro de género)
+  useEffect(() => {
+    if (!ready || !catalog || genre) return setCommons([])
+    let cancelled = false
+    const params = new URLSearchParams({ source: 'commons', kind: tab })
+    if (submitted) params.set('q', submitted)
+    fetch(`/api/free-movies?${params}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { movies: FreeMovie[] }) => !cancelled && setCommons(d.movies))
+      .catch(() => !cancelled && setCommons([]))
+    return () => {
+      cancelled = true
+    }
+  }, [tab, submitted, genre, ready, catalog])
+
+  const loadMore = async () => {
     const next = page + 1
-    setPage(next)
+    setMore(true)
     try {
-      const list = await loadArchive(tab, submitted, next)
+      const list = await loadArchive(next)
+      setPage(next)
       setMovies((prev) => [...prev, ...list.filter((m) => !prev.some((p) => p.id === m.id))])
-      setHasMore(list.length >= 48)
+      setHasMore(list.length >= PAGE)
     } catch {
       setHasMore(false)
+    } finally {
+      setMore(false)
     }
   }
+
+  const watching = useMovieStore((s) => s.watching)
+  const continueList = Object.values(watching)
+    .sort((a, b) => b.at - a.at)
+    .filter((w) => tab !== 'es' || w.movie.spanish)
 
   const chip = (on: boolean) =>
     `shrink-0 px-4 py-2 rounded-full text-sm font-semibold font-display transition-colors ${
       on ? 'bg-violet-500 text-white shadow-glow' : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'
+    }`
+  const smallChip = (on: boolean) =>
+    `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+      on ? 'bg-white text-obsidian' : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'
     }`
 
   return (
@@ -109,7 +169,7 @@ export default function FreeMoviesClient() {
           <div className="w-1 h-8 bg-violet-500 rounded-full" />
           <h1 className="text-2xl font-bold text-white font-display">Películas gratis</h1>
         </div>
-        <p className="text-slate-400 text-sm mb-5">Películas completas, gratis y legales. Sin cuenta.</p>
+        <p className="text-slate-400 text-sm mb-5">Películas completas, gratis y legales: cine de dominio público y Pluto TV. Sin cuenta.</p>
 
         <div className="flex gap-2 overflow-x-auto pb-1 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
           {TABS.map((t) => (
@@ -119,27 +179,47 @@ export default function FreeMoviesClient() {
           ))}
         </div>
 
-        {tab !== 'pluto' && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              setSubmitted(query.trim())
-            }}
-            className="relative mb-6"
-          >
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                if (!e.target.value) setSubmitted('')
+        {catalog && (
+          <>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                setSubmitted(query.trim())
               }}
-              placeholder="Buscar película clásica..."
-              aria-label="Buscar película clásica"
-              className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-4 py-3 text-base focus:outline-none focus:border-violet-500"
-            />
-          </form>
+              className="relative mb-3"
+            >
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  if (!e.target.value) setSubmitted('')
+                }}
+                placeholder={tab === 'es' ? 'Buscar película en español…' : 'Buscar película, director o actor…'}
+                aria-label="Buscar película"
+                className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-4 py-3 text-base focus:outline-none focus:border-violet-500"
+              />
+            </form>
+            <div className="flex gap-2 overflow-x-auto pb-1 mb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+              <button onClick={() => setGenre('')} className={smallChip(!genre)}>
+                Todos
+              </button>
+              {Object.entries(ARCHIVE_GENRES).map(([id, g]) => (
+                <button key={id} onClick={() => setGenre(id)} className={smallChip(genre === id)}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mb-6 text-xs text-slate-400">
+              <span>Ordenar:</span>
+              {SORTS.map((s) => (
+                <button key={s.id} onClick={() => setSort(s.id)} className={`px-2 py-1 rounded-md ${sort === s.id ? 'text-white bg-white/10 font-semibold' : 'hover:text-white'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {error && (
@@ -148,44 +228,68 @@ export default function FreeMoviesClient() {
           </div>
         )}
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-          </div>
-        ) : tab === 'pluto' ? (
-          <div className="space-y-8">
-            {rows.map((row) => (
-              <section key={row.name}>
-                <h2 className="text-white font-bold text-lg font-display mb-3">{row.name}</h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
-                  {row.movies.map((m) => (
-                    <MovieTile key={m.id} movie={m} onSelect={setCurrent} className="w-32 sm:w-40 shrink-0" />
-                  ))}
-                </div>
-              </section>
-            ))}
-            {!error && rows.length === 0 && <p className="text-slate-500 text-center py-20">No hay películas disponibles en tu país ahora.</p>}
-          </div>
+        {tab === 'saved' ? (
+          <SavedMovies onSelect={setCurrent} />
         ) : (
           <>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              {movies.map((m) => (
-                <MovieTile key={m.id} movie={m} onSelect={setCurrent} />
-              ))}
-            </div>
-            {!error && movies.length === 0 && <p className="text-slate-500 text-center py-20">No se encontraron películas.</p>}
-            {hasMore && (
-              <div className="flex justify-center mt-8">
-                <button onClick={more} className="px-6 py-3 rounded-full bg-surface-2 border border-white/8 text-white font-semibold">
-                  Ver más
-                </button>
+            {catalog && !submitted && continueList.length > 0 && (
+              <Row title="Seguir viendo">
+                {continueList.map((w) => (
+                  <MovieTile key={w.movie.id} movie={w.movie} onSelect={setCurrent} progress={w.t / w.dur} className="w-32 sm:w-40 shrink-0" />
+                ))}
+              </Row>
+            )}
+            {catalog && commons.length > 0 && (
+              <Row title={tab === 'es' ? 'Cine latino e hispano restaurado' : 'Joyas restauradas'} note="Wikimedia Commons">
+                {commons.map((m) => (
+                  <MovieTile key={m.id} movie={m} onSelect={setCurrent} className="w-52 sm:w-64 shrink-0" />
+                ))}
+              </Row>
+            )}
+
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
               </div>
+            ) : tab === 'pluto' ? (
+              <div className="space-y-8">
+                {rows.map((row) => (
+                  <Row key={row.name} title={row.name}>
+                    {row.movies.map((m) => (
+                      <MovieTile key={m.id} movie={m} onSelect={setCurrent} className="w-32 sm:w-40 shrink-0" />
+                    ))}
+                  </Row>
+                ))}
+                {!error && rows.length === 0 && <p className="text-slate-500 text-center py-20">No hay películas disponibles en tu país ahora.</p>}
+              </div>
+            ) : (
+              <>
+                {movies.length > 0 && (
+                  <h2 className="text-white font-bold text-lg font-display mb-3">
+                    {submitted ? `Resultados para "${submitted}"` : genre ? ARCHIVE_GENRES[genre].label : tab === 'es' ? 'Películas en español' : 'Clásicos del cine'}
+                    <span className="ml-2 text-xs font-normal text-slate-500">Internet Archive</span>
+                  </h2>
+                )}
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {movies.map((m) => (
+                    <MovieTile key={m.id} movie={m} onSelect={setCurrent} />
+                  ))}
+                </div>
+                {!error && movies.length === 0 && commons.length === 0 && <p className="text-slate-500 text-center py-20">No se encontraron películas.</p>}
+                {hasMore && (
+                  <div className="flex justify-center mt-8">
+                    <button onClick={loadMore} disabled={more} className="px-6 py-3 rounded-full bg-surface-2 border border-white/8 text-white font-semibold flex items-center gap-2">
+                      {more && <Loader2 className="w-4 h-4 animate-spin" />} Ver más
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
 
         <p className="text-slate-600 text-xs mt-10">
-          Fuentes: Pluto TV (gratis con publicidad) e Internet Archive (películas de dominio público).
+          Fuentes: Internet Archive y Wikimedia Commons (películas de dominio público o con licencia libre) y Pluto TV (gratis con publicidad).
         </p>
       </div>
 
@@ -194,16 +298,47 @@ export default function FreeMoviesClient() {
   )
 }
 
-function MovieTile({ movie, onSelect, className = '' }: { movie: FreeMovie; onSelect: (m: FreeMovie) => void; className?: string }) {
+function Row({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-white font-bold text-lg font-display mb-3">
+        {title}
+        {note && <span className="ml-2 text-xs font-normal text-slate-500">{note}</span>}
+      </h2>
+      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">{children}</div>
+    </section>
+  )
+}
+
+function MovieTile({ movie, onSelect, className = '', progress }: { movie: FreeMovie; onSelect: (m: FreeMovie) => void; className?: string; progress?: number }) {
   const [failed, setFailed] = useState(false)
+  const downloaded = useMovieStore((s) => !!s.downloads[movie.id]?.done)
   return (
     <button onClick={() => onSelect(movie)} className={`text-left group ${className}`}>
-      <div className="aspect-[2/3] rounded-xl overflow-hidden bg-surface-2 border border-white/8 group-hover:border-violet-500/50 flex items-center justify-center">
+      <div
+        className={`relative ${movie.landscape ? 'aspect-video' : 'aspect-[2/3]'} rounded-xl overflow-hidden bg-surface-2 border border-white/8 group-hover:border-violet-500/50 flex items-center justify-center`}
+      >
         {movie.poster && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={movie.poster} alt={movie.title} loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
         ) : (
           <Film className="w-8 h-8 text-slate-600" />
+        )}
+        <div className="absolute top-1.5 left-1.5 flex gap-1">
+          {movie.spanish && <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">ES</span>}
+        </div>
+        {downloaded && (
+          <span className="absolute top-1.5 right-1.5 rounded-full bg-black/70 p-0.5" title="Descargada">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          </span>
+        )}
+        {movie.landscape && movie.duration ? (
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">{movie.duration} min</span>
+        ) : null}
+        {progress !== undefined && (
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+            <div className="h-full bg-violet-500" style={{ width: `${Math.round(Math.min(1, progress) * 100)}%` }} />
+          </div>
         )}
       </div>
       <p className="mt-1.5 text-white text-xs sm:text-sm font-semibold line-clamp-2 leading-snug">{movie.title}</p>
@@ -212,183 +347,86 @@ function MovieTile({ movie, onSelect, className = '' }: { movie: FreeMovie; onSe
   )
 }
 
-/** Reproductor a pantalla completa: HLS (Pluto TV) o MP4 (Internet Archive). */
-function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [url, setUrl] = useState(movie.url)
-  const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading')
-
-  // Las películas del archivo traen la dirección del video al abrirlas
-  useEffect(() => {
-    setStatus('loading')
-    if (movie.url) return setUrl(movie.url)
-    const id = movie.id.replace(/^archive-/, '')
-    fetch(`/api/free-movies?archive=${encodeURIComponent(id)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { url: string }) => setUrl(d.url))
-      .catch(() => setStatus('error'))
-  }, [movie])
-
-  // Cerrar con la tecla Escape y bloquear el scroll de fondo
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [onClose])
-
-  // Mientras se ve en la TV, el teléfono no la reproduce; al dejar de transmitir sigue desde ese punto
-  const casting = useIsCasting()
-  // Calidad de video (por defecto la más alta; se recuerda)
-  const hlsRef = useRef<import('hls.js').default | null>(null)
-  const [levels, setLevels] = useState<{ height?: number }[]>([])
-  const [quality, setQuality] = useState<QualityPref>('max')
-  const qualityRef = useRef<QualityPref>('max')
-  useEffect(() => {
-    const q = readQualityPref()
-    qualityRef.current = q
-    setQuality(q)
-  }, [])
-  const changeQuality = (q: QualityPref) => {
-    qualityRef.current = q
-    setQuality(q)
-    const h = hlsRef.current
-    if (!h) return
-    h.capLevelToPlayerSize = q === 'auto'
-    h.currentLevel = levelFor(q, h.levels)
-  }
-  const castDevice = useCastStore((s) => s.device)
-  const resumeAt = useRef(0)
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video || !url || casting) return
-    useMusicStore.getState().setIsPlaying(false)
-    let destroyed = false
-    const onMeta = () => {
-      if (resumeAt.current > 5) video.currentTime = resumeAt.current
-    }
-    video.addEventListener('loadedmetadata', onMeta, { once: true })
-    let triedFallback = false
-    let hls: import('hls.js').default | null = null
-    const onPlaying = () => setStatus('playing')
-    video.addEventListener('playing', onPlaying)
-
-    const start = (src: string) => {
-      if (!/m3u8|\/api\/hls/.test(src)) {
-        video.src = src
-        video.onerror = () => !destroyed && setStatus('error')
-        video.play().catch(() => {})
-        return
-      }
-      import('hls.js').then(({ default: Hls }) => {
-        if (destroyed) return
-        if (!Hls.isSupported()) {
-          video.src = src
-          video.onerror = () => !destroyed && setStatus('error')
-          video.play().catch(() => {})
-          return
-        }
-        hls?.destroy()
-        const instance = new Hls({ enableWorker: true, maxBufferLength: 60, capLevelToPlayerSize: qualityRef.current === 'auto', fragLoadingMaxRetry: 6 })
-        hls = instance
-        hlsRef.current = instance
-        instance.on(Hls.Events.MANIFEST_PARSED, () => {
-          setLevels(instance.levels.map((l) => ({ height: l.height })))
-          const lvl = levelFor(qualityRef.current, instance.levels)
-          if (lvl >= 0) instance.currentLevel = lvl
-        })
-        let recoveries = 0
-        instance.on(Hls.Events.ERROR, (_e, data) => {
-          if (!data.fatal || destroyed) return
-          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recoveries++ < 2) instance.recoverMediaError()
-          else if (data.type === Hls.ErrorTypes.NETWORK_ERROR && !triedFallback && movie.fallbackUrl) {
-            triedFallback = true
-            start(movie.fallbackUrl)
-          } else setStatus('error')
-        })
-        instance.loadSource(src)
-        instance.attachMedia(video)
-        video.play().catch(() => {})
-      })
-    }
-    start(url)
-
-    return () => {
-      destroyed = true
-      if (video.currentTime > 5) resumeAt.current = video.currentTime
-      video.removeEventListener('playing', onPlaying)
-      video.removeEventListener('loadedmetadata', onMeta)
-      video.onerror = null
-      hls?.destroy()
-      video.removeAttribute('src')
-      video.load()
-    }
-  }, [url, movie.fallbackUrl, casting])
+/** "Mis películas": seguir viendo y películas descargadas en el teléfono */
+function SavedMovies({ onSelect }: { onSelect: (m: FreeMovie) => void }) {
+  const watching = useMovieStore((s) => s.watching)
+  const downloads = useMovieStore((s) => s.downloads)
+  const active = useMovieStore((s) => s.active)
+  const list = Object.values(watching).sort((a, b) => b.at - a.at)
+  const saved = Object.values(downloads).sort((a, b) => b.savedAt - a.savedAt)
+  const total = saved.reduce((n, d) => n + (d.size || 0), 0)
 
   return (
-    <div className="fixed inset-0 z-[110] bg-obsidian overflow-y-auto" role="dialog" aria-label={movie.title}>
-      <div className="max-w-5xl mx-auto sm:pt-6">
-        <div className="relative aspect-video bg-black sm:rounded-2xl overflow-hidden" data-cpn-video="">
-          <video ref={videoRef} controls playsInline autoPlay poster={movie.backdrop} className={`w-full h-full ${casting ? 'invisible' : ''}`} />
-          {!casting && levels.length > 0 && (
-            <HlsQualityMenu levels={levels} pref={quality} onChange={changeQuality} className="absolute top-2 left-2 z-20" />
-          )}
-          {casting && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-950 to-black text-center px-6">
-              <Cast className="w-10 h-10 text-emerald-400" />
-              <p className="text-white font-semibold">Viendo en {castDevice || 'la TV'}</p>
-              <p className="text-slate-400 text-sm">Pausa, adelanta o detén desde el botón de transmitir o la notificación.</p>
-            </div>
-          )}
-          {status === 'loading' && !casting && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Loader2 className="w-10 h-10 text-violet-300 animate-spin" />
-            </div>
-          )}
-          {status === 'error' && !casting && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 text-center px-6">
-              <AlertCircle className="w-8 h-8 text-red-400" />
-              <p className="text-white font-semibold">Esta película no se pudo cargar</p>
-              <p className="text-slate-400 text-sm">Prueba con otra o vuelve a intentarlo más tarde.</p>
-            </div>
-          )}
-        </div>
-        <div className="px-4 sm:px-1 py-4">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-white text-xl font-bold font-display">{movie.title}</h2>
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-sm mt-1">
-                {movie.year && <span>{movie.year}</span>}
-                {movie.duration ? (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {movie.duration} min
-                  </span>
-                ) : null}
-                {movie.genre && <span>{movie.genre}</span>}
-                {movie.rating && <span className="px-1.5 rounded border border-white/20 text-xs">{movie.rating}</span>}
-              </p>
-            </div>
-            {url && <CastButton videoRef={videoRef} media={{ url, altUrl: movie.fallbackUrl, title: movie.title, poster: movie.poster }} />}
-            <button
-              onClick={onClose}
-              className="shrink-0 w-10 h-10 rounded-full bg-surface-2 border border-white/8 flex items-center justify-center text-slate-300"
-              aria-label="Cerrar película"
-            >
-              <X className="w-5 h-5" />
-            </button>
+    <div className="space-y-8">
+      <section>
+        <h2 className="text-white font-bold text-lg font-display mb-3">Seguir viendo</h2>
+        {list.length === 0 ? (
+          <p className="text-slate-500 text-sm">Las películas que empieces a ver aparecen aquí para seguir donde quedaste.</p>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            {list.map((w) => (
+              <div key={w.movie.id} className="relative">
+                <MovieTile movie={{ ...w.movie, landscape: false }} onSelect={onSelect} progress={w.t / w.dur} />
+                <button
+                  onClick={() => useMovieStore.getState().forget(w.movie.id)}
+                  className="absolute top-1 right-1 rounded-full bg-black/70 p-1 text-slate-300"
+                  aria-label={`Quitar "${w.movie.title}" de seguir viendo`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
-          {movie.summary && (
-            <div className="mt-3">
-              <TranslatableText text={movie.summary} className="text-slate-300 text-sm leading-relaxed" />
-            </div>
-          )}
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-white font-bold text-lg font-display mb-1">Descargadas</h2>
+        <p className="text-slate-500 text-xs mb-3">
+          {saved.length ? `${saved.length} ${saved.length === 1 ? 'película' : 'películas'} · ${formatSize(total)} en el teléfono · se ven sin internet` : 'Abre una película y toca "Descargar para ver sin internet".'}
+        </p>
+        <div className="space-y-2">
+          {saved.map((d) => {
+            const pct = active[d.movie.id]
+            return (
+              <div key={d.movie.id} className="flex items-center gap-3 rounded-xl bg-surface-1 border border-white/8 p-2">
+                <button onClick={() => onSelect(d.movie)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                  <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-surface-2">
+                    {d.movie.poster && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={d.movie.poster} alt="" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{d.movie.title}</p>
+                    <p className="text-xs text-slate-400">
+                      {d.done ? (
+                        <span className="text-emerald-400">Descargada · {formatSize(d.size)}</span>
+                      ) : pct !== undefined ? (
+                        `Descargando ${Math.round(pct * 100)}%`
+                      ) : (
+                        `En pausa · ${d.total ? Math.round((d.size / d.total) * 100) : 0}% (sigue al volver la conexión)`
+                      )}
+                    </p>
+                  </div>
+                </button>
+                {!d.done && pct === undefined && (
+                  <button onClick={() => useMovieStore.getState().download(d.movie, d.url)} className="p-2 text-violet-300" aria-label="Continuar descarga">
+                    <Download className="w-5 h-5" />
+                  </button>
+                )}
+                <button
+                  onClick={() => confirm(`¿Borrar "${d.movie.title}" del teléfono?`) && useMovieStore.getState().remove(d.movie.id)}
+                  className="p-2 text-slate-400 hover:text-red-400"
+                  aria-label={`Borrar "${d.movie.title}"`}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            )
+          })}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

@@ -199,6 +199,12 @@ export interface FreeMovie {
   /** Dirección del video (HLS o MP4) y la del intermediario como respaldo */
   url: string
   fallbackUrl?: string
+  /** De dónde viene: Pluto TV, Internet Archive o Wikimedia Commons */
+  source?: 'pluto' | 'archive' | 'commons'
+  /** La imagen es horizontal (un cuadro del video), no un afiche */
+  landscape?: boolean
+  /** En español (audio) */
+  spanish?: boolean
 }
 
 export interface FreeMovieRow {

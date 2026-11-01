@@ -1,50 +1,53 @@
-name: Diagnóstico temporal (películas libres)
+name: Diagnóstico temporal (películas libres en vivo)
 on:
   push:
-    branches: [ccr-119ea479-72dpe7]
+    branches: [main]
     paths: ['.github/workflows/diagnostico.yml']
 jobs:
   revisar:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          cat > t.py <<'PY'
-          import json, urllib.request, urllib.parse
-          UA={'User-Agent':'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)'}
-          def get(u):
-              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=30))
-              except Exception as e: print('ERR',e); return {}
-          def q(s,rows=8):
-              p=[('q',s),('rows',rows),('output','json'),('sort[]','downloads desc')]+[('fl[]',f) for f in ['identifier','title','year','language','collection','runtime']]
-              d=get('https://archive.org/advancedsearch.php?'+urllib.parse.urlencode(p)).get('response',{})
-              print('===',d.get('numFound'),s)
-              for x in d.get('docs',[]): print('   ',x.get('identifier'),'|',str(x.get('title'))[:60],'|',x.get('year'),'|',x.get('language'),'|',x.get('runtime'),'|',str(x.get('collection'))[:70])
-          LANG='language:(spa OR Spanish OR español OR Español OR "Spanish; Castilian")'
-          q('collection:(feature_films) AND mediatype:(movies)')
-          q('collection:(feature_films) AND mediatype:(movies) AND '+LANG,20)
-          q('collection:(moviesandfilms) AND mediatype:(movies) AND '+LANG,10)
-          q('mediatype:(movies) AND '+LANG+' AND collection:(feature_films OR Film_Noir OR SciFi_Horror OR Comedy_Films OR silent_films OR classic_cartoons OR animationandcartoons OR cinemocracy OR moviesandfilms)',10)
-          q('mediatype:(movies) AND (title:(latino) OR subject:(latino OR "español latino" OR doblaje)) AND collection:(feature_films OR moviesandfilms)')
-          q('mediatype:(movies) AND '+LANG+' AND subject:("public domain" OR "dominio público" OR "dominio publico")')
-          q('mediatype:(movies) AND (title:("en español") OR subject:("en español" OR "doblada al español" OR "audio latino"))',10)
-          q('mediatype:(movies) AND collection:(feature_films) AND (title:(español) OR description:("en español" OR "español latino" OR "doblaje"))',10)
-          for c in ['Film_Noir','SciFi_Horror','Comedy_Films','silent_films','classic_cartoons','animationandcartoons','documentaries','westerns','cinemocracy','classic_tv','feature_films_mx','cine_mexicano','peliculas']: q('collection:(%s) AND mediatype:(movies)'%c,3)
-          for s in ['western OR westerns','drama','horror OR terror','comedy OR comedia','"science fiction" OR "sci-fi" OR scifi','animation OR cartoon OR animación','documentary OR documental','war OR guerra','crime OR noir','romance','adventure OR aventura','musical','mystery OR suspense OR thriller','silent']: q('collection:(feature_films) AND subject:(%s)'%s,3)
-          m=get('https://archive.org/metadata/night_of_the_living_dead')
-          print('META', m.get('metadata',{}).get('language'), m.get('metadata',{}).get('subject'))
-          for f in m.get('files',[]):
-              if any(f['name'].lower().endswith(e) for e in ['.mp4','.srt','.vtt','.ogv','.webm']): print('  F',f['name'],f.get('format'),f.get('size'))
-          C='https://commons.wikimedia.org/w/api.php?'
-          r=get(C+urllib.parse.urlencode({'action':'query','generator':'search','gsrsearch':'filetype:video deepcategory:"Spanish-language films"','gsrnamespace':6,'gsrlimit':50,'prop':'imageinfo','iiprop':'url|size|mime|extmetadata','iiurlwidth':320,'format':'json','iiextmetadatafilter':'ObjectName|ImageDescription|DateTimeOriginal|LicenseShortName|Artist'}))
-          for p in (r.get('query',{}).get('pages',{}) or {}).values():
-              ii=(p.get('imageinfo') or [{}])[0]; em=ii.get('extmetadata',{})
-              print('C',p['title'][:60],'|',ii.get('duration'),'|',ii.get('mime'),'|',em.get('LicenseShortName',{}).get('value'),'|',em.get('DateTimeOriginal',{}).get('value','')[:20],'|',(ii.get('thumburl') or '')[:60])
-          r=get(C+urllib.parse.urlencode({'action':'query','generator':'search','gsrsearch':'filetype:video "public domain" feature film','gsrnamespace':6,'gsrlimit':30,'prop':'imageinfo','iiprop':'url|size','format':'json'}))
-          for p in (r.get('query',{}).get('pages',{}) or {}).values():
-              ii=(p.get('imageinfo') or [{}])[0]; print('P',p['title'][:60],'|',ii.get('duration'))
-          r=get(C+urllib.parse.urlencode({'action':'query','list':'categorymembers','cmtitle':'Category:Spanish-language films','cmlimit':50,'format':'json'}))
-          print('CAT', [x['title'] for x in r.get('query',{}).get('categorymembers',[])])
-          r=get(C+urllib.parse.urlencode({'action':'query','list':'search','srsearch':'filetype:video incategory:"Feature films in the public domain" OR deepcategory:"Feature films"','srnamespace':6,'srlimit':5,'format':'json'}))
-          print('FEAT', r.get('query',{}).get('searchinfo'))
-          PY
-          python3 t.py
+          S=https://peliculas-neon.vercel.app
+          for i in $(seq 40); do curl -s "$S/api/free-movies?source=commons&kind=es" | grep -q '"movies"' && break; sleep 10; done
+          echo "=== commons es"; curl -s "$S/api/free-movies?source=commons&kind=es" | jq -c '.movies[] | [.title, .year, .duration, .fallbackUrl[0:60]]' | head -40
+          echo "=== commons classic"; curl -s "$S/api/free-movies?source=commons&kind=classic" | jq -c '.movies[] | [.title, .year, .duration]' | head -15
+          echo "=== archive es"; curl -s "$S/api/free-movies?source=archive&kind=es" | jq -c '.movies[] | [.id, .title, .year, .genre]' | head -48
+          echo "=== archive es p2"; curl -s "$S/api/free-movies?source=archive&kind=es&page=2" | jq -c '.movies[] | [.title, .year]' | head -48
+          echo "=== archive classic"; curl -s "$S/api/free-movies?source=archive&kind=classic" | jq -c '.movies[] | [.title, .year, .genre]' | head -20
+          for g in comedia terror scifi negro western animacion mudo documental; do echo "=== $g"; curl -s "$S/api/free-movies?source=archive&kind=classic&genre=$g" | jq -c '[.movies|length, (.movies[0:4][]|.title)]'; done
+          echo "=== es terror"; curl -s "$S/api/free-movies?source=archive&kind=es&genre=terror" | jq -c '[.movies|length, (.movies[0:6][]|.title)]'
+          echo "=== search"; curl -s "$S/api/free-movies?source=archive&kind=classic&q=chaplin" | jq -c '[.movies|length, (.movies[0:5][]|.title)]'
+          echo "=== video"; curl -s "$S/api/free-movies?archive=night_of_the_living_dead" | jq -c .
+          curl -s "$S/api/free-movies?archive=HorrorExpresswithSpanishSubtitles" | jq -c .
+          echo "=== transcode"; T=$(curl -s "$S/api/free-movies?source=commons&kind=es" | jq -r '.movies[0].fallbackUrl'); echo $T; curl -sI -A Mozilla/5.0 "$T" | head -5
+          U=$(curl -s "$S/api/free-movies?source=commons&kind=es" | jq -r '.movies[0].url'); curl -sI -A Mozilla/5.0 "$U" | grep -iE "^HTTP|content-length|access-control"
+          for v in 480p.mp4 360p.mp4 480p.webm; do curl -s -o /dev/null -w "$v %{http_code}\n" -A Mozilla/5.0 -I "${U/\/commons\//\/commons\/transcoded\/}/$(basename "$U").$v"; done
+          mkdir t && cd t && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1 && npx playwright install chromium >/dev/null 2>&1
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright')
+          ;(async () => {
+            const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
+            const p = await b.newPage({ viewport: { width: 400, height: 860 } })
+            p.on('pageerror', (e) => console.log('PAGEERROR', e.message))
+            await p.addInitScript(() => sessionStorage.setItem('cpn-splash-seen', '1'))
+            await p.goto('https://peliculas-neon.vercel.app/peliculas')
+            await p.waitForSelector('text=Cine latino e hispano restaurado', { timeout: 30000 })
+            await p.waitForTimeout(3000)
+            await p.screenshot({ path: 's1.png' })
+            const tiles = p.locator('section:has-text("Cine latino") button')
+            console.log('commons tiles', await tiles.count())
+            await tiles.first().click()
+            const ok = await p.waitForFunction(() => { const v = document.querySelector('video'); return v && v.currentTime > 2 }, null, { timeout: 40000 }).then(() => true, () => false)
+            console.log('commons playing', ok, await p.evaluate(() => { const v = document.querySelector('video'); return v && [v.currentSrc.slice(0, 120), v.currentTime, v.error && v.error.code] }))
+            await p.click('[aria-label="Cerrar película"]')
+            const grid = p.locator('div.grid button')
+            console.log('archive tiles', await grid.count())
+            await grid.first().click()
+            const ok2 = await p.waitForFunction(() => { const v = document.querySelector('video'); return v && v.currentTime > 2 }, null, { timeout: 40000 }).then(() => true, () => false)
+            console.log('archive playing', ok2, await p.evaluate(() => { const v = document.querySelector('video'); return v && [v.currentSrc.slice(0, 120), v.currentTime, v.error && v.error.code, v.textTracks.length] }))
+            console.log(await p.locator('[role=dialog]').innerText())
+            await b.close()
+          })()
+          JS
+          node t.js

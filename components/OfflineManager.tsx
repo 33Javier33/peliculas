@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Download } from 'lucide-react'
 import { useOfflineStore } from '@/store/offlineStore'
+import { useMovieStore } from '@/store/movieStore'
 import { getNative } from '@/lib/native'
 
 // Descargas en segundo plano: retoma las pendientes (al abrir la app o al volver la conexión),
@@ -14,7 +15,10 @@ export default function OfflineManager() {
   const [shown, setShown] = useState<string | null>(null)
 
   useEffect(() => {
-    const resume = () => useOfflineStore.getState().resume()
+    const resume = () => {
+      useOfflineStore.getState().resume()
+      useMovieStore.getState().resume()
+    }
     const t = setTimeout(resume, 3000)
     window.addEventListener('online', resume)
     return () => {
@@ -32,9 +36,16 @@ export default function OfflineManager() {
 
   // App de Android: notificación "Descargando…" mientras haya descargas (así sigue al salir)
   const groups = Object.entries(progress)
-  const active = groups.length > 0
-  const first = groups[0]?.[1]
-  const title = active ? useOfflineStore.getState().queue[groups[0][0]]?.group.title ?? 'Música' : ''
+  const movieActive = useMovieStore((s) => s.active)
+  const movieId = Object.keys(movieActive)[0]
+  const moviePct = movieId ? Math.round((movieActive[movieId] || 0) * 100) : 0
+  const active = groups.length > 0 || !!movieId
+  const first = groups[0]?.[1] ?? (movieId ? { done: moviePct, total: 100 } : undefined)
+  const title = groups.length
+    ? useOfflineStore.getState().queue[groups[0][0]]?.group.title ?? 'Música'
+    : movieId
+      ? useMovieStore.getState().downloads[movieId]?.movie.title ?? 'Película'
+      : ''
   useEffect(() => {
     const n = getNative() as (ReturnType<typeof getNative> & { downloadState?(json: string): void }) | null
     if (!n?.downloadState) return
@@ -48,7 +59,7 @@ export default function OfflineManager() {
   return (
     <div className="fixed inset-x-0 bottom-[calc(56px+96px)] sm:bottom-28 z-[130] flex justify-center px-4 pointer-events-none">
       <Link
-        href="/music/library#descargas"
+        href={/pel[ií]cula/i.test(shown) ? '/peliculas?tab=saved' : '/music/library#descargas'}
         onClick={() => setShown(null)}
         className="pointer-events-auto max-w-md flex items-center gap-2 rounded-2xl bg-surface-2/[0.98] border border-white/10 shadow-2xl px-4 py-3 text-sm text-white"
       >
