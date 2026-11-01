@@ -1,39 +1,44 @@
-name: Diagnóstico temporal (filtros películas)
+name: Diagnóstico temporal (películas libres en vivo)
 on:
   push:
-    branches: [ccr-119ea479-72dpe7]
+    branches: [main]
     paths: ['.github/workflows/diagnostico.yml']
 jobs:
   revisar:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          cat > t.py <<'PY'
-          import json, urllib.request, urllib.parse
-          UA={'User-Agent':'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)'}
-          def get(u):
-              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=30))
-              except Exception as e: print('ERR',e); return {}
-          FILM='collection:(feature_films OR Film_Noir OR SciFi_Horror OR Comedy_Films OR silent_films OR classic_cartoons OR animationandcartoons OR cinemocracy)'
-          ADULT='(erotic OR erotica OR erótica OR erotico OR erótico OR sex OR sexo OR sexy OR xxx OR porn OR porno OR adult OR adultos OR nudist OR nudism OR nudista OR hentai OR stag OR sexploitation OR softcore OR desnudo OR desnudos OR desnuda OR desnudas)'
-          EX='NOT subject:%s AND NOT title:%s AND NOT title:(dvdrip OR brrip OR bdrip OR webrip OR hdrip OR camrip OR "web-dl" OR trailer OR tráiler OR avance) AND NOT collection:(movie_trailers OR no-preview)'%(ADULT,ADULT)
-          SP='language:(spa OR Spanish OR español OR Español OR espanol OR "Spanish; Castilian")'
-          CUR='collection:(SciFi_Horror OR Film_Noir OR Comedy_Films OR silent_films OR classic_cartoons OR cinemocracy)'
-          def q(name,s,rows=40,sort='downloads desc'):
-              p=[('q',s),('rows',rows),('output','json'),('sort[]',sort)]+[('fl[]',f) for f in ['identifier','title','year','collection']]
-              d=get('https://archive.org/advancedsearch.php?'+urllib.parse.urlencode(p)).get('response',{})
-              print('===',name,d.get('numFound'))
-              for x in d.get('docs',[]): print('   ',x.get('year'),'|',str(x.get('title'))[:70],'|',x.get('identifier')[:50],'|',[c for c in x.get('collection',[]) if not c.startswith('fav-')][:3])
-          RIP='NOT identifier:(y-2-mate* OR yt-1s* OR *dvdrip* OR *tvrip* OR *1080p* OR *720p* OR *webrip* OR *.mkv)'
-          base=FILM+' AND mediatype:(movies) AND '+EX+' AND '+RIP
-          q('RIP count check', FILM+' AND mediatype:(movies) AND '+RIP, 3)
-          q('ES strict', base+' AND '+SP+' AND year:[1890 TO 1977] AND (year:[1890 TO 1930] OR subject:("public domain" OR "dominio público" OR "dominio publico") OR title:("spanish subtitles" OR subtitulada OR "subtítulos en español" OR "doblada al español"))',80)
-          q('ES PD wider (no FILM)', 'mediatype:(movies) AND '+EX+' AND '+RIP+' AND '+SP+' AND year:[1890 TO 1977] AND subject:("public domain" OR "dominio público" OR "dominio publico") AND NOT collection:(opensource_movies OR community)',20)
-          q('CLASSIC strict', base+' AND year:[1890 TO 1970]',20)
-          q('CLASSIC terror', base+' AND year:[1890 TO 1970] AND (subject:(horror OR terror OR zombie OR vampire OR monster))',8)
-          q('CLASSIC drama', base+' AND year:[1890 TO 1970] AND (subject:(drama OR melodrama))',8)
-          for i in ['dra-cula.-esp.-mp-4.','frankenstein-1931-doblada-al-espanol','ElHotelDelTerror1960Espanol']:
-              m=get('https://archive.org/metadata/'+i)
-              print('META',i,[ (f['name'],f.get('format')) for f in m.get('files',[]) if f['name'].lower().endswith(('.mp4','.srt','.vtt','.webm','.ogv'))][:8])
-          PY
-          python3 t.py
+          set +e; S=https://peliculas-neon.vercel.app
+          for i in $(seq 60); do curl -s "$S/" | grep -q '2\.55\.1' && break; sleep 10; done
+          echo "=== commons es"; curl -s "$S/api/free-movies?source=commons&kind=es" | jq -c '.movies[] | [.title, .year, .duration, .url[0:70]]'
+          echo "=== archive es"; curl -s "$S/api/free-movies?source=archive&kind=es" | jq -c '.movies[] | [.title, .year, .genre]'
+          echo "=== archive classic"; curl -s "$S/api/free-movies?source=archive&kind=classic" | jq -c '.movies[0:12][] | [.title, .year, .genre]'
+          for g in comedia terror scifi negro western animacion mudo documental; do echo "=== $g"; curl -s "$S/api/free-movies?source=archive&kind=classic&genre=$g" | jq -c '[(.movies|length), (.movies[0:4][]|.title)]'; done
+          echo "=== search"; curl -s "$S/api/free-movies?source=archive&kind=classic&q=chaplin" | jq -c '[(.movies|length), (.movies[0:5][]|.title)]'
+          curl -s "$S/api/free-movies?archive=ladrones_1930" | jq -c .
+          mkdir t && cd t && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1
+          cat > t.js <<'JS'
+          const { chromium } = require('playwright')
+          ;(async () => {
+            const b = await chromium.launch({ channel: 'chrome', args: ['--autoplay-policy=no-user-gesture-required'] })
+            const p = await b.newPage({ viewport: { width: 400, height: 860 } })
+            p.on('pageerror', (e) => console.log('PAGEERROR', e.message))
+            await p.addInitScript(() => sessionStorage.setItem('cpn-splash-seen', '1'))
+            await p.goto('https://peliculas-neon.vercel.app/peliculas')
+            await p.waitForSelector('text=Cine latino e hispano restaurado', { timeout: 30000 })
+            await p.waitForTimeout(3000)
+            const play = async (loc, name) => {
+              await loc.click()
+              const ok = await p.waitForFunction(() => { const v = document.querySelector('video'); return v && v.currentTime > 2 }, null, { timeout: 45000 }).then(() => true, () => false)
+              console.log(name, ok, JSON.stringify(await p.evaluate(() => { const v = document.querySelector('video'); return v && [v.currentSrc.slice(0, 110), v.currentTime, v.error && v.error.code, v.textTracks.length] })))
+              await p.click('[aria-label="Cerrar película"]')
+            }
+            await play(p.locator('section:has-text("Cine latino") button').first(), 'commons')
+            await play(p.locator('div.grid button').first(), 'archive-es')
+            await p.click('button:text-is("Clásicos")')
+            await p.waitForTimeout(4000)
+            await play(p.locator('div.grid button').nth(2), 'archive-classic')
+            await b.close()
+          })()
+          JS
+          node t.js

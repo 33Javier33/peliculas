@@ -56,13 +56,22 @@ const FILM_COLLECTIONS =
 export const SPANISH = 'language:(spa OR Spanish OR español OR Español OR espanol OR "Spanish; Castilian")'
 
 /** Fuera: contenido para adultos, avances y copias de películas recientes ("rip", "1080p"…) */
-const ADULT = '(erotic OR erotica OR erótica OR erotico OR erótico OR sex OR sexo OR sexy OR xxx OR porn OR porno OR adult OR adultos OR nudist OR nudism OR nudista OR hentai OR stag OR sexploitation OR softcore OR desnudo OR desnudos)'
+const ADULT = '(erotic OR erotica OR erótica OR erotico OR erótico OR sex OR sexo OR sexy OR xxx OR porn OR porno OR adult OR adultos OR nudist OR nudism OR nudista OR hentai OR stag OR sexploitation OR softcore OR desnudo OR desnudos OR desnuda OR desnudas)'
 const EXCLUDE = [
   `NOT subject:${ADULT}`,
   `NOT title:${ADULT}`,
   'NOT title:(dvdrip OR brrip OR bdrip OR webrip OR hdrip OR camrip OR "web-dl" OR trailer OR tráiler OR avance)',
   'NOT collection:(movie_trailers OR no-preview)',
+  // Copias bajadas de YouTube (casi siempre películas con derechos vigentes)
+  'NOT identifier:(y-2-mate* OR yt-1s* OR y2mate*)',
 ].join(' AND ')
+/**
+ * En español: cine hasta 1930 (dominio público), lo marcado como dominio público y clásicos con
+ * subtítulos en español. Los clásicos en general: hasta 1970 (donde están los de dominio público).
+ */
+const SPANISH_PD =
+  'year:[1890 TO 1977] AND (year:[1890 TO 1930] OR subject:("public domain" OR "dominio público" OR "dominio publico") OR title:("spanish subtitles" OR subtitulada OR "subtítulos en español" OR "subtitulos en español"))'
+const CLASSIC_PD = 'year:[1890 TO 1970]'
 
 export interface ArchiveMovieQuery {
   kind: 'es' | 'classic'
@@ -79,8 +88,7 @@ export interface ArchiveMovieQuery {
 export async function searchArchiveMovies(kindOrQuery: 'es' | 'classic' | ArchiveMovieQuery, q = '', page = 1): Promise<FreeMovie[]> {
   const opts: ArchiveMovieQuery = typeof kindOrQuery === 'string' ? { kind: kindOrQuery, q, page } : kindOrQuery
   const terms = [FILM_COLLECTIONS, 'mediatype:(movies)', EXCLUDE]
-  // En español: solo cine antiguo (hasta 1977), donde está lo de dominio público
-  if (opts.kind === 'es') terms.push(SPANISH, 'year:[1890 TO 1977]')
+  terms.push(opts.kind === 'es' ? `${SPANISH} AND ${SPANISH_PD}` : CLASSIC_PD)
   const g = opts.genre && ARCHIVE_GENRES[opts.genre]
   if (g) terms.push(`(${g.terms})`)
   const clean = (opts.q || '').replace(/["():*?\[\]{}^~!\\/]/g, ' ').replace(/\b(AND|OR|NOT)\b/g, ' ').replace(/\s+/g, ' ').trim()
