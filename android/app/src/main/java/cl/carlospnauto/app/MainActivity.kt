@@ -92,8 +92,9 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             setGeolocationEnabled(true)
-            // Dibuja por adelantado lo que está justo fuera de la pantalla: el desplazamiento fluye mejor
-            offscreenPreRaster = true
+            // Sin dibujo anticipado de toda la página: obligaba al teléfono a redibujar todo (también
+            // las animaciones) y le quitaba procesador al audio, que se oía con chasquidos
+            offscreenPreRaster = false
             // La web sabe que está dentro de la app
             userAgentString = "$userAgentString CPNApp/${BuildConfig.VERSION_NAME}"
         }

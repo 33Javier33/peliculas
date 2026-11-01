@@ -611,7 +611,7 @@ export default function MusicLibraryClient() {
                               e.stopPropagation()
                               addToQueue(track)
                             }}
-                            className="p-2 text-slate-600 hover:text-violet-400 opacity-0 group-hover:opacity-100 transition-all"
+                            className="p-2 text-slate-600 hover:text-violet-400 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                             title="Añadir a la cola"
                           >
                             <Plus className="w-4 h-4" />

@@ -111,3 +111,10 @@ html[data-splash='done'] #cpn-splash {
 .cpn-pip [data-cpn-video] > :not(video):not(iframe):not(:has(video, iframe)) {
   display: none !important;
 }
+
+/* App en segundo plano: animaciones en pausa (el procesador queda para el audio) */
+html.cpn-hidden *,
+html.cpn-hidden *::before,
+html.cpn-hidden *::after {
+  animation-play-state: paused !important;
+}

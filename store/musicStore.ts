@@ -142,14 +142,28 @@ export function parseTrackMeta(video: MusicVideo): { artist: string; album?: str
 function deferredStorage<S>(): PersistStorage<S> {
   let pending: { name: string; value: StorageValue<S> } | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
+  // Lo último escrito completo: si solo cambió la posición de la canción (cada segundo mientras
+  // suena) se guarda un dato pequeño aparte, en vez de volver a escribir la biblioteca entera
+  // (con una biblioteca grande eran ~500 KB por segundo: trabajo pesado justo mientras suena)
+  let lastFull: Record<string, unknown> | null = null
+  const onlyPlayedChanged = (state: Record<string, unknown>) =>
+    !!lastFull && Object.keys(state).every((k) => k === 'played' || state[k] === lastFull![k]) && Object.keys(lastFull).length === Object.keys(state).length
   const flush = () => {
     clearTimeout(timer)
     timer = undefined
     if (!pending) return
-    try {
-      localStorage.setItem(pending.name, JSON.stringify(pending.value))
-    } catch {}
+    const { name, value } = pending
     pending = null
+    const state = (value as { state?: Record<string, unknown> }).state ?? {}
+    try {
+      if (onlyPlayedChanged(state)) {
+        localStorage.setItem(`${name}:played`, String(state.played ?? 0))
+        return
+      }
+      localStorage.setItem(name, JSON.stringify(value))
+      localStorage.removeItem(`${name}:played`)
+      lastFull = { ...state }
+    } catch {}
   }
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', flush)
@@ -159,7 +173,13 @@ function deferredStorage<S>(): PersistStorage<S> {
     getItem: (name) => {
       try {
         const raw = localStorage.getItem(name)
-        return raw ? (JSON.parse(raw) as StorageValue<S>) : null
+        if (!raw) return null
+        const value = JSON.parse(raw) as StorageValue<S>
+        // La posición más reciente (guardada aparte)
+        const played = localStorage.getItem(`${name}:played`)
+        const st = (value as unknown as { state?: Record<string, unknown> }).state
+        if (played != null && st) st.played = Number(played) || 0
+        return value
       } catch {
         return null
       }
@@ -170,8 +190,10 @@ function deferredStorage<S>(): PersistStorage<S> {
     },
     removeItem: (name) => {
       pending = null
+      lastFull = null
       try {
         localStorage.removeItem(name)
+        localStorage.removeItem(`${name}:played`)
       } catch {}
     },
   }

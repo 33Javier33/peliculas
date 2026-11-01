@@ -100,7 +100,7 @@ export default function MusicCard({ video, allVideos, index, view = 'grid' }: Mu
             className={`p-1.5 rounded-full transition-all duration-200 hover:scale-110 ${
               isSaved
                 ? 'bg-purple-600/90 text-white opacity-100'
-                : 'bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-purple-600'
+                : 'bg-black/70 text-white sm:opacity-0 sm:group-hover:opacity-100 hover:bg-purple-600'
             }`}
             title={isSaved ? 'Quitar de guardadas' : 'Guardar canción'}
             aria-pressed={isSaved}
@@ -124,7 +124,7 @@ export default function MusicCard({ video, allVideos, index, view = 'grid' }: Mu
               e.stopPropagation()
               addToQueue(video)
             }}
-            className="p-1.5 bg-black/70 text-white rounded-full opacity-0 group-hover:opacity-100 hover:bg-violet-600 transition-all duration-200 hover:scale-110"
+            className="p-1.5 bg-black/70 text-white rounded-full sm:opacity-0 sm:group-hover:opacity-100 hover:bg-violet-600 transition-all duration-200 hover:scale-110"
             title="Añadir a la cola"
           >
             <Plus className="w-3.5 h-3.5" />

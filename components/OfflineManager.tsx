@@ -27,6 +27,15 @@ export default function OfflineManager() {
     }
   }, [])
 
+  // Con la app en segundo plano se pausan las animaciones decorativas: el teléfono dedica el
+  // procesador al audio (menos riesgo de chasquidos)
+  useEffect(() => {
+    const onVis = () => document.documentElement.classList.toggle('cpn-hidden', document.visibilityState === 'hidden')
+    onVis()
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
   useEffect(() => {
     if (!notice) return
     setShown(notice.text)

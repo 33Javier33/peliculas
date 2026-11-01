@@ -1,6 +1,7 @@
 'use client'
 
 import DownloadButton from '@/components/DownloadButton'
+import { GroupDownloadIcon } from '@/components/OfflineIcons'
 import TranslatableText from '@/components/TranslatableText'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link2, Play, Shuffle, Trash2, Loader2, Plus, ChevronDown, ExternalLink, Disc3, ListOrdered, ListPlus } from 'lucide-react'
@@ -199,6 +200,8 @@ export default function AudioLinksSection() {
             <AlbumCard
               key={album.id}
               album={album}
+              items={items}
+              onPlay={() => play(items, 0)}
               count={items.length}
               selected={open === album.id}
               playing={!!currentId && items.some((t) => t.id === currentId)}
@@ -335,22 +338,34 @@ function AlbumRow({
 
 function AlbumCard({
   album,
+  items,
   count,
   selected,
   playing,
   onClick,
+  onPlay,
 }: {
   album: LinkAlbum
+  items: MusicVideo[]
   count: number
   selected: boolean
   playing: boolean
   onClick: () => void
+  onPlay: () => void
 }) {
   const [failed, setFailed] = useState(false)
+  // Botones siempre visibles (en el teléfono no hay "pasar el mouse por encima")
   return (
-    <button onClick={onClick} aria-pressed={selected} className="snap-start shrink-0 w-28 text-left group">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      aria-pressed={selected}
+      className="snap-start shrink-0 w-32 text-left group cursor-pointer"
+    >
       <span
-        className={`relative block w-28 h-28 rounded-xl overflow-hidden bg-surface-2 border-2 ${selected ? 'border-violet-400' : playing ? 'border-violet-400/50' : 'border-transparent'}`}
+        className={`relative block w-32 h-32 rounded-xl overflow-hidden bg-surface-2 border-2 ${selected ? 'border-violet-400' : playing ? 'border-violet-400/50' : 'border-transparent'}`}
       >
         {album.cover && !failed ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -367,12 +382,35 @@ function AlbumCard({
             ))}
           </span>
         )}
+        <span className="absolute top-1.5 right-1.5" onClick={(e) => e.stopPropagation()}>
+          <GroupDownloadIcon overlay group={{ id: album.id, title: album.title, cover: album.cover }} tracks={items} />
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            usePlaylistStore.getState().openAdd(items)
+          }}
+          className="absolute top-1.5 left-1.5 w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white"
+          aria-label={`Agregar ${album.title} a una playlist`}
+        >
+          <ListPlus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay()
+          }}
+          className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full bg-violet-500 shadow-glow flex items-center justify-center text-white"
+          aria-label={`Escuchar ${album.title}`}
+        >
+          <Play className="w-4 h-4 fill-white ml-0.5" />
+        </button>
       </span>
       <span className={`block mt-1.5 text-xs font-semibold truncate ${selected ? 'text-violet-300' : 'text-white'}`}>{album.title}</span>
       <span className="block text-[11px] text-slate-500 truncate">
         {album.artist} · {count}
       </span>
-    </button>
+    </div>
   )
 }
 

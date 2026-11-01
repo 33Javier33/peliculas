@@ -47,6 +47,7 @@ const STAGES: Stage[] = [
       'Descargar películas para verlas sin internet (por partes, se retoma si se corta)',
       'Sin "click" ni cortes de audio al salir o volver a la app',
       'Ecualizador sin chisporroteo: ya no satura (limitador) y usa un búfer de audio más grande',
+      'Menos trabajo mientras suena: la posición se guarda sin reescribir la biblioteca (antes ~500 KB por segundo) y la app no redibuja de más',
       'archive.org suena directo y la app de Android queda solo como respaldo (ya no salta canciones)',
     ],
   },
