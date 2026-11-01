@@ -14,7 +14,8 @@ jobs:
           def get(u):
               try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers=UA),timeout=30))
               except Exception as e: print('ERR',e); return {}
-          BASE='mediatype:(audio) AND NOT collection:(podcasts OR radioprograms OR audio_podcast OR oldtimeradio OR audio_bookspoetry OR librivoxaudio OR audio_religion OR radio OR spokenword) AND NOT subject:(podcast OR audiobook OR sermon)'
+          AD='(porn OR porno OR sex OR sexo OR xxx OR erotic OR hentai OR gore OR goregrind OR pornogrind OR "harsh noise")'
+          BASE='mediatype:(audio) AND collection:(netlabels OR 78rpm OR musopen OR jamendo-albums OR freemusicarchive OR fma_full) AND NOT collection:(no-preview) AND NOT subject:'+AD+' AND NOT title:'+AD
           G={
            'rock':'subject:(rock OR "rock and roll" OR "classic rock" OR "indie rock" OR punk)',
            'pop':'subject:(pop OR "pop music" OR synthpop OR "indie pop")',
@@ -29,7 +30,7 @@ jobs:
            'folk':'subject:(folk OR acoustic OR country OR bluegrass OR "singer-songwriter")',
            'metal':'subject:(metal OR "heavy metal" OR "death metal" OR "black metal" OR thrash)',
            'antiguos':'collection:(78rpm)',
-           'envivo':'collection:(etree)',
+           
           }
           for k,g in G.items():
               p=[('q',BASE+' AND ('+g+')'),('rows',50),('page',random.randint(1,5)),('output','json'),('sort[]','downloads desc')]+[('fl[]',f) for f in ['identifier','title','creator','collection']]
@@ -41,5 +42,7 @@ jobs:
                   x=random.choice(docs); m=get('https://archive.org/metadata/'+x['identifier'])
                   fs=[(f['name'][:40],f.get('format'),f.get('length')) for f in m.get('files',[]) if 'mp3' in (f.get('format') or '').lower()][:4]
                   print('   META',x['identifier'],m.get('metadata',{}).get('access-restricted-item'),fs)
+          d=get('https://archive.org/advancedsearch.php?'+urllib.parse.urlencode([('q','mediatype:(etree) AND collection:(etree)'),('rows',5),('output','json'),('sort[]','downloads desc'),('fl[]','identifier'),('fl[]','title')])).get('response',{})
+          print('=== envivo', d.get('numFound'), [x.get('title') for x in d.get('docs',[])])
           PY
           python3 t.py
