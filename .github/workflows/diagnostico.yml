@@ -1,0 +1,22 @@
+name: diagnostico
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          S=https://peliculas-neon.vercel.app
+          curl -sL -o gh.apk https://github.com/33Javier33/peliculas/releases/download/android-latest/CarlosPNauto.apk
+          curl -s -D h.txt -o api.apk $S/api/apk; echo "exit=$?"; cat h.txt
+          ls -l gh.apk api.apk
+          sha256sum gh.apk api.apk
+          echo "== unzip gh"; unzip -tq gh.apk
+          echo "== unzip api"; unzip -tq api.apk | tail -3
+          AS=$(ls $ANDROID_HOME/build-tools/*/apksigner | tail -1)
+          echo "== apksigner gh"; $AS verify --print-certs gh.apk | head -5
+          echo "== apksigner api"; $AS verify api.apk 2>&1 | head -3
+          AA=$(ls $ANDROID_HOME/build-tools/*/aapt2 | tail -1); $AA dump badging gh.apk | head -2
