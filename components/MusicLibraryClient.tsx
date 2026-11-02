@@ -11,6 +11,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import DownloadsSection from '@/components/DownloadsSection'
+import CollapsibleCard from '@/components/CollapsibleCard'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { readSession, patchSession } from '@/lib/session-cache'
@@ -32,6 +33,7 @@ import {
   LayoutGrid,
   ListPlus,
   ListMusic,
+  Link2,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -319,11 +321,18 @@ export default function MusicLibraryClient() {
 
         <LocalMusicSection />
 
-        <ArchiveSearchSection />
-
-        <ArchiveSearchSection variant="free" />
-
-        <AudioLinksSection />
+        {/* Fuentes para agregar música: tarjetas que se expanden (no ocupan tanto espacio) */}
+        <div className="mb-10">
+          <CollapsibleCard id="archive" icon={<Library className="w-4 h-4 text-amber-400" />} title="Internet Archive" desc="Discos y conciertos libres de archive.org">
+            <ArchiveSearchSection />
+          </CollapsibleCard>
+          <CollapsibleCard id="free" icon={<Library className="w-4 h-4 text-rose-400" />} title="Música libre · Jamendo y Free Music Archive" desc="Artistas independientes con licencias Creative Commons">
+            <ArchiveSearchSection variant="free" />
+          </CollapsibleCard>
+          <CollapsibleCard id="links" icon={<Link2 className="w-4 h-4 text-sky-400" />} title="Desde un enlace" desc="MP3 y otros audios de internet, tus discos de enlaces">
+            <AudioLinksSection />
+          </CollapsibleCard>
+        </div>
 
         <FollowedArtistsSection showEmpty />
 
@@ -807,7 +816,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors whitespace-nowrap ${
+      className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold font-display transition-colors whitespace-nowrap ${
         active
           ? 'bg-violet-300 text-violet-950'
           : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'

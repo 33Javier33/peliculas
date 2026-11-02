@@ -15,6 +15,14 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Teléfono: todo un poco más chico (textos, botones e íconos a la vez, en la misma proporción).
+   Los tamaños de Tailwind van en rem: bajan juntos y siguen siendo legibles. */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+
 /* Obsidian Sonic: títulos en Plus Jakarta Sans con tracking negativo, números tabulares */
 h1,
 h2,

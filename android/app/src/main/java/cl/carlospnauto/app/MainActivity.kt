@@ -92,6 +92,9 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             setGeolocationEnabled(true)
+            // Textos al tamaño de la app (sin agrandarlos otra vez con la letra grande del sistema:
+            // botones y textos quedaban desproporcionados)
+            textZoom = 100
             // Sin dibujo anticipado de toda la página: obligaba al teléfono a redibujar todo (también
             // las animaciones) y le quitaba procesador al audio, que se oía con chasquidos
             offscreenPreRaster = false
