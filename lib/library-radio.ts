@@ -11,16 +11,16 @@ type GenreCache = Record<string, { g: string[]; at: number }>
 
 /** Palabras de los géneros de MusicBrainz que corresponden a cada radio */
 const MATCH: Record<string, RegExp> = {
-  rock: /rock|punk|grunge|alternative|new wave|post-punk|garage|psychedelic|britpop|shoegaze/,
+  rock: /rock|punk|grunge|alternativ|new wave|post-punk|garage|psychedelic|britpop|shoegaze/,
   pop: /\bpop\b|synthpop|dance-pop|teen pop|europop|electropop/,
   latina: /latin|salsa|cumbia|bolero|tango|reggaeton|bachata|merengue|ranchera|mariachi|cuban|mexican|trova|son\b|vallenato|nueva canci|tropical|regional mexican|rock en espa/,
-  electronica: /electro|techno|house|trance|edm|\bdance\b|idm|drum and bass|dubstep|synthwave|breakbeat/,
+  electronica: /electro|electr[oó]nic|techno|house|trance|edm|\bdance\b|idm|drum and bass|dubstep|synthwave|breakbeat/,
   jazz: /jazz|swing|bebop|big band|bossa/,
   blues: /blues|rhythm and blues|r&b|soul|funk/,
-  clasica: /classical|baroque|opera|symphon|romantic|orchestral|chamber/,
+  clasica: /classical|cl[aá]sica|baroque|opera|symphon|romantic|orchestral|chamber/,
   hiphop: /hip hop|hip-hop|rap|trap|grime/,
   reggae: /reggae|ska|\bdub\b|dancehall|rocksteady/,
-  folk: /folk|country|bluegrass|americana|singer-songwriter|singer\/songwriter|acoustic/,
+  folk: /folk|cantautor|country|bluegrass|americana|singer-songwriter|singer\/songwriter|acoustic/,
   metal: /metal|thrash|hardcore/,
   ambient: /ambient|chill|downtempo|lounge|new age|trip hop/,
 }
