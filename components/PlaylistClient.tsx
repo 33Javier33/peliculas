@@ -13,9 +13,11 @@ import PlaylistCover from '@/components/PlaylistCover'
 import ViewToggle, { useView } from '@/components/ViewToggle'
 import TrackTiles from '@/components/TrackTiles'
 import BackButton from '@/components/BackButton'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // Una playlist: reproducir en orden o aleatorio, cambiar el nombre, ordenar y quitar canciones
 export default function PlaylistClient({ id }: { id: string }) {
+  const shuffleOn = useShuffleOn(`playlist:${id}`)
   const router = useRouter()
   const playlist = usePlaylistStore((s) => s.playlists.find((p) => p.id === id))
   const { rename, remove, removeTrack, moveTrack } = usePlaylistStore.getState()
@@ -100,7 +102,7 @@ export default function PlaylistClient({ id }: { id: string }) {
               <button onClick={() => play(0, false)} disabled={!tracks.length} className="inline-flex items-center gap-2 bg-violet-500 text-white font-bold px-5 py-2.5 rounded-full text-sm disabled:opacity-50">
                 <Play className="w-4 h-4 fill-white" /> Reproducir
               </button>
-              <button onClick={() => play(0, true)} disabled={!tracks.length} className="inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm disabled:opacity-50">
+              <button onClick={() => (play(0, true), markShuffle(`playlist:${id}`))} disabled={!tracks.length} aria-pressed={shuffleOn} className={`inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm disabled:opacity-50 ${shuffleOn ? SHUFFLE_ON : ''}`}>
                 <Shuffle className="w-4 h-4" /> Aleatorio
               </button>
               <button

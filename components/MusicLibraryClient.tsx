@@ -40,11 +40,15 @@ import ViewToggle, { useView } from '@/components/ViewToggle'
 import PlaylistCover from '@/components/PlaylistCover'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 type SortOrder = 'recent' | 'title' | 'artist'
 
 export default function MusicLibraryClient() {
+  const shuffleSaved = useShuffleOn('library-saved')
+  const shuffleFilter = useShuffleOn('library-filter')
+  const shuffleGenre = useShuffleOn('library-genre')
   const { liked, play, addToQueue, removeLiked, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
     useShallow((s) => ({
       liked: s.saved,
@@ -289,10 +293,14 @@ export default function MusicLibraryClient() {
               </button>
               <button
                 onClick={() => {
+                  // Aleatorio de verdad: se activa el modo y empieza por una al azar
+                  if (!useMusicStore.getState().shuffle) useMusicStore.getState().toggleShuffle()
                   const idx = Math.floor(Math.random() * saved.length)
                   playSaved(idx)
+                  markShuffle('library-saved')
                 }}
-                className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-semibold px-4 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all"
+                aria-pressed={shuffleSaved}
+                className={`inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-semibold px-4 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all ${shuffleSaved ? SHUFFLE_ON : ''}`}
                 title="Aleatorio"
               >
                 <Shuffle className="w-4 h-4" />
@@ -361,8 +369,9 @@ export default function MusicLibraryClient() {
                   <Play className="w-3.5 h-3.5 fill-white" /> Reproducir
                 </button>
                 <button
-                  onClick={() => playAll(filtered, true)}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white"
+                  onClick={() => (playAll(filtered, true), markShuffle('library-filter'))}
+                  aria-pressed={shuffleFilter}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white ${shuffleFilter ? SHUFFLE_ON : ''}`}
                 >
                   <Shuffle className="w-3.5 h-3.5" /> Aleatorio
                 </button>
@@ -412,7 +421,7 @@ export default function MusicLibraryClient() {
                     <button onClick={() => playAll(filtered)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-violet-500 text-white">
                       <Play className="w-3.5 h-3.5 fill-white" /> Reproducir {GENRE_LABELS[selectedGenre]}
                     </button>
-                    <button onClick={() => playAll(filtered, true)} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white">
+                    <button onClick={() => (playAll(filtered, true), markShuffle('library-genre'))} aria-pressed={shuffleGenre} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-white/10 text-slate-300 hover:text-white ${shuffleGenre ? SHUFFLE_ON : ''}`}>
                       <Shuffle className="w-3.5 h-3.5" /> Aleatorio
                     </button>
                   </div>

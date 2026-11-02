@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { Play, Shuffle, Loader2 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // Reproducir toda la discografía de un artista (álbumes, EPs y sencillos), en orden o en
 // aleatorio. Empieza a sonar con el primer disco listo y el resto se va sumando a la cola
@@ -29,6 +30,7 @@ function shuffle<T>(list: T[]): T[] {
 }
 
 export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) {
+  const shuffleOn = useShuffleOn(`artist:${albumIds.join(',')}`)
   const [busy, setBusy] = useState<'order' | 'shuffle' | null>(null)
   const [count, setCount] = useState(0)
   const [error, setError] = useState(false)
@@ -71,6 +73,7 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
         // Aleatorio activado (y lo que se sume después se mezcla); en orden, desactivado
         if ((mode === 'shuffle') !== st.shuffle) st.toggleShuffle()
         useMusicStore.getState().play(mode === 'shuffle' ? shuffle(tracks) : tracks, 0)
+        if (mode === 'shuffle') markShuffle(`artist:${albumIds.join(',')}`)
       } else {
         st.appendToQueue(tracks)
       }
@@ -88,7 +91,7 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
           {busy === 'order' && count === 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
           Reproducir
         </button>
-        <button onClick={() => start('shuffle')} disabled={busy !== null && count === 0} className={`${btn} bg-surface-2 border border-white/10 text-white hover:border-violet-400`}>
+        <button onClick={() => start('shuffle')} disabled={busy !== null && count === 0} aria-pressed={shuffleOn} className={`${btn} bg-surface-2 border border-white/10 text-white hover:border-violet-400 ${shuffleOn ? SHUFFLE_ON : ''}`}>
           {busy === 'shuffle' && count === 0 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
           Aleatorio
         </button>

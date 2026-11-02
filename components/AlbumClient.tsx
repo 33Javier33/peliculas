@@ -11,6 +11,7 @@ import type { CatalogAlbumDetail } from '@/lib/catalog'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
 import MusicInfoPanel from '@/components/MusicInfoPanel'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60)
@@ -29,6 +30,7 @@ const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-�
 const TYPE_LABEL: Record<string, string> = { album: 'Álbum', single: 'Sencillo', ep: 'EP', compile: 'Recopilatorio' }
 
 export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
+  const shuffleOn = useShuffleOn(`album:${album.id}`)
   const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved, saveTrack } = useMusicStore(
     useShallow((s) => ({
       play: s.play,
@@ -101,6 +103,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
     if (!playable?.length) return
     if (!shuffle) toggleShuffle()
     play(playable, Math.floor(Math.random() * playable.length))
+    markShuffle(`album:${album.id}`)
   }
 
   const savedIds = new Set(mounted ? saved.map((t) => t.id) : [])
@@ -162,7 +165,8 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           <button
             onClick={playShuffled}
             disabled={status !== 'ready'}
-            className="w-12 h-12 rounded-full bg-surface-2/80 border border-white/10 flex items-center justify-center text-emerald-400 disabled:opacity-50"
+            className={`w-12 h-12 rounded-full bg-surface-2/80 border border-white/10 flex items-center justify-center text-emerald-400 disabled:opacity-50 ${shuffleOn ? SHUFFLE_ON : ''}`}
+            aria-pressed={shuffleOn}
             aria-label="Reproducir en aleatorio"
             title="Aleatorio"
           >

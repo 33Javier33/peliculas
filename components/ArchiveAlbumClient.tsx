@@ -16,9 +16,11 @@ import ViewToggle, { useView } from '@/components/ViewToggle'
 import TrackTiles from '@/components/TrackTiles'
 import BackButton from '@/components/BackButton'
 import { playlistShareUrl, shareLink } from '@/lib/share'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // Página de un disco de Internet Archive (como la de un álbum): canciones, escuchar, guardar
 export default function ArchiveAlbumClient({ id }: { id: string }) {
+  const shuffleOn = useShuffleOn(`archive-album:${id}`)
   const url = `https://archive.org/details/${encodeURIComponent(id)}`
   const [albums, setAlbums] = useState<ApiAlbum[] | null>(null)
   const [error, setError] = useState('')
@@ -100,7 +102,7 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
                   <button onClick={() => play(0, false)} className="inline-flex items-center gap-2 bg-violet-500 text-white font-bold px-5 py-2.5 rounded-full text-sm">
                     <Play className="w-4 h-4 fill-white" /> Reproducir
                   </button>
-                  <button onClick={() => play(0, true)} className="inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm">
+                  <button onClick={() => (play(0, true), markShuffle(`archive-album:${id}`))} aria-pressed={shuffleOn} className={`inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm ${shuffleOn ? SHUFFLE_ON : ''}`}>
                     <Shuffle className="w-4 h-4" /> Aleatorio
                   </button>
                   <button

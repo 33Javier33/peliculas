@@ -372,7 +372,12 @@ export default function MusicPlayerBar() {
   // servidor de la app (si el sitio lo bloquea o tarda)
   // Descargada para escuchar sin conexión: se usa la copia del teléfono (primera fuente)
   const offlineKey = currentVideo?.audioUrl
-  const isDownloaded = useOfflineStore((s) => !!(offlineKey && s.items[offlineKey]))
+  // Canción que ya está sonando desde internet: si se descarga mientras suena, sigue con la misma
+  // fuente hasta terminar (cambiar a la copia descargada la hacía empezar de nuevo). La copia se
+  // usa la próxima vez que suene.
+  const streamingIdRef = useRef<string | null>(null)
+  const keepStreaming = !!currentId && streamingIdRef.current === currentId
+  const isDownloaded = useOfflineStore((s) => !!(offlineKey && s.items[offlineKey])) && !keepStreaming
   const [offlineUrl, setOfflineUrl] = useState<{ key: string; url: string } | null>(null)
   useEffect(() => {
     if (!isDownloaded || !offlineKey) return
@@ -487,6 +492,9 @@ export default function MusicPlayerBar() {
       ? audioSrc.candidates[audioSrc.index]?.url
       : undefined
   const isAudioLoading = useAudio && !audioUrl
+  // ¿Suena desde internet? (no desde la copia del teléfono): se recuerda para no cambiarle la fuente
+  if (currentId && audioUrl && !audioUrl.startsWith('blob:')) streamingIdRef.current = currentId
+  else if (currentId && streamingIdRef.current && streamingIdRef.current !== currentId) streamingIdRef.current = null
 
   // ===== Ecualizador =====
   // Solo con fuentes que lo permiten (la app de Android, archivos, discos y MP3 de enlaces, o por
@@ -1950,7 +1958,7 @@ export default function MusicPlayerBar() {
                 onClick={() => {
                   toggleHighQuality()
                 }}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-white bg-violet-500 rounded-full shadow-[0_0_12px_rgba(139,92,246,0.55)]' : 'text-slate-500 hover:text-white'}`}
                 title={
                   audioBoost
                     ? `Audio en alta calidad${currentBitrate ? ` (${currentBitrate} kbps)` : ''}`

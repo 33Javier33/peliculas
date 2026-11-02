@@ -179,9 +179,10 @@ export default function NowPlayingSheet({
     } catch {}
   }
 
+  // Activo: círculo de color (antes solo cambiaba un poco el color del ícono y no se notaba)
   const sideBtn = (active: boolean) =>
-    `relative w-11 h-11 flex items-center justify-center transition-colors ${
-      active ? 'text-emerald-400' : 'text-slate-400 hover:text-white'
+    `relative w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+      active ? 'bg-emerald-500 text-white shadow-[0_0_16px_rgba(16,185,129,0.5)]' : 'text-slate-400 hover:text-white'
     }`
 
   return (
@@ -362,7 +363,7 @@ export default function NowPlayingSheet({
           <div className="flex items-center justify-between mt-5">
             <button onClick={toggleShuffle} className={sideBtn(shuffle)} aria-label="Mezclar" aria-pressed={shuffle}>
               <Shuffle className="w-5 h-5" />
-              {shuffle && <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-emerald-400" />}
+              
             </button>
             <button onClick={playPrev} className="w-14 h-14 flex items-center justify-center text-white" aria-label="Anterior">
               <SkipBack className="w-7 h-7 fill-white" />
@@ -394,7 +395,7 @@ export default function NowPlayingSheet({
               aria-label={repeatMode === 'one' ? 'Repetir una' : repeatMode === 'all' ? 'Repetir todo' : 'Repetir'}
             >
               {repeatMode === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
-              {repeatMode !== 'off' && <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-emerald-400" />}
+              
             </button>
           </div>
 
@@ -454,7 +455,7 @@ export default function NowPlayingSheet({
               <button
                 onClick={() => useEqStore.getState().setOpen(true)}
                 className={`flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${
-                  eqOn ? 'bg-violet-500/15 border-violet-400/40 text-violet-200' : 'bg-surface-1/80 border-white/8 text-slate-200'
+                  eqOn ? 'bg-emerald-500 border-emerald-300 text-white shadow-[0_0_16px_rgba(16,185,129,0.45)]' : 'bg-surface-1/80 border-white/8 text-slate-200'
                 }`}
               >
                 <SlidersHorizontal className="w-4 h-4" /> Ecualizador{eqOn ? ' · activo' : ''}

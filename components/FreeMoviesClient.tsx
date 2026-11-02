@@ -310,7 +310,7 @@ function Row({ title, note, children }: { title: string; note?: string; children
   )
 }
 
-function MovieTile({ movie, onSelect, className = '', progress }: { movie: FreeMovie; onSelect: (m: FreeMovie) => void; className?: string; progress?: number }) {
+export function MovieTile({ movie, onSelect, className = '', progress }: { movie: FreeMovie; onSelect: (m: FreeMovie) => void; className?: string; progress?: number }) {
   const [failed, setFailed] = useState(false)
   const downloaded = useMovieStore((s) => !!s.downloads[movie.id]?.done)
   return (

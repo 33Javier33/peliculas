@@ -9,7 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
 import { useSearchSuggestions, rememberSearch, type SuggestKind } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
-import { Radio, Clapperboard } from 'lucide-react'
+import { Radio, Clapperboard, Settings } from 'lucide-react'
 
 export default function Header() {
   const router = useRouter()
@@ -222,6 +222,14 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <InstallAppButton />
             <ShareAppButton compact />
+            <Link
+              href="/configuracion"
+              className={`p-2 rounded-lg transition-all duration-200 ${pathname === '/configuracion' ? 'text-white bg-violet-500/30' : 'text-slate-400 hover:text-white hover:bg-surface-1'}`}
+              aria-label="Configuración"
+              title="Configuración"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
             {/* Cuenta (respaldo de la biblioteca): en Biblioteca, al lado de la lupa */}
             {pathname.startsWith('/music/library') && <AccountButton />}
             <button

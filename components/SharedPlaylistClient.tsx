@@ -11,9 +11,11 @@ import PlaylistCover from '@/components/PlaylistCover'
 import ViewToggle, { useView } from '@/components/ViewToggle'
 import TrackTiles from '@/components/TrackTiles'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // Playlist que alguien compartió: se escucha aquí y se puede guardar en las playlists propias
 export default function SharedPlaylistClient() {
+  const shuffleOn = useShuffleOn('shared-playlist')
   const router = useRouter()
   const view = useView()
   const [data, setData] = useState<{ name: string; tracks: MusicVideo[] } | null | undefined>(undefined)
@@ -67,7 +69,7 @@ export default function SharedPlaylistClient() {
               <button onClick={() => play(0, false)} className="inline-flex items-center gap-2 bg-violet-500 text-white font-bold px-5 py-2.5 rounded-full text-sm">
                 <Play className="w-4 h-4 fill-white" /> Reproducir
               </button>
-              <button onClick={() => play(0, true)} className="inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm">
+              <button onClick={() => (play(0, true), markShuffle('shared-playlist'))} aria-pressed={shuffleOn} className={`inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm ${shuffleOn ? SHUFFLE_ON : ''}`}>
                 <Shuffle className="w-4 h-4" /> Aleatorio
               </button>
               {savedId ? (

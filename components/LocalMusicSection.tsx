@@ -5,10 +5,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HardDriveDownload, Play, Shuffle, Trash2, Plus, Loader2, WifiOff } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { addLocalFiles, listLocalTracks, removeLocalTrack, toTrack, type LocalTrackInfo } from '@/lib/local-music'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // "En este teléfono": música propia (archivos de audio) para escuchar sin conexión y con la
 // pantalla bloqueada.
 export default function LocalMusicSection() {
+  const shuffleOn = useShuffleOn('local')
   const [tracks, setTracks] = useState<LocalTrackInfo[] | null>(null)
   const [adding, setAdding] = useState(false)
   const [message, setMessage] = useState('')
@@ -63,7 +65,7 @@ export default function LocalMusicSection() {
               <button onClick={() => playAll(0)} className="w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir todo">
                 <Play className="w-4 h-4 fill-white" />
               </button>
-              <button onClick={() => playAll(0, true)} className="w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center" aria-label="Aleatorio">
+              <button onClick={() => (playAll(0, true), markShuffle('local'))} aria-pressed={shuffleOn} className={`w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center ${shuffleOn ? SHUFFLE_ON : ''}`} aria-label="Aleatorio">
                 <Shuffle className="w-4 h-4" />
               </button>
             </>

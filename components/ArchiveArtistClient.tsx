@@ -8,6 +8,7 @@ import MusicInfoPanel from '@/components/MusicInfoPanel'
 import { useMusicStore } from '@/store/musicStore'
 import { toEntries, fetchAlbums } from '@/lib/link-albums'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // Artista de Internet Archive: su discografía (todos los discos con su nombre) para escuchar.
 // Se llega desde el menú ⋮ del reproductor ("Ir al artista" / "Ver discografía").
@@ -22,6 +23,7 @@ interface Result {
 }
 
 export default function ArchiveArtistClient({ name }: { name: string }) {
+  const shuffleOn = useShuffleOn(`archive-artist:${name}`)
   const [results, setResults] = useState<Result[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -64,6 +66,7 @@ export default function ArchiveArtistClient({ name }: { name: string }) {
       const st = useMusicStore.getState()
       if (st.shuffle !== shuffle) st.toggleShuffle()
       st.play(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0)
+      if (shuffle) markShuffle(`archive-artist:${name}`)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -101,7 +104,8 @@ export default function ArchiveArtistClient({ name }: { name: string }) {
             <button
               onClick={() => playAll(true)}
               disabled={!!busy}
-              className="flex items-center gap-2 rounded-full bg-surface-2 border border-white/10 px-5 py-2.5 text-sm font-semibold text-white"
+              className={`flex items-center gap-2 rounded-full bg-surface-2 border border-white/10 px-5 py-2.5 text-sm font-semibold text-white ${shuffleOn ? SHUFFLE_ON : ''}`}
+              aria-pressed={shuffleOn}
             >
               {busy === 'shuffle' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />} Aleatorio
             </button>

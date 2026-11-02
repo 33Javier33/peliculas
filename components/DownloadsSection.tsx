@@ -7,10 +7,12 @@ import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff } from 'lucide
 import { useOfflineStore, type OfflineItem } from '@/store/offlineStore'
 import { useMusicStore } from '@/store/musicStore'
 import { formatSize, storageEstimate } from '@/lib/offline-files'
+import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // "Descargadas": todo lo que se puede escuchar sin internet (discos, playlists y enlaces
 // descargados), agrupado, con cuánto ocupa y para borrarlo
 export default function DownloadsSection() {
+  const shuffleOn = useShuffleOn('downloads')
   const genres = useGenreCache()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -66,7 +68,7 @@ export default function DownloadsSection() {
             <button onClick={() => play(groups.flatMap((g) => g.list))} className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center" aria-label="Escuchar todas las descargas">
               <Play className="w-4 h-4 fill-white" />
             </button>
-            <button onClick={() => play(groups.flatMap((g) => g.list), true)} className="w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center" aria-label="Descargas en aleatorio">
+            <button onClick={() => (play(groups.flatMap((g) => g.list), true), markShuffle('downloads'))} aria-pressed={shuffleOn} className={`w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center ${shuffleOn ? SHUFFLE_ON : ''}`} aria-label="Descargas en aleatorio">
               <Shuffle className="w-4 h-4" />
             </button>
           </div>

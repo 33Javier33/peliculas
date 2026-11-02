@@ -1,9 +1,9 @@
 import ShareAppButton from '@/components/ShareAppButton'
-import { getTrendingMovies, getPopularMovies } from '@/lib/tmdb'
+import { getTrendingMovies } from '@/lib/tmdb'
 import HeroSection from '@/components/HeroSection'
-import MovieGrid from '@/components/MovieGrid'
 import MusicForYouSection from '@/components/MusicForYouSection'
 import FreeServicesSection from '@/components/FreeServicesSection'
+import FreeMoviesHome from '@/components/FreeMoviesHome'
 import type { Movie, MoviesResponse } from '@/types/tmdb'
 import Link from 'next/link'
 import { Clapperboard, Sparkles } from 'lucide-react'
@@ -13,14 +13,9 @@ export const revalidate = 3600
 const emptyResponse: MoviesResponse = { page: 1, results: [], total_pages: 0, total_results: 0 }
 
 export default async function HomePage() {
-  const [trendingData, popularData] = await Promise.all([
-    getTrendingMovies().catch(() => emptyResponse),
-    getPopularMovies(1).catch(() => emptyResponse),
-  ])
-
+  // Solo la portada grande usa el catálogo de TMDB; las filas son películas que se ven en la app
+  const trendingData = await getTrendingMovies().catch(() => emptyResponse)
   const heroMovie: Movie | undefined = trendingData.results[0]
-  const trendingMovies = trendingData.results.slice(1, 13)
-  const popularMovies = popularData.results.slice(0, 12)
 
   return (
     <div>
@@ -44,26 +39,12 @@ export default async function HomePage() {
         </Link>
         <ShareAppButton className="-mt-12" />
 
+        <FreeMoviesHome />
+
         <FreeServicesSection />
 
         <MusicForYouSection />
 
-        <section>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1 h-8 bg-violet-500 rounded-full" />
-            <h2 className="text-2xl font-bold text-white">En Tendencia</h2>
-            <span className="text-slate-400 text-sm font-normal">esta semana</span>
-          </div>
-          <MovieGrid movies={trendingMovies} />
-        </section>
-
-        <section>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-1 h-8 bg-blue-500 rounded-full" />
-            <h2 className="text-2xl font-bold text-white">Películas Populares</h2>
-          </div>
-          <MovieGrid movies={popularMovies} />
-        </section>
       </div>
     </div>
   )
