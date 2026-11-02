@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget: chico (2x1). Todos los diseños tienen las mismas piezas (las que no caben van ocultas) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="6dp">
+    <ImageView
+        android:id="@+id/widget_art"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:contentDescription="Carátula"
+        android:scaleType="centerCrop"
+        android:src="@mipmap/ic_launcher" />
+
+    <LinearLayout
+        android:id="@+id/widget_info"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_marginStart="6dp"
+        android:gravity="center"
+        android:orientation="vertical">
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:visibility="gone"
+            android:text="Carlos P. Nauto"
+            android:textColor="#FFFFFFFF"
+            android:textSize="1sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_artist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:visibility="gone"
+            android:text="Toca para abrir la música"
+            android:textColor="#FF94A3B8"
+            android:textSize="1sp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <ImageButton
+                android:id="@+id/widget_prev"
+                android:visibility="gone"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="Anterior"
+                android:scaleType="center"
+                android:src="@drawable/ic_prev" />
+            <ImageButton
+                android:id="@+id/widget_play"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/widget_btn_bg"
+                android:contentDescription="Reproducir o pausar"
+                android:scaleType="center"
+                android:src="@drawable/ic_play" />
+            <ImageButton
+                android:id="@+id/widget_next"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="Siguiente"
+                android:scaleType="center"
+                android:src="@drawable/ic_next" />
+            <ImageButton
+                android:id="@+id/widget_like"
+                android:visibility="gone"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="8dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="Me gusta"
+                android:scaleType="center"
+                android:src="@drawable/ic_heart" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
