@@ -20,7 +20,7 @@ const MATCH: Record<string, RegExp> = {
   clasica: /classical|baroque|opera|symphon|romantic|orchestral|chamber/,
   hiphop: /hip hop|hip-hop|rap|trap|grime/,
   reggae: /reggae|ska|\bdub\b|dancehall|rocksteady/,
-  folk: /folk|country|bluegrass|americana|singer-songwriter|acoustic/,
+  folk: /folk|country|bluegrass|americana|singer-songwriter|singer\/songwriter|acoustic/,
   metal: /metal|thrash|hardcore/,
   ambient: /ambient|chill|downtempo|lounge|new age|trip hop/,
 }
@@ -99,11 +99,12 @@ const queue: string[] = []
 export async function classifyArtists(names: string[], max = 60) {
   if (typeof window === 'undefined') return
   const cache = readCache()
-  const month = 30 * 86400000
+  // Artista sin género conocido: se vuelve a preguntar a los 3 días (antes, al mes)
+  const retryAfter = 3 * 86400000
   for (const n of names) {
     const name = n.trim()
     const c = cache[name.toLowerCase()]
-    if (!name || queue.includes(name) || (c && (c.g.length > 0 || Date.now() - c.at < month))) continue
+    if (!name || queue.includes(name) || (c && (c.g.length > 0 || Date.now() - c.at < retryAfter))) continue
     if (queue.length < max) queue.push(name)
   }
   if (classifying) return
