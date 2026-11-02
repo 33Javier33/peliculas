@@ -42,6 +42,7 @@ import { useOfflineStore } from '@/store/offlineStore'
 import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
+import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -401,11 +402,17 @@ export default function MusicPlayerBar() {
   // Mientras se abre la copia descargada no se empieza a bajar de internet
   const waitingOffline = isDownloaded && !offlineReady
 
+  // Descargada antes de que le tocara sonar (lib/audio-precache): se elige al empezar la canción y
+  // no se cambia mientras suena (cambiar de fuente la haría empezar de nuevo)
+  const preRef = useRef<{ id: string; url: string | null }>({ id: '', url: null })
+  if (currentId && preRef.current.id !== currentId) preRef.current = { id: currentId, url: precachedUrl(currentVideo?.audioUrl) }
+  const preUrl = preRef.current.url
   const remoteCandidates = useMemo(() => {
     const direct = currentVideo?.audioUrl
     if (!direct) return [] as string[]
     const list: string[] = []
     if (offlineUrl && offlineUrl.key === direct) list.push(offlineUrl.url)
+    else if (preUrl) list.push(preUrl)
     // Directo primero (comprobado en todos los navegadores, con ecualizador incluido); por el
     // teléfono queda de respaldo (en algunos Android ese camino no suena y saltaba las canciones)
     list.push(direct)
@@ -413,7 +420,7 @@ export default function MusicPlayerBar() {
     if (viaPhone) list.push(viaPhone)
     if (/^https?:\/\//.test(direct)) list.push(`/api/link-audio?u=${encodeURIComponent(direct)}`)
     return list
-  }, [currentVideo?.audioUrl, offlineUrl])
+  }, [currentVideo?.audioUrl, offlineUrl, preUrl])
   const [remoteAttempt, setRemoteAttempt] = useState<{ id: string; n: number } | null>(null)
   const remoteIndex = remoteAttempt && currentId && remoteAttempt.id === currentId ? remoteAttempt.n : 0
   const remoteFileUrl = remoteCandidates[remoteIndex] ?? currentVideo?.audioUrl
@@ -664,6 +671,17 @@ export default function MusicPlayerBar() {
     return () => document.removeEventListener('visibilitychange', switchIfNeeded)
   }, [quickStartId, currentId, audioReady, audioSwitchId, bgAudioId])
 
+  // Radio, discos y enlaces: las próximas canciones se descargan completas antes de su turno
+  useEffect(() => {
+    const cur = queue[currentIndex]
+    const offline = useOfflineStore.getState().items
+    const upcoming = queue
+      .slice(currentIndex + 1, currentIndex + 6)
+      .filter((t) => t.audioUrl && !t.streamUrl && !offline[t.audioUrl] && !isLocalTrack(t.id))
+      .map((t) => t.audioUrl as string)
+    precacheUpcoming(cur?.audioUrl, upcoming)
+  }, [queue, currentIndex])
+
   // Pre-carga la siguiente canción para que el cambio sea inmediato con la pantalla bloqueada
   const nextTrack = queue[currentIndex + 1]
   const nextId =
@@ -683,8 +701,9 @@ export default function MusicPlayerBar() {
     let cancelled = false
     const timer = setTimeout(async () => {
       let url = fileUrl
-      // Ya descargada: suena desde el teléfono, no hay nada que preparar
+      // Ya descargada (o descargándose antes de su turno): no hay nada que preparar
       if (url && useOfflineStore.getState().items[url]) return
+      if (url && precacheEnabled()) return
       // (Los archivos suenan directo: se precargan con el navegador, más abajo)
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {

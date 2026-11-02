@@ -2,6 +2,10 @@ const { version } = require('./package.json')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Siempre el mismo identificador de compilación: si no, al publicar una versión nueva el
+  // siguiente cambio de sección recargaba la página entera y la música se cortaba. La versión
+  // nueva se carga sola cuando no interrumpe (ver components/VersionWatcher.tsx).
+  generateBuildId: async () => 'carlospnauto-app',
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
   },
