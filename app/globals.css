@@ -23,6 +23,14 @@ html {
   }
 }
 
+/* La página nunca más ancha que la pantalla: no se puede "arrastrar" hacia los lados (lo que
+   se pase del borde se corta; los carruseles siguen deslizándose dentro de su fila) */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 /* Obsidian Sonic: títulos en Plus Jakarta Sans con tracking negativo, números tabulares */
 h1,
 h2,

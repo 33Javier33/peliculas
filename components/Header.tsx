@@ -127,10 +127,10 @@ export default function Header() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           <Link
             href="/"
-            className="flex items-center gap-2 shrink-0 group"
+            className="flex items-center gap-2 min-w-0 group"
             aria-label="Carlos P. Nauto Interactive - Inicio"
           >
             <Image
@@ -139,19 +139,20 @@ export default function Header() {
               width={40}
               height={40}
               priority
-              className="w-10 h-10 rounded-xl shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200"
+              className="w-10 h-10 shrink-0 rounded-xl shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200"
             />
-            <div className="flex flex-col leading-none">
+            <div className="flex flex-col leading-none min-w-0 overflow-hidden">
               <span className="flex items-baseline gap-1.5">
-                <span className="font-bold text-sm leading-tight bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
+                <span className="font-bold text-sm leading-tight whitespace-nowrap bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
                   Carlos P. Nauto
                 </span>
                 {/* Versión de la app (para saber si ya llegó la última) */}
-                <span className="text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
+                <span className="hidden min-[400px]:inline text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
               </span>
-              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] whitespace-nowrap">
-                <span className="text-slate-400">Interactive</span>
-                <span className="text-slate-600" aria-hidden>·</span>
+              <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] whitespace-nowrap">
+                {/* En teléfonos angostos solo la sección (si no, se cortaba) */}
+                <span className="hidden min-[400px]:inline text-slate-400">Interactive</span>
+                <span className="hidden min-[400px]:inline text-slate-600" aria-hidden>·</span>
                 <span className="text-violet-300 font-bold">{sectionLabel}</span>
                 {isMusicPlaying && (
                   <span className="flex items-end gap-[2px] h-2.5" aria-label="Reproduciendo música">
@@ -219,7 +220,7 @@ export default function Header() {
             </div>
           </form>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
             <InstallAppButton />
             <ShareAppButton compact />
             <Link
