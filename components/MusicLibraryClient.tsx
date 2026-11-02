@@ -12,6 +12,7 @@ import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import DownloadsSection from '@/components/DownloadsSection'
 import CollapsibleCard from '@/components/CollapsibleCard'
+import { NtsLibraryCard } from '@/components/NtsClient'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { readSession, patchSession } from '@/lib/session-cache'
@@ -323,6 +324,7 @@ export default function MusicLibraryClient() {
 
         {/* Fuentes para agregar música: tarjetas que se expanden (no ocupan tanto espacio) */}
         <div className="mb-10">
+          <NtsLibraryCard />
           <CollapsibleCard id="archive" icon={<Library className="w-4 h-4 text-amber-400" />} title="Internet Archive" desc="Discos y conciertos libres de archive.org">
             <ArchiveSearchSection />
           </CollapsibleCard>
