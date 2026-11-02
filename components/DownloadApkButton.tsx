@@ -103,7 +103,7 @@ export default function DownloadApkButton() {
         {st.s === 'verifying' && 'Se comprueba que el archivo llegó completo antes de instalarlo.'}
         {st.s === 'permission' && 'Android pide permitir "instalar apps desconocidas" para esta app. Actívalo y vuelve: el instalador se abre solo.'}
         {st.s === 'installing' && 'Toca "Actualizar" en el instalador de Android. No pierdes nada de lo guardado.'}
-        {(st.s === 'start' || st.s === 'handed') && mode === 'dm' && 'Mira el avance en la notificación. Al terminar se abre el instalador.'}
+        {(st.s === 'start' || st.s === 'handed') && mode === 'dm' && 'Mira el avance en la notificación. Al terminar, toca CarlosPNauto.apk para instalarla.'}
         {(st.s === 'start' || st.s === 'handed') && mode === 'web' && 'Al terminar, abre el archivo desde la notificación o en Descargas e instálalo.'}
         {mode === 'old' && (st.s === 'idle' || st.s === 'start' || st.s === 'handed') &&
           'Se abrirá el navegador del teléfono para descargarla. Después abre el archivo desde la notificación e instálalo encima.'}

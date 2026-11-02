@@ -289,7 +289,7 @@ class MainActivity : AppCompatActivity() {
                 .setMimeType(mimeType?.takeIf { it.isNotBlank() } ?: "application/vnd.android.package-archive")
                 .addRequestHeader("User-Agent", userAgent)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "CarlosPNauto-${System.currentTimeMillis()}.apk")
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "CarlosPNauto.apk")
             updateDownloadId = dm.enqueue(request)
             Toast.makeText(this, "Descargando la actualización… se abrirá el instalador al terminar", Toast.LENGTH_LONG).show()
         }.onFailure {
@@ -308,30 +308,17 @@ class MainActivity : AppCompatActivity() {
                     c.moveToFirst() && c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
                 }
             }.getOrDefault(false)
-            val uri = dm.getUriForDownloadedFile(id)?.takeIf { ok } ?: run {
-                Toast.makeText(context, "No se pudo descargar la actualización", Toast.LENGTH_LONG).show()
+            if (!ok) {
+                Toast.makeText(context, "La descarga no terminó bien. Inténtalo otra vez.", Toast.LENGTH_LONG).show()
                 return
             }
-            // Abrir el instalador de Android (pide permitir instalar desde esta app la primera vez)
+            // La app no instala APKs ella misma (Play Protect desconfía de las apps que lo hacen):
+            // se abre Descargas para tocar el archivo e instalarlo
+            Toast.makeText(context, "Listo: toca CarlosPNauto.apk para instalar la actualización", Toast.LENGTH_LONG).show()
             runCatching {
-                startActivity(
-                    Intent(Intent.ACTION_VIEW)
-                        .setDataAndType(uri, "application/vnd.android.package-archive")
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }.onFailure {
-                Toast.makeText(context, "Abre la descarga desde la notificación para instalarla", Toast.LENGTH_LONG).show()
+                startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
         }
-    }
-
-    fun runJs(js: String) {
-        if (::web.isInitialized) web.evaluateJavascript(js, null)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        AppUpdater.onResume(this)
     }
 
     override fun onDestroy() {
@@ -349,15 +336,6 @@ class MainActivity : AppCompatActivity() {
         /** La web avisa si hay un video sonando (para la ventana flotante al salir) */
         fun setVideoActive(active: Boolean) {
             main.post { current?.get()?.updateVideoActive(active) }
-        }
-
-        /** La web pide actualizar la app: descarga con avance, revisión e instalador */
-        fun startUpdate(url: String) {
-            main.post {
-                val a = current?.get() ?: return@post
-                val absolute = if (url.startsWith("http")) url else BuildConfig.WEB_URL.trimEnd('/') + url
-                AppUpdater.start(a, absolute)
-            }
         }
 
         /** Botones de la notificación / pantalla bloqueada / auriculares → app web */

@@ -36,6 +36,11 @@ export default function AndroidAppPage() {
             Toca <b>Instalar</b>. Si aparece Play Protect, toca <b>Más detalles → Instalar de todos modos</b> (es tu app, solo que no viene
             de Google Play).
           </li>
+          <li>
+            Si Play Protect dice <b>&quot;Se bloqueó la app dañina&quot;</b> y no deja instalarla: abre <i>Play Store</i> → tu foto (arriba a
+            la derecha) → <b>Play Protect</b> → ⚙️ → desactiva <b>Analizar apps con Play Protect</b>, instala el APK y vuelve a activarlo. La
+            app no se distribuye por Google Play y por eso Google no la reconoce, no porque haga algo malo.
+          </li>
           <li>Ábrela y acepta los permisos de notificaciones.</li>
         </ol>
 

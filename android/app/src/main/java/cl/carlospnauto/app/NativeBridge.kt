@@ -61,10 +61,6 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun canDownload(): Boolean = true
 
-    /** Actualizar la app: la descarga, la revisa y abre el instalador (APK 1.0.22+) */
-    @JavascriptInterface
-    fun updateApp(url: String) = MainActivity.startUpdate(url)
-
     /** Descargas en curso: { active, title, done, total } → notificación y la app sigue al salir */
     @JavascriptInterface
     fun downloadState(json: String) {
