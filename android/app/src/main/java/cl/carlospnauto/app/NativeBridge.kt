@@ -41,6 +41,9 @@ class NativeBridge(private val context: Context) {
             putExtra("artwork", o.optString("artwork"))
             putExtra("playing", o.optBoolean("playing"))
             putExtra("visible", o.optBoolean("visible", true))
+            putExtra("liked", o.optBoolean("liked"))
+            if (o.has("position")) putExtra("position", o.optDouble("position", -1.0))
+            if (o.has("duration")) putExtra("duration", o.optDouble("duration", 0.0))
         }
         if (o.optBoolean("visible", true)) ContextCompat.startForegroundService(context, intent)
         else context.startService(intent)

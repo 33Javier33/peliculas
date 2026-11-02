@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Carlos P. Nauto</string>
     <string name="channel_name">Reproducción</string>
+    <string name="widget_description">Lo que suena, con anterior, reproducir, siguiente y Me gusta</string>
 </resources>

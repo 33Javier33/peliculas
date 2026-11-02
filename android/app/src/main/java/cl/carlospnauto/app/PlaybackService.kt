@@ -36,6 +36,10 @@ class PlaybackService : Service() {
     private var artworkUrl = ""
     private var artwork: Bitmap? = null
     private var playing = false
+    private var liked = false
+    private var positionMs = -1L
+    private var durationMs = 0L
+    private var positionAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -50,6 +54,16 @@ class PlaybackService : Service() {
                 override fun onSkipToNext() = MainActivity.sendAction("next")
                 override fun onSkipToPrevious() = MainActivity.sendAction("prev")
                 override fun onStop() = MainActivity.sendAction("pause")
+                // Barra de avance de la notificación y de la pantalla bloqueada
+                override fun onSeekTo(pos: Long) {
+                    positionMs = pos
+                    positionAt = android.os.SystemClock.elapsedRealtime()
+                    MainActivity.sendAction("seek:$pos")
+                    update()
+                }
+                override fun onCustomAction(action: String?, extras: android.os.Bundle?) {
+                    if (action == ACTION_LIKE) toggleLike()
+                }
             })
             isActive = true
         }
@@ -61,6 +75,10 @@ class PlaybackService : Service() {
             ACTION_PAUSE -> MainActivity.sendAction("pause")
             ACTION_NEXT -> MainActivity.sendAction("next")
             ACTION_PREV -> MainActivity.sendAction("prev")
+            ACTION_LIKE -> {
+                toggleLike()
+                return START_NOT_STICKY
+            }
             ACTION_STATE -> {
                 if (!intent.getBooleanExtra("visible", true)) {
                     stopEverything()
@@ -69,6 +87,12 @@ class PlaybackService : Service() {
                 title = intent.getStringExtra("title") ?: ""
                 artist = intent.getStringExtra("artist") ?: ""
                 playing = intent.getBooleanExtra("playing", false)
+                liked = intent.getBooleanExtra("liked", false)
+                val pos = intent.getDoubleExtra("position", -1.0)
+                val dur = intent.getDoubleExtra("duration", 0.0)
+                positionMs = if (pos >= 0) (pos * 1000).toLong() else -1L
+                durationMs = if (dur > 0 && dur.isFinite()) (dur * 1000).toLong() else 0L
+                positionAt = android.os.SystemClock.elapsedRealtime()
                 val art = intent.getStringExtra("artwork") ?: ""
                 if (art != artworkUrl) {
                     artworkUrl = art
@@ -110,15 +134,28 @@ class PlaybackService : Service() {
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
                 .apply { artwork?.let { putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) } }
+                // Con la duración, Android muestra la barra de avance
+                .apply { if (durationMs > 0) putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs) }
                 .build()
         )
         session.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(
                     PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE or PlaybackStateCompat.ACTION_PLAY_PAUSE or
-                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                        PlaybackStateCompat.ACTION_SKIP_TO_NEXT or PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                        (if (durationMs > 0) PlaybackStateCompat.ACTION_SEEK_TO else 0L)
                 )
-                .setState(if (playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
+                // Posición en que va (Android la hace avanzar sola mientras suena)
+                .setState(
+                    if (playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
+                    if (positionMs >= 0) positionMs else PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                    if (playing) 1f else 0f,
+                    positionAt
+                )
+                // ♥ Me gusta (Android 13+ lo muestra junto a los controles)
+                .addCustomAction(
+                    PlaybackStateCompat.CustomAction.Builder(ACTION_LIKE, if (liked) "Quitar de Me gusta" else "Me gusta", if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart).build()
+                )
                 .build()
         )
 
@@ -137,6 +174,7 @@ class PlaybackService : Service() {
             .addAction(action(R.drawable.ic_prev, "Anterior", ACTION_PREV))
             .addAction(if (playing) action(R.drawable.ic_pause, "Pausar", ACTION_PAUSE) else action(R.drawable.ic_play, "Reproducir", ACTION_PLAY))
             .addAction(action(R.drawable.ic_next, "Siguiente", ACTION_NEXT))
+            .addAction(action(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, if (liked) "Quitar de Me gusta" else "Me gusta", ACTION_LIKE))
             .setStyle(MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 2))
             .build()
 
@@ -145,6 +183,14 @@ class PlaybackService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
         )
         if (playing) acquireLocks() else releaseLocks()
+        PlayerWidget.show(this, title, artist, playing, liked, artwork)
+    }
+
+    /** ♥ al momento (sin esperar a la web) y la web guarda o quita la canción */
+    private fun toggleLike() {
+        liked = !liked
+        MainActivity.sendAction("like")
+        update()
     }
 
     // Mantiene la CPU y el Wi-Fi activos con la pantalla apagada mientras suena
@@ -175,6 +221,8 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         releaseLocks()
+        // Sin música: el widget vuelve a abrir la app al tocarlo
+        PlayerWidget.idle(this)
         session.release()
         super.onDestroy()
     }
@@ -187,5 +235,6 @@ class PlaybackService : Service() {
         const val ACTION_PAUSE = "cpn.PAUSE"
         const val ACTION_NEXT = "cpn.NEXT"
         const val ACTION_PREV = "cpn.PREV"
+        const val ACTION_LIKE = "cpn.LIKE"
     }
 }

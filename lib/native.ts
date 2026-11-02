@@ -28,7 +28,18 @@ export function nativeAudioUrl(videoId: string): string | null {
 }
 
 /** Qué suena (para la notificación y la pantalla bloqueada del teléfono) */
-export function reportMediaState(state: { title: string; artist: string; artwork?: string; playing: boolean; visible: boolean }) {
+export function reportMediaState(state: {
+  title: string
+  artist: string
+  artwork?: string
+  playing: boolean
+  visible: boolean
+  /** Segundo en que va y duración (barra de avance de la notificación; APK 1.0.25+) */
+  position?: number
+  duration?: number
+  /** ¿Está en Me gusta? (botón ♥ de la notificación y del widget) */
+  liked?: boolean
+}) {
   const n = getNative()
   if (!n) return
   try {

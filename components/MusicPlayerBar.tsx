@@ -1498,14 +1498,34 @@ export default function MusicPlayerBar() {
   // App de Android: notificación con controles y pantalla bloqueada
   useEffect(() => {
     if (!isNativeApp()) return
-    reportMediaState({
-      title: currentVideo ? currentVideo.title.replace(/^[^-–]+[-–]\s*/, '') || currentVideo.title : '',
-      artist: currentVideo?.channelTitle || '',
-      artwork: currentVideo?.thumbnail?.startsWith('http') ? currentVideo.thumbnail : undefined,
-      playing: isPlaying,
-      visible: isVisible && !!currentVideo,
-    })
-  }, [currentVideo, isPlaying, isVisible])
+    const send = () => {
+      const time = (window as unknown as { __cpnTime?: () => { t: number; d: number } }).__cpnTime?.()
+      reportMediaState({
+        title: currentVideo ? currentVideo.title.replace(/^[^-–]+[-–]\s*/, '') || currentVideo.title : '',
+        artist: currentVideo?.channelTitle || '',
+        artwork: currentVideo?.thumbnail?.startsWith('http') ? currentVideo.thumbnail : undefined,
+        playing: isPlaying,
+        visible: isVisible && !!currentVideo,
+        // Radios en vivo: sin barra de avance
+        position: isLive ? undefined : time?.t,
+        duration: isLive ? undefined : time?.d,
+        liked: isCurrentSaved,
+      })
+    }
+    send()
+    // La notificación avanza sola; se corrige cada tanto (y al cargar la duración de la canción)
+    const t1 = setTimeout(send, 1500)
+    const iv = isPlaying ? setInterval(send, 15000) : undefined
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    el?.addEventListener?.('seeked', send)
+    el?.addEventListener?.('durationchange', send)
+    return () => {
+      clearTimeout(t1)
+      if (iv) clearInterval(iv)
+      el?.removeEventListener?.('seeked', send)
+      el?.removeEventListener?.('durationchange', send)
+    }
+  }, [currentVideo, isPlaying, isVisible, isLive, isCurrentSaved, audioUrl])
   useEffect(() => {
     if (!isNativeApp()) return
     ;(window as unknown as { __cpnNativeAction?: (a: string) => void }).__cpnNativeAction = (a: string) => {
@@ -1515,6 +1535,18 @@ export default function MusicPlayerBar() {
       else if (a === 'next') st.playNext()
       else if (a === 'prev') st.playPrev()
       else if (a === 'route') window.dispatchEvent(new Event('cpn-audio-route'))
+      else if (a === 'like') {
+        // ♥ desde la notificación o el widget: igual que el corazón de la barra
+        const v = st.queue[st.currentIndex]
+        if (!v) return
+        if (v.streamUrl) useLiveStore.getState().toggleFavoriteRadio(v)
+        else st.toggleSaved(v)
+      } else if (a.startsWith('seek:')) {
+        // Barra de avance de la notificación (milisegundos)
+        const ms = Number(a.slice(5))
+        const el = playerRef.current as unknown as HTMLMediaElement | null
+        if (el && isFinite(ms) && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(ms / 1000, el.duration - 0.5)
+      }
     }
   }, [])
 
