@@ -14,6 +14,7 @@ import {
   Smartphone,
   ChevronRight,
   Info,
+  Watch,
 } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
@@ -152,6 +153,11 @@ export default function SettingsClient() {
         <Section title="La app">
           <Link href="/app-android" className="block">
             <Row icon={<Smartphone className="w-4 h-4" />} title="App de Android" desc={apk ? `Instalada: ${apk}` : 'Instálala o actualízala'}>
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            </Row>
+          </Link>
+          <Link href="/app-reloj" className="block">
+            <Row icon={<Watch className="w-4 h-4" />} title="App para el reloj" desc="Wear OS: elige qué suena desde el reloj">
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </Row>
           </Link>

@@ -184,6 +184,16 @@ class PlaybackService : Service() {
         )
         if (playing) acquireLocks() else releaseLocks()
         PlayerWidget.show(this, title, artist, playing, liked, artwork)
+        // Reloj: lo que suena (con la carátula como dirección: el reloj la descarga)
+        WearSync.state(
+            this,
+            org.json.JSONObject()
+                .put("title", title).put("artist", artist).put("artwork", artworkUrl)
+                .put("playing", playing).put("liked", liked)
+                .put("position", positionMs).put("duration", durationMs)
+                .put("at", System.currentTimeMillis() - (android.os.SystemClock.elapsedRealtime() - positionAt))
+                .toString()
+        )
     }
 
     /** ♥ al momento (sin esperar a la web) y la web guarda o quita la canción */

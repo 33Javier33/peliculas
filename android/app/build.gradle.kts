@@ -73,4 +73,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Pequeño servidor local: entrega el audio al reproductor de la app
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    // Reloj (Wear OS): mensajes entre la app del reloj y la del teléfono
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
 }

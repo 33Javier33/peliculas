@@ -28,6 +28,9 @@ export default function AndroidAppPage() {
         <div className="mt-3">
           <ShareAppButton label="Compartir la app de Android" />
         </div>
+        <Link href="/app-reloj" className="mt-3 inline-flex items-center gap-1.5 text-violet-300 text-sm font-semibold">
+          ⌚ ¿Tienes reloj con Wear OS? Instala la app del reloj →
+        </Link>
 
         <ol className="mt-8 space-y-3 text-slate-300 text-sm list-decimal pl-5">
           <li>Toca <b>Descargar la app</b>. Si el navegador avisa que el archivo puede ser dañino, elige <b>Descargar de todos modos</b>.</li>

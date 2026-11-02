@@ -9,11 +9,13 @@ export const dynamic = 'force-dynamic'
 
 const FALLBACK = 'https://github.com/33Javier33/peliculas/releases/download/android-latest/CarlosPNauto.apk'
 
-export async function GET() {
+export async function GET(request: Request) {
+  // ?f=reloj → la app del reloj (Wear OS)
+  const name = new URL(request.url).searchParams.get('f') === 'reloj' ? 'CarlosPNauto-Reloj.apk' : 'CarlosPNauto.apk'
   let target = ''
   try {
     const { assets } = await releaseAssets()
-    const apk = assets.find((a) => a.name === 'CarlosPNauto.apk')
+    const apk = assets.find((a) => a.name === name)
     if (apk) {
       const r = await fetch(apk.url, {
         headers: { Accept: 'application/octet-stream', 'User-Agent': 'CarlosPNautoInteractive' },
@@ -26,6 +28,6 @@ export async function GET() {
       r.body?.cancel().catch(() => {})
     }
   } catch {}
-  if (!target) target = `${FALLBACK}?t=${Date.now()}`
+  if (!target) target = `${FALLBACK.replace('CarlosPNauto.apk', name)}?t=${Date.now()}`
   return new Response(null, { status: 302, headers: { Location: target, 'Cache-Control': 'no-store' } })
 }

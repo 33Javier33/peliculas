@@ -342,6 +342,22 @@ class MainActivity : AppCompatActivity() {
             main.post { current?.get()?.updateVideoActive(active) }
         }
 
+        fun isOpen() = current?.get() != null
+
+        /** Orden del reloj para la app web (true si la app está abierta) */
+        fun sendActionIfOpen(action: String): Boolean {
+            if (current?.get() == null) return false
+            sendAction(action)
+            return true
+        }
+
+        fun wearToWeb(json: String): Boolean {
+            val a = current?.get() ?: return false
+            val safe = org.json.JSONObject.quote(json)
+            main.post { a.web.evaluateJavascript("window.__cpnWear && window.__cpnWear(JSON.parse($safe))", null) }
+            return true
+        }
+
         /** Botones de la notificación / pantalla bloqueada / auriculares → app web */
         fun sendAction(action: String) {
             main.post {

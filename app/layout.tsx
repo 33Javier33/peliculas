@@ -14,6 +14,7 @@ import AddToPlaylistSheet from '@/components/AddToPlaylistSheet'
 import EqualizerSheet from '@/components/EqualizerSheet'
 import ScrollTopButton from '@/components/ScrollTopButton'
 import VersionWatcher from '@/components/VersionWatcher'
+import WearBridge from '@/components/WearBridge'
 import FocusIntoView from '@/components/FocusIntoView'
 import AppUpdateBanner from '@/components/AppUpdateBanner'
 import AccountSync from '@/components/AccountSync'
@@ -130,6 +131,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <EqualizerSheet />
         <ScrollTopButton />
         <VersionWatcher />
+        <WearBridge />
         <FocusIntoView />
         <AppUpdateBanner />
         <AccountSync />

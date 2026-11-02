@@ -1,0 +1,108 @@
+import Link from 'next/link'
+import type { Metadata } from 'next'
+import { Watch, Download, Smartphone, Wifi, Music2 } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: 'App para el reloj (Wear OS)',
+  description: 'Controla tu música desde el reloj: biblioteca, playlists, radios y NTS en Wear OS (TicWatch, Galaxy Watch y otros).',
+}
+
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span className="shrink-0 w-7 h-7 rounded-full bg-violet-500 text-white text-sm font-bold flex items-center justify-center">{n}</span>
+      <div className="min-w-0">
+        <p className="text-white font-semibold text-sm">{title}</p>
+        <div className="text-slate-400 text-sm mt-1 space-y-1">{children}</div>
+      </div>
+    </li>
+  )
+}
+
+// Página para instalar la app del reloj (Wear OS)
+export default function WatchAppPage() {
+  return (
+    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+      <div className="max-w-xl mx-auto px-4 py-8">
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">
+          <Watch className="w-7 h-7 text-violet-300" /> App para el reloj
+        </h1>
+        <p className="text-slate-400 text-sm mt-2">
+          Elige qué suena sin sacar el teléfono: tu biblioteca en aleatorio, tus canciones y playlists, las radios de Internet Archive, NTS
+          y tus radios favoritas. Con carátula, avance, ♥ Me gusta y el volumen en el bisel o la corona.
+        </p>
+        <p className="text-slate-500 text-xs mt-2">
+          Para relojes con Wear OS 3 o más nuevo: TicWatch Pro 3 y Pro 5, Galaxy Watch 4, 5, 6 y 7, Pixel Watch y otros. Necesita la app
+          de Android 1.0.28 o más nueva en el teléfono.
+        </p>
+
+        <a
+          href="/api/apk?f=reloj"
+          className="mt-6 flex items-center justify-center gap-2 w-full rounded-full bg-violet-500 text-white font-bold py-3 text-sm shadow-glow active:scale-[0.97] transition-transform"
+        >
+          <Download className="w-5 h-5" /> Descargar la app del reloj
+        </a>
+
+        <h2 className="mt-10 text-lg font-bold text-white font-display">Cómo instalarla</h2>
+        <p className="text-slate-400 text-xs mt-1">
+          Wear OS no instala archivos tocándolos en el teléfono: se pasan una vez con una app de instalación. Son unos minutos.
+        </p>
+        <ol className="mt-5 space-y-5">
+          <Step n={1} title="Activa las opciones de desarrollador del reloj">
+            <p>
+              <b>TicWatch:</b> Ajustes → Sistema → Información → toca <b>Número de compilación</b> 7 veces.
+            </p>
+            <p>
+              <b>Galaxy Watch:</b> Ajustes → Información del reloj → Información de software → toca <b>Versión de software</b> 5 veces.
+            </p>
+          </Step>
+          <Step n={2} title="Activa la depuración por Wi-Fi">
+            <p>
+              En el reloj: Ajustes → <b>Opciones de desarrollador</b> → activa <b>Depuración ADB</b> y <b>Depuración inalámbrica</b>.
+              El reloj y el teléfono tienen que estar en el <b>mismo Wi-Fi</b>.
+            </p>
+          </Step>
+          <Step n={3} title="Instala en el teléfono una app para pasar apps al reloj">
+            <p>
+              Desde Google Play: <b>Wear Installer 2</b> (o <b>Bugjaeger</b>). Toca arriba <b>Descargar la app del reloj</b> para tener el
+              archivo <b>CarlosPNauto-Reloj.apk</b>.
+            </p>
+          </Step>
+          <Step n={4} title="Conecta el teléfono con el reloj">
+            <p>
+              En el reloj, dentro de Depuración inalámbrica, toca <b>Vincular dispositivo nuevo</b>: muestra una dirección (IP y puerto) y
+              un código. Escríbelos en Wear Installer 2 cuando los pida.
+            </p>
+          </Step>
+          <Step n={5} title="Instala la app">
+            <p>
+              En Wear Installer 2 elige el archivo <b>CarlosPNauto-Reloj.apk</b> (en Descargas) y toca instalar. Si el reloj pregunta
+              «¿Permitir depuración?», toca <b>Permitir</b>.
+            </p>
+          </Step>
+          <Step n={6} title="Listo">
+            <p>
+              Abre <b>Carlos P. Nauto</b> en el reloj. Con la app abierta en el teléfono (o sonando en segundo plano), toca{' '}
+              <Music2 className="inline w-4 h-4" /> para elegir qué escuchar. Puedes apagar la depuración después.
+            </p>
+          </Step>
+        </ol>
+
+        <div className="mt-10 rounded-2xl bg-surface-1 border border-white/8 p-4 text-sm text-slate-400 space-y-2">
+          <p className="flex items-start gap-2">
+            <Smartphone className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
+            Si la app del teléfono está cerrada, el reloj lo avisa y con <b>Abrir en el teléfono</b> la abre.
+          </p>
+          <p className="flex items-start gap-2">
+            <Wifi className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
+            Actualizaciones: se instalan igual (pasos 4 y 5), encima de la anterior.
+          </p>
+        </div>
+
+        <Link href="/app-android" className="inline-block mt-6 text-violet-300 text-sm underline">
+          App para el teléfono (Android)
+        </Link>
+      </div>
+    </div>
+  )
+}

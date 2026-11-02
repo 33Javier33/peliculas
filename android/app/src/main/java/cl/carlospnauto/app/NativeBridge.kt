@@ -68,6 +68,12 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun eqNative(json: String): String = NativeEq.apply(json)
 
+    /** Respuesta para el reloj (biblioteca, confirmaciones) */
+    @JavascriptInterface
+    fun wearReply(path: String, json: String) {
+        if (path.startsWith("/cpn/")) WearSync.send(context, path, json)
+    }
+
     /** Descargas en curso: { active, title, done, total } → notificación y la app sigue al salir */
     @JavascriptInterface
     fun downloadState(json: String) {
