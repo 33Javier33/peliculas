@@ -164,3 +164,54 @@ export async function getWatchProviders(id: string | number, country: string): P
   const data = await tmdbFetch<{ results?: Record<string, WatchProvidersRegion> }>(`/movie/${id}/watch/providers`, {}, 43200)
   return data.results?.[country.toUpperCase()] ?? null
 }
+
+// ===== Gratis en otros servicios (Plex, Tubi, Runtime…) =====
+// Estos servicios no tienen una API pública para reproducir sus películas (sus videos van
+// protegidos y no permiten ponerlos dentro de otras apps). Lo que sí se puede: el catálogo de lo
+// que tienen GRATIS en el país del usuario (datos de JustWatch a través de TMDB) y abrir cada
+// película en el servicio.
+
+/** Servicios gratis que se muestran (nombre en TMDB → nombre corto y su sitio) */
+export const FREE_SERVICES = [
+  { key: 'plex', match: /^plex(\b|$)/i, name: 'Plex', site: 'https://watch.plex.tv' },
+  { key: 'tubi', match: /^tubi/i, name: 'Tubi', site: 'https://tubitv.com' },
+  { key: 'runtime', match: /^runtime/i, name: 'Runtime', site: 'https://runtime.tv' },
+] as const
+
+export interface FreeServiceRow {
+  key: string
+  name: string
+  site: string
+  providerId: number
+  logo: string | null
+  movies: Movie[]
+}
+
+/** Las películas gratis de cada servicio en un país (una fila por servicio que exista ahí) */
+export async function getFreeServiceRows(country: string): Promise<FreeServiceRow[]> {
+  const region = country.toUpperCase()
+  const list = await tmdbFetch<{ results?: WatchProvider[] }>('/watch/providers/movie', { watch_region: region }, 86400)
+  const providers = list.results ?? []
+  const rows = await Promise.all(
+    FREE_SERVICES.map(async (s) => {
+      const p = providers.find((x) => s.match.test(x.provider_name.trim()))
+      if (!p) return null
+      const data = await tmdbFetch<MoviesResponse>(
+        '/discover/movie',
+        {
+          watch_region: region,
+          with_watch_providers: String(p.provider_id),
+          with_watch_monetization_types: 'free|ads',
+          sort_by: 'popularity.desc',
+          include_adult: 'false',
+          'vote_count.gte': '20',
+        },
+        43200
+      ).catch(() => null)
+      const movies = (data?.results ?? []).filter((m) => m.poster_path && !m.adult).slice(0, 18)
+      if (!movies.length) return null
+      return { key: s.key, name: s.name, site: s.site, providerId: p.provider_id, logo: p.logo_path, movies } as FreeServiceRow
+    })
+  )
+  return rows.filter((r): r is FreeServiceRow => !!r)
+}

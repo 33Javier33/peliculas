@@ -3,6 +3,7 @@ import { getTrendingMovies, getPopularMovies } from '@/lib/tmdb'
 import HeroSection from '@/components/HeroSection'
 import MovieGrid from '@/components/MovieGrid'
 import MusicForYouSection from '@/components/MusicForYouSection'
+import FreeServicesSection from '@/components/FreeServicesSection'
 import type { Movie, MoviesResponse } from '@/types/tmdb'
 import Link from 'next/link'
 import { Clapperboard, Sparkles } from 'lucide-react'
@@ -35,13 +36,15 @@ export default async function HomePage() {
           </span>
           <span className="min-w-0">
             <span className="block text-white font-bold font-display text-lg">Películas gratis completas</span>
-            <span className="block text-slate-400 text-sm">En español, clásicos de dominio público y Pluto TV. Gratis y legales.</span>
+            <span className="block text-slate-400 text-sm">En español, clásicos de dominio público y Pluto TV, dentro de la app. Gratis y legales.</span>
           </span>
         </Link>
         <Link href="/novedades" className="-mt-12 flex items-center gap-2 text-sm text-slate-400 hover:text-white">
           <Sparkles className="w-4 h-4 text-fuchsia-300" /> Novedades: cómo ha crecido la app
         </Link>
         <ShareAppButton className="-mt-12" />
+
+        <FreeServicesSection />
 
         <MusicForYouSection />
 
