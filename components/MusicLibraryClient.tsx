@@ -41,6 +41,7 @@ import PlaylistCover from '@/components/PlaylistCover'
 import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
 import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
+import { useProgressive } from '@/lib/use-progressive'
 
 type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 type SortOrder = 'recent' | 'title' | 'artist'
@@ -213,6 +214,11 @@ export default function MusicLibraryClient() {
       })
       .sort((a, b) => b.count - a.count)
   }, [saved])
+
+  // Listas largas: se dibujan por partes (no traban la música al abrir la Biblioteca)
+  const [shownTracks, moreTracks] = useProgressive(filtered)
+  const [shownArtists, moreArtists] = useProgressive(artists)
+  const [shownAlbums, moreAlbums] = useProgressive(albums)
 
   const playList = (videos: MusicVideo[], startIndex = 0) => play(videos, startIndex)
   // Canciones de un artista o de un álbum (para descargarlos desde la lista)
@@ -456,7 +462,7 @@ export default function MusicLibraryClient() {
                   </div>
                 ) : view === 'grid' ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {filtered.map((track, idx) => {
+                    {shownTracks.map((track, idx) => {
                       const isCurrent = currentId === track.id
                       return (
                         <div
@@ -538,7 +544,7 @@ export default function MusicLibraryClient() {
                   </div>
                 ) : (
                   <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
-                    {filtered.map((track, idx) => (
+                    {shownTracks.map((track, idx) => (
                       // Toda la fila pone a sonar la canción (los botones de la fila hacen lo suyo)
                       <li
                         key={track.id}
@@ -644,9 +650,11 @@ export default function MusicLibraryClient() {
             )}
 
             {/* ARTISTS TAB */}
+            {/* Al acercarse al final de la lista se agregan más filas */}
+            {(tab === 'all' || activeSubFilter) && shownTracks.length < filtered.length && <div ref={moreTracks} className="h-16" aria-hidden />}
             {tab === 'artists' && !selectedArtist && !selectedAlbum && view === 'list' && (
               <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
-                {artists.map((a) => (
+                {shownArtists.map((a) => (
                   <li key={a.name} onClick={() => setSelectedArtist(a.name)} className="flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10">
                     <span className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 bg-surface-2 flex items-center justify-center">
                       {a.cover ? <Image src={a.cover} alt="" fill sizes="48px" className="object-cover" /> : <User className="w-5 h-5 text-slate-600" />}
@@ -666,7 +674,7 @@ export default function MusicLibraryClient() {
             )}
             {tab === 'artists' && !selectedArtist && !selectedAlbum && view === 'grid' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {artists.map((a) => (
+                {shownArtists.map((a) => (
                   <div
                     key={a.name}
                     role="button"
@@ -700,6 +708,7 @@ export default function MusicLibraryClient() {
             )}
 
             {/* ALBUMS TAB */}
+            {tab === 'artists' && !selectedArtist && !selectedAlbum && shownArtists.length < artists.length && <div ref={moreArtists} className="h-16" aria-hidden />}
             {tab === 'albums' && !selectedArtist && !selectedAlbum && (
               <>
                 {albums.length === 0 ? (
@@ -714,7 +723,7 @@ export default function MusicLibraryClient() {
                   </div>
                 ) : view === 'list' ? (
                   <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
-                    {albums.map((al) => (
+                    {shownAlbums.map((al) => (
                       <li
                         key={`${al.name}-${al.artist}`}
                         onClick={() => setSelectedAlbum(al.name)}
@@ -737,7 +746,7 @@ export default function MusicLibraryClient() {
                   </ul>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {albums.map((al) => (
+                    {shownAlbums.map((al) => (
                       <div
                         key={`${al.name}-${al.artist}`}
                         role="button"
@@ -775,6 +784,7 @@ export default function MusicLibraryClient() {
               </>
             )}
             {/* PLAYLISTS TAB */}
+            {tab === 'albums' && !selectedArtist && !selectedAlbum && shownAlbums.length < albums.length && <div ref={moreAlbums} className="h-16" aria-hidden />}
             {tab === 'playlists' && !selectedArtist && !selectedAlbum && <PlaylistsTab view={view} />}
           </>
         )}
