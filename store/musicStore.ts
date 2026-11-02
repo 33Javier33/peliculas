@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
 import { decodeEntities, type MusicVideo } from '@/lib/youtube-music'
+import { smartShuffle } from '@/lib/smart-shuffle'
 
 export type { MusicVideo }
 
@@ -20,14 +21,8 @@ export interface HistoryEntry extends MusicVideo {
 const MAX_HISTORY = 80
 
 // Fisher-Yates: mezcla una copia de la lista
-function shuffled<T>(list: T[]): T[] {
-  const out = [...list]
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[out[i], out[j]] = [out[j], out[i]]
-  }
-  return out
-}
+// Aleatorio repartido: todas las canciones, sin artistas ni discos seguidos (lib/smart-shuffle)
+const shuffled = <T extends MusicVideo>(list: T[]): T[] => smartShuffle(list)
 
 interface MusicState {
   queue: MusicVideo[]

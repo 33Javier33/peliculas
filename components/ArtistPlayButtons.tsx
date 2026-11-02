@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { Play, Shuffle, Loader2 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
+import { smartShuffle, fisherYates } from '@/lib/smart-shuffle'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
@@ -20,15 +21,6 @@ const songKey = (t: MusicVideo) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
-function shuffle<T>(list: T[]): T[] {
-  const a = list.slice()
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
 export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) {
   const shuffleOn = useShuffleOn(`artist:${albumIds.join(',')}`)
   const [busy, setBusy] = useState<'order' | 'shuffle' | null>(null)
@@ -41,7 +33,7 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
     setBusy(mode)
     setError(false)
     setCount(0)
-    const ids = mode === 'shuffle' ? shuffle(albumIds) : albumIds
+    const ids = mode === 'shuffle' ? fisherYates(albumIds) : albumIds
     const seen = new Set<string>()
     let started = false
     let total = 0
@@ -72,7 +64,7 @@ export default function ArtistPlayButtons({ albumIds }: { albumIds: number[] }) 
         started = true
         // Aleatorio activado (y lo que se sume después se mezcla); en orden, desactivado
         if ((mode === 'shuffle') !== st.shuffle) st.toggleShuffle()
-        useMusicStore.getState().play(mode === 'shuffle' ? shuffle(tracks) : tracks, 0)
+        useMusicStore.getState().play(mode === 'shuffle' ? smartShuffle(tracks) : tracks, 0)
         if (mode === 'shuffle') markShuffle(`artist:${albumIds.join(',')}`)
       } else {
         st.appendToQueue(tracks)
