@@ -209,7 +209,7 @@ export async function getFreeServiceRows(country: string): Promise<FreeServiceRo
         43200
       ).catch(() => null)
       // Fuera títulos subidos de tono para la portada (aunque TMDB no los marque como adultos)
-      const movies = (data?.results ?? []).filter((m) => m.poster_path && !m.adult && !/porn|xxx|er[oó]tic|sex/i.test(`${m.title} ${m.original_title}`)).slice(0, 18)
+      const movies = (data?.results ?? []).filter((m) => m.poster_path && !m.adult && !/\b(porno?|xxx|er[oó]tic[oa]s?|sex[oy]?)\b/i.test(`${m.title} ${m.original_title}`)).slice(0, 18)
       if (!movies.length) return null
       return { key: s.key, name: s.name, site: s.site, providerId: p.provider_id, logo: p.logo_path, movies } as FreeServiceRow
     })
