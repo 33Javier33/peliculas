@@ -6,7 +6,7 @@ import { useMusicStore } from '@/store/musicStore'
 
 // Ventana del ecualizador: preajustes, 5 bandas, nivelador de volumen y alta calidad
 export default function EqualizerSheet() {
-  const { open, enabled, preset, gains, leveler, applies, setOpen, setEnabled, setPreset, setGain, setLeveler } = useEqStore()
+  const { open, enabled, preset, gains, leveler, applies, native, setOpen, setEnabled, setPreset, setGain, setLeveler } = useEqStore()
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const setAudioBoost = useMusicStore((s) => s.setAudioBoost)
   if (!open) return null
@@ -36,8 +36,14 @@ export default function EqualizerSheet() {
         {/* Nota informativa (no es un error): dónde se aplica el ecualizador */}
         <p className="flex items-start gap-2 mt-3 text-slate-500 text-xs leading-relaxed">
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          {applies
-            ? 'Se aplica a la canción que suena ahora.'
+          {native === 'ok'
+            ? 'Lo aplica el procesador de audio del teléfono a todo lo que suena en la app (sin chasquidos).'
+            : native === 'busy'
+              ? 'Otra app de ecualizador del teléfono tiene el control del sonido. Ciérrala o desactívala para usar este.'
+              : native === 'unsupported'
+                ? 'Este teléfono no permite ecualizar desde la app. La música suena normal, sin ecualizar.'
+                : applies
+                  ? 'Se aplica a la canción que suena ahora.'
             : 'Se aplica a los discos de archive.org, a tu música del teléfono y a las canciones de la app de Android. Esta canción se escucha sin ecualizar (radios, YouTube en el navegador u otros sitios).'}
         </p>
 

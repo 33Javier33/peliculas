@@ -324,6 +324,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         audioCallback?.let { getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(it) }
         runCatching { unregisterReceiver(downloadDone) }
+        NativeEq.release()
         if (current?.get() === this) current = null
         web.destroy()
         super.onDestroy()

@@ -35,7 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, hasNativeEq, applyNativeEq } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -503,10 +503,25 @@ export default function MusicPlayerBar() {
   // En "Normal" (todas las bandas en 0 y sin nivelador) no hay nada que procesar: el audio va
   // directo, sin pasar por el sistema de audio (cero riesgo de chasquidos)
   const eqDoesSomething = eqLeveler || eqGains.some((g) => Math.abs(g) > 0.05)
-  const eqActive = eqEnabled && eqSafe && eqDoesSomething
+  // App de Android: el ecualizador lo hace el teléfono (Web Audio en Android chisporrotea), así que
+  // la música nunca pasa por el sistema de audio de la web
+  const [nativeEq] = useState(() => typeof window !== 'undefined' && hasNativeEq())
+  const eqActive = !nativeEq && eqEnabled && eqSafe && eqDoesSomething
   // Al cambiar la salida de sonido (audífonos ↔ parlante Bluetooth) se arma un <audio> nuevo
   const [eqEpoch, setEqEpoch] = useState(0)
-  useEffect(() => useEqStore.getState().setApplies(eqSafe), [eqSafe])
+  useEffect(() => {
+    if (!nativeEq) useEqStore.getState().setApplies(eqSafe)
+  }, [eqSafe, nativeEq])
+  // Ecualizador del teléfono: activo solo mientras suena la música de la app
+  useEffect(() => {
+    if (!nativeEq) return
+    const on = eqEnabled && eqDoesSomething && isPlaying
+    const r = applyNativeEq({ on, gains: eqGains, leveler: eqLeveler })
+    if (on || !eqEnabled) {
+      useEqStore.getState().setNative(r)
+      useEqStore.getState().setApplies(r === 'ok')
+    }
+  }, [nativeEq, eqEnabled, eqDoesSomething, isPlaying, eqGains, eqLeveler])
 
   // Canción que no se puede reproducir: se salta para que la música siga fluida
   const [skipNotice, setSkipNotice] = useState<string | null>(null)
@@ -980,7 +995,8 @@ export default function MusicPlayerBar() {
   }, [eqActive, audioUrl])
   useEffect(() => {
     const el = playerRef.current as unknown as HTMLMediaElement | null
-    if (!eqActive || !el) return
+    // (doble seguro: con el ecualizador del teléfono nunca se conecta el de la web)
+    if (!eqActive || !el || hasNativeEq()) return
     if (attachEqualizer(el)) updateEqualizer(el, eqGains, eqLeveler, true)
   }, [eqActive, eqGains, eqLeveler, audioUrl, eqEpoch])
 

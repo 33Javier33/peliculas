@@ -32,6 +32,9 @@ interface EqState {
   open: boolean
   /** ¿La canción que suena pasa por el ecualizador? (no se guarda) */
   applies: boolean
+  /** App de Android: estado del ecualizador del teléfono (no se guarda) */
+  native: 'ok' | 'busy' | 'unsupported' | null
+  setNative: (v: 'ok' | 'busy' | 'unsupported' | null) => void
   setEnabled: (v: boolean) => void
   setPreset: (id: string) => void
   setGain: (band: number, db: number) => void
@@ -49,6 +52,8 @@ export const useEqStore = create<EqState>()(
       leveler: false,
       open: false,
       applies: false,
+      native: null,
+      setNative: (native) => set({ native }),
       setEnabled: (enabled) => set({ enabled }),
       setPreset: (id) => {
         const p = EQ_PRESETS.find((x) => x.id === id)

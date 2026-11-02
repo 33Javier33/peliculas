@@ -61,6 +61,10 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun canDownload(): Boolean = true
 
+    /** Ecualizador hecho por Android (sin chisporroteo): {on, gains, leveler} → "ok" | "unsupported" | "busy" */
+    @JavascriptInterface
+    fun eqNative(json: String): String = NativeEq.apply(json)
+
     /** Descargas en curso: { active, title, done, total } → notificación y la app sigue al salir */
     @JavascriptInterface
     fun downloadState(json: String) {

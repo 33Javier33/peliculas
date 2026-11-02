@@ -93,3 +93,19 @@ export function nativePrefetchFile(url: string): boolean {
     return false
   }
 }
+
+/** App de Android 1.0.24+: ecualizador hecho por el teléfono (sin pasar por Web Audio) */
+export function hasNativeEq(): boolean {
+  return !!(getNative() as (CPNNativeBridge & { eqNative?: unknown }) | null)?.eqNative
+}
+
+export type NativeEqStatus = 'ok' | 'busy' | 'unsupported'
+export function applyNativeEq(state: { on: boolean; gains: number[]; leveler: boolean }): NativeEqStatus {
+  const n = getNative() as (CPNNativeBridge & { eqNative?: (json: string) => string }) | null
+  try {
+    const r = n?.eqNative?.(JSON.stringify(state))
+    return r === 'ok' || r === 'busy' ? r : 'unsupported'
+  } catch {
+    return 'unsupported'
+  }
+}

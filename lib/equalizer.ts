@@ -24,6 +24,45 @@ export const LEVELER_MAKEUP = 1.3
  */
 export const headroom = (gains: number[], on: boolean) => (on ? Math.pow(10, -Math.max(0, ...gains) / 20) : 1)
 
+/**
+ * Margen exacto: las bandas vecinas se suman (Graves +7 y Medios graves +4 dan más de +7 cerca
+ * de los 100 Hz). Se mide la respuesta real de los filtros y se baja justo lo que suben juntos.
+ */
+let probe: { ctx: OfflineAudioContext; filters: BiquadFilterNode[] } | null = null
+export function exactHeadroom(gains: number[], on: boolean): number {
+  if (!on) return 1
+  try {
+    if (!probe) {
+      const c = new OfflineAudioContext(1, 1, 44100)
+      probe = {
+        ctx: c,
+        filters: EQ_BANDS.map((b) => {
+          const f = c.createBiquadFilter()
+          f.type = b.type
+          f.frequency.value = b.freq
+          f.Q.value = 1.1
+          return f
+        }),
+      }
+    }
+    const N = 240
+    const freqs = new Float32Array(N).map((_, i) => 20 * Math.pow(1000, i / (N - 1)))
+    const total = new Float32Array(N).fill(1)
+    const mag = new Float32Array(N)
+    const phase = new Float32Array(N)
+    probe.filters.forEach((f, i) => {
+      f.gain.value = gains[i] ?? 0
+      f.getFrequencyResponse(freqs, mag, phase)
+      for (let k = 0; k < N; k++) total[k] *= mag[k]
+    })
+    let peak = 1
+    for (let k = 0; k < N; k++) peak = Math.max(peak, total[k])
+    return 1 / peak
+  } catch {
+    return headroom(gains, on)
+  }
+}
+
 let ctx: AudioContext | null = null
 const chains = new WeakMap<HTMLMediaElement, Chain>()
 
@@ -63,10 +102,12 @@ export function attachEqualizer(el: HTMLMediaElement): Chain | null {
     // Limitador final: atrapa cualquier pico que igual pase el máximo (nunca satura)
     const limiter = ctx.createDynamicsCompressor()
     limiter.threshold.value = -1.5
-    limiter.knee.value = 0
+    // Ataque y rodilla suaves: un limitador muy rápido "rompe" las ondas graves (también suena a
+    // chisporroteo). Con el margen exacto casi nunca tiene que actuar.
+    limiter.knee.value = 6
     limiter.ratio.value = 20
-    limiter.attack.value = 0.002
-    limiter.release.value = 0.15
+    limiter.attack.value = 0.005
+    limiter.release.value = 0.25
     out.connect(limiter)
     limiter.connect(ctx.destination)
     const chain = { ctx, filters, comp, dry, wet, out, limiter }
@@ -85,7 +126,7 @@ export function updateEqualizer(el: HTMLMediaElement, gains: number[], leveler: 
   c.filters.forEach((f, i) => f.gain.setTargetAtTime(on ? gains[i] ?? 0 : 0, t, 0.05))
   c.dry.gain.setTargetAtTime(on && leveler ? 0 : 1, t, 0.05)
   c.wet.gain.setTargetAtTime(on && leveler ? LEVELER_MAKEUP : 0, t, 0.05)
-  c.out.gain.setTargetAtTime(headroom(gains, on), t, 0.05)
+  c.out.gain.setTargetAtTime(exactHeadroom(gains, on), t, 0.05)
 }
 
 /** Cerrar el sistema de audio (al cambiar de parlante o audífonos: el nuevo sale por el actual) */
