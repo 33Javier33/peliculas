@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import ShareAppButton from '@/components/ShareAppButton'
 import type { Metadata } from 'next'
 import { ShieldCheck, Smartphone, RefreshCw } from 'lucide-react'
@@ -75,9 +76,9 @@ export default function AndroidAppPage() {
         </p>
         <p className="mt-3 text-slate-500 text-xs">
           ¿Tienes iPhone?{' '}
-          <a href="/app-iphone" className="text-violet-300 underline">
+          <Link href="/app-iphone" className="text-violet-300 underline">
             Instálala desde Safari
-          </a>
+          </Link>
           .
         </p>
       </div>

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
 import dynamic from 'next/dynamic'
@@ -137,7 +138,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Header />
         </Suspense>
         <main className="min-h-screen pb-20">{children}</main>
-        <footer className="bg-surface-1 border-t border-white/8 py-10 mt-20">
+        <footer className="bg-surface-1 border-t border-white/8 pt-10 pb-[calc(56px+92px+130px)] sm:pb-[200px] mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />
@@ -153,15 +154,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
             <p className="text-slate-600 text-xs mt-2">
               Versión {APP_VERSION} ·{' '}
-              <a href="/estado" className="underline hover:text-slate-400">
+              <Link href="/estado" className="underline hover:text-slate-400">
                 Estado de las fuentes
-              </a> ·{' '}
-              <a href="/app-android" className="underline hover:text-slate-400">
+              </Link> ·{' '}
+              <Link href="/app-android" className="underline hover:text-slate-400">
                 App para Android
-              </a> ·{' '}
-              <a href="/app-iphone" className="underline hover:text-slate-400">
+              </Link> ·{' '}
+              <Link href="/app-iphone" className="underline hover:text-slate-400">
                 App para iPhone
-              </a>
+              </Link>
             </p>
           </div>
         </footer>
