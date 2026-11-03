@@ -1,7 +1,9 @@
 package cl.carlospnauto.app
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.AudioManager
+import java.io.ByteArrayOutputStream
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
@@ -19,8 +21,9 @@ object WearSync {
 
     fun watching() = System.currentTimeMillis() - helloAt < 3 * 60 * 1000
 
-    fun send(c: Context, path: String, json: String) {
-        val bytes = json.toByteArray()
+    fun send(c: Context, path: String, json: String) = send(c, path, json.toByteArray())
+
+    fun send(c: Context, path: String, bytes: ByteArray) {
         runCatching {
             Wearable.getNodeClient(c).connectedNodes.addOnSuccessListener { nodes ->
                 for (n in nodes) Wearable.getMessageClient(c).sendMessage(n.id, path, bytes)
@@ -34,12 +37,41 @@ object WearSync {
         if (watching()) send(c, "/cpn/state", json)
     }
 
+    // Carátula para el reloj: se manda la imagen (chica, ~15 KB). El reloj no la descarga de
+    // internet (en muchos relojes no puede, o tarda mucho por el Bluetooth del teléfono)
+    @Volatile private var artFor = ""
+    @Volatile private var artBytes = ByteArray(0)
+
+    fun art(c: Context, url: String, bmp: Bitmap?) {
+        if (bmp == null) {
+            // Canción nueva sin carátula todavía: se borra la anterior
+            if (artFor != url) {
+                artFor = url
+                artBytes = ByteArray(0)
+                if (watching()) send(c, "/cpn/art", ByteArray(0))
+            }
+            return
+        }
+        if (artFor == url && artBytes.isNotEmpty()) return
+        val side = 240
+        val scaled = runCatching {
+            val r = minOf(side.toFloat() / bmp.width, side.toFloat() / bmp.height, 1f)
+            Bitmap.createScaledBitmap(bmp, (bmp.width * r).toInt().coerceAtLeast(1), (bmp.height * r).toInt().coerceAtLeast(1), true)
+        }.getOrNull() ?: return
+        val out = ByteArrayOutputStream()
+        scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        artFor = url
+        artBytes = out.toByteArray()
+        if (watching()) send(c, "/cpn/art", artBytes)
+    }
+
     fun onCommand(c: Context, json: String) {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
         when (val a = o.optString("a")) {
             "hello" -> {
                 helloAt = System.currentTimeMillis()
                 send(c, "/cpn/state", lastState)
+                send(c, "/cpn/art", artBytes)
                 if (!MainActivity.isOpen()) send(c, "/cpn/closed", "{}")
             }
             // Volumen del teléfono (no necesita la app abierta)

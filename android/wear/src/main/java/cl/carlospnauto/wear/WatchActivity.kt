@@ -24,7 +24,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +62,7 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import androidx.wear.remote.interactions.RemoteActivityHelper
-import coil.compose.AsyncImage
+import androidx.compose.foundation.Image
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -111,7 +110,6 @@ private fun App() {
 @Composable
 private fun NowScreen(onBrowse: () -> Unit) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val now by PhoneLink.now.collectAsState()
     val link by PhoneLink.link.collectAsState()
     val focus = remember { FocusRequester() }
@@ -126,7 +124,8 @@ private fun NowScreen(onBrowse: () -> Unit) {
     }
     val pos = if (now.positionMs < 0) 0L else if (now.playing) now.positionMs + (tick.longValue - now.startedAt).coerceAtLeast(0) else now.positionMs
     val progress = if (now.durationMs > 0) (pos.toFloat() / now.durationMs).coerceIn(0f, 1f) else 0f
-    val send = { a: String -> scope.launch { PhoneLink.cmd(ctx, a) } }
+    val art by PhoneLink.art.collectAsState()
+    val send = { a: String -> PhoneLink.cmd(ctx, a) }
 
     Scaffold(timeText = { TimeText() }) {
         Box(
@@ -142,9 +141,7 @@ private fun NowScreen(onBrowse: () -> Unit) {
                 .focusable(),
             contentAlignment = Alignment.Center,
         ) {
-            if (now.artwork.startsWith("http")) {
-                AsyncImage(model = now.artwork, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            }
+            art?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xAA000000), Color(0xEE000000)))))
             if (now.durationMs > 0) {
                 CircularProgressIndicator(
@@ -158,7 +155,7 @@ private fun NowScreen(onBrowse: () -> Unit) {
 
             when (link) {
                 Link.AppClosed -> Notice("Abre la app en el teléfono", "Abrir en el teléfono") { openOnPhone(ctx) }
-                Link.NoPhone -> Notice("Sin conexión con el teléfono", "Reintentar") { scope.launch { PhoneLink.hello(ctx) } }
+                Link.NoPhone -> Notice("Sin conexión con el teléfono", "Reintentar") { PhoneLink.hello(ctx) }
                 else -> Column(
                     Modifier.fillMaxWidth().padding(horizontal = 22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -223,7 +220,6 @@ private fun openOnPhone(ctx: android.content.Context) {
 @Composable
 private fun BrowseScreen(open: (String) -> Unit, played: () -> Unit) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val lib by PhoneLink.library.collectAsState()
     val state = rememberScalingLazyListState()
     LaunchedEffect(Unit) { PhoneLink.browse(ctx) }
@@ -232,7 +228,7 @@ private fun BrowseScreen(open: (String) -> Unit, played: () -> Unit) {
             item { ListHeader { Text("Tu música") } }
             item {
                 Entry(R.drawable.ic_shuffle, "Aleatorio", lib?.let { "${it.total} canciones de tu biblioteca" } ?: "Tu biblioteca", Violet) {
-                    scope.launch { PhoneLink.play(ctx, "shuffle") }
+                    PhoneLink.play(ctx, "shuffle")
                     played()
                 }
             }
@@ -249,7 +245,6 @@ private fun BrowseScreen(open: (String) -> Unit, played: () -> Unit) {
 @Composable
 private fun ListScreen(kind: String, played: () -> Unit) {
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val lib by PhoneLink.library.collectAsState()
     val state = rememberScalingLazyListState()
     val (title, items, playKind) = when (kind) {
@@ -267,7 +262,7 @@ private fun ListScreen(kind: String, played: () -> Unit) {
                 items.isEmpty() -> item { Text("Nada por aquí todavía", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
                 else -> items(items) { it ->
                     Entry(null, it.title, it.sub) {
-                        scope.launch { PhoneLink.play(ctx, playKind, it.id) }
+                        PhoneLink.play(ctx, playKind, it.id)
                         played()
                     }
                 }

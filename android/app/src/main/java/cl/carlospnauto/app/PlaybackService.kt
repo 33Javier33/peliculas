@@ -184,7 +184,8 @@ class PlaybackService : Service() {
         )
         if (playing) acquireLocks() else releaseLocks()
         PlayerWidget.show(this, title, artist, playing, liked, artwork)
-        // Reloj: lo que suena (con la carátula como dirección: el reloj la descarga)
+        // Reloj: lo que suena y su carátula
+        WearSync.art(this, artworkUrl, artwork)
         WearSync.state(
             this,
             org.json.JSONObject()

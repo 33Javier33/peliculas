@@ -1,10 +1,18 @@
 package cl.carlospnauto.wear
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
@@ -49,28 +57,53 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     val link: StateFlow<Link> = _link
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
+    /** Carátula de lo que suena (la manda el teléfono: el reloj no la descarga de internet) */
+    private val _art = MutableStateFlow<ImageBitmap?>(null)
+    val art: StateFlow<ImageBitmap?> = _art
 
-    suspend fun send(c: Context, json: JSONObject): Boolean {
-        val nodes = runCatching { Wearable.getNodeClient(c).connectedNodes.await() }.getOrDefault(emptyList())
+    // Las órdenes se mandan aquí, no en la pantalla: al elegir una radio la lista se cierra y,
+    // si el envío dependía de ella, se cortaba a medias ("Sin conexión con el teléfono")
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private suspend fun send(c: Context, json: JSONObject): Boolean {
+        val nodes = try {
+            Wearable.getNodeClient(c).connectedNodes.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
         if (nodes.isEmpty()) {
             _link.value = Link.NoPhone
             return false
         }
         val bytes = json.toString().toByteArray()
         var ok = false
-        for (n in nodes) ok = runCatching { Wearable.getMessageClient(c).sendMessage(n.id, "/cpn/cmd", bytes).await() }.isSuccess || ok
+        for (n in nodes) {
+            ok = try {
+                Wearable.getMessageClient(c).sendMessage(n.id, "/cpn/cmd", bytes).await()
+                true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ok
+            }
+        }
         if (!ok) _link.value = Link.NoPhone
         return ok
     }
 
-    suspend fun cmd(c: Context, a: String, extra: (JSONObject.() -> Unit)? = null) =
-        send(c, JSONObject().put("a", a).apply { extra?.invoke(this) })
+    fun cmd(c: Context, a: String, extra: (JSONObject.() -> Unit)? = null) {
+        val app = c.applicationContext
+        val json = JSONObject().put("a", a).apply { extra?.invoke(this) }
+        scope.launch { send(app, json) }
+    }
 
-    suspend fun hello(c: Context) = cmd(c, "hello")
+    fun hello(c: Context) = cmd(c, "hello")
 
-    suspend fun browse(c: Context) = cmd(c, "browse")
+    fun browse(c: Context) = cmd(c, "browse")
 
-    suspend fun play(c: Context, kind: String, id: String = "") {
+    fun play(c: Context, kind: String, id: String = "") {
         _busy.value = true
         cmd(c, "play") { put("k", kind); put("id", id) }
     }
@@ -108,7 +141,14 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 }
                 _library.value = Library(list("songs"), list("playlists"), list("genres"), list("nts"), list("radios"), o.optInt("total"))
             }
-            "/cpn/played" -> _busy.value = false
+            "/cpn/art" -> {
+                _art.value = if (e.data.isEmpty()) null
+                else runCatching { BitmapFactory.decodeByteArray(e.data, 0, e.data.size)?.asImageBitmap() }.getOrNull()
+            }
+            "/cpn/played" -> {
+                _busy.value = false
+                _link.value = Link.Ok
+            }
             "/cpn/closed" -> {
                 _busy.value = false
                 _link.value = Link.AppClosed
