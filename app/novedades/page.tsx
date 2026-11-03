@@ -1,7 +1,7 @@
 import ShareAppButton from '@/components/ShareAppButton'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Sparkles, Music2, Radio, Clapperboard, Smartphone, Download, SlidersHorizontal, Rocket } from 'lucide-react'
+import { Sparkles, Music2, Radio, Clapperboard, Smartphone, Download, SlidersHorizontal, Rocket, Watch, Users } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Cómo ha crecido la app',
@@ -18,6 +18,40 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
+  {
+    date: '3 nov 2026',
+    title: 'Comunidad de playlists, app para el reloj y buscar canciones',
+    Icon: Users,
+    color: 'from-violet-500 to-sky-500',
+    items: [
+      'Comunidad de playlists: comparte tus playlists y mezclas con un nombre público (nunca el correo), escucha y guarda las de otros',
+      'Mezclas de la comunidad por género, hechas con lo que comparten todos y sin canciones repetidas',
+      'Mezclas de tu biblioteca: una playlist por género que se arma sola (Tu Rock, Tu Latina…)',
+      'App para relojes Wear OS al estilo Spotify: Tus me gusta, playlists, artistas, álbumes, mezclas, radios y NTS con carátulas; buscar dictando; volumen con el bisel o la corona',
+      'Buscar por canción en Internet Archive: encuentra el disco que la tiene y empieza en esa canción',
+      'Autocompletar en todos los buscadores: Internet Archive, música libre, películas, TV y tu biblioteca',
+      'Los enlaces de una canción suelta de archive.org (por ejemplo un WAV) abren el disco completo',
+      'Configuración muestra tu cuenta activa y tu último respaldo',
+    ],
+  },
+  {
+    date: '2 nov 2026',
+    title: 'NTS Radio, configuración y música sin cortes',
+    Icon: Watch,
+    color: 'from-emerald-500 to-teal-500',
+    items: [
+      'NTS Radio: los dos canales en vivo desde Londres y 16 mixtapes que suenan las 24 horas',
+      'Nueva sección Configuración (⚙️): ecualizador, alta calidad, radio automática, vista, idioma, cuenta y apps',
+      'Ecualizador hecho por el propio teléfono en la app de Android: sin chisporroteo',
+      'Widget para la pantalla de inicio con 4 diseños que se ajustan al tamaño, y notificación con barra de avance y ♥ Me gusta',
+      'Radio sin espera entre canciones: las próximas se descargan antes de su turno',
+      'Las actualizaciones y los cambios de sección ya no cortan la música',
+      'Aleatorio de verdad repartido: suenan todas las canciones sin el mismo disco o artista seguidos',
+      'La radio de Internet Archive mezcla las canciones de tu biblioteca desde el comienzo',
+      'Películas gratis completas en el inicio, y lo gratis de Plex y Runtime en tu país',
+      'Botones activos con color, botón para bajar por secciones y una biblioteca más liviana con tarjetas que se expanden',
+    ],
+  },
   {
     date: '2 nov 2026',
     title: 'Letras karaoke y compartir la app',
