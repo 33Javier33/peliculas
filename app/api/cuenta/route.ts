@@ -10,7 +10,7 @@ const GAS_URL =
   process.env.CUENTA_GAS_URL ||
   'https://script.google.com/macros/s/AKfycbyqgT_H1zaJcbMVGK_sieVFe91WsSqSDwU5VygB1SFW5DX-9AhO0DDuAWoxIfrYcGjGEw/exec'
 
-const ACTIONS = new Set(['requestCode', 'verifyCode', 'load', 'save', 'logout'])
+const ACTIONS = new Set(['requestCode', 'verifyCode', 'load', 'save', 'logout', 'publish', 'unpublish', 'community'])
 
 export async function POST(request: NextRequest) {
   const url = GAS_URL

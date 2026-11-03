@@ -12,6 +12,7 @@ import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import DownloadsSection from '@/components/DownloadsSection'
 import CollapsibleCard from '@/components/CollapsibleCard'
+import LibraryMixesSection from '@/components/LibraryMixesSection'
 import { NtsLibraryCard } from '@/components/NtsClient'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
 import { useMemo, useState, useEffect, useRef } from 'react'
@@ -343,6 +344,8 @@ export default function MusicLibraryClient() {
             <AudioLinksSection />
           </CollapsibleCard>
         </div>
+
+        <LibraryMixesSection />
 
         <FollowedArtistsSection showEmpty />
 

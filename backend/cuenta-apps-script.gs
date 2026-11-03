@@ -60,9 +60,11 @@ const usuarios = () => sheet('Usuarios', ['email', 'creado', 'ultimoIngreso', 'i
 const codigos = () => sheet('Codigos', ['email', 'hash', 'creado', 'intentos'])
 const sesiones = () => sheet('Sesiones', ['token', 'email', 'creado', 'ultimoUso', 'dispositivo'])
 const datos = () => sheet('Datos', ['email', 'parte', 'contenido', 'actualizado'])
+// Comunidad: playlists que cada usuario decide compartir (con su nombre público, nunca el correo)
+const comunidad = () => sheet('Comunidad', ['id', 'email', 'alias', 'clave', 'nombre', 'genero', 'tipo', 'canciones', 'actualizado'])
 
 function instalar() {
-  usuarios(); codigos(); sesiones(); datos(); salt()
+  usuarios(); codigos(); sesiones(); datos(); comunidad(); salt()
   Logger.log('Listo: hojas creadas en "' + ss().getName() + '". Ahora implementa como aplicación web.')
 }
 
@@ -78,6 +80,9 @@ function doPost(e) {
     if (a === 'load') return out(load(body))
     if (a === 'save') return out(save(body))
     if (a === 'logout') return out(logout(body))
+    if (a === 'publish') return out(publish(body))
+    if (a === 'unpublish') return out(unpublish(body))
+    if (a === 'community') return out(community(body))
     return out({ ok: false, error: 'Acción desconocida' })
   } catch (err) {
     return out({ ok: false, error: String(err && err.message ? err.message : err) })
@@ -232,4 +237,83 @@ function save(body) {
   const user = findRow(us, 0, email)
   if (user) us.getRange(user.row, 5).setValue(new Date(updatedAt).toISOString())
   return { ok: true, updatedAt: updatedAt }
+}
+
+// ══════════════ Comunidad de playlists ══════════════
+// publish: comparte (o actualiza) una playlist. Se identifica por la "clave" que le da el teléfono,
+// así volver a publicarla la actualiza en vez de duplicarla. Máximo 60 playlists por persona.
+const MAX_PUBLISHED = 60
+const MAX_CELL = 48000
+
+function clean(text, max) {
+  return String(text || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max)
+}
+
+function publish(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const alias = clean(body.alias, 40)
+  const nombre = clean(body.name, 80)
+  const clave = clean(body.key, 80)
+  if (!alias || !nombre || !clave) return { ok: false, error: 'Falta el nombre público o el de la playlist' }
+  const tipo = body.kind === 'mix' ? 'mix' : 'playlist'
+  const genero = clean(body.genre, 30)
+  // Canciones: solo los datos para sonar; si no caben en una celda se dejan las primeras
+  let tracks = Array.isArray(body.tracks) ? body.tracks.slice(0, 200) : []
+  let json = JSON.stringify(tracks)
+  while (json.length > MAX_CELL && tracks.length > 1) {
+    tracks = tracks.slice(0, Math.floor(tracks.length * 0.8))
+    json = JSON.stringify(tracks)
+  }
+  if (!tracks.length) return { ok: false, error: 'La playlist no tiene canciones' }
+  const sh = comunidad()
+  const data = sh.getDataRange().getValues()
+  const now = Date.now()
+  let mine = 0
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== email) continue
+    mine++
+    if (String(data[i][3]) === clave) {
+      sh.getRange(i + 1, 3, 1, 7).setValues([[alias, clave, nombre, genero, tipo, json, now]])
+      return { ok: true, id: String(data[i][0]), count: tracks.length }
+    }
+  }
+  if (mine >= MAX_PUBLISHED) return { ok: false, error: 'Ya compartiste ' + MAX_PUBLISHED + ' playlists: quita alguna para compartir otra' }
+  const id = Utilities.getUuid().slice(0, 12)
+  sh.appendRow([id, email, alias, clave, nombre, genero, tipo, json, now])
+  return { ok: true, id: id, count: tracks.length }
+}
+
+function unpublish(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const sh = comunidad()
+  const data = sh.getDataRange().getValues()
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][1]) === email && (String(data[i][0]) === String(body.id) || String(data[i][3]) === String(body.key))) sh.deleteRow(i + 1)
+  }
+  return { ok: true }
+}
+
+// community: todo lo compartido (sin correos). Con token, marca también lo propio.
+function community(body) {
+  const email = body.token ? sessionEmail(body.token) : null
+  const data = comunidad().getDataRange().getValues()
+  const list = []
+  for (let i = 1; i < data.length; i++) {
+    let tracks = []
+    try { tracks = JSON.parse(String(data[i][7] || '[]')) } catch (e) {}
+    list.push({
+      id: String(data[i][0]),
+      alias: String(data[i][2]),
+      key: email && String(data[i][1]) === email ? String(data[i][3]) : undefined,
+      mine: !!email && String(data[i][1]) === email,
+      name: String(data[i][4]),
+      genre: String(data[i][5]),
+      kind: String(data[i][6]),
+      tracks: tracks,
+      updated: Number(data[i][8]) || 0,
+    })
+  }
+  return { ok: true, playlists: list }
 }

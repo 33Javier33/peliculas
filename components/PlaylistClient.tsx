@@ -9,6 +9,7 @@ import { Play, Shuffle, Pencil, Trash2, ArrowUp, ArrowDown, X, ListMusic, Check,
 import { playlistShareUrl, shareLink } from '@/lib/share'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
+import CommunityShareButton from '@/components/CommunityShareButton'
 import PlaylistCover from '@/components/PlaylistCover'
 import ViewToggle, { useView } from '@/components/ViewToggle'
 import TrackTiles from '@/components/TrackTiles'
@@ -105,6 +106,7 @@ export default function PlaylistClient({ id }: { id: string }) {
               <button onClick={() => (play(0, true), markShuffle(`playlist:${id}`))} disabled={!tracks.length} aria-pressed={shuffleOn} className={`inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm disabled:opacity-50 ${shuffleOn ? SHUFFLE_ON : ''}`}>
                 <Shuffle className="w-4 h-4" /> Aleatorio
               </button>
+              <CommunityShareButton shareKey={playlist.id} name={playlist.name} tracks={tracks} />
               <button
                 onClick={async () => {
                   const url = await playlistShareUrl(playlist.name, tracks)
