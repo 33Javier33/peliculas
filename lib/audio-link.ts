@@ -7,7 +7,7 @@ import { isIP } from 'net'
 import { proxiedUrl } from '@/lib/hls-sign'
 import { isFmaUrl, readFmaPage } from '@/lib/fma'
 
-const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|weba)(\?|#|$)/i
+const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|wave|flac|weba|mp2|mpga)(\?|#|$)/i
 const LIST_EXT = /\.(m3u8?|pls)(\?|#|$)/i
 const MAX_PAGE = 2 * 1024 * 1024
 
@@ -281,7 +281,9 @@ const metaTag = (html: string, prop: string) =>
 export async function readAudioAlbums(raw: string): Promise<LinkAlbum[]> {
   const url = await assertPublic(raw.trim())
   const id = archiveId(url)
-  if (id && !AUDIO_EXT.test(url.pathname)) {
+  // Disco de archive.org, también si el enlace es de una canción suelta (/details/ID/01.-Tema.wav):
+  // se abre el disco completo, con cada canción en su mejor formato
+  if (id) {
     try {
       const albums = await readArchive(id, `https://archive.org/details/${encodeURIComponent(id)}`)
       if (albums.some((a) => a.tracks.length)) return albums.filter((a) => a.tracks.length)
@@ -332,6 +334,8 @@ export async function readAudioAlbums(raw: string): Promise<LinkAlbum[]> {
 /** Lee un enlace y devuelve las pistas de audio que contiene */
 export async function readAudioLink(raw: string, onPage?: (html: string) => void): Promise<LinkTrack[]> {
   let url = await assertPublic(raw.trim())
+  // archive.org: /details/ID/archivo es una página; el audio está en /download/ID/archivo
+  if (archiveId(url) && /^\/details\/[^/]+\/.+/.test(url.pathname)) url = new URL(url.toString().replace('/details/', '/download/'))
   if (AUDIO_EXT.test(url.pathname)) return [toTrack(url.toString())]
 
   // Se siguen las redirecciones a mano para revisar cada destino

@@ -1,0 +1,18 @@
+name: diagnostico
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          S=https://peliculas-neon.vercel.app
+          for i in $(seq 1 40); do curl -s $S/api/version | grep -q '2\.74\.0' && break; sleep 15; done
+          enc() { python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$1"; }
+          echo "== enlace WAV"; curl -s "$S/api/audio-link?url=$(enc 'https://archive.org/details/master-of-puppets_202509/01.-Battery.wav')" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('error'),[(a['title'],len(a['tracks'])) for a in d.get('albums',[])],[t['title']+' '+t['url'][-35:] for t in d.get('tracks',[])][:4])"
+          for q in "battery" "de musica ligera" "bohemian rhapsody" "la bamba" "cielito lindo"; do
+            echo "== canción «$q»"; curl -s "$S/api/archive-audio?by=song&q=$(enc "$q")" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('error'),d.get('total'),[(r.get('song'),r['title'][:40],r.get('artist','')[:25]) for r in d.get('results',[])][:6])"
+          done

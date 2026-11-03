@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { searchArchiveAudio, searchArchiveArtists, type ArchiveSearchBy } from '@/lib/archive-audio'
+import { searchArchiveAudio, searchArchiveArtists, searchArchiveSongs, type ArchiveSearchBy } from '@/lib/archive-audio'
 import { archiveSummary } from '@/lib/audio-link'
 
 // /api/archive-audio?q=…&page=…&by=all|album|exactArtist → discos y grabaciones de Internet Archive
 // /api/archive-audio?q=…&by=artist → artistas (con cuántos discos tienen)
+// /api/archive-audio?q=…&by=song → discos que tienen esa canción (empiezan por ella)
 export const runtime = 'nodejs'
 export const maxDuration = 20
 
-const BY: ArchiveSearchBy[] = ['all', 'artist', 'album', 'exactArtist']
+const BY: ArchiveSearchBy[] = ['all', 'artist', 'album', 'exactArtist', 'song']
 
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     // scope=free → solo música libre (Jamendo, Free Music Archive y netlabels guardados en archive.org)
     const scope = sp.get('scope') === 'free' ? 'free' : 'all'
     if (by === 'artist') return NextResponse.json({ artists: await searchArchiveArtists(q, scope) }, { headers: cache })
+    if (by === 'song') return NextResponse.json(await searchArchiveSongs(q, scope), { headers: cache })
     const collection = (sp.get('collection') || '').slice(0, 60)
     const data = await searchArchiveAudio(q, page, collection, by, scope)
     return NextResponse.json(data, { headers: cache })

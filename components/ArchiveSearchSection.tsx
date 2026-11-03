@@ -22,6 +22,8 @@ interface Result {
   year?: string
   cover: string
   url: string
+  /** Búsqueda por canción: la canción que se busca (el disco empieza por ella) */
+  song?: string
 }
 
 interface Artist {
@@ -30,10 +32,11 @@ interface Artist {
   cover: string
 }
 
-type Mode = 'artist' | 'album' | 'all'
+type Mode = 'artist' | 'album' | 'song' | 'all'
 const MODES: { id: Mode; label: string }[] = [
   { id: 'artist', label: 'Artistas' },
   { id: 'album', label: 'Discos' },
+  { id: 'song', label: 'Canciones' },
   { id: 'all', label: 'Todo' },
 ]
 
@@ -60,6 +63,17 @@ const VARIANTS = {
     mode: 'all' as Mode,
     footer: 'Música de Jamendo, Free Music Archive y netlabels, libre para escuchar y compartir.',
   },
+}
+
+/** Posición de la canción buscada dentro del disco ("01. Battery" = "Battery") */
+function songIndex(tracks: MusicVideo[], song: string): number {
+  const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const want = norm(song)
+  const name = (t: MusicVideo) => norm(t.title.replace(/^.+?\s[-–—]\s/, '').replace(/^\d+[\s.\-_)]+/, ''))
+  const i = tracks.findIndex((t) => name(t) === want)
+  if (i >= 0) return i
+  const j = tracks.findIndex((t) => name(t).includes(want) || (name(t).length > 3 && want.includes(name(t))))
+  return j >= 0 ? j : 0
 }
 
 export default function ArchiveSearchSection({ variant = 'archive' }: { variant?: keyof typeof VARIANTS }) {
@@ -191,7 +205,7 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
         const tracks: MusicVideo[] = list.flatMap((e) => e.tracks)
         const st = useMusicStore.getState()
         if (st.shuffle) st.toggleShuffle()
-        st.play(tracks, 0)
+        st.play(tracks, item.song ? songIndex(tracks, item.song) : 0)
       } else {
         let added = 0
         for (const e of list) added += addAlbum(e.album, e.tracks)
@@ -422,7 +436,8 @@ function ResultRow({
             {playIcon}
           </button>
         </div>
-        <Link href={href} className="block text-white text-sm font-semibold leading-tight line-clamp-2 mt-2">
+        {item.song && <p className="mt-2 text-amber-300 text-xs font-semibold truncate">♪ {item.song}</p>}
+        <Link href={href} className={`block text-white text-sm font-semibold leading-tight line-clamp-2 ${item.song ? '' : 'mt-2'}`}>
           {item.title}
         </Link>
         <p className="text-slate-400 text-xs truncate">{details}</p>
@@ -440,6 +455,7 @@ function ResultRow({
         ) : null}
       </span>
       <div className="min-w-0 flex-1">
+        {item.song && <p className="text-amber-300 text-xs font-semibold truncate">♪ {item.song}</p>}
         <p className="text-white text-sm font-semibold line-clamp-2">{item.title}</p>
         <p className="text-slate-400 text-xs truncate">{details}</p>
       </div>

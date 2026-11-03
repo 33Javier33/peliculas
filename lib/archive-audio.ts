@@ -5,6 +5,8 @@ const ARCHIVE = process.env.ARCHIVE_BASE || 'https://archive.org'
 export interface ArchiveAudioResult {
   id: string
   title: string
+  /** Búsqueda por canción: el nombre de la canción (el disco empieza por ella) */
+  song?: string
   artist?: string
   year?: string
   cover: string
@@ -33,7 +35,7 @@ export type ArchiveScope = 'all' | 'free'
 const scopeTerms = (scope: ArchiveScope) => (scope === 'free' ? [FREE_MUSIC] : [])
 
 /** Qué buscar: en todo, solo nombres de artista, solo nombres de disco, o un artista exacto */
-export type ArchiveSearchBy = 'all' | 'artist' | 'album' | 'exactArtist'
+export type ArchiveSearchBy = 'all' | 'artist' | 'album' | 'exactArtist' | 'song'
 
 const clean = (q: string) => q.replace(/["():*?\[\]{}^~!\\/]/g, ' ').replace(/\s+/g, ' ').trim()
 
@@ -162,4 +164,49 @@ export function rankSuggestions(q: string, list: string[]): string[] {
   // Primero lo que empieza igual y, entre eso, lo más corto (el nombre del artista antes que sus conciertos)
   const starts = ok.filter((s) => norm(s).startsWith(words.join(' '))).sort((a, b) => a.length - b.length)
   return [...starts, ...ok.filter((s) => !starts.includes(s))].slice(0, 8)
+}
+
+const DEEZER = process.env.DEEZER_API_BASE || 'https://api.deezer.com'
+
+/**
+ * Buscar por canción. archive.org no busca dentro de los discos (solo su ficha), así que:
+ *  1. se busca la canción en el catálogo de Deezer (qué artista y qué disco la tienen),
+ *  2. se buscan esos discos de esos artistas en archive.org,
+ *  3. y los discos cuyo título es la canción (sencillos, discos de 78 rpm).
+ * Cada resultado lleva el nombre de la canción: al tocarlo, el disco empieza por ella.
+ */
+export async function searchArchiveSongs(q: string, scope: ArchiveScope = 'all'): Promise<{ results: ArchiveAudioResult[]; total: number }> {
+  const text = clean(q).replace(/\b(AND|OR|NOT)\b/g, ' ').trim()
+  if (!text) return { results: [], total: 0 }
+  const dz = await fetch(`${DEEZER}/search?${new URLSearchParams({ q: text, limit: '25' })}`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) })
+    .then((r) => (r.ok ? r.json() : { data: [] }))
+    .catch(() => ({ data: [] })) as { data?: { title?: string; artist?: { name?: string }; album?: { title?: string } }[] }
+  // Cada disco una vez (el mismo tema sale en varias ediciones)
+  const pairs: { song: string; artist: string; album: string }[] = []
+  const seen = new Set<string>()
+  for (const t of dz.data ?? []) {
+    const song = t.title?.trim()
+    const artist = t.artist?.name?.trim()
+    const album = t.album?.title?.replace(/\s*\((?:remaster|deluxe|expanded|edición)[^)]*\)/gi, '').trim()
+    if (!song || !artist || !album) continue
+    const key = `${artist}|${album}`.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    pairs.push({ song, artist, album })
+    if (pairs.length >= 6) break
+  }
+  const lists = await Promise.all([
+    ...pairs.map((p) =>
+      query([`creator:(${clean(p.artist)})`, `title:(${clean(p.album)})`, ...scopeTerms(scope)], 3, 1)
+        .then((r) => r.results.map((x) => ({ ...x, song: p.song })))
+        .catch(() => [] as ArchiveAudioResult[])
+    ),
+    // Discos cuyo título es la canción (sencillos y 78 rpm)
+    query([`title:(${text})`, ...scopeTerms(scope)], 12, 1)
+      .then((r) => r.results.map((x) => ({ ...x, song: text })))
+      .catch(() => [] as ArchiveAudioResult[]),
+  ])
+  const ids = new Set<string>()
+  const results = lists.flat().filter((r) => !ids.has(r.id) && ids.add(r.id))
+  return { results, total: results.length }
 }
