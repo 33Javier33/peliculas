@@ -5,6 +5,10 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.app.RemoteInput
+import androidx.wear.input.RemoteInputIntentHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -99,7 +103,10 @@ private fun App() {
     val nav = rememberSwipeDismissableNavController()
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
         composable("now") { NowScreen(onBrowse = { nav.navigate("browse") }) }
-        composable("browse") { BrowseScreen(open = { nav.navigate("list/$it") }, played = { nav.popBackStack("now", false) }) }
+        composable("browse") {
+            BrowseScreen(open = { nav.navigate("list/$it") }, searched = { nav.navigate("search") }, played = { nav.popBackStack("now", false) })
+        }
+        composable("search") { SearchScreen(played = { nav.popBackStack("now", false) }) }
         composable("list/{kind}") { e ->
             ListScreen(kind = e.arguments?.getString("kind") ?: "songs", played = { nav.popBackStack("now", false) })
         }
@@ -218,13 +225,28 @@ private fun openOnPhone(ctx: android.content.Context) {
 
 // ===== Biblioteca =====
 @Composable
-private fun BrowseScreen(open: (String) -> Unit, played: () -> Unit) {
+private fun BrowseScreen(open: (String) -> Unit, searched: () -> Unit, played: () -> Unit) {
     val ctx = LocalContext.current
     val lib by PhoneLink.library.collectAsState()
     val state = rememberScalingLazyListState()
     LaunchedEffect(Unit) { PhoneLink.browse(ctx) }
+    // Buscar: el reloj ofrece dictar o escribir (teclado del reloj)
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val q = res.data?.let { RemoteInput.getResultsFromIntent(it)?.getCharSequence("q")?.toString()?.trim() }
+        if (!q.isNullOrEmpty()) {
+            PhoneLink.searchArchive(ctx, q)
+            searched()
+        }
+    }
+    val startSearch = {
+        val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
+        RemoteInputIntentHelper.putRemoteInputsExtra(intent, listOf(RemoteInput.Builder("q").setLabel("Artista, banda o disco").build()))
+        runCatching { ask.launch(intent) }
+        Unit
+    }
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
         ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { Entry(R.drawable.ic_search, "Buscar", "Internet Archive: artista, banda o disco", Violet) { startSearch() } }
             item { ListHeader { Text("Tu música") } }
             item {
                 Entry(R.drawable.ic_shuffle, "Aleatorio", lib?.let { "${it.total} canciones de tu biblioteca" } ?: "Tu biblioteca", Violet) {
@@ -238,6 +260,29 @@ private fun BrowseScreen(open: (String) -> Unit, played: () -> Unit) {
             item { Entry(R.drawable.ic_radio, "Radio por género", "Internet Archive") { open("genres") } }
             item { Entry(R.drawable.ic_radio, "NTS Radio", "En vivo y mixtapes") { open("nts") } }
             item { Entry(R.drawable.ic_heart_filled, "Radios favoritas", lib?.let { "${it.radios.size}" }) { open("radios") } }
+        }
+    }
+}
+
+@Composable
+private fun SearchScreen(played: () -> Unit) {
+    val ctx = LocalContext.current
+    val search by PhoneLink.search.collectAsState()
+    val state = rememberScalingLazyListState()
+    val results = search?.second
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
+        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { ListHeader { Text(search?.first ?: "Buscar", maxLines = 1, overflow = TextOverflow.Ellipsis) } }
+            when {
+                results == null -> item { Text("Buscando en Internet Archive…", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
+                results.isEmpty() -> item { Text("Sin resultados. Prueba con otro nombre.", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
+                else -> items(results) { r ->
+                    Entry(null, r.title, r.sub.ifBlank { null }) {
+                        PhoneLink.play(ctx, "archive", r.id)
+                        played()
+                    }
+                }
+            }
         }
     }
 }

@@ -59,6 +59,8 @@ dependencies {
     implementation("androidx.wear.compose:compose-foundation:1.4.1")
     implementation("androidx.wear.compose:compose-navigation:1.4.1")
     implementation("androidx.wear:wear-remote-interactions:1.1.0")
+    // Buscar dictando o con el teclado del reloj
+    implementation("androidx.wear:wear-input:1.1.0")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 }

@@ -10,14 +10,28 @@ import { ARCHIVE_RADIO_GENRES } from '@/components/ArchiveRadioSection'
 import { liveTrack, mixtapeTrack, type NtsData } from '@/components/NtsClient'
 import { smartShuffle } from '@/lib/smart-shuffle'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { fetchAlbums, toEntries } from '@/lib/link-albums'
 
 // Reloj (Wear OS): la app del reloj pide la biblioteca y elige qué suena; el teléfono lo hace aquí.
 // Llega por window.__cpnWear({ a, k, id }) y se responde con CPNNative.wearReply(ruta, json).
 
 interface WearCmd {
-  a: 'browse' | 'play'
-  k?: 'shuffle' | 'song' | 'playlist' | 'genre' | 'nts' | 'radio'
+  a: 'browse' | 'play' | 'search'
+  k?: 'shuffle' | 'song' | 'playlist' | 'genre' | 'nts' | 'radio' | 'archive'
   id?: string
+  q?: string
+}
+
+/** Búsqueda en Internet Archive desde el reloj: artista, banda, disco o canción */
+async function searchArchive(q: string) {
+  const d = (await fetch(`/api/archive-audio?by=all&q=${encodeURIComponent(q)}`)
+    .then((r) => r.json())
+    .catch(() => ({}))) as { results?: { id: string; title: string; artist?: string; year?: string }[] }
+  return (d.results ?? []).slice(0, 30).map((r) => ({
+    id: r.id,
+    t: r.title.slice(0, 60),
+    s: [r.artist, r.year].filter(Boolean).join(' · ').slice(0, 50),
+  }))
 }
 
 type Bridge = { wearReply?: (path: string, json: string) => void }
@@ -83,6 +97,13 @@ async function play(k: WearCmd['k'], id = '') {
     const mix = n?.mixtapes.find((m) => `mix-${m.alias}` === id)
     const t = live ? liveTrack(live) : mix ? mixtapeTrack(mix) : null
     if (t) useMusicStore.getState().play([t], 0)
+  } else if (k === 'archive') {
+    // Un disco de Internet Archive elegido en la búsqueda del reloj
+    const list = (await fetchAlbums(`https://archive.org/details/${encodeURIComponent(id)}`)).map(toEntries)
+    const tracks = list.flatMap((e) => e.tracks)
+    if (!tracks.length) return
+    setShuffle(false)
+    useMusicStore.getState().play(tracks, 0)
   } else if (k === 'radio') {
     const r = useLiveStore.getState().favoriteRadios.find((x) => x.id === id)
     if (r) useMusicStore.getState().play([r], 0)
@@ -101,6 +122,7 @@ export default function WearBridge() {
     }
     ;(window as unknown as { __cpnWear?: (c: WearCmd) => void }).__cpnWear = (c) => {
       if (c.a === 'browse') library().then((d) => reply('/cpn/library', d))
+      else if (c.a === 'search' && c.q) searchArchive(c.q).then((results) => reply('/cpn/search', { q: c.q, results }))
       else if (c.a === 'play')
         play(c.k, c.id)
           .catch(() => {})

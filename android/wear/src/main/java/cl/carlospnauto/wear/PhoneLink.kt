@@ -57,6 +57,15 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     val link: StateFlow<Link> = _link
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
+    /** Búsqueda en Internet Archive: lo buscado y sus resultados (null = buscando) */
+    private val _search = MutableStateFlow<Pair<String, List<Item>?>?>(null)
+    val search: StateFlow<Pair<String, List<Item>?>?> = _search
+
+    fun searchArchive(c: Context, q: String) {
+        _search.value = q to null
+        cmd(c, "search") { put("q", q) }
+    }
+
     /** Carátula de lo que suena (la manda el teléfono: el reloj no la descarga de internet) */
     private val _art = MutableStateFlow<ImageBitmap?>(null)
     val art: StateFlow<ImageBitmap?> = _art
@@ -144,6 +153,12 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
             "/cpn/art" -> {
                 _art.value = if (e.data.isEmpty()) null
                 else runCatching { BitmapFactory.decodeByteArray(e.data, 0, e.data.size)?.asImageBitmap() }.getOrNull()
+            }
+            "/cpn/search" -> {
+                val o = runCatching { JSONObject(text) }.getOrNull() ?: return
+                val a = o.optJSONArray("results") ?: JSONArray()
+                val list = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { Item(it.optString("id"), it.optString("t"), it.optString("s")) } }
+                _search.value = o.optString("q") to list
             }
             "/cpn/played" -> {
                 _busy.value = false

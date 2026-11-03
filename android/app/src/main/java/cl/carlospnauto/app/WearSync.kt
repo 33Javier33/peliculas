@@ -79,7 +79,12 @@ object WearSync {
                 val am = c.getSystemService(AudioManager::class.java)
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (a == "vol+") AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, 0)
             }
-            "play", "pause", "next", "prev", "like" -> if (!MainActivity.sendActionIfOpen(a)) send(c, "/cpn/closed", "{}")
+            // "play" con algo elegido (k: canción, radio, playlist, disco…) lo resuelve la app web;
+            // antes se tomaba como el botón reproducir y lo elegido no sonaba
+            "play", "pause", "next", "prev", "like" ->
+                if (a == "play" && o.has("k")) {
+                    if (!MainActivity.wearToWeb(json)) send(c, "/cpn/closed", "{}")
+                } else if (!MainActivity.sendActionIfOpen(a)) send(c, "/cpn/closed", "{}")
             "seek" -> if (!MainActivity.sendActionIfOpen("seek:${o.optLong("ms")}")) send(c, "/cpn/closed", "{}")
             // Biblioteca y elegir qué suena: los resuelve la app web
             else -> if (!MainActivity.wearToWeb(json)) send(c, "/cpn/closed", "{}")
