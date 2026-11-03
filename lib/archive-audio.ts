@@ -187,7 +187,7 @@ export async function searchArchiveSongs(q: string, scope: ArchiveScope = 'all')
   // Solo canciones que se llaman como lo escrito ("Battery", no "Batter Up"), las más escuchadas primero
   const norm = (x = '') => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
   const want = norm(text)
-  const tracks = (dz.data ?? []).filter((t) => norm(t.title) === want || norm(t.title).startsWith(`${want} `)).sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+  const tracks = (dz.data ?? []).filter((t) => norm(t.title) === want || norm(t.title).startsWith(`${want} `)).sort((a, b) => Number(norm(b.title) === want) - Number(norm(a.title) === want) || (b.rank ?? 0) - (a.rank ?? 0))
   for (const t of tracks) {
     const song = t.title?.trim()
     const artist = t.artist?.name?.trim()
