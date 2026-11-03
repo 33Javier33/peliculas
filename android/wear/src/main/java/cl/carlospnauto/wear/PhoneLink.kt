@@ -31,11 +31,14 @@ data class NowPlaying(
     val startedAt: Long = 0,
 )
 
-data class Item(val id: String, val title: String, val sub: String)
+data class Item(val id: String, val title: String, val sub: String, val img: String = "")
 
 data class Library(
     val songs: List<Item> = emptyList(),
     val playlists: List<Item> = emptyList(),
+    val artists: List<Item> = emptyList(),
+    val albums: List<Item> = emptyList(),
+    val mixes: List<Item> = emptyList(),
     val genres: List<Item> = emptyList(),
     val nts: List<Item> = emptyList(),
     val radios: List<Item> = emptyList(),
@@ -64,6 +67,36 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     fun searchArchive(c: Context, q: String) {
         _search.value = q to null
         cmd(c, "search") { put("q", q) }
+    }
+
+    /** Canciones de un artista, disco, playlist o mezcla (se piden al abrirlos) */
+    data class Group(val kind: String, val id: String, val items: List<Item>?)
+    private val _group = MutableStateFlow<Group?>(null)
+    val group: StateFlow<Group?> = _group
+
+    fun openGroup(c: Context, kind: String, id: String) {
+        if (_group.value?.let { it.kind == kind && it.id == id && it.items != null } == true) return
+        _group.value = Group(kind, id, null)
+        cmd(c, "items") { put("k", kind); put("id", id) }
+    }
+
+    fun playFrom(c: Context, kind: String, id: String, start: String = "", shuffle: Boolean = false) {
+        _busy.value = true
+        cmd(c, "play") { put("k", kind); put("id", id); if (start.isNotEmpty()) put("start", start); if (shuffle) put("shuffle", true) }
+    }
+
+    /** Miniaturas (las manda el teléfono, ya achicadas) */
+    private val _thumbs = MutableStateFlow<Map<String, ImageBitmap>>(emptyMap())
+    val thumbs: StateFlow<Map<String, ImageBitmap>> = _thumbs
+    private val asked = HashSet<String>()
+
+    fun thumb(c: Context, url: String) {
+        if (!url.startsWith("http") || _thumbs.value.containsKey(url) || !asked.add(url)) return
+        cmd(c, "thumb") { put("u", url) }
+    }
+
+    private fun items(o: JSONObject, k: String): List<Item> = (o.optJSONArray(k) ?: JSONArray()).let { a ->
+        (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { Item(it.optString("id"), it.optString("t"), it.optString("s"), it.optString("img")) } }
     }
 
     /** Carátula de lo que suena (la manda el teléfono: el reloj no la descarga de internet) */
@@ -143,12 +176,11 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
             "/cpn/library" -> {
                 val o = runCatching { JSONObject(text) }.getOrNull() ?: return
                 _link.value = Link.Ok
-                fun list(k: String) = (o.optJSONArray(k) ?: JSONArray()).let { a ->
-                    (0 until a.length()).mapNotNull { i ->
-                        a.optJSONObject(i)?.let { Item(it.optString("id"), it.optString("t"), it.optString("s")) }
-                    }
-                }
-                _library.value = Library(list("songs"), list("playlists"), list("genres"), list("nts"), list("radios"), o.optInt("total"))
+                _library.value = Library(
+                    songs = items(o, "songs"), playlists = items(o, "playlists"), artists = items(o, "artists"),
+                    albums = items(o, "albums"), mixes = items(o, "mixes"), genres = items(o, "genres"),
+                    nts = items(o, "nts"), radios = items(o, "radios"), total = o.optInt("total"),
+                )
             }
             "/cpn/art" -> {
                 _art.value = if (e.data.isEmpty()) null
@@ -156,9 +188,18 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
             }
             "/cpn/search" -> {
                 val o = runCatching { JSONObject(text) }.getOrNull() ?: return
-                val a = o.optJSONArray("results") ?: JSONArray()
-                val list = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { Item(it.optString("id"), it.optString("t"), it.optString("s")) } }
-                _search.value = o.optString("q") to list
+                _search.value = o.optString("q") to items(o, "results")
+            }
+            "/cpn/items" -> {
+                val o = runCatching { JSONObject(text) }.getOrNull() ?: return
+                _group.value = Group(o.optString("k"), o.optString("id"), items(o, "items"))
+            }
+            "/cpn/thumb" -> {
+                val cut = e.data.indexOf(0)
+                if (cut <= 0) return
+                val url = String(e.data, 0, cut)
+                val bmp = runCatching { BitmapFactory.decodeByteArray(e.data, cut + 1, e.data.size - cut - 1)?.asImageBitmap() }.getOrNull() ?: return
+                _thumbs.value = _thumbs.value + (url to bmp)
             }
             "/cpn/played" -> {
                 _busy.value = false

@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -101,19 +104,19 @@ class WatchActivity : ComponentActivity() {
 @Composable
 private fun App() {
     val nav = rememberSwipeDismissableNavController()
+    val toNow = { nav.popBackStack("now", false); Unit }
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
-        composable("now") { NowScreen(onBrowse = { nav.navigate("browse") }) }
-        composable("browse") {
-            BrowseScreen(open = { nav.navigate("list/$it") }, searched = { nav.navigate("search") }, played = { nav.popBackStack("now", false) })
-        }
-        composable("search") { SearchScreen(played = { nav.popBackStack("now", false) }) }
-        composable("list/{kind}") { e ->
-            ListScreen(kind = e.arguments?.getString("kind") ?: "songs", played = { nav.popBackStack("now", false) })
+        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }) }
+        composable("home") { HomeScreen(nav = { nav.navigate(it) }, played = toNow) }
+        composable("library") { LibraryScreen(nav = { nav.navigate(it) }) }
+        composable("search") { SearchScreen(played = toNow) }
+        composable("list/{kind}") { e -> ListScreen(kind = e.arguments?.getString("kind") ?: "songs", nav = { nav.navigate(it) }, played = toNow) }
+        composable("group/{kind}/{id}") { e ->
+            GroupScreen(kind = e.arguments?.getString("kind") ?: "", id = Uri.decode(e.arguments?.getString("id") ?: ""), played = toNow)
         }
     }
 }
 
-// ===== Lo que suena =====
 @Composable
 private fun NowScreen(onBrowse: () -> Unit) {
     val ctx = LocalContext.current
@@ -223,14 +226,12 @@ private fun openOnPhone(ctx: android.content.Context) {
     runCatching { RemoteActivityHelper(ctx, Executors.newSingleThreadExecutor()).startRemoteActivity(intent) }
 }
 
-// ===== Biblioteca =====
+// ===== Biblioteca (como en Spotify: inicio, biblioteca y listas con carátulas) =====
+
+/** Lanzador de la búsqueda: el reloj ofrece dictar o escribir */
 @Composable
-private fun BrowseScreen(open: (String) -> Unit, searched: () -> Unit, played: () -> Unit) {
+private fun rememberSearch(searched: () -> Unit): () -> Unit {
     val ctx = LocalContext.current
-    val lib by PhoneLink.library.collectAsState()
-    val state = rememberScalingLazyListState()
-    LaunchedEffect(Unit) { PhoneLink.browse(ctx) }
-    // Buscar: el reloj ofrece dictar o escribir (teclado del reloj)
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         val q = res.data?.let { RemoteInput.getResultsFromIntent(it)?.getCharSequence("q")?.toString()?.trim() }
         if (!q.isNullOrEmpty()) {
@@ -238,28 +239,68 @@ private fun BrowseScreen(open: (String) -> Unit, searched: () -> Unit, played: (
             searched()
         }
     }
-    val startSearch = {
+    return {
         val intent = RemoteInputIntentHelper.createActionRemoteInputIntent()
         RemoteInputIntentHelper.putRemoteInputsExtra(intent, listOf(RemoteInput.Builder("q").setLabel("Artista, banda o disco").build()))
         runCatching { ask.launch(intent) }
-        Unit
     }
+}
+
+@Composable
+private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
+    val ctx = LocalContext.current
+    val lib by PhoneLink.library.collectAsState()
+    val state = rememberScalingLazyListState()
+    LaunchedEffect(Unit) { PhoneLink.browse(ctx) }
+    val search = rememberSearch { nav("search") }
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
         ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { Entry(R.drawable.ic_search, "Buscar", "Internet Archive: artista, banda o disco", Violet) { startSearch() } }
-            item { ListHeader { Text("Tu música") } }
+            // Arriba: buscar y biblioteca
             item {
-                Entry(R.drawable.ic_shuffle, "Aleatorio", lib?.let { "${it.total} canciones de tu biblioteca" } ?: "Tu biblioteca", Violet) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill(R.drawable.ic_search, "Buscar") { search() }
+                    Pill(R.drawable.ic_library, "Biblioteca") { nav("library") }
+                }
+            }
+            item {
+                Entry(icon = R.drawable.ic_heart_filled, title = "Tus me gusta", sub = lib?.let { "${it.total} canciones" }, accent = true) { nav("list/songs") }
+            }
+            item {
+                Entry(icon = R.drawable.ic_shuffle, title = "Aleatorio", sub = "Toda tu biblioteca") {
                     PhoneLink.play(ctx, "shuffle")
                     played()
                 }
             }
-            item { Entry(R.drawable.ic_music, "Canciones", lib?.let { "${it.songs.size} recientes" }) { open("songs") } }
-            item { Entry(R.drawable.ic_list, "Playlists", lib?.let { "${it.playlists.size}" }) { open("playlists") } }
+            val mixes = lib?.mixes.orEmpty()
+            if (mixes.isNotEmpty()) {
+                item { ListHeader { Text("Tus mezclas") } }
+                items(mixes.take(6)) { m -> Entry(img = m.img, title = m.title, sub = m.sub) { nav("group/mix/${Uri.encode(m.id)}") } }
+            }
+            val pls = lib?.playlists.orEmpty()
+            if (pls.isNotEmpty()) {
+                item { ListHeader { Text("Tus playlists") } }
+                items(pls.take(4)) { p -> Entry(img = p.img, title = p.title, sub = p.sub) { nav("group/playlist/${Uri.encode(p.id)}") } }
+            }
             item { ListHeader { Text("Radios") } }
-            item { Entry(R.drawable.ic_radio, "Radio por género", "Internet Archive") { open("genres") } }
-            item { Entry(R.drawable.ic_radio, "NTS Radio", "En vivo y mixtapes") { open("nts") } }
-            item { Entry(R.drawable.ic_heart_filled, "Radios favoritas", lib?.let { "${it.radios.size}" }) { open("radios") } }
+            item { Entry(icon = R.drawable.ic_radio, title = "Radio por género", sub = "Internet Archive") { nav("list/genres") } }
+            item { Entry(icon = R.drawable.ic_radio, title = "NTS Radio", sub = "En vivo y mixtapes") { nav("list/nts") } }
+            item { Entry(icon = R.drawable.ic_heart, title = "Radios favoritas", sub = lib?.let { "${it.radios.size}" }) { nav("list/radios") } }
+        }
+    }
+}
+
+@Composable
+private fun LibraryScreen(nav: (String) -> Unit) {
+    val lib by PhoneLink.library.collectAsState()
+    val state = rememberScalingLazyListState()
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
+        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { ListHeader { Text("Biblioteca") } }
+            item { Entry(icon = R.drawable.ic_list, title = "Playlists", sub = lib?.let { "${it.playlists.size}" }) { nav("list/playlists") } }
+            item { Entry(icon = R.drawable.ic_artist, title = "Artistas", sub = lib?.let { "${it.artists.size}" }) { nav("list/artists") } }
+            item { Entry(icon = R.drawable.ic_album, title = "Álbumes", sub = lib?.let { "${it.albums.size}" }) { nav("list/albums") } }
+            item { Entry(icon = R.drawable.ic_music, title = "Canciones", sub = lib?.let { "${it.total}" }) { nav("list/songs") } }
+            item { Entry(icon = R.drawable.ic_shuffle, title = "Mezclas por género", sub = lib?.let { "${it.mixes.size}" }) { nav("list/mixes") } }
         }
     }
 }
@@ -274,10 +315,10 @@ private fun SearchScreen(played: () -> Unit) {
         ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item { ListHeader { Text(search?.first ?: "Buscar", maxLines = 1, overflow = TextOverflow.Ellipsis) } }
             when {
-                results == null -> item { Text("Buscando en Internet Archive…", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
-                results.isEmpty() -> item { Text("Sin resultados. Prueba con otro nombre.", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
+                results == null -> item { Text("Buscando en Internet Archive…", color = Grey, textAlign = TextAlign.Center) }
+                results.isEmpty() -> item { Text("Sin resultados. Prueba con otro nombre.", color = Grey, textAlign = TextAlign.Center) }
                 else -> items(results) { r ->
-                    Entry(null, r.title, r.sub.ifBlank { null }) {
+                    Entry(title = r.title, sub = r.sub.ifBlank { null }, img = "https://archive.org/services/img/${r.id}") {
                         PhoneLink.play(ctx, "archive", r.id)
                         played()
                     }
@@ -287,27 +328,81 @@ private fun SearchScreen(played: () -> Unit) {
     }
 }
 
+/** Una lista de la biblioteca. Artistas, álbumes, playlists y mezclas se abren; lo demás suena al tocarlo */
 @Composable
-private fun ListScreen(kind: String, played: () -> Unit) {
+private fun ListScreen(kind: String, nav: (String) -> Unit, played: () -> Unit) {
     val ctx = LocalContext.current
     val lib by PhoneLink.library.collectAsState()
     val state = rememberScalingLazyListState()
-    val (title, items, playKind) = when (kind) {
-        "playlists" -> Triple("Playlists", lib?.playlists, "playlist")
-        "genres" -> Triple("Radio por género", lib?.genres, "genre")
-        "nts" -> Triple("NTS Radio", lib?.nts, "nts")
-        "radios" -> Triple("Radios favoritas", lib?.radios, "radio")
-        else -> Triple("Canciones", lib?.songs, "song")
+    val (title, items) = when (kind) {
+        "playlists" -> "Playlists" to lib?.playlists
+        "artists" -> "Artistas" to lib?.artists
+        "albums" -> "Álbumes" to lib?.albums
+        "mixes" -> "Mezclas" to lib?.mixes
+        "genres" -> "Radio por género" to lib?.genres
+        "nts" -> "NTS Radio" to lib?.nts
+        "radios" -> "Radios favoritas" to lib?.radios
+        else -> "Tus me gusta" to lib?.songs
     }
+    val opens = mapOf("playlists" to "playlist", "artists" to "artist", "albums" to "album", "mixes" to "mix")
+    val plays = mapOf("genres" to "genre", "nts" to "nts", "radios" to "radio", "songs" to "song")
     Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
         ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item { ListHeader { Text(title) } }
             when {
-                items == null -> item { Text("Cargando…", color = Color(0xFFB0B7C3)) }
-                items.isEmpty() -> item { Text("Nada por aquí todavía", color = Color(0xFFB0B7C3), textAlign = TextAlign.Center) }
+                items == null -> item { Text("Cargando…", color = Grey) }
+                items.isEmpty() -> item { Text("Nada por aquí todavía", color = Grey, textAlign = TextAlign.Center) }
                 else -> items(items) { it ->
-                    Entry(null, it.title, it.sub) {
-                        PhoneLink.play(ctx, playKind, it.id)
+                    val open = opens[kind]
+                    Entry(title = it.title, sub = it.sub.ifBlank { null }, img = it.img, round = kind == "artists") {
+                        if (open != null) nav("group/$open/${Uri.encode(it.id)}")
+                        else {
+                            PhoneLink.play(ctx, plays[kind] ?: "song", it.id)
+                            played()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Un artista, disco, playlist o mezcla: sus canciones, con reproducir y aleatorio arriba */
+@Composable
+private fun GroupScreen(kind: String, id: String, played: () -> Unit) {
+    val ctx = LocalContext.current
+    val group by PhoneLink.group.collectAsState()
+    val lib by PhoneLink.library.collectAsState()
+    val state = rememberScalingLazyListState()
+    LaunchedEffect(kind, id) { PhoneLink.openGroup(ctx, kind, id) }
+    val songs = group?.takeIf { it.kind == kind && it.id == id }?.items
+    val name = when (kind) {
+        "playlist" -> lib?.playlists?.find { it.id == id }?.title
+        "mix" -> lib?.mixes?.find { it.id == id }?.title
+        "album" -> id.substringBefore("||")
+        else -> id
+    } ?: id
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
+        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { ListHeader { Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center) } }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill(R.drawable.ic_play, "Reproducir", Violet) {
+                        PhoneLink.playFrom(ctx, kind, id)
+                        played()
+                    }
+                    Pill(R.drawable.ic_shuffle, "Aleatorio") {
+                        PhoneLink.playFrom(ctx, kind, id, shuffle = true)
+                        played()
+                    }
+                }
+            }
+            when {
+                songs == null -> item { Text("Cargando…", color = Grey) }
+                songs.isEmpty() -> item { Text("Sin canciones", color = Grey) }
+                else -> items(songs) { t ->
+                    Entry(title = t.title, sub = t.sub.ifBlank { null }, img = t.img) {
+                        PhoneLink.playFrom(ctx, kind, id, start = t.id)
                         played()
                     }
                 }
@@ -316,14 +411,51 @@ private fun ListScreen(kind: String, played: () -> Unit) {
     }
 }
 
+private val Grey = Color(0xFFB0B7C3)
+
+/** Botón redondo con ícono (arriba de las listas, como en Spotify) */
 @Composable
-private fun Entry(icon: Int?, title: String, sub: String? = null, color: Color = Color(0xFF1E2030), onClick: () -> Unit) {
+private fun Pill(icon: Int, label: String, color: Color = Color(0xFF2A2C3A), onClick: () -> Unit) {
+    Button(onClick = onClick, modifier = Modifier.size(width = 64.dp, height = 44.dp), colors = ButtonDefaults.buttonColors(backgroundColor = color)) {
+        Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(22.dp))
+    }
+}
+
+/** Carátula chica (la descarga y achica el teléfono) */
+@Composable
+private fun Thumb(url: String, round: Boolean) {
+    val ctx = LocalContext.current
+    val thumbs by PhoneLink.thumbs.collectAsState()
+    LaunchedEffect(url) { PhoneLink.thumb(ctx, url) }
+    val shape = if (round) CircleShape else RoundedCornerShape(6.dp)
+    val bmp = thumbs[url]
+    Box(Modifier.size(36.dp).clip(shape).background(Color(0xFF2A2C3A)), contentAlignment = Alignment.Center) {
+        if (bmp != null) Image(bmp, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        else Icon(painterResource(R.drawable.ic_music), contentDescription = null, modifier = Modifier.size(18.dp), tint = Grey)
+    }
+}
+
+@Composable
+private fun Entry(
+    title: String,
+    sub: String? = null,
+    icon: Int? = null,
+    img: String = "",
+    round: Boolean = false,
+    accent: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val slot: (@Composable BoxScope.() -> Unit)? = when {
+        img.startsWith("http") -> { { Thumb(img, round) } }
+        icon != null -> { { Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(22.dp), tint = if (accent) Color(0xFF34D399) else Color.White) } }
+        else -> null
+    }
     Chip(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        icon = icon?.let { { Icon(painterResource(it), contentDescription = null, modifier = Modifier.size(20.dp)) } },
-        label = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        secondaryLabel = sub?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFFB0B7C3)) } },
-        colors = ChipDefaults.chipColors(backgroundColor = color),
+        icon = slot,
+        label = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = if (accent) Color(0xFF34D399) else Color.White) },
+        secondaryLabel = sub?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Grey) } },
+        colors = ChipDefaults.chipColors(backgroundColor = Color(0xFF1E2030)),
     )
 }

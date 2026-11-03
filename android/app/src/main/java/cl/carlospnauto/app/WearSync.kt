@@ -65,6 +65,39 @@ object WearSync {
         if (watching()) send(c, "/cpn/art", artBytes)
     }
 
+    // Miniaturas para las listas del reloj (carátulas, fotos de artistas): el teléfono las descarga,
+    // las achica (96 px, ~3 KB) y se las manda. Se guardan las últimas para no repetir descargas.
+    private val thumbs = object : android.util.LruCache<String, ByteArray>(200) {}
+    private val thumbPool = java.util.concurrent.Executors.newFixedThreadPool(3)
+
+    private fun thumb(c: Context, url: String) {
+        if (!url.startsWith("http")) return
+        thumbs.get(url)?.let { return sendThumb(c, url, it) }
+        thumbPool.execute {
+            val bytes = runCatching {
+                OkDownloader.instance.client.newCall(okhttp3.Request.Builder().url(url).build()).execute().use { r ->
+                    val raw = r.body?.bytes() ?: return@use null
+                    val bmp = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size) ?: return@use null
+                    val side = 96
+                    val ratio = maxOf(side.toFloat() / bmp.width, side.toFloat() / bmp.height)
+                    val scaled = Bitmap.createScaledBitmap(bmp, (bmp.width * ratio).toInt().coerceAtLeast(1), (bmp.height * ratio).toInt().coerceAtLeast(1), true)
+                    // Recorte cuadrado al centro
+                    val x = ((scaled.width - side) / 2).coerceAtLeast(0)
+                    val y = ((scaled.height - side) / 2).coerceAtLeast(0)
+                    val sq = Bitmap.createBitmap(scaled, x, y, minOf(side, scaled.width), minOf(side, scaled.height))
+                    val out = ByteArrayOutputStream()
+                    sq.compress(Bitmap.CompressFormat.JPEG, 75, out)
+                    out.toByteArray()
+                }
+            }.getOrNull() ?: return@execute
+            thumbs.put(url, bytes)
+            sendThumb(c, url, bytes)
+        }
+    }
+
+    /** Mensaje: la dirección, un byte 0 y la imagen */
+    private fun sendThumb(c: Context, url: String, img: ByteArray) = send(c, "/cpn/thumb", url.toByteArray() + byteArrayOf(0) + img)
+
     fun onCommand(c: Context, json: String) {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
         when (val a = o.optString("a")) {
@@ -74,6 +107,7 @@ object WearSync {
                 send(c, "/cpn/art", artBytes)
                 if (!MainActivity.isOpen()) send(c, "/cpn/closed", "{}")
             }
+            "thumb" -> thumb(c, o.optString("u"))
             // Volumen del teléfono (no necesita la app abierta)
             "vol+", "vol-" -> {
                 val am = c.getSystemService(AudioManager::class.java)

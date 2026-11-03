@@ -15,11 +15,13 @@ import {
   ChevronRight,
   Info,
   Watch,
+  Users,
 } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useLangStore } from '@/store/langStore'
 import { useAccountStore } from '@/store/accountStore'
+import { readAlias, saveAlias } from '@/lib/community'
 import { useOfflineStore } from '@/store/offlineStore'
 import { LANGUAGES } from '@/lib/translate'
 import { getNative } from '@/lib/native'
@@ -75,6 +77,9 @@ export default function SettingsClient() {
   const lang = useLangStore((s) => s.lang)
   const setLang = useLangStore((s) => s.setLang)
   const items = useOfflineStore((s) => s.items)
+  const account = { email: useAccountStore((s) => s.email), syncedAt: useAccountStore((s) => s.syncedAt) }
+  const [alias, setAliasState] = useState('')
+  useEffect(() => setAliasState(readAlias()), [])
   const [apk, setApk] = useState<string | null>(null)
   useEffect(() => {
     try {
@@ -135,10 +140,40 @@ export default function SettingsClient() {
 
         <Section title="Tu música">
           <button onClick={() => useAccountStore.getState().setOpen(true)} className="w-full text-left">
-            <Row icon={<CloudUpload className="w-4 h-4" />} title="Cuenta y respaldo" desc="Guarda tu biblioteca y úsala en otro teléfono">
-              <ChevronRight className="w-4 h-4 text-slate-500" />
+            <Row
+              icon={<CloudUpload className={`w-4 h-4 ${account.email ? 'text-emerald-300' : ''}`} />}
+              title={account.email ? 'Cuenta activa' : 'Cuenta y respaldo'}
+              desc={
+                account.email
+                  ? `${account.email}${account.syncedAt ? ` · respaldo: ${new Date(account.syncedAt).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}` : ''}`
+                  : 'Inicia sesión con tu correo: guarda tu biblioteca y úsala en otro teléfono'
+              }
+            >
+              {account.email ? (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 text-emerald-300 text-[11px] font-bold px-2.5 py-1">Conectada</span>
+              ) : (
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              )}
             </Row>
           </button>
+          <Row icon={<Users className="w-4 h-4" />} title="Nombre en la comunidad" desc="Se muestra en lo que compartes (nunca el correo)">
+            <input
+              value={alias}
+              onChange={(e) => {
+                setAliasState(e.target.value)
+                saveAlias(e.target.value)
+              }}
+              maxLength={40}
+              placeholder="Tu nombre"
+              aria-label="Nombre en la comunidad"
+              className="w-32 bg-surface-2 text-sm text-white border border-white/10 rounded-full px-3 py-1.5 focus:outline-none focus:border-violet-500"
+            />
+          </Row>
+          <Link href="/music/comunidad" className="block">
+            <Row icon={<Users className="w-4 h-4" />} title="Comunidad de playlists" desc="Lo que comparten todos y lo que compartiste tú">
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            </Row>
+          </Link>
           <Link href="/music/library#descargas" className="block">
             <Row
               icon={<Download className="w-4 h-4" />}
