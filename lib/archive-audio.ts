@@ -151,7 +151,7 @@ export function rankSuggestions(q: string, list: string[]): string[] {
   const words = norm(q).split(/\s+/).filter(Boolean)
   const seen = new Set<string>()
   const ok = list
-    .map((s) => s.replace(/\s+/g, ' ').trim())
+    .map((s) => s.replace(/\s+/g, ' ').replace(/[\s,;:.\-–—_]+$/, '').trim())
     .filter((s) => s.length > 1 && s.length <= 70 && !/^\d+$/.test(s))
     .filter((s) => {
       const n = norm(s)
@@ -159,6 +159,7 @@ export function rankSuggestions(q: string, list: string[]): string[] {
       seen.add(n)
       return words.every((w) => n.includes(w))
     })
-  const starts = ok.filter((s) => norm(s).startsWith(words.join(' ')))
+  // Primero lo que empieza igual y, entre eso, lo más corto (el nombre del artista antes que sus conciertos)
+  const starts = ok.filter((s) => norm(s).startsWith(words.join(' '))).sort((a, b) => a.length - b.length)
   return [...starts, ...ok.filter((s) => !starts.includes(s))].slice(0, 8)
 }
