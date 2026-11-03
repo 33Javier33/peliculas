@@ -197,7 +197,8 @@ export async function searchArchiveSongs(q: string, scope: ArchiveScope = 'all')
   }
   const lists = await Promise.all([
     ...pairs.map((p) =>
-      query([`creator:(${clean(p.artist)})`, `title:(${clean(p.album)})`, ...scopeTerms(scope)], 3, 1)
+      // El artista en cualquier campo: muchos discos subidos no llenan "creador" (lo ponen en el título o la descripción)
+      query([`title:(${clean(p.album)})`, `(creator:(${clean(p.artist)}) OR title:(${clean(p.artist)}) OR subject:(${clean(p.artist)}) OR description:(${clean(p.artist)}))`, ...scopeTerms(scope)], 3, 1)
         .then((r) => r.results.map((x) => ({ ...x, song: p.song })))
         .catch(() => [] as ArchiveAudioResult[])
     ),
