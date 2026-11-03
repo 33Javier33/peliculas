@@ -8,6 +8,7 @@ import { readSession, writeSession } from '@/lib/session-cache'
 import { formatSize } from '@/lib/offline-files'
 import { useMovieStore } from '@/store/movieStore'
 import MoviePlayer from '@/components/MoviePlayer'
+import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 // Películas completas, gratis y legales: en español y clásicos de dominio público (Internet
 // Archive y Wikimedia Commons), Pluto TV a la carta y "Mis películas" (seguir viendo y descargadas).
@@ -70,6 +71,17 @@ export default function FreeMoviesClient() {
   const [more, setMore] = useState(false)
   const [error, setError] = useState(false)
   const [current, setCurrent] = useState<FreeMovie | null>(null)
+  // Autocompletado: títulos y directores del mismo catálogo (en español o clásicos)
+  const suggestions = useSearchSuggestions({
+    kind: 'freemovies',
+    params: `tab=${tab === 'classic' ? 'classic' : 'es'}`,
+    value: query,
+    onChange: setQuery,
+    onPick: (s) => {
+      setQuery(s)
+      setSubmitted(s)
+    },
+  })
   const catalog = tab === 'es' || tab === 'classic'
 
   // Pluto TV: filas por categoría
@@ -198,8 +210,11 @@ export default function FreeMoviesClient() {
                 }}
                 placeholder={tab === 'es' ? 'Buscar película en español…' : 'Buscar película, director o actor…'}
                 aria-label="Buscar película"
+                enterKeyHint="search"
                 className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-4 py-3 text-base focus:outline-none focus:border-violet-500"
+                {...suggestions.inputProps}
               />
+              {suggestions.dropdown}
             </form>
             <div className="flex gap-2 overflow-x-auto pb-1 mb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
               <button onClick={() => setGenre('')} className={smallChip(!genre)}>

@@ -45,6 +45,7 @@ import type { MusicVideo } from '@/lib/youtube-music'
 import BackButton from '@/components/BackButton'
 import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 import { useProgressive } from '@/lib/use-progressive'
+import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 type SortOrder = 'recent' | 'title' | 'artist'
@@ -217,6 +218,13 @@ export default function MusicLibraryClient() {
       })
       .sort((a, b) => b.count - a.count)
   }, [saved])
+
+  // Autocompletado de la biblioteca: tus artistas, discos y canciones (sin consultar internet)
+  const libNames = useMemo(
+    () => Array.from(new Set([...artists.map((a) => a.name), ...albums.map((a) => a.name), ...saved.map((t) => t.title.replace(/^.+?\s[-–—]\s/, ""))])).filter(Boolean),
+    [artists, albums, saved]
+  )
+  const suggestions = useSearchSuggestions({ kind: 'library', value: query, onChange: setQuery, onPick: setQuery, extra: libNames, remote: false })
 
   // Listas largas: se dibujan por partes (no traban la música al abrir la Biblioteca)
   const [shownTracks, moreTracks] = useProgressive(filtered)
@@ -453,7 +461,9 @@ export default function MusicLibraryClient() {
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Buscar en tu biblioteca..."
                       className="w-full bg-surface-1 border border-white/10 text-white placeholder-slate-600 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/15 transition-all"
+                      {...suggestions.inputProps}
                     />
+                    {suggestions.dropdown}
                   </div>
                   <select
                     value={sort}

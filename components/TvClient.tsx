@@ -10,6 +10,7 @@ import { useMusicStore } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
 import { LiveHeader, CountrySelect, countryName } from '@/components/LiveTabs'
 import { readSession, writeSession } from '@/lib/session-cache'
+import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 type ListKind = 'national' | 'pluto' | 'spa' | 'news'
 interface TvState {
@@ -97,6 +98,9 @@ export default function TvClient() {
     }
     return Array.from(count, ([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'es'))
   }, [channels, byCategory])
+  // Autocompletado con los canales y ciudades de la lista
+  const tvNames = useMemo(() => Array.from(new Set([...channels.map((c) => c.name), ...places.map((p) => p.name)])), [channels, places])
+  const suggestions = useSearchSuggestions({ kind: 'tv', value: filter, onChange: setFilter, onPick: setFilter, extra: tvNames, remote: false })
 
   // Canales que no cargaron en este teléfono: se marcan "Sin señal" y, la próxima vez que
   // se abra la lista, quedan al final (no se mueven mientras uno está mirando)
@@ -277,7 +281,9 @@ export default function TvClient() {
               placeholder="Buscar canal o ciudad..."
               aria-label="Buscar canal o ciudad"
               className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-4 py-3 text-base focus:outline-none focus:border-violet-500"
+              {...suggestions.inputProps}
             />
+            {suggestions.dropdown}
           </div>
         </div>
 

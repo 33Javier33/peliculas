@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Search, ArrowUpLeft, X } from 'lucide-react'
 
-export type SuggestKind = 'music' | 'video' | 'movies' | 'radio'
+export type SuggestKind = 'music' | 'video' | 'movies' | 'radio' | 'archive' | 'free' | 'freemovies' | 'library' | 'tv'
 
 interface Options {
   kind: SuggestKind
@@ -19,6 +19,10 @@ interface Options {
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
   /** false: sin desplegable (p. ej. donde el filtro ya es instantáneo) */
   enabled?: boolean
+  /** false: solo sugerencias locales (extra) y recientes, sin consultar internet */
+  remote?: boolean
+  /** Parámetros extra para /api/suggest (p. ej. "tab=classic") */
+  params?: string
 }
 
 const cache = new Map<string, string[]>()
@@ -47,7 +51,7 @@ export function rememberSearch(kind: SuggestKind, q: string) {
  * Sugerencias mientras se escribe, como en los buscadores: búsquedas recientes con el
  * campo vacío y autocompletado al escribir. Devuelve props para el <input> y el desplegable.
  */
-export function useSearchSuggestions({ kind, value, onChange, onPick, extra, onKeyDown, enabled = true }: Options) {
+export function useSearchSuggestions({ kind, value, onChange, onPick, extra, onKeyDown, enabled = true, remote: useRemote = true, params = '' }: Options) {
   const [open, setOpen] = useState(false)
   const [remote, setRemote] = useState<string[]>([])
   const [recent, setRecent] = useState<string[]>([])
@@ -57,18 +61,18 @@ export function useSearchSuggestions({ kind, value, onChange, onPick, extra, onK
 
   // Autocompletado con una pequeña espera para no consultar en cada tecla
   useEffect(() => {
-    if (!open || q.length < 2) {
+    if (!open || q.length < 2 || !useRemote) {
       setRemote([])
       return
     }
-    const key = `${kind}:${q.toLowerCase()}`
+    const key = `${kind}:${params}:${q.toLowerCase()}`
     if (cache.has(key)) {
       setRemote(cache.get(key)!)
       return
     }
     const id = ++requestId.current
     const timer = setTimeout(() => {
-      fetch(`/api/suggest?kind=${kind}&q=${encodeURIComponent(q)}`)
+      fetch(`/api/suggest?kind=${kind}&q=${encodeURIComponent(q)}${params ? `&${params}` : ''}`)
         .then((r) => (r.ok ? r.json() : { suggestions: [] }))
         .then((d: { suggestions?: string[] }) => {
           cache.set(key, d.suggestions ?? [])
@@ -77,13 +81,16 @@ export function useSearchSuggestions({ kind, value, onChange, onPick, extra, onK
         .catch(() => {})
     }, 180)
     return () => clearTimeout(timer)
-  }, [q, kind, open])
+  }, [q, kind, open, useRemote, params])
 
   const items = useMemo(() => {
     const lower = q.toLowerCase()
     if (!q) return recent.map((text) => ({ text, recent: true }))
     const matchingRecent = recent.filter((r) => r.toLowerCase().startsWith(lower) && r.toLowerCase() !== lower)
-    const local = (extra ?? []).filter((e) => e.toLowerCase().includes(lower))
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const nq = norm(q)
+    const hits = (extra ?? []).filter((e) => norm(e).includes(nq))
+    const local = [...hits.filter((e) => norm(e).startsWith(nq)), ...hits.filter((e) => !norm(e).startsWith(nq))]
     const seen = new Set<string>()
     return [
       ...matchingRecent.map((text) => ({ text, recent: true })),

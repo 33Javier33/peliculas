@@ -10,6 +10,7 @@ import { loadArchiveInfo as loadInfo, type ArchiveInfo as Info } from '@/lib/arc
 import { useView } from '@/components/ViewToggle'
 import { readSession, patchSession } from '@/lib/session-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 // Buscador de Internet Archive: discos y grabaciones para escuchar al tiro o guardar en
 // "Desde un enlace" (ordenados por disco, con su carátula e información).
@@ -204,6 +205,17 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
 
   const saved = new Set(albums.map((a) => a.source))
 
+  // Autocompletado: artistas y discos de archive.org (o de la música libre) mientras se escribe
+  const suggestions = useSearchSuggestions({
+    kind: variant === 'free' ? 'free' : 'archive',
+    value: q,
+    onChange: setQ,
+    onPick: (s) => {
+      setQ(s)
+      search(s)
+    },
+  })
+
   return (
     <section onClickCapture={rememberScroll} className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4">
       <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
@@ -218,14 +230,19 @@ export default function ArchiveSearchSection({ variant = 'archive' }: { variant?
         }}
         className="flex gap-2"
       >
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Artista, disco o género"
-          aria-label={`Buscar en ${cfg.title}`}
-          className="min-w-0 flex-1 bg-surface-2 border border-white/10 text-white placeholder-slate-500 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
-        />
+        <div className="relative min-w-0 flex-1">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Artista, disco o género"
+            aria-label={`Buscar en ${cfg.title}`}
+            enterKeyHint="search"
+            className="w-full bg-surface-2 border border-white/10 text-white placeholder-slate-500 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-amber-400"
+            {...suggestions.inputProps}
+          />
+          {suggestions.dropdown}
+        </div>
         <button type="submit" disabled={searching || !q.trim()} className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-amber-500 text-black text-sm font-semibold disabled:opacity-50">
           {searching && page === 1 && !artist ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Buscar
         </button>

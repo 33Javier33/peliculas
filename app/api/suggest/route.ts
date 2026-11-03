@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getInstances, fetchJson } from '@/lib/audio-sources'
 import { searchMovies } from '@/lib/tmdb'
 import { getRequestRegion } from '@/lib/region'
+import { suggestArchiveAudio } from '@/lib/archive-audio'
+import { suggestArchiveMovies } from '@/lib/archive'
 
 // Sugerencias de búsqueda mientras se escribe.
-// /api/suggest?kind=music|video|movies|radio&q=texto
+// /api/suggest?kind=music|video|movies|radio|archive|free|freemovies&q=texto
 // - music/video: autocompletado de YouTube (sin clave ni cuota) y, de respaldo, Invidious
 // - movies: títulos de TMDB
 // - radio: nombres de emisoras de Radio Browser
+// - archive / free: artistas y discos de Internet Archive (free: solo música libre)
+// - freemovies (&tab=es|classic): títulos de películas libres de Internet Archive
 
 const MAX = 8
 
@@ -62,6 +66,10 @@ export async function GET(request: NextRequest) {
       suggestions = data.results.map((m) => m.title)
     } else if (kind === 'radio') {
       suggestions = await radioSuggest(q)
+    } else if (kind === 'archive' || kind === 'free') {
+      suggestions = await suggestArchiveAudio(q, kind === 'free' ? 'free' : 'all')
+    } else if (kind === 'freemovies') {
+      suggestions = await suggestArchiveMovies(q, searchParams.get('tab') === 'classic' ? 'classic' : 'es')
     } else {
       suggestions = await youtubeSuggest(q, getRequestRegion(request)).catch(() => invidiousSuggest(q))
       if (suggestions.length === 0) suggestions = await invidiousSuggest(q)

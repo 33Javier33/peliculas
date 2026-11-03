@@ -1,0 +1,18 @@
+name: diagnostico
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set +e
+          S=https://peliculas-neon.vercel.app
+          for i in $(seq 1 40); do curl -s $S/api/version | grep -q '2\.72\.0' && break; sleep 15; done
+          for k in "archive|grate" "archive|soda ste" "archive|pedro inf" "archive|jazz" "free|ambi" "free|kevin mac" "freemovies&tab=classic|nosfer" "freemovies&tab=classic|chaplin" "freemovies&tab=es|el" "music|soda ste" "radio|rock"; do
+            kind="${k%%|*}"; q="${k#*|}"
+            t0=$(date +%s%N); r=$(curl -s "$S/api/suggest?kind=$kind&q=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$q")"); t1=$(date +%s%N)
+            echo "$kind «$q» ($(( (t1-t0)/1000000 )) ms): $r"
+          done

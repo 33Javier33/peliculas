@@ -117,3 +117,48 @@ export async function searchArchiveArtists(q: string, scope: ArchiveScope = 'all
     .slice(0, 40)
     .map(({ name, count, cover }) => ({ name, count, cover }))
 }
+
+/**
+ * Autocompletado de archive.org: artistas y discos que empiezan como lo escrito (los más
+ * escuchados primero). scope "free": solo la música libre (Jamendo, FMA, sellos independientes).
+ */
+export async function suggestArchiveAudio(q: string, scope: ArchiveScope = 'all'): Promise<string[]> {
+  const words = clean(q).replace(/\b(AND|OR|NOT)\b/g, ' ').split(' ').filter(Boolean).slice(0, 5)
+  if (!words.length) return []
+  // Todas las palabras; la última, a medio escribir (ste → stereo)
+  const expr = words.map((w, i) => (i === words.length - 1 && w.length >= 2 ? `${w}*` : w)).join(' AND ')
+  const params = new URLSearchParams({
+    q: [`(creator:(${expr}) OR title:(${expr}))`, ...scopeTerms(scope), 'mediatype:(audio)', 'NOT collection:(podcasts OR radioprograms OR audio_podcast)'].join(' AND '),
+    rows: '50',
+    output: 'json',
+  })
+  params.append('fl[]', 'creator')
+  params.append('fl[]', 'title')
+  params.append('sort[]', 'downloads desc')
+  const res = await fetch(`${ARCHIVE}/advancedsearch.php?${params}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(6000),
+  })
+  if (!res.ok) throw new Error(`Internet Archive respondió ${res.status}`)
+  const docs = ((await res.json()) as { response?: { docs?: Doc[] } }).response?.docs ?? []
+  return rankSuggestions(q, docs.flatMap((d) => [first(d.creator), first(d.title)]))
+}
+
+/** Solo lo que coincide con lo escrito: primero lo que empieza igual, sin repetidos ni textos larguísimos */
+export function rankSuggestions(q: string, list: string[]): string[] {
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const words = norm(q).split(/\s+/).filter(Boolean)
+  const seen = new Set<string>()
+  const ok = list
+    .map((s) => s.replace(/\s+/g, ' ').trim())
+    .filter((s) => s.length > 1 && s.length <= 70 && !/^\d+$/.test(s))
+    .filter((s) => {
+      const n = norm(s)
+      if (seen.has(n)) return false
+      seen.add(n)
+      return words.every((w) => n.includes(w))
+    })
+  const starts = ok.filter((s) => norm(s).startsWith(words.join(' ')))
+  return [...starts, ...ok.filter((s) => !starts.includes(s))].slice(0, 8)
+}

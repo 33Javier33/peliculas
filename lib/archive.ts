@@ -256,3 +256,24 @@ export async function getArchiveSubtitle(identifier: string, file: string): Prom
   }
   return srtToVtt(text)
 }
+
+/** Autocompletado de películas libres: títulos del mismo catálogo que se busca (es o clásicos) */
+export async function suggestArchiveMovies(q: string, kind: 'es' | 'classic'): Promise<string[]> {
+  const words = q.replace(/["():*?\[\]{}^~!\\/]/g, ' ').replace(/\b(AND|OR|NOT)\b/g, ' ').split(/\s+/).filter(Boolean).slice(0, 5)
+  if (!words.length) return []
+  const expr = words.map((w, i) => (i === words.length - 1 && w.length >= 2 ? `${w}*` : w)).join(' AND ')
+  const terms = [FILM_COLLECTIONS, 'mediatype:(movies)', EXCLUDE, kind === 'es' ? `${SPANISH} AND ${SPANISH_PD}` : CLASSIC_PD, `(title:(${expr}) OR creator:(${expr}))`]
+  const params = new URLSearchParams({ q: terms.join(' AND '), rows: '40', output: 'json' })
+  params.append('fl[]', 'title')
+  params.append('fl[]', 'creator')
+  params.append('sort[]', 'downloads desc')
+  const res = await fetch(`${ARCHIVE}/advancedsearch.php?${params}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarlosPNautoInteractive/1.0)' },
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(6000),
+  })
+  if (!res.ok) throw new Error(`Archive ${res.status}`)
+  const docs = ((await res.json()) as { response?: { docs?: Doc[] } }).response?.docs ?? []
+  const { rankSuggestions } = await import('@/lib/archive-audio')
+  return rankSuggestions(q, docs.flatMap((d) => [first(d.title), first((d as { creator?: string | string[] }).creator)]))
+}
