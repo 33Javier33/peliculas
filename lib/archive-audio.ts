@@ -178,13 +178,17 @@ const DEEZER = process.env.DEEZER_API_BASE || 'https://api.deezer.com'
 export async function searchArchiveSongs(q: string, scope: ArchiveScope = 'all'): Promise<{ results: ArchiveAudioResult[]; total: number }> {
   const text = clean(q).replace(/\b(AND|OR|NOT)\b/g, ' ').trim()
   if (!text) return { results: [], total: 0 }
-  const dz = await fetch(`${DEEZER}/search?${new URLSearchParams({ q: text, limit: '25' })}`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) })
+  const dz = await fetch(`${DEEZER}/search?${new URLSearchParams({ q: `track:"${text}"`, limit: '50' })}`, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(6000) })
     .then((r) => (r.ok ? r.json() : { data: [] }))
-    .catch(() => ({ data: [] })) as { data?: { title?: string; artist?: { name?: string }; album?: { title?: string } }[] }
+    .catch(() => ({ data: [] })) as { data?: { title?: string; rank?: number; artist?: { name?: string }; album?: { title?: string } }[] }
   // Cada disco una vez (el mismo tema sale en varias ediciones)
   const pairs: { song: string; artist: string; album: string }[] = []
   const seen = new Set<string>()
-  for (const t of dz.data ?? []) {
+  // Solo canciones que se llaman como lo escrito ("Battery", no "Batter Up"), las más escuchadas primero
+  const norm = (x = '') => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const want = norm(text)
+  const tracks = (dz.data ?? []).filter((t) => norm(t.title) === want || norm(t.title).startsWith(`${want} `)).sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0))
+  for (const t of tracks) {
     const song = t.title?.trim()
     const artist = t.artist?.name?.trim()
     const album = t.album?.title?.replace(/\s*\((?:remaster|deluxe|expanded|edición)[^)]*\)/gi, '').trim()
