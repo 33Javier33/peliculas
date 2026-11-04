@@ -2,7 +2,7 @@
 // - Al iniciar sesión: se juntan lo del teléfono y lo respaldado (sin perder nada) y se sube.
 // - Después: cada cambio se sube a los pocos segundos; al abrir la app, si otro dispositivo
 //   respaldó algo más nuevo, se trae (así también se reflejan las canciones quitadas).
-import { useMusicStore } from '@/store/musicStore'
+import { useMusicStore, splitHeartedAlbums } from '@/store/musicStore'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useLinksStore } from '@/store/linksStore'
 import { useFollowStore } from '@/store/followStore'
@@ -15,6 +15,8 @@ import { useLangStore } from '@/store/langStore'
 export interface Backup {
   v: 1
   saved: ReturnType<typeof useMusicStore.getState>['saved']
+  /** Álbumes guardados (con su ♥, sin marcar sus canciones) */
+  albums?: ReturnType<typeof useMusicStore.getState>['savedAlbums']
   playlists: ReturnType<typeof usePlaylistStore.getState>['playlists']
   links: { tracks: ReturnType<typeof useLinksStore.getState>['tracks']; albums: ReturnType<typeof useLinksStore.getState>['albums'] }
   follow: ReturnType<typeof useFollowStore.getState>['artists']
@@ -39,6 +41,7 @@ export function snapshot(): Backup {
   return {
     v: 1,
     saved: m.saved,
+    albums: m.savedAlbums,
     playlists: usePlaylistStore.getState().playlists,
     links: { tracks: l.tracks, albums: l.albums },
     follow: useFollowStore.getState().artists,
@@ -57,7 +60,8 @@ export function snapshot(): Backup {
 
 /** Reemplaza lo del teléfono por el respaldo */
 export function apply(b: Backup) {
-  useMusicStore.setState({ saved: b.saved ?? [], audioBoost: !!b.prefs?.audioBoost, radioEnabled: b.prefs?.radioEnabled ?? true })
+  const split = splitHeartedAlbums(b.saved ?? [], b.albums ?? useMusicStore.getState().savedAlbums)
+  useMusicStore.setState({ saved: split.saved, savedAlbums: split.savedAlbums, albumsSplit: true, audioBoost: !!b.prefs?.audioBoost, radioEnabled: b.prefs?.radioEnabled ?? true })
   usePlaylistStore.setState({ playlists: b.playlists ?? [] })
   useLinksStore.setState({ tracks: b.links?.tracks ?? [], albums: b.links?.albums ?? [] })
   useFollowStore.setState({ artists: b.follow ?? [] })
@@ -91,6 +95,7 @@ export function merge(local: Backup, remote: Backup): Backup {
   return {
     v: 1,
     saved: union(remote.saved, local.saved, (t) => t.id),
+    albums: union(remote.albums, local.albums, (a) => a.id),
     playlists,
     links: { tracks: union(remote.links?.tracks, local.links?.tracks, (t) => t.id), albums },
     follow: union(remote.follow, local.follow, (a) => String(a.id)),

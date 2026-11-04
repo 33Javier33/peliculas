@@ -31,7 +31,7 @@ const TYPE_LABEL: Record<string, string> = { album: 'Álbum', single: 'Sencillo'
 
 export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
   const shuffleOn = useShuffleOn(`album:${album.id}`)
-  const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved, saveTrack } = useMusicStore(
+  const { play, queue, currentIndex, isPlaying, isVisible, shuffle, toggleShuffle, saved } = useMusicStore(
     useShallow((s) => ({
       play: s.play,
       queue: s.queue,
@@ -41,7 +41,6 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
       shuffle: s.shuffle,
       toggleShuffle: s.toggleShuffle,
       saved: s.saved,
-      saveTrack: s.saveTrack,
     }))
   )
   // Al abrir el álbum ya se puede reproducir: cada canción busca su video justo antes de sonar.
@@ -108,8 +107,14 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
 
   const savedIds = new Set(mounted ? saved.map((t) => t.id) : [])
   // Para guardar en la biblioteca hacen falta los videos ya encontrados
-  const allSaved = !!resolved?.length && resolved.every((t) => savedIds.has(t.id))
-  const saveAlbum = () => resolved?.forEach((t) => saveTrack(t))
+  // ♥ del álbum: lo guarda en tu biblioteca como álbum (sus canciones no quedan con ♥: eso es Me gusta)
+  const albumKey = `deezer-${album.id}`
+  const allSaved = useMusicStore((s) => s.savedAlbums.some((a) => a.id === albumKey))
+  const saveAlbum = () => {
+    const tracks = resolved?.length ? resolved : playable
+    if (!tracks?.length) return
+    useMusicStore.getState().toggleAlbum({ id: albumKey, title: album.title, artist: album.artist.name, cover: album.cover, tracks })
+  }
 
   return (
     <div className="relative min-h-screen pt-20 pb-32 overflow-hidden">
@@ -174,12 +179,12 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           </button>
           <button
             onClick={saveAlbum}
-            disabled={!resolved || allSaved}
+            disabled={!resolved && !playable?.length}
             className={`w-12 h-12 rounded-full border flex items-center justify-center disabled:cursor-default ${
               allSaved ? 'bg-violet-500/20 border-violet-400/40 text-violet-300' : 'bg-surface-2/80 border-white/10 text-slate-200'
             } ${status !== 'ready' ? 'opacity-50' : ''}`}
-            aria-label={allSaved ? 'Álbum guardado en tu biblioteca' : 'Guardar álbum en mi biblioteca'}
-            title={allSaved ? 'Guardado en tu biblioteca' : 'Guardar en mi biblioteca'}
+            aria-label={allSaved ? 'Quitar el álbum de tu biblioteca' : 'Me gusta este álbum: guardarlo en tu biblioteca'}
+            title={allSaved ? 'Álbum en tu biblioteca (toca para quitarlo)' : 'Me gusta el álbum'}
           >
             <Heart className={`w-5 h-5 ${allSaved ? 'fill-violet-300' : ''}`} />
           </button>
@@ -207,11 +212,11 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
             const idx = indexOf(t.title, t.position)
             const isCurrent = isAlbumPlaying && idx >= 0 && playable?.[idx]?.title === current?.title
             return (
-              <li key={t.id}>
+              <li key={t.id} className="flex items-center">
                 <button
                   onClick={() => playFrom(idx)}
                   disabled={status !== 'ready'}
-                  className={`w-full flex items-center gap-3 px-3 sm:px-4 py-3 text-left transition-colors ${
+                  className={`min-w-0 flex-1 flex items-center gap-3 px-3 sm:px-4 py-3 text-left transition-colors ${
                     isCurrent ? 'bg-violet-500/15' : 'hover:bg-white/5'
                   }`}
                 >
@@ -234,6 +239,22 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
                   </span>
                   <span className="text-xs text-slate-500 font-mono shrink-0">{formatDuration(t.duration)}</span>
                 </button>
+                {/* ♥ de la canción: Me gusta (solo esta canción, no el álbum) */}
+                {(() => {
+                  const video = idx >= 0 ? resolved?.[idx] : undefined
+                  const liked = !!video && savedIds.has(video.id)
+                  return (
+                    <button
+                      onClick={() => video && useMusicStore.getState().toggleSaved(video)}
+                      disabled={!video}
+                      className={`shrink-0 w-11 h-11 flex items-center justify-center disabled:opacity-30 ${liked ? 'text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                      aria-pressed={liked}
+                      aria-label={liked ? `Quitar ${t.title} de Me gusta` : `Me gusta ${t.title}`}
+                    >
+                      <Heart className={`w-4 h-4 ${liked ? 'fill-purple-400' : ''}`} />
+                    </button>
+                  )
+                })()}
               </li>
             )
           })}

@@ -64,6 +64,8 @@ const albumOf = (t: MusicVideo) => (t.album || '').trim()
 function groupTracks(k: string, id: string): MusicVideo[] {
   if (k === 'artist') return savedSorted().filter((t) => songArtist(t).toLowerCase() === id.toLowerCase())
   if (k === 'album') {
+    // Álbum guardado con su ♥
+    if (id.startsWith('saved:')) return useMusicStore.getState().savedAlbums.find((a) => a.id === id.slice(6))?.tracks ?? []
     const [album, artist] = id.split('||')
     return savedSorted().filter((t) => albumOf(t) === album && songArtist(t).toLowerCase() === (artist || '').toLowerCase())
   }
@@ -99,10 +101,13 @@ async function library() {
       .sort((a, b) => b[1].n - a[1].n)
       .slice(0, 60)
       .map(([, v]) => ({ id: v.t, t: v.t.slice(0, 50), s: `${v.n} ${v.n === 1 ? 'canción' : 'canciones'}`, img: v.img })),
-    albums: Array.from(albums.entries())
+    albums: [
+      ...useMusicStore.getState().savedAlbums.map((a) => ({ id: `saved:${a.id}`, t: a.title.slice(0, 50), s: a.artist.slice(0, 40), img: a.cover?.startsWith('http') ? a.cover : img(a.tracks[0]) })),
+      ...Array.from(albums.entries())
       .sort((a, b) => b[1].n - a[1].n)
       .slice(0, 60)
       .map(([id, v]) => ({ id, t: v.t.slice(0, 50), s: v.s.slice(0, 40), img: v.img })),
+    ],
     mixes: libraryMixes().map((m) => ({ id: m.genre, t: `Tu ${m.label}`, s: `${m.tracks.length} canciones`, img: img(m.tracks[0]) })),
     genres: ARCHIVE_RADIO_GENRES.map((g) => ({ id: g.id, t: `${g.icon} ${g.label}`, s: 'Radio de archive.org' })),
     nts: [

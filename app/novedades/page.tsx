@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Users,
     color: 'from-violet-500 to-sky-500',
     items: [
+      '♥ en una canción es Me gusta y ♥ en un álbum lo guarda sin marcar todas sus canciones; nueva lista Tus me gusta solo con tus ♥',
+      'Las mezclas de tu biblioteca muestran barritas y «Sonando» en la que se está escuchando',
       'Comunidad de playlists: comparte tus playlists y mezclas con un nombre público (nunca el correo), escucha y guarda las de otros',
       'Mezclas de la comunidad por género, hechas con lo que comparten todos y sin canciones repetidas',
       'Mezclas de tu biblioteca: una playlist por género que se arma sola (Tu Rock, Tu Latina…)',

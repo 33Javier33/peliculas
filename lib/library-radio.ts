@@ -81,8 +81,8 @@ export function songArtist(t: MusicVideo): string {
 
 /** Canciones de la biblioteca: ♥, discos guardados (archive.org y enlaces) y todo lo descargado */
 export function librarySongs(): MusicVideo[] {
-  const { saved } = useMusicStore.getState()
-  const links = useLinksStore.getState().tracks
+  const { saved, savedAlbums } = useMusicStore.getState()
+  const links = [...useLinksStore.getState().tracks, ...(savedAlbums ?? []).flatMap((a) => a.tracks)]
   const downloaded = Object.values(useOfflineStore.getState().items).map((i) => i.track)
   const all = [...saved, ...links, ...downloaded].filter((t) => !t.streamUrl)
   const seen = new Set<string>()

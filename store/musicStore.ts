@@ -11,6 +11,49 @@ export interface SavedTrack extends MusicVideo {
   artist?: string
 }
 
+/** Álbum guardado en la biblioteca con su ♥ (sus canciones NO quedan con ♥: eso es Me gusta) */
+export interface SavedAlbum {
+  id: string
+  title: string
+  artist: string
+  cover: string
+  tracks: MusicVideo[]
+  savedAt: number
+}
+
+/**
+ * Antes, guardar un álbum le ponía ♥ a cada canción. 3 o más canciones del mismo álbum con ♥ en el
+ * mismo instante (menos de 5 s) eran un álbum guardado: pasan a Álbumes guardados y quedan sin ♥.
+ */
+export function splitHeartedAlbums(saved: SavedTrack[], savedAlbums: SavedAlbum[]) {
+  const groups = new Map<string, SavedTrack[]>()
+  for (const t of saved) {
+    if (!t.album) continue
+    const k = `${t.album}||${t.artist ?? ''}`.toLowerCase()
+    groups.set(k, [...(groups.get(k) ?? []), t])
+  }
+  const moved = new Set<string>()
+  const albums: SavedAlbum[] = []
+  const known = new Set(savedAlbums.map((a) => a.id))
+  for (const list of Array.from(groups.values())) {
+    const times = list.map((t) => t.savedAt)
+    if (list.length < 3 || Math.max(...times) - Math.min(...times) > 5000) continue
+    list.forEach((t) => moved.add(t.id))
+    const id = `split-${list[0].album}-${list[0].artist ?? ''}`
+    if (known.has(id)) continue
+    albums.push({
+      id,
+      title: list[0].album!,
+      artist: list[0].artist ?? list[0].channelTitle,
+      cover: list[0].thumbnail,
+      tracks: [...list].reverse().map(({ savedAt: _s, ...t }) => t),
+      savedAt: Math.min(...times),
+    })
+  }
+  if (!moved.size) return { saved, savedAlbums }
+  return { saved: saved.filter((t) => !moved.has(t.id)), savedAlbums: [...albums, ...savedAlbums] }
+}
+
 export interface HistoryEntry extends MusicVideo {
   playedAt: number
   plays: number
@@ -36,6 +79,10 @@ interface MusicState {
   isQueueOpen: boolean
   seekCallback: ((fraction: number) => void) | null
   saved: SavedTrack[]
+  savedAlbums: SavedAlbum[]
+  /** Ya se separaron los álbumes guardados antes como ♥ en cada canción */
+  albumsSplit: boolean
+  toggleAlbum: (album: Omit<SavedAlbum, 'savedAt'>) => void
   history: HistoryEntry[]
   audioBoost: boolean
   // Modo audio: reproduce solo el sonido con un <audio> propio (sigue en segundo plano)
@@ -208,6 +255,13 @@ export const useMusicStore = create<MusicStore>()(
       isQueueOpen: false,
       seekCallback: null,
       saved: [],
+      savedAlbums: [],
+      albumsSplit: false,
+      toggleAlbum: (album) => {
+        const { savedAlbums } = get()
+        if (savedAlbums.some((a) => a.id === album.id)) set({ savedAlbums: savedAlbums.filter((a) => a.id !== album.id) })
+        else set({ savedAlbums: [{ ...album, savedAt: Date.now() }, ...savedAlbums] })
+      },
       history: [],
       audioBoost: false,
       audioMode: true,
@@ -452,6 +506,8 @@ export const useMusicStore = create<MusicStore>()(
       version: 2,
       partialize: (state) => ({
         saved: state.saved,
+        savedAlbums: state.savedAlbums,
+        albumsSplit: state.albumsSplit,
         volume: state.volume,
         isMuted: state.isMuted,
         queue: state.queue,
@@ -478,6 +534,14 @@ export const useMusicStore = create<MusicStore>()(
           state.queue = state.queue.map(clean)
           state.history = state.history.map(clean)
           state.saved = state.saved.map(clean)
+          state.savedAlbums = state.savedAlbums ?? []
+          // Antes, guardar un álbum le ponía ♥ a cada canción: se separan una vez
+          if (!state.albumsSplit) {
+            const r = splitHeartedAlbums(state.saved, state.savedAlbums)
+            state.saved = r.saved
+            state.savedAlbums = r.savedAlbums
+            state.albumsSplit = true
+          }
           state.isPlaying = false
           state.resumeAt = state.played || 0
           state.duration = 0

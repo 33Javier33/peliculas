@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Play, Users, ListPlus, ChevronRight, Check } from 'lucide-react'
+import { Play, Users, ListPlus, ChevronRight, Check, Heart } from 'lucide-react'
 import { libraryMixes, type Mix } from '@/lib/community'
 import { classifyLibrary } from '@/lib/library-radio'
 import { useMusicStore } from '@/store/musicStore'
 import { usePlaylistStore } from '@/store/playlistStore'
-import { markShuffle } from '@/lib/shuffle-ui'
+import { markSource, usePlayingFrom } from '@/lib/shuffle-ui'
+import type { MusicVideo } from '@/lib/youtube-music'
 import CommunityShareButton from '@/components/CommunityShareButton'
 
 // Biblioteca: playlists que se arman solas con tu música, una por género (Tu Rock, Tu Latina…).
@@ -39,7 +40,17 @@ export default function LibraryMixesSection() {
     const st = useMusicStore.getState()
     if (!st.shuffle) st.toggleShuffle()
     st.play(m.tracks, 0)
-    markShuffle(`mix:${m.genre}`)
+    markSource(`mix:${m.genre}`)
+  }
+  // Tus me gusta: solo las canciones a las que les diste ♥ (las más recientes primero)
+  const likedRaw = useMusicStore((s) => s.saved)
+  const liked = useMemo(() => [...likedRaw].sort((a, b) => b.savedAt - a.savedAt), [likedRaw])
+  const playLiked = () => {
+    if (!liked.length) return
+    const st = useMusicStore.getState()
+    if (st.shuffle) st.toggleShuffle()
+    st.play(liked, 0)
+    markSource('liked')
   }
   const keep = (m: Mix) => {
     usePlaylistStore.getState().create(`Mi ${m.label}`, m.tracks)
@@ -56,6 +67,11 @@ export default function LibraryMixesSection() {
         </Link>
       </div>
       <p className="text-slate-400 text-xs mb-3">Se arman solas con tu música, por género. Puedes guardarlas como playlist o compartirlas.</p>
+      {liked.length > 0 && (
+        <div className="mb-3">
+          <LikedCard tracks={liked} onPlay={playLiked} />
+        </div>
+      )}
       {mixes.length === 0 ? (
         <p className="text-slate-500 text-sm rounded-2xl border border-dashed border-white/10 p-4">
           Guarda canciones en tu biblioteca: cuando la app conozca sus géneros aparecerán tus mezclas aquí.
@@ -66,7 +82,7 @@ export default function LibraryMixesSection() {
             const covers = m.tracks.map((t) => t.thumbnail).filter((u) => u?.startsWith('http')).slice(0, 4)
             return (
               <div key={m.genre} className="w-40 shrink-0 snap-start">
-                <button onClick={() => play(m)} className="relative block w-40 h-40 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-600 to-fuchsia-700 group" aria-label={`Escuchar la mezcla ${m.label}`}>
+                <MixCover sourceKey={`mix:${m.genre}`} onClick={() => play(m)} label={`Escuchar la mezcla ${m.label}`}>
                   <div className="grid grid-cols-2 grid-rows-2 w-full h-full opacity-80">
                     {covers.map((u, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -78,10 +94,7 @@ export default function LibraryMixesSection() {
                     <span className="block text-white font-bold font-display text-lg leading-tight">Tu {m.label}</span>
                     <span className="block text-white/70 text-[11px]">{m.tracks.length} canciones</span>
                   </span>
-                  <span className="absolute right-2.5 bottom-2.5 w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-lg">
-                    <Play className="w-4 h-4 fill-black ml-0.5" />
-                  </span>
-                </button>
+                </MixCover>
                 <div className="mt-2 flex items-center gap-1.5">
                   <button
                     onClick={() => keep(m)}
@@ -99,5 +112,61 @@ export default function LibraryMixesSection() {
         </div>
       )}
     </section>
+  )
+}
+
+/** Barritas de "está sonando" */
+function Bars({ moving }: { moving: boolean }) {
+  return (
+    <span className="flex items-end gap-[3px] h-4" aria-hidden>
+      {[0, 150, 300].map((d) => (
+        <span key={d} className={`w-[3px] h-full bg-current rounded-full origin-bottom ${moving ? 'animate-eq' : 'scale-y-50'}`} style={{ animationDelay: `${d}ms` }} />
+      ))}
+    </span>
+  )
+}
+
+/** Portada de una mezcla: si está sonando, se marca con barritas y un borde de color */
+function MixCover({ sourceKey, onClick, label, children }: { sourceKey: string; onClick: () => void; label: string; children: React.ReactNode }) {
+  const state = usePlayingFrom(sourceKey)
+  return (
+    <button
+      onClick={onClick}
+      className={`relative block w-40 h-40 rounded-2xl overflow-hidden bg-gradient-to-br from-violet-600 to-fuchsia-700 group ${state ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-obsidian' : ''}`}
+      aria-label={label}
+    >
+      {children}
+      <span className={`absolute right-2.5 bottom-2.5 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
+        {state ? <Bars moving={state === 'playing'} /> : <Play className="w-4 h-4 fill-black ml-0.5" />}
+      </span>
+      {state && (
+        <span className="absolute left-2.5 top-2.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5">{state === 'playing' ? 'Sonando' : 'En pausa'}</span>
+      )}
+    </button>
+  )
+}
+
+/** Tus me gusta: las canciones con ♥ (no las de álbumes guardados) */
+function LikedCard({ tracks, onPlay }: { tracks: MusicVideo[]; onPlay: () => void }) {
+  const state = usePlayingFrom('liked')
+  return (
+    <button
+      onClick={onPlay}
+      className={`w-full flex items-center gap-3 rounded-2xl p-3 text-left bg-gradient-to-r from-violet-700 via-fuchsia-700 to-rose-600 ${state ? 'ring-2 ring-emerald-400' : ''}`}
+      aria-label="Escuchar Tus me gusta"
+    >
+      <span className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+        <Heart className="w-6 h-6 text-white fill-white" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-white font-bold font-display">Tus me gusta</span>
+        <span className="block text-white/80 text-xs">
+          {tracks.length} {tracks.length === 1 ? 'canción' : 'canciones'} con ♥{state ? (state === 'playing' ? ' · sonando' : ' · en pausa') : ''}
+        </span>
+      </span>
+      <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
+        {state ? <Bars moving={state === 'playing'} /> : <Play className="w-5 h-5 fill-black ml-0.5" />}
+      </span>
+    </button>
   )
 }

@@ -74,6 +74,10 @@ export default function MusicLibraryClient() {
   const linkAlbums = useLinksStore((s) => s.albums)
   const removeLinkTrack = useLinksStore((s) => s.removeTrack)
   const downloadedItems = useOfflineStore((s) => s.items)
+  const savedAlbums = useMusicStore((s) => s.savedAlbums)
+  // ♥ = Me gusta: solo las canciones que marcaste tú (no las de un álbum guardado o descargado)
+  const likedIds = useMemo(() => new Set(liked.map((t) => t.id)), [liked])
+  const toggleLike = (t: MusicVideo) => useMusicStore.getState().toggleSaved(t)
   const saved = useMemo<SavedTrack[]>(() => {
     const addedAt = new Map<string, number>()
     for (const a of linkAlbums) a.trackIds.forEach((id, i) => addedAt.set(id, a.addedAt - i))
@@ -82,14 +86,27 @@ export default function MusicLibraryClient() {
       .filter((t) => !known.has(t.id))
       .map((t, i) => ({ ...t, artist: t.channelTitle, album: t.album, savedAt: addedAt.get(t.id) ?? -i }))
     fromLinks.forEach((t) => known.add(t.id))
+    // Álbumes guardados con su ♥ (sus canciones están en la biblioteca sin ♥ propio)
+    const fromAlbums = savedAlbums.flatMap((al, ai) =>
+      al.tracks
+        .filter((t) => !known.has(t.id) && known.add(t.id))
+        .map((t, i) => ({ ...t, artist: (t as { artist?: string }).artist || al.artist, album: t.album || al.title, savedAt: al.savedAt - ai - i / 1000 }))
+    )
     // También lo descargado (discos completos de archive.org aunque no tengan ♥)
     const fromDownloads = Object.values(downloadedItems)
       .filter((i) => !known.has(i.track.id) && !i.track.streamUrl && known.add(i.track.id))
       .map((i) => ({ ...i.track, artist: i.track.channelTitle, album: i.track.album || i.groupTitle, savedAt: i.savedAt }))
-    return [...liked, ...fromLinks, ...fromDownloads]
-  }, [liked, linkTracks, linkAlbums, downloadedItems])
+    return [...liked, ...fromLinks, ...fromAlbums, ...fromDownloads]
+  }, [liked, linkTracks, linkAlbums, downloadedItems, savedAlbums])
   const removeSaved = (id: string) => {
     if (liked.some((t) => t.id === id)) return removeLiked(id)
+    // De un álbum guardado: sale del álbum (y el álbum, si queda vacío)
+    const al = savedAlbums.find((a) => a.tracks.some((t) => t.id === id))
+    if (al) {
+      const rest = al.tracks.filter((t) => t.id !== id)
+      useMusicStore.setState({ savedAlbums: rest.length ? savedAlbums.map((a) => (a.id === al.id ? { ...a, tracks: rest } : a)) : savedAlbums.filter((a) => a.id !== al.id) })
+      return
+    }
     if (linkTracks.some((t) => t.id === id)) return removeLinkTrack(id)
     // Solo descargada: se borra del teléfono
     const key = Object.values(downloadedItems).find((i) => i.track.id === id)?.key
@@ -554,13 +571,24 @@ export default function MusicLibraryClient() {
                               <Plus className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => removeSaved(track.id)}
-                              className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-purple-400 hover:text-purple-300"
-                              aria-label="Quitar de guardadas"
-                              title="Quitar de guardadas"
+                              onClick={() => toggleLike(track)}
+                              className={`w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center ${likedIds.has(track.id) ? 'text-purple-400' : 'text-white/80 hover:text-white'}`}
+                              aria-pressed={likedIds.has(track.id)}
+                              aria-label={likedIds.has(track.id) ? 'Quitar de Me gusta' : 'Me gusta'}
+                              title={likedIds.has(track.id) ? 'Quitar de Me gusta' : 'Me gusta'}
                             >
-                              <Heart className="w-4 h-4 fill-purple-400" />
+                              <Heart className={`w-4 h-4 ${likedIds.has(track.id) ? 'fill-purple-400' : ''}`} />
                             </button>
+                            {!likedIds.has(track.id) && (
+                              <button
+                                onClick={() => removeSaved(track.id)}
+                                className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white"
+                                aria-label="Quitar de la biblioteca"
+                                title="Quitar de la biblioteca"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )
@@ -658,13 +686,28 @@ export default function MusicLibraryClient() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              removeSaved(track.id)
+                              toggleLike(track)
                             }}
-                            className="p-2 text-purple-500 hover:text-purple-400 transition-colors"
-                            title="Quitar de guardadas"
+                            className={`p-2 transition-colors ${likedIds.has(track.id) ? 'text-purple-500 hover:text-purple-400' : 'text-slate-500 hover:text-white'}`}
+                            aria-pressed={likedIds.has(track.id)}
+                            aria-label={likedIds.has(track.id) ? 'Quitar de Me gusta' : 'Me gusta'}
+                            title={likedIds.has(track.id) ? 'Quitar de Me gusta' : 'Me gusta'}
                           >
-                            <Heart className="w-4 h-4 fill-purple-500" />
+                            <Heart className={`w-4 h-4 ${likedIds.has(track.id) ? 'fill-purple-500' : ''}`} />
                           </button>
+                          {!likedIds.has(track.id) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeSaved(track.id)
+                              }}
+                              className="p-2 text-slate-600 hover:text-white transition-colors"
+                              aria-label="Quitar de la biblioteca"
+                              title="Quitar de la biblioteca"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </li>
                     ))}
