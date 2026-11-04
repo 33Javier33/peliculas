@@ -329,6 +329,45 @@ export async function getArtistTopTracks(opts: { id?: number; name?: string }, l
   })
 }
 
+/**
+ * Para seguir cuando termina lo que sonaba: canciones de artistas parecidos (los "relacionados" de
+ * Deezer) mezcladas con unas pocas del mismo artista. Todas "pendientes" (se buscan al sonar).
+ */
+export async function getSimilarTracks(opts: { id?: number; name?: string }, skip: string[] = []): Promise<MusicVideo[]> {
+  let id = opts.id
+  if (!id && opts.name) {
+    const found = await deezer<{ data: DzArtist[] }>(`/search/artist?q=${encodeURIComponent(opts.name)}&limit=5`, 86400).catch(() => ({ data: [] }))
+    const want = normalize(opts.name)
+    id = (found.data.find((a) => normalize(a.name) === want) ?? found.data[0])?.id
+  }
+  if (!id) return []
+  const related = await deezer<{ data: DzArtist[] }>(`/artist/${id}/related?limit=20`, 86400).catch(() => ({ data: [] }))
+  // Unos cuantos distintos cada vez (no siempre los mismos primeros)
+  const pool = related.data.slice(0, 20)
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  const pick = <T,>(a: T[], n: number) => [...a].sort(() => Math.random() - 0.5).slice(0, n)
+  const lists = await Promise.all([
+    getArtistTopTracks({ id }, 15).then((t) => pick(t, 3)).catch(() => []),
+    ...pool.slice(0, 7).map((a) => getArtistTopTracks({ id: a.id, name: a.name }, 10).then((t) => pick(t, 3)).catch(() => [] as MusicVideo[])),
+  ])
+  const seen = new Set(skip.map(normalize))
+  // Intercaladas: un artista distinto en cada canción
+  const out: MusicVideo[] = []
+  for (let round = 0; round < 3; round++)
+    for (const l of lists) {
+      const t = l[round]
+      const key = t && normalize(t.title)
+      if (t && !seen.has(key)) {
+        seen.add(key)
+        out.push(t)
+      }
+    }
+  return out
+}
+
 const resolveCache = new Map<string, { at: number; id: string }>()
 
 /** Video de YouTube de una canción (sin cuota primero; si tarda, con la API oficial). */

@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { PlayCircle } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import { continueInMiniPlayer } from '@/lib/video-handoff'
+import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { decodeEntities } from '@/lib/youtube-music'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 
@@ -23,6 +24,14 @@ export default function ArtistVideos({ name }: { name: string }) {
       cancelled = true
     }
   }, [name])
+
+  // Al terminar un video sigue el próximo (de este artista y, al acabarse, de artistas parecidos)
+  const list = (items ?? []).slice(0, 16).map((v) => ({ id: v.id.videoId, title: decodeEntities(v.snippet.title), channel: v.snippet.channelTitle }))
+  const { next, advance } = useNextMusicVideo(
+    open ? { id: open.id, title: open.title, channel: open.channel } : null,
+    list,
+    useCallback((v: { id: string; title: string; channel: string }) => setOpen(v), [])
+  )
 
   if (!items || items.length === 0) return null
   return (
@@ -47,7 +56,7 @@ export default function ArtistVideos({ name }: { name: string }) {
           )
         })}
       </div>
-      {open && <YoutubePlayer videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
+      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
             // Sigue en la ventana chica del reproductor desde el mismo segundo
             continueInMiniPlayer({ id: open.id, title: open.title, channelTitle: open.channel }, t)
             setOpen(null)

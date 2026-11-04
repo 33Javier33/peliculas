@@ -35,6 +35,27 @@ object WearSync {
     fun state(c: Context, json: String) {
         lastState = json
         if (watching()) send(c, "/cpn/state", json)
+        // Evento en curso del reloj (el ícono de la esfera que abre la app del reloj): solo al
+        // cambiar la canción o al pausar, aunque la app del reloj esté cerrada (gasta muy poco)
+        val o = runCatching { JSONObject(json) }.getOrNull() ?: return
+        val now = JSONObject().put("title", o.optString("title")).put("artist", o.optString("artist")).put("playing", o.optBoolean("playing")).toString()
+        if (now != lastNow) {
+            lastNow = now
+            send(c, "/cpn/now", now)
+        }
+    }
+    @Volatile private var lastNow = ""
+
+    /** Se cerró la música: el reloj quita su evento en curso */
+    fun stopped(c: Context) {
+        lastNow = ""
+        send(c, "/cpn/stop", ByteArray(0))
+    }
+
+    /** Volumen del teléfono (para la pantalla de volumen del reloj) */
+    private fun sendVolume(c: Context) {
+        val am = c.getSystemService(AudioManager::class.java)
+        send(c, "/cpn/vol", JSONObject().put("v", am.getStreamVolume(AudioManager.STREAM_MUSIC)).put("max", am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).toString())
     }
 
     // Carátula para el reloj: se manda la imagen (chica, ~15 KB). El reloj no la descarga de
@@ -112,6 +133,15 @@ object WearSync {
             "vol+", "vol-" -> {
                 val am = c.getSystemService(AudioManager::class.java)
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (a == "vol+") AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, 0)
+                sendVolume(c)
+            }
+            "vol" -> {
+                // Volumen exacto (tocando la barra del reloj) o solo preguntar cuánto está
+                if (o.has("v")) {
+                    val am = c.getSystemService(AudioManager::class.java)
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, o.optInt("v").coerceIn(0, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)), 0)
+                }
+                sendVolume(c)
             }
             // "play" con algo elegido (k: canción, radio, playlist, disco…) lo resuelve la app web;
             // antes se tomaba como el botón reproducir y lo elegido no sonaba

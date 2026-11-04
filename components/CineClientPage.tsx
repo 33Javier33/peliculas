@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
+import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
 import { parseDuration, formatViewCount } from '@/lib/youtube'
@@ -284,6 +285,20 @@ export default function CineClientPage({
     []
   )
 
+  // Videos musicales: al terminar sigue el siguiente (de esta lista o de un artista parecido).
+  // Las películas siguen como siempre (no avanzan solas).
+  const isoSecs = (d?: string) => {
+    const m = d?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+    return m ? Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0) : 0
+  }
+  const musicList = results.map((it) => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) }))
+  const { next: nextVideo, advance } = useNextMusicVideo(
+    player ? { id: player.videoId, title: player.title, channel: player.channelTitle } : null,
+    musicList,
+    useCallback((v: { id: string; title: string; channel: string }) => setPlayer({ videoId: v.id, title: v.title, channelTitle: v.channel }), []),
+    player ? isoSecs(videoDetails[player.videoId]?.contentDetails?.duration) : 0
+  )
+
   // Al salir del video en grande, sigue en la ventana chica del reproductor (no se corta)
   const closePlayer = useCallback(
     (t?: number) => {
@@ -297,6 +312,9 @@ export default function CineClientPage({
     <>
       {player && (
         <YoutubePlayer
+          key={player.videoId}
+          onNext={nextVideo ? advance : undefined}
+          upNext={nextVideo?.title}
           videoId={player.videoId}
           title={player.title}
           channelTitle={player.channelTitle}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone } from 'lucide-react'
+import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { useMusicStore } from '@/store/musicStore'
 
@@ -17,6 +17,10 @@ interface YoutubePlayerProps {
   later?: boolean
   onToggleLike?: () => void
   onToggleLater?: () => void
+  /** Videos musicales: al terminar (o al tocar «Siguiente») pasa al siguiente */
+  onNext?: () => void
+  /** Título del que viene a continuación (se muestra al lado de «Siguiente») */
+  upNext?: string
 }
 
 interface VideoCandidate {
@@ -53,7 +57,11 @@ export default function YoutubePlayer({
   later,
   onToggleLike,
   onToggleLater,
+  onNext,
+  upNext,
 }: YoutubePlayerProps) {
+  const onNextRef = useRef(onNext)
+  onNextRef.current = onNext
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [mode, setMode] = useState<'youtube' | 'alt'>('youtube')
   const [ytReady, setYtReady] = useState(false)
@@ -191,6 +199,8 @@ export default function YoutubePlayer({
       if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
       // 1 = reproduciendo (para la ventana flotante de la app de Android)
       if (typeof info?.playerState === 'number') setYtPlaying(info.playerState === 1)
+      // 0 = terminó: los videos musicales siguen con el próximo
+      if (info?.playerState === 0) onNextRef.current?.()
       if (data.event === 'onError') switchToAlt(true)
     }
     window.addEventListener('message', onMessage)
@@ -307,6 +317,17 @@ export default function YoutubePlayer({
           >
             <ExternalLink className="w-4 h-4" />
           </a>
+          {onNext && (
+            <button
+              onClick={onNext}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/10 text-white text-xs font-semibold hover:bg-white/20 max-w-[11rem]"
+              title={upNext ? `Siguiente: ${upNext}` : 'Siguiente video'}
+              aria-label="Siguiente video"
+            >
+              <SkipForward className="w-4 h-4 shrink-0" />
+              <span className="truncate hidden sm:inline">{upNext ? upNext : 'Siguiente'}</span>
+            </button>
+          )}
           <button onClick={() => onClose(timeRef.current)} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
             <X className="w-5 h-5" />
           </button>
@@ -336,6 +357,7 @@ export default function YoutubePlayer({
               <video
                 ref={altVideoRef}
                 key={alt.candidates[alt.index].url}
+                onEnded={() => onNextRef.current?.()}
                 onLoadedMetadata={(e) => {
                   if (timeRef.current > 1) e.currentTarget.currentTime = timeRef.current
                 }}

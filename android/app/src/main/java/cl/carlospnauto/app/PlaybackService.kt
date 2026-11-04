@@ -234,6 +234,7 @@ class PlaybackService : Service() {
         releaseLocks()
         // Sin música: el widget vuelve a abrir la app al tocarlo
         PlayerWidget.idle(this)
+        WearSync.stopped(this)
         session.release()
         super.onDestroy()
     }

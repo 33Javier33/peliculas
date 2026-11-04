@@ -97,7 +97,18 @@ class WatchActivity : ComponentActivity() {
                 }
             }
         }
+        // Wear OS 4+: permiso para el evento en curso «Sonando» (el ícono de la esfera que abre esta app)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         setContent { MaterialTheme { App() } }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        val n = PhoneLink.now.value
+        if (grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED && n.title.isNotBlank())
+            NowNotice.show(this, n.title, n.artist, n.playing)
     }
 }
 
@@ -106,7 +117,8 @@ private fun App() {
     val nav = rememberSwipeDismissableNavController()
     val toNow = { nav.popBackStack("now", false); Unit }
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
-        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }) }
+        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }) }
+        composable("volume") { VolumeScreen() }
         composable("home") { HomeScreen(nav = { nav.navigate(it) }, played = toNow) }
         composable("library") { LibraryScreen(nav = { nav.navigate(it) }) }
         composable("search") { SearchScreen(played = toNow) }
@@ -118,7 +130,7 @@ private fun App() {
 }
 
 @Composable
-private fun NowScreen(onBrowse: () -> Unit) {
+private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit) {
     val ctx = LocalContext.current
     val now by PhoneLink.now.collectAsState()
     val link by PhoneLink.link.collectAsState()
@@ -144,7 +156,7 @@ private fun NowScreen(onBrowse: () -> Unit) {
                 .background(Color.Black)
                 // Bisel o corona: volumen del teléfono
                 .onRotaryScrollEvent {
-                    send(if (it.verticalScrollPixels > 0) "vol+" else "vol-")
+                    PhoneLink.volumeStep(ctx, it.verticalScrollPixels > 0)
                     true
                 }
                 .focusRequester(focus)
@@ -185,13 +197,62 @@ private fun NowScreen(onBrowse: () -> Unit) {
                         Round(R.drawable.ic_next, "Siguiente", 40) { send("next") }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Round(if (now.liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, "Me gusta", 34) {
                             PhoneLink.optimistic { it.copy(liked = !it.liked) }
                             send("like")
                         }
+                        Round(R.drawable.ic_volume, "Volumen", 34) { onVolume() }
                         Round(R.drawable.ic_list, "Biblioteca", 34) { onBrowse() }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Volumen del teléfono: − y + grandes, el nivel en el anillo y la corona o el bisel */
+@Composable
+private fun VolumeScreen() {
+    val ctx = LocalContext.current
+    val vol by PhoneLink.volume.collectAsState()
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focus.requestFocus()
+        PhoneLink.cmd(ctx, "vol")
+    }
+    Scaffold(timeText = { TimeText() }) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .onRotaryScrollEvent {
+                    PhoneLink.volumeStep(ctx, it.verticalScrollPixels > 0)
+                    true
+                }
+                .focusRequester(focus)
+                .focusable(),
+            contentAlignment = Alignment.Center,
+        ) {
+            val (v, max) = vol ?: (0 to 0)
+            CircularProgressIndicator(
+                progress = if (max > 0) v.toFloat() / max else 0f,
+                modifier = Modifier.fillMaxSize().padding(4.dp),
+                strokeWidth = 8.dp,
+                indicatorColor = Violet,
+                trackColor = Color(0x33FFFFFF),
+            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(painterResource(R.drawable.ic_volume), contentDescription = null, modifier = Modifier.size(22.dp), tint = Color(0xFFB0B7C3))
+                Text(
+                    if (max > 0) "${(v * 100f / max).toInt()}%" else "…",
+                    fontWeight = FontWeight.Bold, fontSize = 26.sp,
+                )
+                Text("Volumen del teléfono", color = Color(0xFFB0B7C3), fontSize = 11.sp)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Round(R.drawable.ic_minus, "Bajar volumen", 52) { PhoneLink.volumeStep(ctx, false) }
+                    Round(R.drawable.ic_plus, "Subir volumen", 52, Violet) { PhoneLink.volumeStep(ctx, true) }
                 }
             }
         }

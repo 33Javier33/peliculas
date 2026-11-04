@@ -19,6 +19,19 @@ interface Stage {
 
 const STAGES: Stage[] = [
   {
+    date: '4 nov 2026',
+    title: 'La música no se detiene y el reloj más completo',
+    Icon: Rocket,
+    color: 'from-fuchsia-500 to-violet-500',
+    items: [
+      'Al terminar un álbum o una playlist sigue sonando música de artistas parecidos (también con discos de archive.org y enlaces)',
+      'En Videos, al terminar un video musical empieza el siguiente solo, y hay botón «Siguiente»; las películas siguen igual',
+      'Descargar un álbum mientras suena ya no hace empezar de nuevo la canción',
+      'Reloj: pantalla de volumen con botones − y + (para relojes sin corona giratoria) y el nivel del teléfono',
+      'Reloj: al sonar música aparece el ícono de la app en la esfera; al tocarlo se abre la app del reloj',
+    ],
+  },
+  {
     date: '3 nov 2026',
     title: 'Comunidad de playlists, app para el reloj y buscar canciones',
     Icon: Users,

@@ -42,6 +42,7 @@ import { useOfflineStore } from '@/store/offlineStore'
 import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
+import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
@@ -237,8 +238,8 @@ export default function MusicPlayerBar() {
 
   useEffect(() => {
     if (!radioEnabled || !isLastTrack || !currentVideo || currentVideo.streamUrl || radioSeedRef.current === currentVideo.id) return
-    // Discos y listas de enlaces: no se mezclan canciones de YouTube al final
-    if (currentVideo.audioUrl || currentVideo.archiveRadio) return
+    // La radio de archive.org por género ya se rellena sola (más abajo)
+    if (currentVideo.archiveRadio) return
     // Con "repetir todo" la cola vuelve a empezar: la radio no añade canciones
     if (useMusicStore.getState().repeatMode === 'all') return
     radioSeedRef.current = currentVideo.id
@@ -267,26 +268,49 @@ export default function MusicPlayerBar() {
     // solo si no hay, canciones parecidas de otros artistas
     const songKey = (t: MusicVideo) => normSong(t.title.replace(/^[^-–]+[-–]\s*/, ''))
     const inQueue = new Set(useMusicStore.getState().queue.map(songKey))
-    const artistParams = currentVideo.artistId
-      ? `id=${currentVideo.artistId}`
-      : currentArtist
-        ? `name=${encodeURIComponent(currentArtist.replace(/\s*-\s*topic$/i, '').replace(/vevo$/i, ''))}`
-        : ''
-    const sameArtist: Promise<MusicVideo[]> = artistParams
-      ? fetch(`/api/catalog/artist-tracks?${artistParams}`)
+    const isFile = !!currentVideo.audioUrl
+    const artistName = isFile ? songArtist(currentVideo) : mainArtistName(currentArtist || '')
+    const artistParams = currentVideo.artistId ? `id=${currentVideo.artistId}` : artistName ? `name=${encodeURIComponent(artistName)}` : ''
+    const fresh = (d: { tracks?: MusicVideo[] }) => (d.tracks ?? []).filter((t) => !inQueue.has(songKey(t)))
+    // Al terminar el disco, la playlist o lo que sonaba: canciones de artistas parecidos (y unas
+    // pocas del mismo). Si no se encuentran: discos de archive.org del mismo género (para archivos
+    // y enlaces) o más del mismo artista / música parecida de YouTube.
+    const similar: Promise<MusicVideo[]> = artistParams
+      ? fetch(`/api/catalog/similar?${artistParams}`)
           .then((r) => (r.ok ? r.json() : { tracks: [] }))
-          .then((d: { tracks?: MusicVideo[] }) => (d.tracks ?? []).filter((t) => !inQueue.has(songKey(t))))
+          .then(fresh)
           .catch(() => [])
       : Promise.resolve([])
 
-    sameArtist
-      .then(async (own) => {
+    similar
+      .then(async (sim) => {
+        if (sim.length >= 5) return { videos: sim.slice(0, 24) }
+        if (isFile && artistName) {
+          if (!genreOfArtist(artistName)) await classifyArtists([artistName], 1).catch(() => {})
+          const genre = genreOfArtist(artistName)
+          if (genre) {
+            const tracks = await fetchRadioTracks(genre, useMusicStore.getState().queue).catch(() => [])
+            if (tracks.length) return { videos: tracks, keep: true }
+          }
+        }
+        const own = artistParams
+          ? await fetch(`/api/catalog/artist-tracks?${artistParams}`)
+              .then((r) => (r.ok ? r.json() : { tracks: [] }))
+              .then(fresh)
+              .catch(() => [])
+          : []
         if (own.length >= 3) return { videos: own.slice(0, 20) }
         const r = await fetch(`/api/youtube/for-you?${params.toString()}`)
         return r.ok ? ((await r.json()) as { videos?: MusicVideo[] }) : null
       })
-      .then((data: { videos?: MusicVideo[] } | null) => {
+      .then((data: { videos?: MusicVideo[]; keep?: boolean } | null) => {
         const list = data?.videos ?? []
+        // Radio de archive.org: se añade tal cual (sigue sola, sin fin)
+        if (data?.keep) {
+          const added = appendToQueue(list)
+          if (added > 0 && waitingForRadioRef.current) useMusicStore.getState().playNext()
+          return
+        }
         // Preferimos lo que no has escuchado nunca; si queda poco, se completa con lo demás
         const heard = new Set(useMusicStore.getState().history.map((h) => h.id))
         const fresh = list.filter((v) => !heard.has(v.id))
@@ -499,8 +523,9 @@ export default function MusicPlayerBar() {
       ? audioSrc.candidates[audioSrc.index]?.url
       : undefined
   const isAudioLoading = useAudio && !audioUrl
-  // ¿Suena desde internet? (no desde la copia del teléfono): se recuerda para no cambiarle la fuente
-  if (currentId && audioUrl && !audioUrl.startsWith('blob:')) streamingIdRef.current = currentId
+  // ¿Suena desde otra fuente que no sea la copia descargada (internet o la pre-descarga)? Se recuerda
+  // para no cambiarle la fuente si se descarga mientras suena (empezaba de nuevo)
+  if (currentId && audioUrl && audioUrl !== offlineUrl?.url) streamingIdRef.current = currentId
   else if (currentId && streamingIdRef.current && streamingIdRef.current !== currentId) streamingIdRef.current = null
 
   // ===== Ecualizador =====
@@ -1577,7 +1602,7 @@ export default function MusicPlayerBar() {
   const progressPercent = isLive ? 100 : localPlayed * 100
   // Siguiente sigue disponible en la última si se repite todo o la radio traerá más
   const isLastInQueue =
-    currentIndex >= queue.length - 1 && useMusicStore.getState().repeatMode !== 'all' && !(radioEnabled && !isLive && !currentVideo?.audioUrl)
+    currentIndex >= queue.length - 1 && useMusicStore.getState().repeatMode !== 'all' && !(radioEnabled && !isLive)
 
   const playerProps = {
     ref: playerRef,

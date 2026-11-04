@@ -29,7 +29,7 @@ export default function WatchAppPage() {
         </h1>
         <p className="text-slate-400 text-sm mt-2">
           Elige qué suena sin sacar el teléfono: tu biblioteca en aleatorio, tus canciones y playlists, las radios de Internet Archive, NTS
-          y tus radios favoritas. Con carátula, avance, ♥ Me gusta y el volumen en el bisel o la corona.
+          y tus radios favoritas. Con carátula, avance, ♥ Me gusta y el volumen (botones − y +, el bisel o la corona).
         </p>
         <p className="text-slate-500 text-xs mt-2">
           Para relojes con Wear OS 3 o más nuevo: TicWatch Pro 3 y Pro 5, Galaxy Watch 4, 5, 6 y 7, Pixel Watch y otros. Necesita la app
@@ -96,6 +96,14 @@ export default function WatchAppPage() {
           <p className="flex items-start gap-2">
             <Wifi className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
             Actualizaciones: se instalan igual (pasos 4 y 5), encima de la anterior.
+          </p>
+          <p className="flex items-start gap-2">
+            <Watch className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
+            <span>
+              Al sonar música aparece el ícono de la app en la esfera (permite las notificaciones la primera vez que abras la app del reloj):
+              al tocarlo se abre la app del reloj. Si además aparecen los controles multimedia del sistema, puedes apagarlos en el reloj:
+              Ajustes → General (o Aplicaciones) → <b>Iniciar controles multimedia automáticamente</b>.
+            </span>
           </p>
         </div>
 

@@ -150,6 +150,21 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
         cmd(c, "play") { put("k", kind); put("id", id) }
     }
 
+    /** Volumen del teléfono: (nivel, máximo); null mientras no se sabe */
+    private val _volume = MutableStateFlow<Pair<Int, Int>?>(null)
+    val volume: StateFlow<Pair<Int, Int>?> = _volume
+
+    /** Sube o baja un paso (se ve al tiro; el teléfono confirma el nivel real) */
+    fun volumeStep(c: Context, up: Boolean) {
+        _volume.value?.let { (v, max) -> _volume.value = (if (up) v + 1 else v - 1).coerceIn(0, max) to max }
+        cmd(c, if (up) "vol+" else "vol-")
+    }
+
+    fun volumeSet(c: Context, v: Int) {
+        _volume.value?.let { (_, max) -> _volume.value = v.coerceIn(0, max) to max }
+        cmd(c, "vol") { put("v", v) }
+    }
+
     /** Al tocar ♥ o reproducir/pausar se ve el cambio al tiro (el teléfono lo confirma después) */
     fun optimistic(f: (NowPlaying) -> NowPlaying) {
         _now.value = f(_now.value)
@@ -200,6 +215,11 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 val url = String(e.data, 0, cut)
                 val bmp = runCatching { BitmapFactory.decodeByteArray(e.data, cut + 1, e.data.size - cut - 1)?.asImageBitmap() }.getOrNull() ?: return
                 _thumbs.value = _thumbs.value + (url to bmp)
+            }
+            "/cpn/vol" -> {
+                val o = runCatching { JSONObject(text) }.getOrNull() ?: return
+                _link.value = Link.Ok
+                _volume.value = o.optInt("v") to o.optInt("max", 15).coerceAtLeast(1)
             }
             "/cpn/played" -> {
                 _busy.value = false
