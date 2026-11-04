@@ -19,7 +19,7 @@ import { libraryMixes } from '@/lib/community'
 
 interface WearCmd {
   a: 'browse' | 'play' | 'search' | 'items'
-  k?: 'shuffle' | 'song' | 'playlist' | 'genre' | 'nts' | 'radio' | 'archive' | 'artist' | 'album' | 'mix'
+  k?: 'shuffle' | 'song' | 'playlist' | 'genre' | 'nts' | 'radio' | 'archive' | 'artist' | 'album' | 'mix' | 'queue'
   id?: string
   q?: string
   /** Empezar por esta canción (al tocar una canción dentro de un artista, disco o playlist) */
@@ -74,6 +74,17 @@ function groupTracks(k: string, id: string): MusicVideo[] {
   return []
 }
 
+/** Lo que está sonando ahora (la cola): desde unas canciones antes de la actual; id = su posición */
+function queueItems() {
+  const { queue, currentIndex } = useMusicStore.getState()
+  const from = Math.max(0, currentIndex - 3)
+  return queue.slice(from, from + 100).map((t, j) => {
+    const i = from + j
+    const it = item(t)
+    return { ...it, id: String(i), s: i === currentIndex ? `▶ Sonando · ${it.s}`.slice(0, 50) : it.s }
+  })
+}
+
 async function library() {
   const saved = savedSorted()
   const n = await nts()
@@ -121,6 +132,13 @@ async function library() {
 
 async function play(k: WearCmd['k'], id = '', start = '', shuffle = false) {
   const st = useMusicStore.getState()
+  // Una canción de la cola que está sonando
+  if (k === 'queue') {
+    const i = Number(id)
+    if (Number.isInteger(i) && i >= 0 && i < st.queue.length) st.playIndex(i)
+    useMusicStore.getState().setIsPlaying(true)
+    return
+  }
   const setShuffle = (on: boolean) => {
     if (useMusicStore.getState().shuffle !== on) useMusicStore.getState().toggleShuffle()
   }
@@ -193,6 +211,7 @@ export default function WearBridge() {
           reply('/cpn/library', lib)
         })
       else if (c.a === 'search' && c.q) searchArchive(c.q).then((results) => reply('/cpn/search', { q: c.q, results }))
+      else if (c.a === 'items' && c.k === 'queue') reply('/cpn/items', { k: 'queue', id: 'now', items: queueItems() })
       else if (c.a === 'items' && c.k && c.id) reply('/cpn/items', { k: c.k, id: c.id, items: groupTracks(c.k, c.id).slice(0, 120).map(item) })
       else if (c.a === 'play')
         play(c.k, c.id, c.start, c.shuffle)

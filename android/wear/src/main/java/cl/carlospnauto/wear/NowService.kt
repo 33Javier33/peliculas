@@ -49,7 +49,7 @@ object NowNotice {
         )
         val text = if (artist.isBlank()) title else "$title · $artist"
         val b = NotificationCompat.Builder(c, CHANNEL)
-            .setSmallIcon(R.drawable.ic_music)
+            .setSmallIcon(R.drawable.ic_bars)
             .setContentTitle(if (playing) "Sonando" else "En pausa")
             .setContentText(text)
             .setContentIntent(open)
@@ -58,7 +58,9 @@ object NowNotice {
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         OngoingActivity.Builder(c, ID, b)
-            .setStaticIcon(R.drawable.ic_music)
+            // Barritas que se mueven mientras suena (como las de los controles del sistema)
+            .apply { if (playing) setAnimatedIcon(R.drawable.ic_bars_anim) }
+            .setStaticIcon(R.drawable.ic_bars)
             .setTouchIntent(open)
             .setStatus(Status.Builder().addTemplate(text).build())
             .build()

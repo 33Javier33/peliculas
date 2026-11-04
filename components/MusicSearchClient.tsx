@@ -1,4 +1,5 @@
 'use client'
+import AlbumCardActions from '@/components/AlbumCardActions'
 
 import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
@@ -436,6 +437,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                     <Link key={a.id} href={`/music/album/${a.id}`} className="group shrink-0 w-36 sm:w-40 snap-start">
                       <div className="relative aspect-square rounded-xl overflow-hidden bg-surface-2 border border-white/8">
                         {a.cover && <Image src={a.cover} alt={a.title} fill sizes="160px" className="object-cover group-hover:scale-105 transition-transform duration-500" />}
+                        <AlbumCardActions album={a} />
                       </div>
                       <p className="text-white text-sm font-semibold font-display leading-tight line-clamp-2 mt-2 group-hover:text-violet-300">{a.title}</p>
                       <p className="text-slate-500 text-xs truncate">

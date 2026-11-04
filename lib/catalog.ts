@@ -329,6 +329,19 @@ export async function getArtistTopTracks(opts: { id?: number; name?: string }, l
   })
 }
 
+/** Artistas parecidos (los "relacionados" de Deezer), por ID o por nombre */
+export async function getRelatedArtists(opts: { id?: number; name?: string }, limit = 12): Promise<CatalogArtist[]> {
+  let id = opts.id
+  if (!id && opts.name) {
+    const found = await deezer<{ data: DzArtist[] }>(`/search/artist?q=${encodeURIComponent(opts.name)}&limit=5`, 86400).catch(() => ({ data: [] }))
+    const want = normalize(opts.name)
+    id = (found.data.find((a) => normalize(a.name) === want) ?? found.data[0])?.id
+  }
+  if (!id) return []
+  const related = await deezer<{ data: DzArtist[] }>(`/artist/${id}/related?limit=${limit}`, 86400).catch(() => ({ data: [] }))
+  return related.data.slice(0, limit).map(mapArtist)
+}
+
 /**
  * Para seguir cuando termina lo que sonaba: canciones de artistas parecidos (los "relacionados" de
  * Deezer) mezcladas con unas pocas del mismo artista. Todas "pendientes" (se buscan al sonar).

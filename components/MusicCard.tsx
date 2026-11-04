@@ -1,4 +1,5 @@
 'use client'
+import QueueMenu from '@/components/QueueMenu'
 
 import Image from 'next/image'
 import { Play, Plus, Eye, Heart, Music, ListPlus } from 'lucide-react'
@@ -119,16 +120,7 @@ export default function MusicCard({ video, allVideos, index, view = 'grid' }: Mu
           >
             <ListPlus className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              addToQueue(video)
-            }}
-            className="p-1.5 bg-black/70 text-white rounded-full sm:opacity-0 sm:group-hover:opacity-100 hover:bg-violet-600 transition-all duration-200 hover:scale-110"
-            title="Añadir a la cola"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <QueueMenu tracks={[video]} overlay className="sm:opacity-0 sm:group-hover:opacity-100 [&>button]:w-7 [&>button]:h-7 [&>button]:bg-black/70" />
         </div>
       </div>
 

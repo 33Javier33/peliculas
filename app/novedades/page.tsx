@@ -20,6 +20,22 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '4 nov 2026',
+    title: 'Cola de reproducción, artistas ordenados y enlaces que abren la app',
+    Icon: Music2,
+    color: 'from-violet-500 to-emerald-500',
+    items: [
+      'Agregar a la cola: «Reproducir a continuación» o «Al final» para canciones y álbumes completos',
+      'En tu biblioteca, al abrir un artista se ven primero sus álbumes; al tocar uno, sus canciones (los recopilatorios quedan separados por artista)',
+      'Artistas similares al final del perfil de cada artista',
+      'Crear la playlist de un artista desde su biografía con un toque',
+      'Guardar o quitar un álbum con ♥ desde el perfil del artista y la búsqueda',
+      'Los enlaces compartidos (WhatsApp…) abren la app de Android si está instalada',
+      'Más rápida: pantallas de carga al instante y biografías y discos guardados en el teléfono',
+      'Reloj: lista de lo que está sonando para elegir cualquier canción, y el ícono de barritas de la esfera abre la app del reloj',
+    ],
+  },
+  {
+    date: '4 nov 2026',
     title: 'La música no se detiene y el reloj más completo',
     Icon: Rocket,
     color: 'from-fuchsia-500 to-violet-500',

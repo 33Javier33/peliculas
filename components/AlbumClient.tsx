@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import QueueMenu from '@/components/QueueMenu'
 import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle, ListPlus } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
@@ -197,6 +198,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           >
             <ListPlus className="w-5 h-5" />
           </button>
+          {playable?.length ? <QueueMenu tracks={playable} label="Agregar el álbum a la cola" className="[&>button]:w-12 [&>button]:h-12 [&>button]:bg-surface-2/80" /> : null}
         </div>
 
         {status === 'error' && (
@@ -239,6 +241,11 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
                   </span>
                   <span className="text-xs text-slate-500 font-mono shrink-0">{formatDuration(t.duration)}</span>
                 </button>
+                {/* Agregar esta canción a la cola */}
+                {(() => {
+                  const video = idx >= 0 ? resolved?.[idx] ?? playable?.[idx] : undefined
+                  return video ? <QueueMenu tracks={[video]} label={`Agregar ${t.title} a la cola`} className="shrink-0 [&>button]:border-0" /> : null
+                })()}
                 {/* ♥ de la canción: Me gusta (solo esta canción, no el álbum) */}
                 {(() => {
                   const video = idx >= 0 ? resolved?.[idx] : undefined

@@ -13,6 +13,10 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['youtubei.js'],
   },
+  // Enlaces que abren la app de Android (App Links): Android lo pide en esta dirección exacta
+  async rewrites() {
+    return [{ source: '/.well-known/assetlinks.json', destination: '/api/assetlinks' }]
+  },
   images: {
     // Las carátulas se cargan directo de YouTube, Deezer y TMDB (ya vienen en el tamaño justo).
     // La optimización de Vercel tiene un límite mensual gratis: al pasarlo, dejaban de verse.

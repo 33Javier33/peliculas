@@ -1,3 +1,4 @@
+import { cachedJson } from '@/lib/client-cache'
 // Discos desde enlaces (Internet Archive u otras páginas): convierte lo que entrega
 // /api/audio-link en canciones y discos para el reproductor y la biblioteca.
 import type { LinkAlbum } from '@/store/linksStore'
@@ -60,9 +61,14 @@ export function toEntries(a: ApiAlbum): { album: Omit<LinkAlbum, 'trackIds' | 'a
 }
 
 export async function fetchAlbums(link: string): Promise<ApiAlbum[]> {
-  const r = await fetch(`/api/audio-link?url=${encodeURIComponent(link)}`)
-  const d = (await r.json()) as { albums?: ApiAlbum[]; tracks?: ApiTrack[]; error?: string }
-  if (!r.ok || !d.tracks?.length) throw new Error(d.error || 'No se encontraron archivos de audio')
+  const url = `/api/audio-link?url=${encodeURIComponent(link)}`
+  // Lo ya abierto sale del caché (al volver a un disco aparece al instante)
+  let d = typeof window !== 'undefined' ? await cachedJson<{ albums?: ApiAlbum[]; tracks?: ApiTrack[]; error?: string }>(url, 24 * 3600_000) : null
+  if (!d?.tracks?.length) {
+    const r = await fetch(url)
+    d = (await r.json()) as { albums?: ApiAlbum[]; tracks?: ApiTrack[]; error?: string }
+    if (!r.ok || !d.tracks?.length) throw new Error(d.error || 'No se encontraron archivos de audio')
+  }
   return d.albums?.length ? d.albums : [{ title: link, source: link, tracks: d.tracks }]
 }
 

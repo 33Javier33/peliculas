@@ -1,0 +1,5 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_bars">
+    <target android:name="b1" android:animation="@animator/bar1" />
+    <target android:name="b2" android:animation="@animator/bar2" />
+    <target android:name="b3" android:animation="@animator/bar3" />
+</animated-vector>

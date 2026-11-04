@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { UserRound, Disc3, ExternalLink } from 'lucide-react'
+import ArtistPlaylistButton from '@/components/ArtistPlaylistButton'
 import TranslatableText from '@/components/TranslatableText'
 import { loadMusicInfo, FactsChips, type MusicInfo } from '@/components/MusicInfoPanel'
 
@@ -73,6 +74,9 @@ export default function ArtistAboutCard({ artist, album, className = '' }: { art
               Wikipedia{info.artist.lang === 'en' ? ' (en inglés)' : ''} <ExternalLink className="w-3 h-3" />
             </a>
           )}
+          <div className="mt-3">
+            <ArtistPlaylistButton name={name} />
+          </div>
         </>
       )}
     </section>

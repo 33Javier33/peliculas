@@ -1,4 +1,6 @@
 'use client'
+import QueueMenu from '@/components/QueueMenu'
+import SimilarArtists from '@/components/SimilarArtists'
 
 import { useOfflineStore } from '@/store/offlineStore'
 import GenreTag, { useGenreCache } from '@/components/GenreTag'
@@ -254,7 +256,18 @@ export default function MusicLibraryClient() {
   // (en el orden en que se guardaron: los discos quedan en el orden de sus canciones)
   const byOrder = (list: SavedTrack[]) => [...list].sort((a, b) => b.savedAt - a.savedAt)
   const tracksOfArtist = (name: string) => byOrder(saved.filter((t) => (t.artist ?? parseTrackMeta(t).artist) === name))
-  const tracksOfAlbum = (name: string) => byOrder(saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name))
+  // Un disco es suyo y de su artista: los recopilatorios con el mismo nombre quedan separados
+  const tracksOfAlbum = (name: string, artist?: string) =>
+    byOrder(saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name && (!artist || (t.artist ?? parseTrackMeta(t).artist) === artist)))
+  // Al abrir un artista: primero sus discos (al tocar uno se ven sus canciones)
+  const artistAlbums = useMemo(() => (selectedArtist ? albums.filter((a) => a.artist === selectedArtist) : []), [albums, selectedArtist])
+  const [showArtistSongs, setShowArtistSongs] = useState(false)
+  useEffect(() => setShowArtistSongs(false), [selectedArtist])
+  const openAlbum = (al: { name: string; artist: string }) => {
+    setSelectedArtist(al.artist)
+    setSelectedAlbum(al.name)
+    window.scrollTo({ top: 0 })
+  }
   /** Reproducir una lista completa: en orden o en aleatorio */
   const playAll = (list: MusicVideo[], shuffle = false) => {
     if (!list.length) return
@@ -407,6 +420,16 @@ export default function MusicLibraryClient() {
                   {selectedArtist ? `Artista: ${selectedArtist}` : `Álbum: ${selectedAlbum}`}
                   <X className="w-3 h-3" />
                 </button>
+                {selectedArtist && selectedAlbum && (
+                  <button
+                    onClick={() => setSelectedAlbum(null)}
+                    className="inline-flex items-center gap-1.5 bg-fuchsia-600/20 text-fuchsia-200 border border-fuchsia-500/30 rounded-full px-3 py-1 text-xs font-medium"
+                    aria-label={`Volver a ${selectedArtist}`}
+                  >
+                    Álbum: {selectedAlbum}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
                 <button
                   onClick={() => playAll(filtered)}
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-violet-500 text-white"
@@ -438,8 +461,56 @@ export default function MusicLibraryClient() {
               />
             )}
 
+            {/* Artista: sus discos primero */}
+            {selectedArtist && !selectedAlbum && artistAlbums.length > 0 && (
+              <section className="mb-6">
+                <h2 className="text-white font-bold text-lg font-display mb-3">Álbumes de {selectedArtist}</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {artistAlbums.map((al) => (
+                    <div
+                      key={al.name}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openAlbum(al)}
+                      onKeyDown={(e) => e.key === 'Enter' && openAlbum(al)}
+                      className="relative cursor-pointer group bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30"
+                    >
+                      <div className="relative aspect-square bg-surface-2">
+                        {al.cover ? (
+                          <Image src={al.cover} alt={al.name} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Disc3 className="w-10 h-10 text-slate-700" />
+                          </div>
+                        )}
+                        <span className="absolute right-2 bottom-2 z-[1]">
+                          <PlayBtn overlay list={tracksOfAlbum(al.name, al.artist)} label={al.name} />
+                        </span>
+                        <span className="absolute right-2 top-2 z-[1]">
+                          <QueueMenu overlay tracks={tracksOfAlbum(al.name, al.artist)} label={`Agregar ${al.name} a la cola`} />
+                        </span>
+                      </div>
+                      <div className="p-2.5">
+                        <p className="text-white font-semibold text-sm truncate">{al.name}</p>
+                        <p className="text-slate-500 text-xs truncate">
+                          {al.artist} · {al.count} {al.count === 1 ? 'canción' : 'canciones'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowArtistSongs((v) => !v)}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-surface-1 border border-white/10 text-slate-200"
+                  aria-expanded={showArtistSongs}
+                >
+                  {showArtistSongs ? 'Ocultar las canciones' : `Ver todas sus canciones (${filtered.length})`}
+                </button>
+              </section>
+            )}
+
             {/* ALL SONGS TAB */}
-            {(tab === 'all' || activeSubFilter) && (
+            {(tab === 'all' || activeSubFilter) && !(selectedArtist && !selectedAlbum && artistAlbums.length > 0 && !showArtistSongs) && (
               <>
                 {/* Por género (MusicBrainz) */}
                 {genreCounts.length > 0 && (
@@ -562,14 +633,7 @@ export default function MusicLibraryClient() {
                             >
                               <ListPlus className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => addToQueue(track)}
-                              className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white hover:text-violet-300"
-                              aria-label="Añadir a la cola"
-                              title="Añadir a la cola"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
+                            <QueueMenu tracks={[track]} overlay />
                             <button
                               onClick={() => toggleLike(track)}
                               className={`w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center ${likedIds.has(track.id) ? 'text-purple-400' : 'text-white/80 hover:text-white'}`}
@@ -673,16 +737,7 @@ export default function MusicLibraryClient() {
                           >
                             <ListPlus className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              addToQueue(track)
-                            }}
-                            className="p-2 text-slate-600 hover:text-violet-400 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                            title="Añadir a la cola"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+                          <QueueMenu tracks={[track]} className="[&>button]:border-0 [&>button]:text-slate-500 [&>button]:w-8 [&>button]:h-8" />
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -793,7 +848,7 @@ export default function MusicLibraryClient() {
                     {shownAlbums.map((al) => (
                       <li
                         key={`${al.name}-${al.artist}`}
-                        onClick={() => setSelectedAlbum(al.name)}
+                        onClick={() => openAlbum(al)}
                         className="flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10"
                       >
                         <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2 flex items-center justify-center">
@@ -803,11 +858,11 @@ export default function MusicLibraryClient() {
                           <span className="block text-white text-sm font-semibold truncate">{al.name}</span>
                           <span className="block text-slate-500 text-xs truncate">
                             {al.artist} · {al.count} {al.count === 1 ? 'canción' : 'canciones'}
-                            <OfflineCountText tracks={tracksOfAlbum(al.name)} />
+                            <OfflineCountText tracks={tracksOfAlbum(al.name, al.artist)} />
                           </span>
                         </span>
-                        <GroupDownloadIcon group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
-                        <PlayBtn list={tracksOfAlbum(al.name)} label={al.name} />
+                        <GroupDownloadIcon group={{ id: `lib-album-${al.name}-${al.artist}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name, al.artist)} />
+                        <PlayBtn list={tracksOfAlbum(al.name, al.artist)} label={al.name} />
                       </li>
                     ))}
                   </ul>
@@ -818,15 +873,15 @@ export default function MusicLibraryClient() {
                         key={`${al.name}-${al.artist}`}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setSelectedAlbum(al.name)}
+                        onClick={() => openAlbum(al)}
                         className="relative cursor-pointer group text-left bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30 hover:bg-surface-1 transition-all hover:-translate-y-0.5"
                       >
                         <span className="absolute top-2 right-2 z-[1]">
-                          <GroupDownloadIcon overlay group={{ id: `lib-album-${al.name}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name)} />
+                          <GroupDownloadIcon overlay group={{ id: `lib-album-${al.name}-${al.artist}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name, al.artist)} />
                         </span>
                         <div className="relative aspect-square bg-surface-2">
                           <span className="absolute right-2 bottom-2 z-[1]">
-                            <PlayBtn overlay list={tracksOfAlbum(al.name)} label={al.name} />
+                            <PlayBtn overlay list={tracksOfAlbum(al.name, al.artist)} label={al.name} />
                           </span>
                           {al.cover ? (
                             <Image src={al.cover} alt={al.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -841,7 +896,7 @@ export default function MusicLibraryClient() {
                           <p className="text-slate-500 text-xs truncate mt-0.5">{al.artist}</p>
                           <p className="text-slate-700 text-xs mt-0.5">
                             {al.count} {al.count === 1 ? 'canción' : 'canciones'}
-                            <OfflineCountText tracks={tracksOfAlbum(al.name)} />
+                            <OfflineCountText tracks={tracksOfAlbum(al.name, al.artist)} />
                           </p>
                         </div>
                       </div>
@@ -853,6 +908,7 @@ export default function MusicLibraryClient() {
             {/* PLAYLISTS TAB */}
             {tab === 'albums' && !selectedArtist && !selectedAlbum && shownAlbums.length < albums.length && <div ref={moreAlbums} className="h-16" aria-hidden />}
             {tab === 'playlists' && !selectedArtist && !selectedAlbum && <PlaylistsTab view={view} />}
+            {selectedArtist && <SimilarArtists name={selectedArtist} className="mt-10" />}
           </>
         )}
       </div>

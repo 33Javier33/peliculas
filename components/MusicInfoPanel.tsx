@@ -1,6 +1,8 @@
 'use client'
 
 import TranslatableText from '@/components/TranslatableText'
+import ArtistPlaylistButton from '@/components/ArtistPlaylistButton'
+import { cachedJson } from '@/lib/client-cache'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -22,9 +24,8 @@ export function loadMusicInfo(artist: string, album?: string): Promise<MusicInfo
   const key = params.toString()
   let p = memo.get(key)
   if (!p) {
-    p = fetch(`/api/music-info?${key}`)
-      .then((r) => r.json())
-      .catch(() => ({ artist: null, album: null }))
+    // Se guarda en el teléfono una semana: las biografías aparecen al instante la próxima vez
+    p = cachedJson<MusicInfo>(`/api/music-info?${key}`, 7 * 86400_000).then((d) => d ?? ({ artist: null, album: null } as unknown as MusicInfo))
     memo.set(key, p)
   }
   return p
@@ -191,6 +192,7 @@ export default function MusicInfoPanel({
         ) : (
           <p className="text-slate-500 text-sm">No encontramos una biografía de {artist.name}.</p>
         )}
+        <ArtistPlaylistButton name={artist.name} id={artist.id || undefined} className="mt-4" />
         {album && artist.id ? (
           <div className="flex flex-wrap items-center gap-3 mt-4">
             <Link href={`/music/artist/${artist.id}`} className="inline-flex items-center px-5 py-2.5 rounded-full bg-surface-2 border border-white/10 text-white text-sm font-semibold hover:border-violet-400">

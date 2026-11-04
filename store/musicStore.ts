@@ -104,6 +104,8 @@ interface MusicState {
 interface MusicActions {
   play: (videos: MusicVideo[], startIndex?: number) => void
   addToQueue: (video: MusicVideo) => void
+  /** Agregar a la cola: a continuación de lo que suena (next) o al final. Devuelve cuántas se agregaron. */
+  enqueue: (videos: MusicVideo[], next: boolean) => number
   appendToQueue: (videos: MusicVideo[]) => number
   /** Radio infinita: olvida las canciones ya escuchadas más antiguas (la cola no crece sin fin) */
   trimPlayed: (keep: number) => void
@@ -333,6 +335,23 @@ export const useMusicStore = create<MusicStore>()(
         } else {
           set({ queue: [...queue, video] })
         }
+      },
+
+      enqueue: (videos, next) => {
+        const list = videos.filter((v, i, a) => a.findIndex((x) => x.id === v.id) === i)
+        if (!list.length) return 0
+        const { queue, currentIndex, isVisible } = get()
+        if (!isVisible || !queue.length) {
+          get().play(list, 0)
+          return list.length
+        }
+        const ids = new Set(list.map((v) => v.id))
+        // Si ya estaban por sonar, se mueven (no quedan repetidas); lo que suena no se toca
+        const before = queue.slice(0, currentIndex + 1)
+        const after = queue.slice(currentIndex + 1).filter((v) => !ids.has(v.id))
+        const add = list.filter((v) => !before.some((b, i) => i === currentIndex && b.id === v.id))
+        set({ queue: next ? [...before, ...add, ...after] : [...before, ...after, ...add] })
+        return add.length
       },
 
       removeFromQueue: (index) => {

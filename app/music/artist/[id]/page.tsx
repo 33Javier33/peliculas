@@ -9,6 +9,8 @@ import FollowArtistButton from '@/components/FollowArtistButton'
 import ArtistPlayButtons from '@/components/ArtistPlayButtons'
 import MusicInfoPanel from '@/components/MusicInfoPanel'
 import ArtistVideos from '@/components/ArtistVideos'
+import SimilarArtists from '@/components/SimilarArtists'
+import AlbumCardActions from '@/components/AlbumCardActions'
 
 interface Props {
   params: { id: string }
@@ -37,7 +39,7 @@ const SECTIONS: { type: string; title: string }[] = [
   { type: 'compile', title: 'Recopilatorios' },
 ]
 
-function AlbumGrid({ albums }: { albums: CatalogAlbum[] }) {
+function AlbumGrid({ albums, artistName }: { albums: CatalogAlbum[]; artistName: string }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       {albums.map((a) => (
@@ -52,9 +54,14 @@ function AlbumGrid({ albums }: { albums: CatalogAlbum[] }) {
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
               />
             )}
+            <AlbumCardActions album={a} />
           </div>
           <p className="text-white text-sm font-semibold font-display leading-tight line-clamp-2 mt-2 group-hover:text-violet-300">{a.title}</p>
-          <p className="text-slate-500 text-xs mt-0.5">{a.year}</p>
+          <p className="text-slate-500 text-xs mt-0.5 truncate">
+            {/* Recopilatorios o discos compartidos: se indica de quién es */}
+            {a.artist?.name && a.artist.name !== artistName ? `${a.artist.name} · ` : ''}
+            {a.year}
+          </p>
         </Link>
       ))}
     </div>
@@ -109,12 +116,14 @@ export default async function ArtistPage({ params }: Props) {
           return (
             <section key={type} id={type === 'album' ? 'discografia' : undefined} className="mb-10 scroll-mt-20">
               <h2 className="text-white font-bold text-[22px] leading-7 mb-4">{title}</h2>
-              <AlbumGrid albums={list} />
+              <AlbumGrid albums={list} artistName={artist.name} />
             </section>
           )
         })}
 
         <ArtistVideos name={artist.name} />
+
+        <SimilarArtists id={artist.id} />
 
         <p className="text-slate-600 text-xs">Discografía: Deezer · Audio: YouTube · Biografías: Wikipedia</p>
       </div>

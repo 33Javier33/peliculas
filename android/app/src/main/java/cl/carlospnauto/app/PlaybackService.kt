@@ -176,6 +176,9 @@ class PlaybackService : Service() {
             .addAction(action(R.drawable.ic_next, "Siguiente", ACTION_NEXT))
             .addAction(action(if (liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, if (liked) "Quitar de Me gusta" else "Me gusta", ACTION_LIKE))
             .setStyle(MediaStyle().setMediaSession(session.sessionToken).setShowActionsInCompactView(0, 1, 2))
+            // Con la app del reloj instalada, la notificación no se copia al reloj: así en la esfera
+            // queda el ícono de la app del reloj (que la abre) y no el de los controles del sistema
+            .setLocalOnly(WearSync.hasWatchApp(this))
             .build()
 
         ServiceCompat.startForeground(

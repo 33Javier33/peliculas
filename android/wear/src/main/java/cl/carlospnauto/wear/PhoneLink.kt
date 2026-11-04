@@ -80,6 +80,12 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
         cmd(c, "items") { put("k", kind); put("id", id) }
     }
 
+    /** La cola que suena en el teléfono (se pide de nuevo cada vez: cambia sola) */
+    fun openQueue(c: Context) {
+        if (_group.value?.kind != "queue") _group.value = Group("queue", "now", null)
+        cmd(c, "items") { put("k", "queue") }
+    }
+
     fun playFrom(c: Context, kind: String, id: String, start: String = "", shuffle: Boolean = false) {
         _busy.value = true
         cmd(c, "play") { put("k", kind); put("id", id); if (start.isNotEmpty()) put("start", start); if (shuffle) put("shuffle", true) }

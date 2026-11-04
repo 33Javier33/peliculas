@@ -119,7 +119,8 @@ private fun App() {
     val nav = rememberSwipeDismissableNavController()
     val toNow = { nav.popBackStack("now", false); Unit }
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
-        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }) }
+        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }, onQueue = { nav.navigate("queue") }) }
+        composable("queue") { QueueScreen(played = toNow) }
         composable("volume") { VolumeScreen() }
         composable("home") { HomeScreen(nav = { nav.navigate(it) }, played = toNow) }
         composable("library") { LibraryScreen(nav = { nav.navigate(it) }) }
@@ -132,7 +133,7 @@ private fun App() {
 }
 
 @Composable
-private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit) {
+private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Unit) {
     val ctx = LocalContext.current
     val now by PhoneLink.now.collectAsState()
     val link by PhoneLink.link.collectAsState()
@@ -199,13 +200,43 @@ private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit) {
                         Round(R.drawable.ic_next, "Siguiente", 40) { send("next") }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Round(if (now.liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, "Me gusta", 34) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Round(if (now.liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, "Me gusta", 32) {
                             PhoneLink.optimistic { it.copy(liked = !it.liked) }
                             send("like")
                         }
-                        Round(R.drawable.ic_volume, "Volumen", 34) { onVolume() }
-                        Round(R.drawable.ic_list, "Biblioteca", 34) { onBrowse() }
+                        Round(R.drawable.ic_queue, "Lista en reproducción", 32) { onQueue() }
+                        Round(R.drawable.ic_volume, "Volumen", 32) { onVolume() }
+                        Round(R.drawable.ic_list, "Biblioteca", 32) { onBrowse() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Lo que está sonando (la cola del teléfono): se ve dónde va y se elige cualquier canción */
+@Composable
+private fun QueueScreen(played: () -> Unit) {
+    val ctx = LocalContext.current
+    val group by PhoneLink.group.collectAsState()
+    val now by PhoneLink.now.collectAsState()
+    val state = rememberScalingLazyListState()
+    // Se vuelve a pedir al cambiar de canción (la cola avanza sola)
+    LaunchedEffect(now.title) { PhoneLink.openQueue(ctx) }
+    val songs = group?.takeIf { it.kind == "queue" }?.items
+    val current = songs?.indexOfFirst { it.sub.startsWith("▶") } ?: -1
+    LaunchedEffect(current) { if (current > 0) state.scrollToItem(current + 1) }
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
+        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { ListHeader { Text("En reproducción") } }
+            when {
+                songs == null -> item { Text("Cargando…", color = Grey) }
+                songs.isEmpty() -> item { Text("No hay nada en la cola", color = Grey, textAlign = TextAlign.Center) }
+                else -> items(songs) { s ->
+                    Entry(img = s.img, title = s.title, sub = s.sub.ifBlank { null }, accent = s.sub.startsWith("▶")) {
+                        PhoneLink.playFrom(ctx, "queue", s.id)
+                        played()
                     }
                 }
             }
