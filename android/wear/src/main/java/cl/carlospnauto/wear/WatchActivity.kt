@@ -79,11 +79,6 @@ private val Violet = Color(0xFF8B5CF6)
 private val Pink = Color(0xFFF472B6)
 
 class WatchActivity : ComponentActivity() {
-    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        val n = PhoneLink.now.value
-        if (ok && n.title.isNotBlank()) NowNotice.show(this, n.title, n.artist, n.playing)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Mientras la app del reloj está abierta: escucha al teléfono y le avisa cada minuto
@@ -105,8 +100,17 @@ class WatchActivity : ComponentActivity() {
         // Wear OS 4+: permiso para el evento en curso «Sonando» (el ícono de la esfera que abre esta app)
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         setContent { MaterialTheme { App() } }
+    }
+
+    @Deprecated("Solo para el permiso de notificaciones")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        val n = PhoneLink.now.value
+        if (grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED && n.title.isNotBlank())
+            NowNotice.show(this, n.title, n.artist, n.playing)
     }
 }
 
