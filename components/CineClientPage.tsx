@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
+import ArchiveMoviesInline from '@/components/ArchiveMoviesInline'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
@@ -533,6 +534,12 @@ export default function CineClientPage({
               </button>
             )}
           </div>
+
+          {/* Primero lo gratis de Internet Archive; debajo, YouTube */}
+          {isSearchMode && submittedQuery && <ArchiveMoviesInline query={submittedQuery} />}
+          {isSearchMode && results.length > 0 && !isPending && (
+            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">En YouTube</h3>
+          )}
 
           {results.length === 0 && !isPending && !error && (
             <div className="flex flex-col items-center justify-center py-24 gap-4">

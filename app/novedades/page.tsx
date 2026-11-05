@@ -29,6 +29,9 @@ const STAGES: Stage[] = [
       'En Música, en lugar de Tendencias: artistas similares a los de tu biblioteca («Porque escuchas…»)',
       'El ecualizador, la cola y las demás ventanas se cierran deslizando hacia abajo',
       'Reloj: los botones de la cola y de la biblioteca ya tienen íconos distintos',
+      'Los buscadores muestran primero lo de Internet Archive y la música libre, y después YouTube (también las sugerencias del buscador de arriba)',
+      'En Videos y Películas, al buscar aparecen primero las películas gratis de Internet Archive',
+      'Buscador en tu biblioteca: encuentra tus artistas, álbumes, canciones y playlists guardados (sin importar tildes)',
     ],
   },
   {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { searchMovies } from '@/lib/tmdb'
+import ArchiveMoviesInline from '@/components/ArchiveMoviesInline'
 import MovieGrid from '@/components/MovieGrid'
 import Link from 'next/link'
 
@@ -75,6 +76,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </p>
         )}
       </div>
+
+      {/* Primero: películas completas y gratis de Internet Archive */}
+      {currentPage === 1 && <ArchiveMoviesInline query={query} />}
+      {currentPage === 1 && results.length > 0 && (
+        <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] mb-3">Catálogo de películas (TMDB)</h3>
+      )}
 
       <MovieGrid
         movies={results}

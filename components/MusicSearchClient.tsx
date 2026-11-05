@@ -387,6 +387,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </button>
               )}
             </div>
+            {/* Primero lo libre: Internet Archive y música libre; después el catálogo y YouTube */}
+            {isSearchMode && <ArchiveInlineResults query={submittedQuery} />}
+            {isSearchMode && <ArchiveInlineResults query={submittedQuery} scope="free" />}
             {/* Artistas y álbumes (como en Spotify) */}
             {catalog && catalog.artists.length > 0 && (
               <div className="mb-7">
@@ -423,9 +426,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </div>
             )}
-            {isSearchMode && <ArchiveInlineResults query={submittedQuery} />}
-            {isSearchMode && !isPending && videos.length > 0 && (catalog?.artists.length || catalog?.albums.length) ? (
-              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones y videos</h3>
+            {isSearchMode && !isPending && videos.length > 0 ? (
+              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones y videos de YouTube</h3>
             ) : null}
 
             {isPending ? (

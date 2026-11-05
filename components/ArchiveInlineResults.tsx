@@ -18,7 +18,7 @@ interface Result {
   url: string
 }
 
-export default function ArchiveInlineResults({ query }: { query: string }) {
+export default function ArchiveInlineResults({ query, scope = 'archive' }: { query: string; scope?: 'archive' | 'free' }) {
   const [results, setResults] = useState<Result[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
@@ -30,14 +30,14 @@ export default function ArchiveInlineResults({ query }: { query: string }) {
     setResults(null)
     if (!q) return
     let cancelled = false
-    fetch(`/api/archive-audio?by=all&q=${encodeURIComponent(q)}`)
+    fetch(`/api/archive-audio?by=all&q=${encodeURIComponent(q)}${scope === 'free' ? '&scope=free' : ''}`)
       .then((r) => (r.ok ? r.json() : { results: [] }))
       .then((d: { results?: Result[] }) => !cancelled && setResults((d.results ?? []).slice(0, 20)))
       .catch(() => !cancelled && setResults([]))
     return () => {
       cancelled = true
     }
-  }, [query])
+  }, [query, scope])
 
   if (!results?.length) return null
   const saved = new Set(albums.map((a) => a.source))
@@ -68,7 +68,7 @@ export default function ArchiveInlineResults({ query }: { query: string }) {
   return (
     <div className="mb-8">
       <h3 className="flex items-center gap-1.5 text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">
-        <Library className="w-3.5 h-3.5 text-amber-400" /> En Internet Archive
+        <Library className={`w-3.5 h-3.5 ${scope === 'free' ? 'text-emerald-400' : 'text-amber-400'}`} /> {scope === 'free' ? 'Música libre' : 'En Internet Archive'}
       </h3>
       {notice && <p className="text-emerald-300 text-xs mb-2">{notice}</p>}
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x scroll-px-4 [scrollbar-width:none]">

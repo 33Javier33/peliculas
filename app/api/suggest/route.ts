@@ -71,8 +71,20 @@ export async function GET(request: NextRequest) {
     } else if (kind === 'freemovies') {
       suggestions = await suggestArchiveMovies(q, searchParams.get('tab') === 'classic' ? 'classic' : 'es')
     } else {
-      suggestions = await youtubeSuggest(q, getRequestRegion(request)).catch(() => invidiousSuggest(q))
-      if (suggestions.length === 0) suggestions = await invidiousSuggest(q)
+      // Música y videos: primero lo que hay en Internet Archive (y música libre / películas
+      // gratis), después lo de YouTube
+      const [free, yt] = await Promise.all([
+        (kind === 'video' ? suggestArchiveMovies(q, 'es') : suggestArchiveAudio(q, 'all')).catch(() => [] as string[]),
+        youtubeSuggest(q, getRequestRegion(request))
+          .catch(() => invidiousSuggest(q))
+          .then((r) => (r.length ? r : invidiousSuggest(q)))
+          .catch(() => [] as string[]),
+      ])
+      const seen = new Set<string>()
+      suggestions = [...free.slice(0, 4), ...yt].filter((x) => {
+        const k = x.toLowerCase().trim()
+        return k && !seen.has(k) && seen.add(k)
+      })
     }
   } catch {
     suggestions = []

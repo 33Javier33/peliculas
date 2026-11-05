@@ -1,5 +1,6 @@
 'use client'
 import QueueMenu from '@/components/QueueMenu'
+import LibrarySearch from '@/components/LibrarySearch'
 import SimilarArtists from '@/components/SimilarArtists'
 
 import { useOfflineStore } from '@/store/offlineStore'
@@ -17,7 +18,7 @@ import CollapsibleCard from '@/components/CollapsibleCard'
 import LibraryMixesSection from '@/components/LibraryMixesSection'
 import { NtsLibraryCard } from '@/components/NtsClient'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { readSession, patchSession } from '@/lib/session-cache'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -263,10 +264,13 @@ export default function MusicLibraryClient() {
   const artistAlbums = useMemo(() => (selectedArtist ? albums.filter((a) => a.artist === selectedArtist) : []), [albums, selectedArtist])
   const [showArtistSongs, setShowArtistSongs] = useState(false)
   useEffect(() => setShowArtistSongs(false), [selectedArtist])
+  const libArtistOf = useCallback((t: MusicVideo) => (t as SavedTrack).artist ?? parseTrackMeta(t).artist, [])
+  const libAlbumOf = useCallback((t: MusicVideo) => (t as SavedTrack).album ?? parseTrackMeta(t).album ?? '', [])
   const openAlbum = (al: { name: string; artist: string }) => {
     setSelectedArtist(al.artist)
     setSelectedAlbum(al.name)
-    window.scrollTo({ top: 0 })
+    // Se baja a lo elegido (las canciones del disco)
+    setTimeout(() => document.getElementById('lib-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
   }
   /** Reproducir una lista completa: en orden o en aleatorio */
   const playAll = (list: MusicVideo[], shuffle = false) => {
@@ -357,6 +361,26 @@ export default function MusicLibraryClient() {
           )}
         </div>
 
+        {/* Buscador de toda tu biblioteca: artistas, álbumes, canciones y playlists */}
+        {saved.length > 0 && (
+        <LibrarySearch
+          songs={saved}
+          artists={artists}
+          albums={albums}
+          artistOf={libArtistOf}
+          albumOf={libAlbumOf}
+          onArtist={(name) => {
+            setTab('artists')
+            setSelectedAlbum(null)
+            setSelectedArtist(name)
+          }}
+          onAlbum={(al) => {
+            setTab('albums')
+            openAlbum(al)
+          }}
+        />
+        )}
+
         <DownloadsSection />
 
         <LocalMusicSection />
@@ -399,7 +423,7 @@ export default function MusicLibraryClient() {
         ) : (
           <>
             {/* Tabs */}
-            <div data-scroll-step className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
+            <div id="lib-tabs" data-scroll-step className="scroll-mt-20 flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
               <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
               <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
