@@ -1,3 +1,4 @@
+import { nativeAudioUrl } from '@/lib/native'
 // Audios descargados para escuchar sin conexión (discos de archive.org y enlaces MP3).
 // Se guardan en el almacenamiento del teléfono (IndexedDB): suenan sin internet, con la
 // pantalla bloqueada y con el ecualizador.
@@ -61,33 +62,63 @@ export async function downloadAudio(url: string, onProgress: (f: number) => void
 
 const PART = 6 * 1024 * 1024
 
+/**
+ * Audio de YouTube por partes. En la app de Android se saca del propio teléfono (su servidor local:
+ * YouTube no lo bloquea); si no, por el servidor de la app.
+ */
 async function downloadInParts(url: string, onProgress: (f: number) => void, signal?: AbortSignal): Promise<Blob> {
+  const id = new URLSearchParams(url.split('?')[1] || '').get('id') || ''
+  const local = nativeAudioUrl(id)
+  const sources: ((from: number) => [string, RequestInit])[] = []
+  if (local) sources.push((from) => [local, { headers: { Range: `bytes=${from}-${from + PART - 1}` } }])
+  sources.push((from) => [url, { headers: { Range: `bytes=${from}-${from + PART - 1}` } }])
+  let lastError: unknown
+  for (const src of sources) {
+    try {
+      return await readParts(src, onProgress, signal)
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') throw err
+      lastError = err
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('No se pudo convertir')
+}
+
+async function readParts(src: (from: number) => [string, RequestInit], onProgress: (f: number) => void, signal?: AbortSignal): Promise<Blob> {
   const chunks: Uint8Array[] = []
   let got = 0
   let total = 0
   let type = 'audio/mp4'
   for (let tries = 0; ; ) {
-    const res = await fetch(url, { signal, cache: 'no-store', headers: { Range: `bytes=${got}-${got + PART - 1}` } }).catch((e) => {
+    const [u, init] = src(got)
+    const res = await fetch(u, { ...init, signal, cache: 'no-store' }).catch((e) => {
       if ((e as Error).name === 'AbortError') throw e
       return null
     })
     if (!res || (!res.ok && res.status !== 206)) {
-      if (++tries > 3) throw new Error(`No se pudo convertir${res ? ` (HTTP ${res.status})` : ''}`)
+      // Sin tamaño total conocido: pedir más allá del final da error → ya llegó todo
+      if (got && !total) break
+      // Al comienzo sin respuesta: se pasa a la otra fuente; a mitad, se reintenta unas veces
+      if (!got || ++tries > 3) throw new Error(`No se pudo convertir${res ? ` (HTTP ${res.status})` : ''}`)
       await new Promise((r) => setTimeout(r, 1500 * tries))
       continue
     }
-    type = res.headers.get('content-type') || type
+    type = (res.headers.get('content-type') || type).split(';')[0]
     const buf = new Uint8Array(await res.arrayBuffer())
     chunks.push(buf)
     got += buf.length
     const range = res.headers.get('content-range')
     total = Number(range?.split('/')[1]) || (res.status === 200 ? got : total)
     if (total) onProgress(Math.min(1, got / total))
-    // Sin Range (respuesta completa) o ya llegó todo
+    // Respuesta completa, sin más datos o ya llegó todo
     if (res.status === 200 || !buf.length || (total && got >= total)) break
+    // Sin tamaño total: una parte más corta que lo pedido es la última
+    if (!total && buf.length < PART) break
+    // Sin tamaño total: se sigue hasta que una parte llegue vacía (máx. 200 MB)
+    if (got > 200 * 1024 * 1024) break
   }
   if (got < 1024) throw new Error('Archivo vacío')
-  return new Blob(chunks as BlobPart[], { type })
+  return new Blob(chunks as BlobPart[], { type: type.startsWith('audio') ? type : 'audio/mp4' })
 }
 
 /** Pide que el teléfono no borre las descargas cuando le falte espacio */

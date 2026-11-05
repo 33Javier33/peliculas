@@ -45,11 +45,22 @@ object AudioServer {
     private fun cors(r: NanoHTTPD.Response): NanoHTTPD.Response {
         r.addHeader("Access-Control-Allow-Origin", "*")
         r.addHeader("Accept-Ranges", "bytes")
+        // La página (convertir a audio / descargas) lee el tamaño total para bajar por partes
+        r.addHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Content-Type")
+        r.addHeader("Access-Control-Allow-Private-Network", "true")
         return r
     }
 
     private fun handle(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response {
         val path = session.uri
+        // Verificación previa del navegador (CORS / acceso a la red local)
+        if (session.method == NanoHTTPD.Method.OPTIONS) {
+            val r = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NO_CONTENT, "text/plain", "")
+            r.addHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
+            r.addHeader("Access-Control-Allow-Headers", "Range, Content-Type")
+            r.addHeader("Access-Control-Max-Age", "86400")
+            return cors(r)
+        }
         if (path == "/health") return cors(NanoHTTPD.newFixedLengthResponse("ok"))
         // Archivos de audio de archive.org: pasan por aquí para salir rápido (comienzo ya
         // descargado) y con permiso para el ecualizador
@@ -67,7 +78,9 @@ object AudioServer {
             ?: return cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", "no"))
         val id = m.groupValues[1]
         return try {
-            stream(id, session.headers["range"], retry = true)
+            // ?start=N (sin cabecera Range) para descargar por partes desde la página
+            val range = session.headers["range"] ?: session.parameters["start"]?.firstOrNull()?.toLongOrNull()?.let { "bytes=$it-" }
+            stream(id, range, retry = true)
         } catch (e: Exception) {
             Log.w(TAG, "Sin audio para $id: ${e.message}")
             cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))

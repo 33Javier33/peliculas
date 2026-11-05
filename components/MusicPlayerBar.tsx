@@ -439,6 +439,10 @@ export default function MusicPlayerBar() {
     const list: string[] = []
     if (offlineUrl && offlineUrl.key === direct) list.push(offlineUrl.url)
     else if (preUrl) list.push(preUrl)
+    // Convertida de YouTube (/api/stream?id=…): en la app de Android, desde el propio teléfono
+    const ytConv = direct.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
+    const ytLocal = ytConv ? nativeAudioUrl(ytConv[1]) : null
+    if (ytLocal) list.push(ytLocal)
     // Directo primero (comprobado en todos los navegadores, con ecualizador incluido); por el
     // teléfono queda de respaldo (en algunos Android ese camino no suena y saltaba las canciones)
     list.push(direct)

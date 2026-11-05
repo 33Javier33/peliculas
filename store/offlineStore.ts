@@ -1,3 +1,4 @@
+import { isNativeApp } from '@/lib/native'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -124,7 +125,9 @@ export const useOfflineStore = create<OfflineState>()(
         if (!aborted)
           get().notify(
             failed
-              ? `"${group.title}": ${done} descargadas, ${failed} no se pudieron (se reintentará al volver la conexión)`
+              ? group.id === 'yt-convertidas' && !isNativeApp()
+                ? 'YouTube no deja convertir desde el navegador en este momento: usa la app de Android (convierte desde tu teléfono)'
+                : `"${group.title}": ${done} descargadas, ${failed} no se pudieron (se reintentará al volver la conexión)`
               : `✓ "${group.title}" ya está descargado: suena sin internet`
           )
       },

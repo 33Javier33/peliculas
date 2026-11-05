@@ -28,6 +28,7 @@ const STAGES: Stage[] = [
       'Las canciones convertidas se escuchan sin internet y se pueden bajar como archivo de audio (.m4a)',
       'El botón Descargar del reproductor ahora también funciona con canciones de YouTube («Descargar audio»)',
       'En Android: comparte un video desde la app de YouTube con PulsoMedia y se convierte al tiro',
+      'Arreglo: en la app de Android la conversión se hace desde tu teléfono (YouTube estaba bloqueando al servidor y no se descargaba)',
     ],
   },
   {
