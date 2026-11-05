@@ -28,6 +28,9 @@ export const deleteFile = (key: string) => tx('readwrite', (s) => s.delete(key))
 
 /** Descarga un audio con su progreso (0..1). Primero directo; si el sitio no lo permite, por el servidor de la app. */
 export async function downloadAudio(url: string, onProgress: (f: number) => void, signal?: AbortSignal): Promise<Blob> {
+  // Audio convertido de YouTube (por el servidor de la app): por partes, así una canción larga
+  // no se corta por el límite de tiempo del servidor
+  if (url.startsWith('/api/stream?')) return downloadInParts(url, onProgress, signal)
   const sources = [url]
   if (/^https?:\/\//.test(url)) sources.push(`/api/link-audio?u=${encodeURIComponent(url)}`)
   let lastError: unknown
@@ -54,6 +57,37 @@ export async function downloadAudio(url: string, onProgress: (f: number) => void
     }
   }
   throw lastError instanceof Error ? lastError : new Error('No se pudo descargar')
+}
+
+const PART = 6 * 1024 * 1024
+
+async function downloadInParts(url: string, onProgress: (f: number) => void, signal?: AbortSignal): Promise<Blob> {
+  const chunks: Uint8Array[] = []
+  let got = 0
+  let total = 0
+  let type = 'audio/mp4'
+  for (let tries = 0; ; ) {
+    const res = await fetch(url, { signal, cache: 'no-store', headers: { Range: `bytes=${got}-${got + PART - 1}` } }).catch((e) => {
+      if ((e as Error).name === 'AbortError') throw e
+      return null
+    })
+    if (!res || (!res.ok && res.status !== 206)) {
+      if (++tries > 3) throw new Error(`No se pudo convertir${res ? ` (HTTP ${res.status})` : ''}`)
+      await new Promise((r) => setTimeout(r, 1500 * tries))
+      continue
+    }
+    type = res.headers.get('content-type') || type
+    const buf = new Uint8Array(await res.arrayBuffer())
+    chunks.push(buf)
+    got += buf.length
+    const range = res.headers.get('content-range')
+    total = Number(range?.split('/')[1]) || (res.status === 200 ? got : total)
+    if (total) onProgress(Math.min(1, got / total))
+    // Sin Range (respuesta completa) o ya llegó todo
+    if (res.status === 200 || !buf.length || (total && got >= total)) break
+  }
+  if (got < 1024) throw new Error('Archivo vacío')
+  return new Blob(chunks as BlobPart[], { type })
 }
 
 /** Pide que el teléfono no borre las descargas cuando le falte espacio */

@@ -43,6 +43,12 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="carlospnauto" android:host="abrir" />
             </intent-filter>
+            <!-- «Compartir» un video de YouTube con la app: se convierte a audio -->
+            <intent-filter android:label="Convertir a audio">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
             <!-- Enlaces compartidos de la app (/play/ID, etc.) se abren aquí -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

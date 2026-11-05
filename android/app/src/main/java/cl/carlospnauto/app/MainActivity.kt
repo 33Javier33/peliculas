@@ -217,13 +217,23 @@ class MainActivity : AppCompatActivity() {
         getSystemService(AudioManager::class.java).registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
 
         requestStartupPermissions()
-        val start = intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: BuildConfig.WEB_URL
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(start)
+        val start = sharedUrl(intent) ?: intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: BuildConfig.WEB_URL
+        if (savedInstanceState != null && sharedUrl(intent) == null) web.restoreState(savedInstanceState) else web.loadUrl(start)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        sharedUrl(intent)?.let { return web.loadUrl(it) }
         intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.let { web.loadUrl(it.toString()) }
+    }
+
+    /** «Compartir» un video desde YouTube a la app: se abre «Convertir a audio» con ese enlace */
+    private fun sharedUrl(i: Intent?): String? {
+        if (i?.action != Intent.ACTION_SEND) return null
+        val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return null
+        val link = Regex("https?://\\S+").find(text)?.value ?: return null
+        if (!Regex("youtu\\.?be").containsMatchIn(link)) return null
+        return "${BuildConfig.WEB_URL}/music/convertir?u=${Uri.encode(link)}"
     }
 
     private fun requestStartupPermissions() {

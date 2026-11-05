@@ -7,21 +7,24 @@ import { useLinksStore } from '@/store/linksStore'
 import { formatSize } from '@/lib/offline-files'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { songGroup } from '@/components/OfflineIcons'
+import { convertedTrack, saveConverted, CONVERTED_ALBUM } from '@/lib/yt-convert'
 
 // Descargar la canción que suena (para escucharla sin internet). Queda en "Descargadas", junto
 // a su disco si es de uno guardado o en "Canciones sueltas"
 export default function SongDownloadButton({ video, className = '' }: { video: MusicVideo; className?: string }) {
-  const key = video.audioUrl ?? ''
+  // Canción de YouTube: se convierte a audio (sin video) y se guarda como «Convertidas de YouTube»
+  const ytId = !video.audioUrl && !video.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(video.id) ? video.id : ''
+  const key = video.audioUrl ?? (ytId ? `/api/stream?id=${ytId}` : '')
   const item = useOfflineStore((s) => (key ? s.items[key] : undefined))
   useLinksStore((s) => s.albums.length)
-  const group = songGroup(video)
+  const group = ytId ? { id: CONVERTED_ALBUM, title: 'Convertidas de YouTube' } : songGroup(video)
   const progress = useOfflineStore((s) => s.progress[group.id])
   const [confirm, setConfirm] = useState(false)
   const [note, setNote] = useState('')
 
   const base = `flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${className}`
 
-  if (!canDownload(video))
+  if (!canDownload(video) && !ytId)
     return (
       <button
         onClick={() => setNote('Las canciones de YouTube no se pueden descargar. Sí los discos de archive.org y los MP3.')}
@@ -58,8 +61,12 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
     )
 
   return (
-    <button onClick={() => useOfflineStore.getState().download(group, [video])} className={`${base} bg-surface-1/80 border-white/8 text-slate-200`}>
-      <Download className="w-4 h-4" /> Descargar
+    <button
+      onClick={() => (ytId ? saveConverted([convertedTrack(video)], true) : useOfflineStore.getState().download(group, [video]))}
+      className={`${base} bg-surface-1/80 border-white/8 text-slate-200`}
+      title={ytId ? 'Convierte la canción a audio y la guarda sin internet' : undefined}
+    >
+      <Download className="w-4 h-4" /> {ytId ? 'Descargar audio' : 'Descargar'}
     </button>
   )
 }

@@ -40,6 +40,8 @@ import {
   ListPlus,
   ListMusic,
   Link2,
+  AudioLines,
+  ChevronRight,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -401,6 +403,18 @@ export default function MusicLibraryClient() {
           <CollapsibleCard id="links" icon={<Link2 className="w-4 h-4 text-sky-400" />} title="Desde un enlace" desc="MP3 y otros audios de internet, tus discos de enlaces">
             <AudioLinksSection />
           </CollapsibleCard>
+          {/* YouTube → audio (sin video) para guardarlo */}
+          <Link
+            href="/music/convertir"
+            className="mt-3 flex items-center gap-3 rounded-2xl bg-surface-1/70 border border-white/8 px-4 py-3 hover:border-cyan-400/40"
+          >
+            <AudioLines className="w-4 h-4 text-cyan-300 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-white text-sm font-semibold">Convertir YouTube a audio</span>
+              <span className="block text-slate-500 text-xs">Pega un enlace y guarda solo el sonido, para escucharlo sin internet</span>
+            </span>
+            <ChevronRight className="w-4 h-4 text-slate-500" />
+          </Link>
         </div>
 
         <LibraryMixesSection />

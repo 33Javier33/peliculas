@@ -3,6 +3,7 @@ import { resolveOwnAudio } from '@/lib/own-stream'
 
 // /api/stream?id=VIDEO_ID → el audio de la canción, reenviado por el servidor de la app
 // (con soporte de Range para adelantar y para continuar si la conexión se corta).
+// &dl=1&name=Título → se baja como archivo de audio (.m4a) con ese nombre.
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -30,6 +31,11 @@ export async function GET(req: NextRequest) {
       'Cache-Control': 'no-store',
       'Access-Control-Allow-Origin': '*',
     })
+    if (req.nextUrl.searchParams.get('dl') === '1') {
+      const ext = audio.mimeType.includes('webm') ? 'webm' : 'm4a'
+      const name = (req.nextUrl.searchParams.get('name') || id).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 120) || id
+      headers.set('Content-Disposition', `attachment; filename="${name.replace(/[^\x20-\x7e]/g, '_')}.${ext}"; filename*=UTF-8''${encodeURIComponent(name)}.${ext}`)
+    }
     for (const h of ['content-length', 'content-range']) {
       const v = upstream.headers.get(h)
       if (v) headers.set(h, v)

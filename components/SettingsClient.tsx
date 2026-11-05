@@ -15,8 +15,7 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users,
-} from 'lucide-react'
+  Users, AudioLines } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useLangStore } from '@/store/langStore'
@@ -188,6 +187,11 @@ export default function SettingsClient() {
         <Section title="La app">
           <Link href="/app-android" className="block">
             <Row icon={<Smartphone className="w-4 h-4" />} title="App de Android" desc={apk ? `Instalada: ${apk}` : 'Instálala o actualízala'}>
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            </Row>
+          </Link>
+          <Link href="/music/convertir" className="block">
+            <Row icon={<AudioLines className="w-4 h-4" />} title="Convertir YouTube a audio" desc="Guarda solo el sonido de un video para escucharlo sin internet">
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </Row>
           </Link>

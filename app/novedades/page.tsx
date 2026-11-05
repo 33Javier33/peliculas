@@ -20,6 +20,18 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '5 nov 2026',
+    title: 'Convertir YouTube a audio',
+    Icon: Download,
+    color: 'from-cyan-500 to-fuchsia-500',
+    items: [
+      'Nueva sección Convertir a audio: pega un enlace de YouTube y se guarda solo el sonido (sin video) en tu biblioteca',
+      'Las canciones convertidas se escuchan sin internet y se pueden bajar como archivo de audio (.m4a)',
+      'El botón Descargar del reproductor ahora también funciona con canciones de YouTube («Descargar audio»)',
+      'En Android: comparte un video desde la app de YouTube con PulsoMedia y se convierte al tiro',
+    ],
+  },
+  {
+    date: '5 nov 2026',
     title: 'Ahora somos PulsoMedia',
     Icon: Sparkles,
     color: 'from-cyan-400 to-pink-500',
