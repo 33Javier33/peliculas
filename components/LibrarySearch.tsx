@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Search, X, User, Disc3, Music2, ListMusic, Play } from 'lucide-react'
@@ -19,6 +19,7 @@ const norm = (s: string) =>
     .trim()
 
 export default function LibrarySearch({
+  query,
   songs,
   artists,
   albums,
@@ -27,6 +28,8 @@ export default function LibrarySearch({
   onArtist,
   onAlbum,
 }: {
+  /** Lo buscado con el buscador de arriba estando en la Biblioteca */
+  query?: string
   songs: MusicVideo[]
   artists: { name: string; count: number; cover: string }[]
   albums: { name: string; artist: string; count: number; cover: string }[]
@@ -35,7 +38,14 @@ export default function LibrarySearch({
   onArtist: (name: string) => void
   onAlbum: (al: { name: string; artist: string }) => void
 }) {
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(query ?? '')
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!query) return
+    setQ(query)
+    // Se muestran los resultados (aquí mismo, sin salir de la Biblioteca)
+    setTimeout(() => box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+  }, [query])
   const playlists = usePlaylistStore((s) => s.playlists)
   const res = useMemo(() => {
     const n = norm(q)
@@ -58,7 +68,7 @@ export default function LibrarySearch({
   const done = () => setQ('')
 
   return (
-    <div className="mb-5">
+    <div ref={box} className="mb-5 scroll-mt-20">
       <div className="relative max-w-xl">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
         <input

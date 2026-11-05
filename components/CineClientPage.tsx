@@ -75,8 +75,10 @@ export default function CineClientPage({
   useEffect(() => {
     setMounted(true)
     try {
-      const l = localStorage.getItem(LANG_KEY)
-      if (l === 'castellano' || l === 'ingles') setLang(l)
+      // Desde Música («Ver videos de…») llega ?lang=todo: videos de cualquier idioma
+      const fromUrl = new URLSearchParams(window.location.search).get('lang')
+      const l = fromUrl || localStorage.getItem(LANG_KEY)
+      if (l === 'castellano' || l === 'ingles' || l === 'todo') setLang(l)
       setSavedOpen(localStorage.getItem(SAVED_OPEN_KEY) !== '0')
     } catch {}
   }, [])

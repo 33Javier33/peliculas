@@ -38,8 +38,10 @@ export default function Header() {
       ? 'Biblioteca'
       : { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
   const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
-  const searchTarget = { music: '/music', cine: '/cine', radio: '/radio', tv: '/tv', movies: '/search' }[section]
-  const searchPlaceholder = {
+  // En la Biblioteca se busca en la Biblioteca (no se cambia de sección)
+  const inLibrary = pathname === '/music/library'
+  const searchTarget = inLibrary ? '/music/library' : { music: '/music', cine: '/cine', radio: '/radio', tv: '/tv', movies: '/search' }[section]
+  const searchPlaceholder = inLibrary ? 'Buscar en tu biblioteca...' : {
     music: 'Buscar música, artistas...',
     cine: 'Buscar videos y películas...',
     radio: 'Buscar emisoras...',
@@ -93,7 +95,7 @@ export default function Header() {
   )
 
   // Sugerencias según la sección (en TV el filtro de canales ya es instantáneo)
-  const suggestKind: SuggestKind = { music: 'music', cine: 'video', radio: 'radio', tv: 'video', movies: 'movies' }[section] as SuggestKind
+  const suggestKind: SuggestKind = (inLibrary ? 'library' : { music: 'music', cine: 'video', radio: 'radio', tv: 'video', movies: 'movies' }[section]) as SuggestKind
   const goTo = (s: string) => {
     setQuery(s)
     setIsMobileSearchOpen(false)
@@ -107,7 +109,7 @@ export default function Header() {
     onChange: setQuery,
     onPick: goTo,
     onKeyDown: handleKeyDown,
-    enabled: section !== 'tv',
+    enabled: section !== 'tv' && !inLibrary,
   })
   const mobileSuggest = useSearchSuggestions({
     kind: suggestKind,
@@ -115,7 +117,7 @@ export default function Header() {
     onChange: setQuery,
     onPick: goTo,
     onKeyDown: handleKeyDown,
-    enabled: section !== 'tv',
+    enabled: section !== 'tv' && !inLibrary,
   })
 
   return (

@@ -1,6 +1,7 @@
 'use client'
 import QueueMenu from '@/components/QueueMenu'
 import LibrarySearch from '@/components/LibrarySearch'
+import { useSearchParams } from 'next/navigation'
 import SimilarArtists from '@/components/SimilarArtists'
 
 import { useOfflineStore } from '@/store/offlineStore'
@@ -264,6 +265,8 @@ export default function MusicLibraryClient() {
   const artistAlbums = useMemo(() => (selectedArtist ? albums.filter((a) => a.artist === selectedArtist) : []), [albums, selectedArtist])
   const [showArtistSongs, setShowArtistSongs] = useState(false)
   useEffect(() => setShowArtistSongs(false), [selectedArtist])
+  // Búsqueda desde el buscador de arriba (/music/library?q=…): se queda en la Biblioteca
+  const headerQuery = useSearchParams().get('q') || ''
   const libArtistOf = useCallback((t: MusicVideo) => (t as SavedTrack).artist ?? parseTrackMeta(t).artist, [])
   const libAlbumOf = useCallback((t: MusicVideo) => (t as SavedTrack).album ?? parseTrackMeta(t).album ?? '', [])
   const openAlbum = (al: { name: string; artist: string }) => {
@@ -364,6 +367,7 @@ export default function MusicLibraryClient() {
         {/* Buscador de toda tu biblioteca: artistas, álbumes, canciones y playlists */}
         {saved.length > 0 && (
         <LibrarySearch
+          query={headerQuery}
           songs={saved}
           artists={artists}
           albums={albums}

@@ -147,18 +147,18 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         router.replace(`/music?q=${encodeURIComponent(q)}`, { scroll: false })
       }
 
-      // Resultados ya vistos en esta sesión: al instante, sin gastar cuota
+      // Música busca en Internet Archive, música libre y el catálogo de artistas y álbumes.
+      // Los videos de YouTube se buscan en la sección Videos (enlace en los resultados).
+      setVideos([])
+      setNextPageToken(undefined)
+      setIsSearchMode(true)
+      inputRef.current?.blur()
       const cacheKey = `music:${q.toLowerCase()}`
       const cached = readSession<SearchCache>(cacheKey)
-      if (cached?.videos) {
-        setVideos(cached.videos)
-        setNextPageToken(cached.nextPageToken)
-        setCatalog(cached.catalog ?? null)
-        setIsSearchMode(true)
+      if (cached?.catalog) {
+        setCatalog(cached.catalog)
         return
       }
-
-      // Artistas y álbumes completos (catálogo) en paralelo con las canciones
       setCatalog(null)
       fetch(`/api/catalog/search?q=${encodeURIComponent(q)}`)
         .then((r) => (r.ok ? r.json() : null))
@@ -168,27 +168,6 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           patchSession<SearchCache>(cacheKey, { catalog: d })
         })
         .catch(() => {})
-
-      startTransition(async () => {
-        try {
-          const res = await fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({}))
-            throw new Error(body.error || `Error ${res.status}`)
-          }
-          const data = (await res.json()) as { videos: MusicVideo[]; nextPageToken?: string }
-          setVideos(data.videos)
-          setNextPageToken(data.nextPageToken)
-          setIsSearchMode(true)
-          patchSession<SearchCache>(cacheKey, { videos: data.videos, nextPageToken: data.nextPageToken })
-          inputRef.current?.blur()
-        } catch (err) {
-          setError((err as Error).message)
-          setVideos([])
-          // Igual se muestran los resultados de Internet Archive (no dependen de YouTube)
-          setIsSearchMode(true)
-        }
-      })
     },
     [router]
   )
@@ -426,31 +405,19 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </div>
             )}
-            {isSearchMode && !isPending && videos.length > 0 ? (
-              <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones y videos de YouTube</h3>
-            ) : null}
-
-            {isPending ? (
-              <GridSkeleton />
-            ) : videos.length > 0 ? (
-              <div className={view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4' : 'divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian'}>
-                {videos.map((video, index) => (
-                  <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} view={view} />
-                ))}
-              </div>
-            ) : (
-              <EmptyState text={`No se encontraron resultados para "${submittedQuery}"`} />
-            )}
-            {nextPageToken && !isPending && (
-              <div className="flex justify-center mt-10">
-                <button
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                  className="inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 disabled:opacity-50 text-white font-semibold px-8 py-3.5 rounded-full border border-white/8 transition-colors"
-                >
-                  {isLoadingMore ? <><Loader2 className="w-4 h-4 animate-spin" /> Cargando más...</> : 'Cargar más'}
-                </button>
-              </div>
+            {/* Los videos de YouTube están en la sección Videos */}
+            {isSearchMode && (
+              <Link
+                href={`/cine?q=${encodeURIComponent(submittedQuery)}&lang=todo`}
+                className="mt-2 flex items-center gap-3 rounded-2xl bg-surface-1 border border-white/8 p-4 hover:border-violet-500/40"
+              >
+                <TvMinimalPlay className="w-6 h-6 text-violet-300 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-white text-sm font-semibold">Ver videos de «{submittedQuery}»</span>
+                  <span className="block text-slate-500 text-xs">Videoclips y conciertos de YouTube, en la sección Videos</span>
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </Link>
             )}
           </section>
         ) : (
