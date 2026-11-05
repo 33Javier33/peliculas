@@ -635,7 +635,7 @@ const TvPlayer = forwardRef<
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: channel.name,
-        artist: 'TV en vivo · Carlos P. Nauto Interactive',
+        artist: 'TV en vivo · PulsoMedia',
         artwork: channel.logo ? [{ src: channel.logo, sizes: '512x512' }] : [],
       })
       navigator.mediaSession.setActionHandler('nexttrack', () => zapRef.current(1))

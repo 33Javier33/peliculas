@@ -110,7 +110,7 @@ export default function PlaylistClient({ id }: { id: string }) {
               <button
                 onClick={async () => {
                   const url = await playlistShareUrl(playlist.name, tracks)
-                  const r = await shareLink(playlist.name, `Escucha mi playlist "${playlist.name}" (${tracks.length} canciones) en Carlos P. Nauto Interactive`, url)
+                  const r = await shareLink(playlist.name, `Escucha mi playlist "${playlist.name}" (${tracks.length} canciones) en PulsoMedia`, url)
                   if (r === 'copied') {
                     setCopied(true)
                     setTimeout(() => setCopied(false), 2000)

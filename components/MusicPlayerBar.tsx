@@ -42,6 +42,8 @@ import { useOfflineStore } from '@/store/offlineStore'
 import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
@@ -1377,7 +1379,7 @@ export default function MusicPlayerBar() {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentVideo.title,
       artist: currentVideo.channelTitle,
-      album: 'Carlos P. Nauto Interactive',
+      album: 'PulsoMedia',
       artwork: currentVideo.thumbnail
         ? [{ src: currentVideo.thumbnail, sizes: '480x360', type: 'image/jpeg' }]
         : [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
@@ -1528,7 +1530,7 @@ export default function MusicPlayerBar() {
     const v = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]
     if (!v) return
     const url = await trackShareUrl(v)
-    const text = `Escucha "${v.title}" en Carlos P. Nauto Interactive`
+    const text = `Escucha "${v.title}" en PulsoMedia`
     try {
       if (navigator.share) await navigator.share({ title: v.title, text, url })
       else {
@@ -1597,6 +1599,8 @@ export default function MusicPlayerBar() {
   // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)
   const canWatchVideo = !!currentVideo && !isLive && !isLocal && !isPending && /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id)
 
+  // Cola: se cierra deslizando hacia abajo
+  const queueSwipe = useSwipeDown(() => useMusicStore.getState().isQueueOpen && toggleQueue())
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -1692,8 +1696,11 @@ export default function MusicPlayerBar() {
 
         {/* ===== QUEUE PANEL ===== */}
         {isQueueOpen && (
-          <div className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/[0.98] sm:bg-surface-1/95 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] border border-white/10 sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+          <div style={queueSwipe.style} className="absolute bottom-full right-0 sm:right-4 sm:mb-2 w-full sm:w-80 max-h-[50vh] sm:max-h-[340px] bg-surface-1/[0.98] sm:bg-surface-1/95 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] border border-white/10 rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl shadow-black/80 flex flex-col">
+            {/* Arrastrar hacia abajo desde aquí cierra la cola */}
+            <div {...queueSwipe.dragProps} className="shrink-0">
+            <SheetHandle className="pb-0 pt-1.5" />
+            <div className="flex items-center justify-between px-4 pb-3 pt-1 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2">
                 <ListMusic className="w-4 h-4 text-violet-400" />
                 <span className="text-white font-semibold text-sm">
@@ -1703,6 +1710,7 @@ export default function MusicPlayerBar() {
               <button onClick={toggleQueue} className="p-1 text-slate-500 hover:text-white transition-colors" aria-label="Cerrar cola">
                 <ChevronDown className="w-4 h-4" />
               </button>
+            </div>
             </div>
 
             <div className="overflow-y-auto flex-1 overscroll-contain">

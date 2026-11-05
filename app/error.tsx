@@ -10,7 +10,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('[Carlos P. Nauto Interactive Error]', error)
+    console.error('[PulsoMedia Error]', error)
   }, [error])
 
   return (

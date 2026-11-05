@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Carlos P. Nauto Interactive',
-    short_name: 'Carlos P. Nauto',
+    name: 'PulsoMedia',
+    short_name: 'PulsoMedia',
     description: 'Películas, videos musicales, música, radio y TV en vivo.',
     start_url: '/',
     scope: '/',

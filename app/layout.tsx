@@ -40,12 +40,14 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://peliculas-neon.vercel.app'),
   title: {
-    default: 'Carlos P. Nauto Interactive — Música, radios, TV y películas gratis',
-    template: '%s | Carlos P. Nauto Interactive',
+    default: 'PulsoMedia — Música, radios, TV y películas gratis',
+    template: '%s | PulsoMedia',
   },
   description:
-    'Carlos P. Nauto Interactive: escucha música con letra karaoke, radios en vivo y radios infinitas por género, TV en vivo y películas gratis. App gratis para Android, iPhone y web.',
+    'PulsoMedia (de Carlos P. Nauto Interactive): escucha música con letra karaoke, radios en vivo y radios infinitas por género, TV en vivo y películas gratis. App gratis para Android, iPhone y web.',
   keywords: [
+    'PulsoMedia',
+    'Pulso Media',
     'Carlos P. Nauto',
     'Carlos P. Nauto Interactive',
     'CarlosPNauto',
@@ -63,19 +65,19 @@ export const metadata: Metadata = {
   // Verificación de Google Search Console (la clave se pone en Vercel: NEXT_PUBLIC_GOOGLE_VERIFICATION)
   verification: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_VERIFICATION } : undefined,
   openGraph: {
-    title: 'Carlos P. Nauto Interactive',
+    title: 'PulsoMedia',
     description: 'Música con letra karaoke, radios, TV en vivo y películas gratis. App para Android, iPhone y web.',
     type: 'website',
     locale: 'es_ES',
-    images: [{ url: '/brand/og.jpg', width: 1200, height: 630, alt: 'Carlos P. Nauto Interactive' }],
+    images: [{ url: '/brand/og.jpg', width: 1200, height: 630, alt: 'PulsoMedia' }],
   },
-  applicationName: 'Carlos P. Nauto Interactive',
+  applicationName: 'PulsoMedia',
   authors: [{ name: 'Carlos P. Nauto Interactive' }],
   creator: 'Carlos P. Nauto Interactive',
   publisher: 'Carlos P. Nauto Interactive',
   appleWebApp: {
     capable: true,
-    title: 'Carlos P. Nauto',
+    title: 'PulsoMedia',
     statusBarStyle: 'black-translucent',
   },
   icons: {
@@ -110,8 +112,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'WebApplication',
-              name: 'Carlos P. Nauto Interactive',
-              alternateName: ['Carlos P. Nauto', 'Música Carlos P. Nauto', 'CarlosPNauto'],
+              name: 'PulsoMedia',
+              alternateName: ['Pulso Media', 'Carlos P. Nauto Interactive', 'Carlos P. Nauto', 'Música Carlos P. Nauto', 'CarlosPNauto'],
               url: process.env.NEXT_PUBLIC_SITE_URL || 'https://peliculas-neon.vercel.app',
               applicationCategory: 'MultimediaApplication',
               operatingSystem: 'Android, iOS, Web',
@@ -146,8 +148,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />
-              <span className="font-bold bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
-                Carlos P. Nauto Interactive
+              <span className="flex flex-col items-start leading-tight">
+                <span className="font-bold bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent">PulsoMedia</span>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">por Carlos P. Nauto Interactive</span>
               </span>
             </div>
             <p className="text-slate-500 text-sm">

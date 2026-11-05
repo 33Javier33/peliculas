@@ -7,7 +7,7 @@ import DownloadApkButton from '@/components/DownloadApkButton'
 
 export const metadata: Metadata = {
   title: 'Descargar la app para Android (APK)',
-  description: 'Descarga gratis la app de Carlos P. Nauto Interactive para Android: música con la pantalla bloqueada, radios, TV y películas.',
+  description: 'Descarga gratis la app de PulsoMedia para Android: música con la pantalla bloqueada, radios, TV y películas.',
 }
 
 // Página para instalar la app de Android (APK)

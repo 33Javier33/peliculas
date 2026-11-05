@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:text="Carlos P. Nauto"
+            android:text="PulsoMedia"
             android:textColor="#FFFFFFFF"
             android:textSize="15sp"
             android:textStyle="bold" />

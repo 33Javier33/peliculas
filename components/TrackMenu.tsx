@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 import { Disc3, UserRound, Library, Loader2, X, ListPlus, Radio } from 'lucide-react'
 import { archiveItemOf } from '@/lib/archive-radio-client'
 import { ARCHIVE_RADIO_GENRES } from '@/components/ArchiveRadioSection'
@@ -67,6 +69,7 @@ export default function TrackMenu({
     onNavigate(href)
   }
 
+  const swipe = useSwipeDown(onClose)
   const loading = info === undefined
   const albumHref = linkAlbum ? `/music/library?album=${encodeURIComponent(linkAlbum.id)}` : info ? `/music/album/${info.album.id}` : null
   const albumName = linkAlbum?.title ?? info?.album.title
@@ -75,8 +78,9 @@ export default function TrackMenu({
   return (
     <div className="fixed inset-0 z-[95] flex items-end justify-center" role="dialog" aria-modal="true" aria-label="Opciones de la canción">
       <button className="absolute inset-0 bg-black/60" onClick={onClose} aria-label="Cerrar" />
-      <div className="relative w-full max-w-md rounded-t-3xl bg-surface-1 border-t border-white/10 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-white/8">
+      <div style={swipe.style} className="relative w-full max-w-md rounded-t-3xl bg-surface-1 border-t border-white/10 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+        <SheetHandle className="sm:hidden -mb-2" />
+        <div {...swipe.dragProps} className="flex items-center gap-3 px-5 py-3 border-b border-white/8">
           <div className="min-w-0 flex-1">
             <p className="text-white font-semibold truncate">{title}</p>
             <p className="text-slate-400 text-sm truncate">{artist}</p>

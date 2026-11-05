@@ -11,12 +11,12 @@ interface PlayPageProps {
 export async function generateMetadata({ params }: PlayPageProps): Promise<Metadata> {
   if (!isYouTubeId(params.id)) return {}
   const video = await getSharedVideo(params.id)
-  const description = `Escúchala en Carlos P. Nauto Interactive${video.channelTitle ? ` · ${video.channelTitle}` : ''}`
+  const description = `Escúchala en PulsoMedia${video.channelTitle ? ` · ${video.channelTitle}` : ''}`
   return {
     title: video.title,
     description,
     openGraph: {
-      title: `${video.title} — Carlos P. Nauto Interactive`,
+      title: `${video.title} — PulsoMedia`,
       description,
       type: 'music.song',
       images: [{ url: video.thumbnail, alt: video.title }],

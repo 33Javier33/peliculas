@@ -12,9 +12,9 @@ function target(): { url: string; text: string } {
   const origin = typeof window !== 'undefined' && /^https:/.test(window.location.origin) ? window.location.origin : SITE
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
   if (getNative() || /CPNApp\//.test(ua) || /Android/i.test(ua))
-    return { url: `${origin}/app-android`, text: 'Te comparto Carlos P. Nauto Interactive: música, radios, TV y películas gratis. Descarga la app para Android:' }
-  if (/iPhone|iPad|iPod/i.test(ua)) return { url: `${origin}/app-iphone`, text: 'Te comparto Carlos P. Nauto Interactive: música, radios, TV y películas gratis. Instálala en tu iPhone:' }
-  return { url: origin, text: 'Te comparto Carlos P. Nauto Interactive: música, radios, TV y películas gratis:' }
+    return { url: `${origin}/app-android`, text: 'Te comparto PulsoMedia: música, radios, TV y películas gratis. Descarga la app para Android:' }
+  if (/iPhone|iPad|iPod/i.test(ua)) return { url: `${origin}/app-iphone`, text: 'Te comparto PulsoMedia: música, radios, TV y películas gratis. Instálala en tu iPhone:' }
+  return { url: origin, text: 'Te comparto PulsoMedia: música, radios, TV y películas gratis:' }
 }
 
 export default function ShareAppButton({ className = '', label = 'Compartir la app', compact = false }: { className?: string; label?: string; compact?: boolean }) {
@@ -31,7 +31,7 @@ export default function ShareAppButton({ className = '', label = 'Compartir la a
     // App de Android: el menú Compartir del teléfono
     if (native?.share) return native.share(`${text}\n${url}`)
     try {
-      if (navigator.share) return await navigator.share({ title: 'Carlos P. Nauto Interactive', text, url })
+      if (navigator.share) return await navigator.share({ title: 'PulsoMedia', text, url })
     } catch {
       return
     }

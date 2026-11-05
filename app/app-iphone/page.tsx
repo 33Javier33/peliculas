@@ -4,7 +4,7 @@ import { Share, PlusSquare, Smartphone, Music2, Radio, Info } from 'lucide-react
 
 export const metadata: Metadata = {
   title: 'Instalar la app en iPhone',
-  description: 'Instala gratis Carlos P. Nauto Interactive en tu iPhone desde Safari: música, radios, TV y películas.',
+  description: 'Instala gratis PulsoMedia en tu iPhone desde Safari: música, radios, TV y películas.',
 }
 
 // iPhone: Apple no deja instalar apps fuera de la App Store, así que la app se instala desde
@@ -43,7 +43,7 @@ export default function IphoneAppPage() {
           <li className="flex gap-3">
             <span className="shrink-0 w-7 h-7 rounded-full bg-violet-500 text-white font-bold flex items-center justify-center">4</span>
             <span>
-              Toca <b>Agregar</b>. Abre la app desde el nuevo ícono <b>Carlos P. Nauto</b>.
+              Toca <b>Agregar</b>. Abre la app desde el nuevo ícono <b>PulsoMedia</b>.
             </span>
           </li>
         </ol>

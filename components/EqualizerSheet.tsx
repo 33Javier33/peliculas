@@ -3,18 +3,24 @@
 import { X, SlidersHorizontal, Sparkles, Info } from 'lucide-react'
 import { useEqStore, EQ_BANDS, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 
 // Ventana del ecualizador: preajustes, 5 bandas, nivelador de volumen y alta calidad
 export default function EqualizerSheet() {
   const { open, enabled, preset, gains, leveler, applies, native, setOpen, setEnabled, setPreset, setGain, setLeveler } = useEqStore()
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const setAudioBoost = useMusicStore((s) => s.setAudioBoost)
+  const swipe = useSwipeDown(() => setOpen(false))
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Ecualizador">
       <button className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} aria-label="Cerrar" />
-      <div className="relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 px-5 pt-4 pb-[max(20px,env(safe-area-inset-bottom))]">
+      <div style={swipe.style} className="relative w-full max-w-md max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 px-5 pt-1 pb-[max(20px,env(safe-area-inset-bottom))]">
+        {/* Se cierra arrastrando hacia abajo desde arriba */}
+        <div {...swipe.dragProps} className="-mx-5 px-5 pb-1">
+        <SheetHandle />
         <div className="flex items-center gap-3">
           <SlidersHorizontal className="w-5 h-5 text-violet-300" />
           <p className="flex-1 text-white font-bold font-display">Ecualizador</p>
@@ -31,6 +37,7 @@ export default function EqualizerSheet() {
           <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">
             <X className="w-4 h-4" />
           </button>
+        </div>
         </div>
 
         {/* Nota informativa (no es un error): dónde se aplica el ecualizador */}

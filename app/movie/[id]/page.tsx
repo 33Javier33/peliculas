@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: MoviePageProps): Promise<Meta
       title: movie.title,
       description:
         movie.overview?.slice(0, 160) ||
-        `Detalles, reparto y trailer de ${movie.title} en Carlos P. Nauto Interactive.`,
+        `Detalles, reparto y trailer de ${movie.title} en PulsoMedia.`,
       openGraph: {
         title: movie.title,
         description: movie.overview?.slice(0, 160) || '',

@@ -3,7 +3,7 @@ import CommunityClient from '@/components/CommunityClient'
 
 export const metadata: Metadata = {
   title: 'Comunidad de playlists',
-  description: 'Playlists y mezclas por género que comparten quienes usan Carlos P. Nauto Interactive.',
+  description: 'Playlists y mezclas por género que comparten quienes usan PulsoMedia.',
 }
 
 export default function CommunityPage() {

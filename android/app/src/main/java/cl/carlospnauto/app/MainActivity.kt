@@ -287,7 +287,7 @@ class MainActivity : AppCompatActivity() {
         runCatching {
             val dm = getSystemService(DownloadManager::class.java)
             val request = DownloadManager.Request(absolute)
-                .setTitle("Carlos P. Nauto: actualización")
+                .setTitle("PulsoMedia: actualización")
                 .setDescription("Descargando la nueva versión de la app")
                 .setMimeType(mimeType?.takeIf { it.isNotBlank() } ?: "application/vnd.android.package-archive")
                 .addRequestHeader("User-Agent", userAgent)

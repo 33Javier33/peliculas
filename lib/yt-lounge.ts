@@ -32,7 +32,7 @@ export async function playOnScreen(screenId: string, videoId: string, currentTim
   const h = { 'X-YouTube-LoungeId-Token': lounge }
 
   // 2) Conectarse como control remoto
-  const device = { device: 'REMOTE_CONTROL', id: randomUUID(), name: 'Carlos P. Nauto Interactive', 'mdx-version': 3, pairing_type: 'cast', app: 'android-phone-13.14.55' }
+  const device = { device: 'REMOTE_CONTROL', id: randomUUID(), name: 'PulsoMedia', 'mdx-version': 3, pairing_type: 'cast', app: 'android-phone-13.14.55' }
   const bind = await post(`${BIND}?${new URLSearchParams({ RID: '0', VER: '8', CVER: '1' })}`, device, h)
   const sid = bind.match(/"c","(.*?)","/)?.[1]
   const gsession = bind.match(/"S","(.*?)"]/)?.[1]

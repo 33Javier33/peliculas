@@ -3,8 +3,8 @@ import SharedPlaylistClient from '@/components/SharedPlaylistClient'
 
 export const metadata: Metadata = {
   title: 'Playlist compartida',
-  description: 'Te compartieron una playlist en Carlos P. Nauto Interactive',
-  openGraph: { title: 'Playlist compartida — Carlos P. Nauto Interactive', description: 'Escúchala y guárdala en tus playlists' },
+  description: 'Te compartieron una playlist en PulsoMedia',
+  openGraph: { title: 'Playlist compartida — PulsoMedia', description: 'Escúchala y guárdala en tus playlists' },
 }
 
 export default function SharedPlaylistPage() {

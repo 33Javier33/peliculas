@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 import { X, Mail, Loader2, CheckCircle2, Cloud, LogOut, RefreshCw, AlertCircle } from 'lucide-react'
 import { useAccountStore } from '@/store/accountStore'
 import { callAccount } from '@/lib/account-sync'
@@ -25,6 +27,7 @@ export default function AccountSheet() {
       .catch(() => setConfigured(null))
   }, [open])
 
+  const swipe = useSwipeDown(() => useAccountStore.getState().setOpen(false))
   if (!open) return null
 
   const request = async (e?: React.FormEvent) => {
@@ -59,8 +62,9 @@ export default function AccountSheet() {
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Cuenta">
       <button className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} aria-label="Cerrar" />
-      <div className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 px-5 pt-4 pb-[max(20px,env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-3">
+      <div style={swipe.style} className="relative w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 px-5 pt-4 pb-[max(20px,env(safe-area-inset-bottom))]">
+        <SheetHandle className="sm:hidden -mb-2" />
+        <div {...swipe.dragProps} className="flex items-center gap-3">
           <Cloud className="w-5 h-5 text-violet-300" />
           <p className="flex-1 text-white font-bold font-display">{token ? 'Tu cuenta' : 'Respalda tu biblioteca'}</p>
           <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">

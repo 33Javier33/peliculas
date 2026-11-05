@@ -130,7 +130,7 @@ export default function CastButton({
     info.streamType = m.live ? window.chrome.cast.media.StreamType.LIVE : window.chrome.cast.media.StreamType.BUFFERED
     const meta = new window.chrome.cast.media.GenericMediaMetadata()
     meta.title = m.title
-    meta.subtitle = 'Carlos P. Nauto Interactive'
+    meta.subtitle = 'PulsoMedia'
     if (m.poster) meta.images = [new window.chrome.cast.Image(absolute(m.poster))]
     info.metadata = meta
     const request = new window.chrome.cast.media.LoadRequest(info)

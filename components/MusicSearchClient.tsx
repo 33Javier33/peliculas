@@ -1,4 +1,5 @@
 'use client'
+import LibrarySimilarArtists from '@/components/LibrarySimilarArtists'
 import AlbumCardActions from '@/components/AlbumCardActions'
 
 import { TrackStateOverlay } from '@/components/TrackState'
@@ -12,7 +13,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession, patchSession } from '@/lib/session-cache'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Search, X, Loader2, AlertCircle, Music2, TrendingUp, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
+import { Search, X, Loader2, AlertCircle, Music2, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
@@ -37,41 +38,14 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   const view = useView()
   const [query, setQuery] = useState('')
   const [videos, setVideos] = useState<MusicVideo[]>(initialVideos)
-  // Tendencias del país donde estás (la página trae México como respaldo)
-  const [trending, setTrending] = useState<MusicVideo[]>(initialVideos)
-  const [trendRegion, setTrendRegion] = useState<string | null>(null)
+  const trending = initialVideos
   const isSearchModeRef = useRef(false)
   const [nextPageToken, setNextPageToken] = useState<string | undefined>()
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [catalog, setCatalog] = useState<{ artists: CatalogArtist[]; albums: CatalogAlbum[] } | null>(null)
   isSearchModeRef.current = isSearchMode
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/youtube/music')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { videos?: MusicVideo[]; region?: string } | null) => {
-        if (cancelled) return
-        if (data?.videos?.length) {
-          setTrending(data.videos)
-          if (!isSearchModeRef.current) setVideos(data.videos)
-        }
-        setTrendRegion(data?.region || 'MX')
-      })
-      .catch(() => !cancelled && setTrendRegion('MX'))
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
-  const regionName = useMemo(() => {
-    if (!trendRegion) return ''
-    try {
-      return new Intl.DisplayNames(['es'], { type: 'region' }).of(trendRegion) || trendRegion
-    } catch {
-      return trendRegion
-    }
-  }, [trendRegion])
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -591,28 +565,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
             <ArchiveSearchSection />
             <ArchiveSearchSection variant="free" />
 
-            {/* ===== Tendencias ===== */}
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-5 h-5 text-violet-400" />
-                <h2 className="text-white font-bold text-[22px] leading-7">Tendencias</h2>
-                <span className="text-slate-500 text-sm">{regionName}</span>
-                <span className="ml-auto">
-                  <ViewToggle compact />
-                </span>
-              </div>
-              {!trendRegion ? (
-                <GridSkeleton />
-              ) : videos.length > 0 ? (
-                <div className={view === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4' : 'divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian'}>
-                  {videos.map((video, index) => (
-                    <MusicCard key={`${video.id}-${index}`} video={video} allVideos={videos} index={index} view={view} />
-                  ))}
-                </div>
-              ) : (
-                !error && <EmptyState text="No hay tendencias disponibles" />
-              )}
-            </section>
+            {/* ===== Artistas similares a los de tu biblioteca (antes: Tendencias) ===== */}
+            <LibrarySimilarArtists />
           </>
         )}
       </div>

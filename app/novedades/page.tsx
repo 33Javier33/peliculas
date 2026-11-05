@@ -5,7 +5,7 @@ import { Sparkles, Music2, Radio, Clapperboard, Smartphone, Download, SlidersHor
 
 export const metadata: Metadata = {
   title: 'Cómo ha crecido la app',
-  description: 'La historia de Carlos P. Nauto Interactive: cada etapa, lo nuevo y las mejoras.',
+  description: 'La historia de PulsoMedia (antes Carlos P. Nauto Interactive): cada etapa, lo nuevo y las mejoras.',
 }
 
 // Historia de la app: etapas con lo que se agregó y lo que se mejoró (de la más nueva a la primera)
@@ -18,6 +18,19 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
+  {
+    date: '5 nov 2026',
+    title: 'Ahora somos PulsoMedia',
+    Icon: Sparkles,
+    color: 'from-cyan-400 to-pink-500',
+    items: [
+      'Nuevo nombre y logo: PulsoMedia, de Carlos P. Nauto Interactive',
+      'La pantalla de inicio pasa de la animación de Carlos P. Nauto Interactive al nuevo logo',
+      'En Música, en lugar de Tendencias: artistas similares a los de tu biblioteca («Porque escuchas…»)',
+      'El ecualizador, la cola y las demás ventanas se cierran deslizando hacia abajo',
+      'Reloj: los botones de la cola y de la biblioteca ya tienen íconos distintos',
+    ],
+  },
   {
     date: '4 nov 2026',
     title: 'Cola de reproducción, artistas ordenados y enlaces que abren la app',
@@ -225,7 +238,7 @@ export default function NovedadesPage() {
           <Sparkles className="w-7 h-7 text-fuchsia-300" /> Cómo ha crecido la app
         </h1>
         <p className="text-slate-400 text-sm mt-2">
-          Carlos P. Nauto Interactive: películas, videos, música, radio y TV. Versión actual v{process.env.NEXT_PUBLIC_APP_VERSION}.
+          PulsoMedia, de Carlos P. Nauto Interactive: películas, videos, música, radio y TV. Versión actual v{process.env.NEXT_PUBLIC_APP_VERSION}.
         </p>
 
         <div className="grid grid-cols-3 gap-2 mt-6">

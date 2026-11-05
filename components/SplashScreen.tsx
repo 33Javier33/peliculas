@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-// Pantalla de inicio con la animación de la marca. Sale una vez por apertura de la app
+// Pantalla de inicio: la animación de Carlos P. Nauto Interactive pasa al logo de PulsoMedia. Sale una vez por apertura de la app
 // (no al cambiar de pantalla ni al recargar en la misma sesión). Se puede saltar tocándola.
 // Viene dibujada desde el servidor para que aparezca antes que la app; si ya se vio en
 // esta sesión, el script de SPLASH_SCRIPT la esconde antes de que se vea.
@@ -29,7 +29,7 @@ export default function SplashScreen() {
     const video = videoRef.current
     video?.play().catch(() => {})
     // Si el video no arranca (ahorro de datos o de batería), se muestra la imagen un momento
-    const max = setTimeout(() => setState('leaving'), 4500)
+    const max = setTimeout(() => setState('leaving'), 7000)
     return () => {
       clearTimeout(max)
       document.body.style.overflow = prev
@@ -53,7 +53,7 @@ export default function SplashScreen() {
       className={`fixed inset-0 z-[200] bg-[#0b0a24] flex items-center justify-center overflow-hidden transition-opacity duration-[450ms] ${
         state === 'leaving' ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
-      aria-label="Carlos P. Nauto Interactive"
+      aria-label="PulsoMedia"
       role="img"
     >
       {/* Fondo difuminado para pantallas anchas (computador, tablet) */}

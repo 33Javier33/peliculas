@@ -82,7 +82,7 @@ export default function WatchAppPage() {
           </Step>
           <Step n={6} title="Listo">
             <p>
-              Abre <b>Carlos P. Nauto</b> en el reloj. Con la app abierta en el teléfono (o sonando en segundo plano), toca{' '}
+              Abre <b>PulsoMedia</b> en el reloj. Con la app abierta en el teléfono (o sonando en segundo plano), toca{' '}
               <Music2 className="inline w-4 h-4" /> para elegir qué escuchar. Puedes apagar la depuración después.
             </p>
           </Step>

@@ -207,7 +207,7 @@ private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () ->
                         }
                         Round(R.drawable.ic_queue, "Lista en reproducción", 32) { onQueue() }
                         Round(R.drawable.ic_volume, "Volumen", 32) { onVolume() }
-                        Round(R.drawable.ic_list, "Biblioteca", 32) { onBrowse() }
+                        Round(R.drawable.ic_library, "Biblioteca", 32) { onBrowse() }
                     }
                 }
             }

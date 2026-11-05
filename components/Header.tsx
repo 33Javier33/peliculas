@@ -131,28 +131,27 @@ export default function Header() {
           <Link
             href="/"
             className="flex items-center gap-2 min-w-0 group"
-            aria-label="Carlos P. Nauto Interactive - Inicio"
+            aria-label="PulsoMedia - Inicio"
           >
             <Image
               src="/brand/logo-mark.png"
-              alt="Carlos P. Nauto Interactive"
+              alt="PulsoMedia"
               width={40}
               height={40}
               priority
-              className="w-10 h-10 shrink-0 rounded-xl shadow-md shadow-violet-500/20 group-hover:scale-105 transition-transform duration-200"
+              className="w-10 h-10 shrink-0 rounded-xl shadow-md shadow-cyan-400/20 group-hover:scale-105 transition-transform duration-200"
             />
             <div className="flex flex-col leading-none min-w-0 overflow-hidden">
               <span className="flex items-baseline gap-1.5">
-                <span className="font-bold text-sm leading-tight whitespace-nowrap bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-lime-300 bg-clip-text text-transparent">
-                  Carlos P. Nauto
+                <span className="font-bold text-sm leading-tight whitespace-nowrap">
+                  <span className="text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.55)]">Pulso</span>
+                  <span className="text-white">Media</span>
                 </span>
                 {/* Versión de la app (para saber si ya llegó la última) */}
                 <span className="hidden min-[400px]:inline text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
               </span>
               <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.15em] sm:tracking-[0.2em] whitespace-nowrap">
                 {/* En teléfonos angostos solo la sección (si no, se cortaba) */}
-                <span className="hidden min-[400px]:inline text-slate-400">Interactive</span>
-                <span className="hidden min-[400px]:inline text-slate-600" aria-hidden>·</span>
                 <span className="text-violet-300 font-bold">{sectionLabel}</span>
                 {isMusicPlaying && (
                   <span className="flex items-end gap-[2px] h-2.5" aria-label="Reproduciendo música">

@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 import { Plus, X, Check } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import PlaylistCover from '@/components/PlaylistCover'
@@ -25,6 +27,7 @@ export default function AddToPlaylistSheet() {
     return () => clearTimeout(t)
   }, [done, closeAdd])
 
+  const swipe = useSwipeDown(() => usePlaylistStore.getState().closeAdd())
   if (!pending) return null
   const what = pending.length === 1 ? pending[0].title.replace(/^[^-–]+[-–]\s*/, '') || pending[0].title : `${pending.length} canciones`
 
@@ -42,8 +45,9 @@ export default function AddToPlaylistSheet() {
   return (
     <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Agregar a playlist">
       <button className="absolute inset-0 bg-black/60" onClick={closeAdd} aria-label="Cerrar" />
-      <div className="relative w-full max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 pb-[max(16px,env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-white/8">
+      <div style={swipe.style} className="relative w-full max-w-md max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10 pb-[max(16px,env(safe-area-inset-bottom))]">
+        <SheetHandle className="sm:hidden -mb-2" />
+        <div {...swipe.dragProps} className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-white/8">
           <div className="min-w-0 flex-1">
             <p className="text-white font-bold font-display">Agregar a playlist</p>
             <p className="text-slate-400 text-xs truncate">{what}</p>
