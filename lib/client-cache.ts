@@ -43,8 +43,10 @@ export function peekCached<T>(url: string): T | null {
  * JSON de una dirección de la app con caché: si lo guardado tiene menos de `ttl` ms se usa sin
  * consultar; si no, se consulta (y si falla, se usa lo guardado aunque esté viejo).
  */
-export async function cachedJson<T>(url: string, ttl = 3600_000): Promise<T | null> {
-  const hit = memory.get(url) ?? readStored(url)
+export async function cachedJson<T>(url: string, ttl = 3600_000, keep: (data: T) => boolean = () => true): Promise<T | null> {
+  const stored = memory.get(url) ?? readStored(url)
+  // Lo guardado que no sirve (p. ej. una biografía vacía de cuando no había conexión) se ignora
+  const hit = stored && keep(stored.data as T) ? stored : null
   if (hit && Date.now() - hit.at < ttl) {
     memory.set(url, hit)
     return hit.data as T
@@ -54,7 +56,8 @@ export async function cachedJson<T>(url: string, ttl = 3600_000): Promise<T | nu
   const p = fetch(url)
     .then((r) => (r.ok ? (r.json() as Promise<T>) : Promise.reject(new Error(String(r.status)))))
     .then((data) => {
-      store(url, { at: Date.now(), data })
+      // Solo se guarda lo que sirve (una respuesta vacía no queda una semana en el teléfono)
+      if (keep(data)) store(url, { at: Date.now(), data })
       return data
     })
     .catch(() => (hit?.data as T) ?? null)

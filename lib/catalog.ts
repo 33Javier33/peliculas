@@ -429,12 +429,22 @@ export async function findTrackInfo(artist: string, title: string) {
     .replace(/\s*[([](official|oficial|video|audio|lyric|letra|visualizer|hd|4k|remaster)[^)\]]*[)\]]/gi, '')
     .trim()
   const wanted = normName(artist)
-  const q = encodeURIComponent(`artist:"${artist}" track:"${cleanTitle}"`)
-  const data = await deezer<{ data: { title: string; artist: DzArtist; album: DzAlbum }[] }>(`/search/track?q=${q}&limit=10`, 86400)
-  const hit = data.data.find((t) => normName(t.artist.name) === wanted) ?? data.data[0]
-  if (!hit) return null
-  return {
-    album: { id: hit.album.id, title: hit.album.title, cover: hit.album.cover_big || hit.album.cover_medium || '' },
-    artist: { id: hit.artist.id, name: hit.artist.name },
-  }
+  type Hit = { title: string; artist: DzArtist; album: DzAlbum }
+  const search = (q: string) =>
+    deezer<{ data: Hit[] }>(`/search/track?q=${encodeURIComponent(q)}&limit=10`, 3600)
+      .then((d) => d.data ?? [])
+      .catch(() => [] as Hit[])
+  // Búsqueda exacta; si no encuentra nada, una simple (artista + canción)
+  let list = await search(`artist:"${artist}" track:"${cleanTitle}"`)
+  if (!list.length) list = await search(`${artist} ${cleanTitle}`)
+  const hit = list.find((t) => normName(t.artist.name) === wanted) ?? list[0]
+  if (hit)
+    return {
+      album: { id: hit.album.id, title: hit.album.title, cover: hit.album.cover_big || hit.album.cover_medium || '' },
+      artist: { id: hit.artist.id, name: hit.artist.name },
+    }
+  // Sin la canción: al menos el artista (para «Ir al artista» y su discografía)
+  const found = await deezer<{ data: DzArtist[] }>(`/search/artist?q=${encodeURIComponent(artist)}&limit=5`, 86400).catch(() => ({ data: [] as DzArtist[] }))
+  const a = found.data.find((x) => normName(x.name) === wanted) ?? found.data[0]
+  return a ? { album: null, artist: { id: a.id, name: a.name } } : null
 }

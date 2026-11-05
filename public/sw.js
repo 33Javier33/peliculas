@@ -1,7 +1,7 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y usarla sin conexión: guarda las pantallas principales y sus
 // archivos, así la app abre sin internet (la biblioteca y las canciones descargadas).
-const CACHE = 'cpn-cache-v156'
+const CACHE = 'cpn-cache-v157'
 const OFFLINE_URLS = ['/', '/music', '/music/library', '/radio', '/tv', '/peliculas', '/cine', '/novedades']
 
 // Partes de la app que se cargan "a pedido" (reproductor, ventanas…): están en el índice de webpack.

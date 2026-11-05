@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   ])
   return NextResponse.json(
     { artist: artistInfo, album: albumInfo, facts },
-    { headers: { 'Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=604800' } }
+    // Sin biografía (Wikipedia no respondió a tiempo): se vuelve a preguntar pronto, no en una semana
+    { headers: { 'Cache-Control': artistInfo || facts ? 'public, s-maxage=604800, stale-while-revalidate=604800' : 'public, s-maxage=300' } }
   )
 }

@@ -21,14 +21,19 @@ export default function ArtistAboutCard({ artist, album, className = '' }: { art
     if (!name) return
     let cancelled = false
     setInfo(null)
-    loadMusicInfo(name, album).then((d) => !cancelled && setInfo(d))
+    const load = () => loadMusicInfo(name, album).then((d) => !cancelled && setInfo(d))
+    load()
+    // Al volver la conexión se pide de nuevo (si antes no se pudo)
+    window.addEventListener('online', load)
     return () => {
       cancelled = true
+      window.removeEventListener('online', load)
     }
   }, [name, album])
 
-  // Sin nada que contar (artista desconocido): no se muestra
-  if (!name || (info && !info.artist && !info.facts && !info.album)) return null
+  if (!name) return null
+  // Sin biografía (no está en Wikipedia, o no hay conexión): la sección se muestra igual
+  const empty = !!info && !info.artist && !info.facts && !info.album
 
   const picture = info?.artist?.image
   return (
@@ -52,7 +57,26 @@ export default function ArtistAboutCard({ artist, album, className = '' }: { art
           )}
         </div>
       </div>
-      {info === null ? (
+      {empty ? (
+        <>
+          <p className="text-slate-400 text-sm">
+            {typeof navigator !== 'undefined' && !navigator.onLine
+              ? 'Sin conexión: la biografía aparecerá cuando vuelvas a tener internet.'
+              : `No encontramos la biografía de ${name}.`}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <ArtistPlaylistButton name={name} />
+            <a
+              href={`https://es.wikipedia.org/w/index.php?search=${encodeURIComponent(name)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-white text-xs underline"
+            >
+              Buscar en Wikipedia <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </>
+      ) : info === null ? (
         <div className="space-y-2" aria-hidden>
           <div className="h-3 rounded bg-white/5 w-full animate-pulse" />
           <div className="h-3 rounded bg-white/5 w-4/6 animate-pulse" />

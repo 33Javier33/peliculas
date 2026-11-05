@@ -25,7 +25,12 @@ export function loadMusicInfo(artist: string, album?: string): Promise<MusicInfo
   let p = memo.get(key)
   if (!p) {
     // Se guarda en el teléfono una semana: las biografías aparecen al instante la próxima vez
-    p = cachedJson<MusicInfo>(`/api/music-info?${key}`, 7 * 86400_000).then((d) => d ?? ({ artist: null, album: null } as unknown as MusicInfo))
+    const useful = (d: MusicInfo | null) => !!(d && (d.artist || d.facts || d.album))
+    p = cachedJson<MusicInfo>(`/api/music-info?${key}`, 7 * 86400_000, useful).then((d) => {
+      // Vacío (sin conexión o Wikipedia lenta): no se recuerda, la próxima vez se vuelve a pedir
+      if (!useful(d)) memo.delete(key)
+      return d ?? ({ artist: null, album: null } as unknown as MusicInfo)
+    })
     memo.set(key, p)
   }
   return p

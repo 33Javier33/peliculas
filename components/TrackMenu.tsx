@@ -15,7 +15,7 @@ import type { MusicVideo } from '@/lib/youtube-music'
 // Menú "⋮" de la canción que suena (como en Spotify): ir al álbum, al artista o a su discografía.
 
 type Info = {
-  album: { id: number; title: string; cover: string }
+  album: { id: number; title: string; cover: string } | null
   artist: { id: number; name: string }
 } | null
 
@@ -50,12 +50,13 @@ export default function TrackMenu({
     if (archiveItem) return setInfo(null)
     const key = `track-info:${artist}|${title}`.toLowerCase()
     const cached = readSession<Info | 'none'>(key)
-    if (cached) return setInfo(cached === 'none' ? null : cached)
+    if (cached && cached !== 'none') return setInfo(cached)
     let cancelled = false
     fetch(`/api/catalog/track-info?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: { info?: Info }) => {
-        writeSession(key, d.info ?? 'none')
+        // Solo se recuerda lo encontrado (un fallo de conexión no queda guardado como «no existe»)
+        if (d.info) writeSession(key, d.info)
         if (!cancelled) setInfo(d.info ?? null)
       })
       .catch(() => !cancelled && setInfo(null))
@@ -71,8 +72,8 @@ export default function TrackMenu({
 
   const swipe = useSwipeDown(onClose)
   const loading = info === undefined
-  const albumHref = linkAlbum ? `/music/library?album=${encodeURIComponent(linkAlbum.id)}` : info ? `/music/album/${info.album.id}` : null
-  const albumName = linkAlbum?.title ?? info?.album.title
+  const albumHref = linkAlbum ? `/music/library?album=${encodeURIComponent(linkAlbum.id)}` : info?.album ? `/music/album/${info.album.id}` : null
+  const albumName = linkAlbum?.title ?? info?.album?.title
 
   const item = 'w-full flex items-center gap-4 px-5 py-3.5 text-left text-white hover:bg-white/5 disabled:opacity-40'
   return (
