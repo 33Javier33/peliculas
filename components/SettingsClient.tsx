@@ -69,7 +69,14 @@ const formatSize = (b: number) => (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${M
 
 export default function SettingsClient() {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  // Último error anotado (para enviarlo si algo falla, por ejemplo sin conexión)
+  const [lastError, setLastError] = useState<{ where: string; msg: string; at: number; online: boolean } | null>(null)
+  useEffect(() => {
+    setMounted(true)
+    try {
+      setLastError(JSON.parse(localStorage.getItem('cpn-last-error') || 'null'))
+    } catch {}
+  }, [])
   const eq = useEqStore()
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const radioEnabled = useMusicStore((s) => s.radioEnabled)
@@ -205,6 +212,22 @@ export default function SettingsClient() {
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </Row>
           </Link>
+          {lastError && (
+            <div className="px-4 py-3 text-[11px] text-slate-500 break-words">
+              Último error ({new Date(lastError.at).toLocaleString('es')}, {lastError.online ? 'con internet' : 'sin conexión'}): {lastError.where} · {lastError.msg}
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('cpn-last-error')
+                  } catch {}
+                  setLastError(null)
+                }}
+                className="ml-2 underline text-slate-400"
+              >
+                Borrar
+              </button>
+            </div>
+          )}
           <div className="px-4 py-3.5">
             <ShareAppButton />
           </div>

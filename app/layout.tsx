@@ -7,6 +7,7 @@ import './globals.css'
 import Image from 'next/image'
 import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
+import SafeBoundary from '@/components/SafeBoundary'
 import NavigationMemory from '@/components/NavigationMemory'
 import SplashScreen, { SPLASH_SCRIPT } from '@/components/SplashScreen'
 import NativePip from '@/components/NativePip'
@@ -127,22 +128,50 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href="/brand/splash-poster.webp" as="image" />
       </head>
       <body className="min-h-screen bg-obsidian text-white font-sans pb-14 sm:pb-0">
-        <SplashScreen />
-        <NativePip />
-        <AddToPlaylistSheet />
-        <EqualizerSheet />
-        <ScrollTopButton />
-        <VersionWatcher />
-        <WearBridge />
-        <FocusIntoView />
-        <AppUpdateBanner />
-        <AccountSync />
-        <AccountSheet />
-        <OfflineBanner />
-        <OfflineManager />
-        <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
-          <Header />
-        </Suspense>
+        <SafeBoundary name="SplashScreen">
+          <SplashScreen />
+        </SafeBoundary>
+        <SafeBoundary name="NativePip">
+          <NativePip />
+        </SafeBoundary>
+        <SafeBoundary name="AddToPlaylistSheet">
+          <AddToPlaylistSheet />
+        </SafeBoundary>
+        <SafeBoundary name="EqualizerSheet">
+          <EqualizerSheet />
+        </SafeBoundary>
+        <SafeBoundary name="ScrollTopButton">
+          <ScrollTopButton />
+        </SafeBoundary>
+        <SafeBoundary name="VersionWatcher">
+          <VersionWatcher />
+        </SafeBoundary>
+        <SafeBoundary name="WearBridge">
+          <WearBridge />
+        </SafeBoundary>
+        <SafeBoundary name="FocusIntoView">
+          <FocusIntoView />
+        </SafeBoundary>
+        <SafeBoundary name="AppUpdateBanner">
+          <AppUpdateBanner />
+        </SafeBoundary>
+        <SafeBoundary name="AccountSync">
+          <AccountSync />
+        </SafeBoundary>
+        <SafeBoundary name="AccountSheet">
+          <AccountSheet />
+        </SafeBoundary>
+        <SafeBoundary name="OfflineBanner">
+          <OfflineBanner />
+        </SafeBoundary>
+        <SafeBoundary name="OfflineManager">
+          <OfflineManager />
+        </SafeBoundary>
+        <SafeBoundary name="Header">
+          <Suspense fallback={<div className="fixed top-0 left-0 right-0 h-16 z-50 bg-obsidian" />}>
+            <Header />
+          </Suspense>
+        </SafeBoundary>
         <main className="min-h-screen pb-20">{children}</main>
         <footer className="bg-surface-1 border-t border-white/8 pt-10 pb-[calc(56px+92px+130px)] sm:pb-[200px] mt-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -173,8 +202,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         </footer>
-        <MusicPlayerBar />
-        <MobileNav />
+        <SafeBoundary name="MusicPlayerBar">
+          <MusicPlayerBar />
+        </SafeBoundary>
+        <SafeBoundary name="MobileNav">
+          <MobileNav />
+        </SafeBoundary>
         <Suspense fallback={null}>
           <NavigationMemory />
         </Suspense>

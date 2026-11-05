@@ -29,6 +29,7 @@ const STAGES: Stage[] = [
       'El botón Descargar del reproductor ahora también funciona con canciones de YouTube («Descargar audio»)',
       'En Android: comparte un video desde la app de YouTube con PulsoMedia y se convierte al tiro',
       'Descargar álbumes completos: en la página de un álbum («Descargar álbum») o con ⬇ sobre su carátula en el perfil del artista y la búsqueda',
+      'Arreglo: sin conexión (modo avión) la app ya no queda en negro: guarda todas sus partes y, si una falla, solo esa se oculta',
       'Arreglo: en la app de Android la conversión se hace desde tu teléfono (YouTube estaba bloqueando al servidor y no se descargaba)',
     ],
   },
