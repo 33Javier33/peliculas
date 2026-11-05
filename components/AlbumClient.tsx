@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import QueueMenu from '@/components/QueueMenu'
+import AlbumDownloadButton from '@/components/AlbumDownloadButton'
 import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle, ListPlus } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
@@ -199,6 +200,10 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
             <ListPlus className="w-5 h-5" />
           </button>
           {playable?.length ? <QueueMenu tracks={playable} label="Agregar el álbum a la cola" className="[&>button]:w-12 [&>button]:h-12 [&>button]:bg-surface-2/80" /> : null}
+        </div>
+        {/* Descargar el álbum completo (convertido a audio desde YouTube) */}
+        <div className="mt-3 flex justify-center sm:justify-start">
+          <AlbumDownloadButton album={{ id: album.id, title: album.title, artist: album.artist.name, cover: album.cover }} ready={resolved} />
         </div>
 
         {status === 'error' && (

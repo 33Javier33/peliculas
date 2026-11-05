@@ -5,6 +5,7 @@ import { Heart, Loader2 } from 'lucide-react'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { useMusicStore } from '@/store/musicStore'
 import QueueMenu from '@/components/QueueMenu'
+import AlbumDownloadButton from '@/components/AlbumDownloadButton'
 import { cachedJson } from '@/lib/client-cache'
 
 // Sobre la carátula de un álbum (perfil del artista, búsqueda): ♥ para guardarlo o quitarlo de tu
@@ -27,6 +28,7 @@ export default function AlbumCardActions({ album }: { album: { id: number; title
   return (
     <div className="absolute right-2 top-2 z-[1] flex items-center gap-1" onClick={(e) => e.preventDefault()}>
       <QueueMenu overlay load={load} label={`Agregar ${album.title} a la cola`} />
+      <AlbumDownloadButton compact album={{ id: album.id, title: album.title, artist: album.artist.name, cover: album.cover }} />
       <button
         onClick={toggle}
         className={`w-8 h-8 rounded-full backdrop-blur-md flex items-center justify-center ${saved ? 'bg-violet-500 text-white' : 'bg-black/55 text-white hover:text-violet-300'}`}
