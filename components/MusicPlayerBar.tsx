@@ -64,7 +64,12 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
   // App de Android: el propio teléfono saca el audio (no lo bloquea YouTube y es al instante).
   // Si falla, se sigue con las fuentes de siempre (loadWebCandidates).
   const native = nativeAudioUrl(id)
-  if (native) return Promise.resolve([{ url: native, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' }])
+  // Dos reintentos (el teléfono puede fallar un momento, p. ej. mientras descarga otras canciones);
+  // el servidor local ignora lo que va después de "?"
+  if (native)
+    return Promise.resolve(
+      [native, `${native}?r=1`, `${native}?r=2`].map((url) => ({ url, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' as const }))
+    )
   return loadWebCandidates(id)
 }
 
@@ -378,6 +383,8 @@ export default function MusicPlayerBar() {
   // ===== Modo audio (segundo plano real) =====
   const [audioSrc, setAudioSrc] = useState<{ id: string; candidates: AudioCandidate[]; index: number } | null>(null)
   const [audioFailedIds, setAudioFailedIds] = useState<Set<string>>(() => new Set())
+  const audioFailedRef = useRef(audioFailedIds)
+  audioFailedRef.current = audioFailedIds
   const pendingSeekRef = useRef(-1)
   const currentId = currentVideo?.id
   // Radio en vivo: siempre por <audio> con su stream directo
@@ -705,6 +712,24 @@ export default function MusicPlayerBar() {
       if (document.visibilityState === 'hidden') {
         // Sonaba al bloquear (YouTube ya pudo haberse pausado solo): se sigue con el audio propio
         if (!(st.isPlaying || hiddenWantRef.current) || useAudioRef.current) return
+        // Sonaba por el video porque su audio había fallado: al salir de la app el video se
+        // detiene, así que se vuelve a pedir el audio desde cero (y sigue desde donde iba)
+        if (currentId && (audioFailedRef.current.has(currentId) || audioSourcesDown())) {
+          audioDownUntil = 0
+          audioFailStreak = 0
+          audioCache.delete(currentId)
+          setAudioFailedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(currentId)
+            return next
+          })
+          setAudioSrc(null)
+          pendingSeekRef.current = localPlayedRef.current
+          bgActiveRef.current = true
+          setBgAudioId(currentId)
+          if (!st.isPlaying) st.setIsPlaying(true)
+          return
+        }
         // Siguiente pista con la pantalla bloqueada: también por audio propio
         if (bgActiveRef.current && currentId) return setBgAudioId(currentId)
         if (!audioReady) return

@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Download,
     color: 'from-emerald-500 to-violet-500',
     items: [
+      'Al salir de la app la música sigue sonando: si la canción iba por el video, pasa al audio desde donde iba',
+      'Si el audio del teléfono falla un momento, se reintenta antes de pasar al video',
       'Las canciones de YouTube ya descargadas suenan desde tu teléfono: siguen con la pantalla apagada y sin internet',
       'En la página de un álbum, las canciones descargadas tienen un ✓ verde',
       '«Descargar audio» en el reproductor de Videos: el audio de cualquier video (menos películas)',
