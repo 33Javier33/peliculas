@@ -11,7 +11,14 @@ import type { MusicVideo } from '@/lib/youtube-music'
 export default function SharedLinkTrackPage() {
   const [video, setVideo] = useState<MusicVideo | null | undefined>(undefined)
   useEffect(() => {
-    readSharedTrack(new URLSearchParams(window.location.search).get('d') || window.location.hash.slice(1)).then(setVideo)
+    const read = () => readSharedTrack(new URLSearchParams(window.location.search).get('d') || window.location.hash.slice(1)).then(setVideo)
+    read()
+    window.addEventListener('cpn-link', read)
+    window.addEventListener('hashchange', read)
+    return () => {
+      window.removeEventListener('cpn-link', read)
+      window.removeEventListener('hashchange', read)
+    }
   }, [])
   if (video === undefined)
     return (

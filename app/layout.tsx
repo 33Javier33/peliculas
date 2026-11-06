@@ -8,6 +8,7 @@ import Image from 'next/image'
 import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
 import SafeBoundary from '@/components/SafeBoundary'
+import NativeLinkBridge from '@/components/NativeLinkBridge'
 import NavigationMemory from '@/components/NavigationMemory'
 import SplashScreen, { SPLASH_SCRIPT } from '@/components/SplashScreen'
 import NativePip from '@/components/NativePip'
@@ -145,6 +146,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </SafeBoundary>
         <SafeBoundary name="VersionWatcher">
           <VersionWatcher />
+        </SafeBoundary>
+        <SafeBoundary name="NativeLinkBridge">
+          <NativeLinkBridge />
         </SafeBoundary>
         <SafeBoundary name="WearBridge">
           <WearBridge />

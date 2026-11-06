@@ -8,6 +8,7 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.content.Intent
+import org.json.JSONObject
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -223,8 +224,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        sharedUrl(intent)?.let { return web.loadUrl(it) }
-        intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.let { web.loadUrl(it.toString()) }
+        val url = sharedUrl(intent) ?: intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: return
+        openInPage(url)
+    }
+
+    /**
+     * Enlace que llega con la app abierta (WhatsApp, compartir…): se abre DENTRO de la página que ya
+     * está cargada, sin recargarla. Antes se recargaba todo: se cortaba la música y tardaba mucho.
+     * Si la página no puede (aún no cargó), se abre como siempre.
+     */
+    private fun openInPage(url: String) {
+        val js = "window.__cpnOpenLink ? (window.__cpnOpenLink(${JSONObject.quote(url)}) ? 'ok' : 'no') : 'no'"
+        web.evaluateJavascript(js) { r -> if (r?.contains("ok") != true) web.loadUrl(url) }
     }
 
     /** «Compartir» un video desde YouTube a la app: se abre «Convertir a audio» con ese enlace */

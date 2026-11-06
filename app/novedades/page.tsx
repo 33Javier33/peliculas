@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Users,
     color: 'from-cyan-500 to-fuchsia-500',
     items: [
+      'Abrir un enlace con la app abierta ya no detiene lo que suena ni recarga la app (se abre al instante)',
       'Enlaces cortos para compartir canciones de archive.org (…/a/disco/código) y las convertidas de YouTube (…/play/ID)',
       'Los enlaces compartidos muestran «Abrir en la app PulsoMedia» si se abren en el navegador del teléfono',
       'El buscador de la Biblioteca busca en tu biblioteca y también en Internet Archive, música libre, el catálogo y YouTube',

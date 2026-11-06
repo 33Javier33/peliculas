@@ -25,7 +25,15 @@ export default function SharedPlaylistClient() {
   const [savedId, setSavedId] = useState<string | null>(null)
 
   useEffect(() => {
-    readSharedPlaylist(new URLSearchParams(window.location.search).get('d') || window.location.hash.slice(1)).then(setData)
+    const read = () => readSharedPlaylist(new URLSearchParams(window.location.search).get('d') || window.location.hash.slice(1)).then(setData)
+    read()
+    // Otro enlace abierto con esta página ya abierta (app de Android)
+    window.addEventListener('cpn-link', read)
+    window.addEventListener('hashchange', read)
+    return () => {
+      window.removeEventListener('cpn-link', read)
+      window.removeEventListener('hashchange', read)
+    }
   }, [])
 
   if (data === undefined)
