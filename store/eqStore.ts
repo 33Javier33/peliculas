@@ -35,6 +35,9 @@ interface EqState {
   /** App de Android: estado del ecualizador del teléfono (no se guarda) */
   native: 'ok' | 'busy' | 'unsupported' | null
   setNative: (v: 'ok' | 'busy' | 'unsupported' | null) => void
+  /** App de Android: quién aplica el ecualizador (el teléfono o la propia app) */
+  engine: 'phone' | 'app'
+  setEngine: (v: 'phone' | 'app') => void
   setEnabled: (v: boolean) => void
   setPreset: (id: string) => void
   setGain: (band: number, db: number) => void
@@ -54,6 +57,8 @@ export const useEqStore = create<EqState>()(
       applies: false,
       native: null,
       setNative: (native) => set({ native }),
+      engine: 'phone',
+      setEngine: (engine) => set({ engine }),
       setEnabled: (enabled) => set({ enabled }),
       setPreset: (id) => {
         const p = EQ_PRESETS.find((x) => x.id === id)
@@ -71,7 +76,7 @@ export const useEqStore = create<EqState>()(
     {
       name: 'cpn-eq',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ enabled: s.enabled, preset: s.preset, gains: s.gains, leveler: s.leveler }),
+      partialize: (s) => ({ enabled: s.enabled, preset: s.preset, gains: s.gains, leveler: s.leveler, engine: s.engine }),
     }
   )
 )

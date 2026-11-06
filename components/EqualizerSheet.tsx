@@ -3,12 +3,16 @@
 import { X, SlidersHorizontal, Sparkles, Info } from 'lucide-react'
 import { useEqStore, EQ_BANDS, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
+import { useEffect, useState } from 'react'
+import { hasNativeEq } from '@/lib/native'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import SheetHandle from '@/components/SheetHandle'
 
 // Ventana del ecualizador: preajustes, 5 bandas, nivelador de volumen y alta calidad
 export default function EqualizerSheet() {
-  const { open, enabled, preset, gains, leveler, applies, native, setOpen, setEnabled, setPreset, setGain, setLeveler } = useEqStore()
+  const { open, enabled, preset, gains, leveler, applies, native, setOpen, setEnabled, setPreset, setGain, setLeveler, engine, setEngine, setNative } = useEqStore()
+  const [phoneEq, setPhoneEq] = useState(false)
+  useEffect(() => setPhoneEq(hasNativeEq()), [])
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const setAudioBoost = useMusicStore((s) => s.setAudioBoost)
   const swipe = useSwipeDown(() => setOpen(false))
@@ -43,7 +47,11 @@ export default function EqualizerSheet() {
         {/* Nota informativa (no es un error): dónde se aplica el ecualizador */}
         <p className="flex items-start gap-2 mt-3 text-slate-500 text-xs leading-relaxed">
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          {native === 'ok'
+          {engine === 'app' && phoneEq
+            ? applies
+              ? 'Lo aplica la app a la canción que suena.'
+              : 'La app ecualiza los discos de archive.org, tu música descargada y las canciones de YouTube de la app.'
+            : native === 'ok'
             ? 'Lo aplica el procesador de audio del teléfono a todo lo que suena en la app (sin chasquidos).'
             : native === 'busy'
               ? 'Otra app de ecualizador del teléfono tiene el control del sonido. Ciérrala o desactívala para usar este.'
@@ -53,6 +61,37 @@ export default function EqualizerSheet() {
                   ? 'Se aplica a la canción que suena ahora.'
             : 'Se aplica a los discos de archive.org, a tu música del teléfono y a las canciones de la app de Android. Esta canción se escucha sin ecualizar (radios, YouTube en el navegador u otros sitios).'}
         </p>
+
+        {/* App de Android: el ecualizador lo puede aplicar el teléfono o la propia app */}
+        {phoneEq && (
+          <div className="mt-3 rounded-xl bg-surface-2/60 border border-white/8 p-2.5">
+            <p className="text-slate-300 text-xs font-semibold mb-2">¿Quién aplica el ecualizador?</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  ['phone', 'El teléfono', 'Sin chasquidos'],
+                  ['app', 'La app', 'Si el del teléfono no se nota'],
+                ] as const
+              ).map(([id, label, note]) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    setEngine(id)
+                    setNative(null)
+                  }}
+                  className={`rounded-lg px-2 py-2 text-left ${engine === id ? 'bg-violet-500 text-white' : 'bg-surface-1 text-slate-300'}`}
+                  aria-pressed={engine === id}
+                >
+                  <span className="block text-sm font-semibold">{label}</span>
+                  <span className={`block text-[11px] ${engine === id ? 'text-white/80' : 'text-slate-500'}`}>{note}</span>
+                </button>
+              ))}
+            </div>
+            {engine === 'phone' && (native === 'busy' || native === 'unsupported') && (
+              <p className="mt-2 text-amber-200 text-xs">El del teléfono no está disponible ahora: elige «La app».</p>
+            )}
+          </div>
+        )}
 
         {/* Preajustes */}
         <div className="flex flex-wrap gap-2 mt-4">

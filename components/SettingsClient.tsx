@@ -1,4 +1,5 @@
 'use client'
+import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -15,7 +16,7 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users, AudioLines } from 'lucide-react'
+  Users, AudioLines, HardDriveDownload } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useLangStore } from '@/store/langStore'
@@ -79,6 +80,8 @@ export default function SettingsClient() {
   }, [])
   const eq = useEqStore()
   const audioBoost = useMusicStore((s) => s.audioBoost)
+  const [dlMax, setDlMax] = useState(true)
+  useEffect(() => setDlMax(getDownloadQuality() === 'max'), [])
   const radioEnabled = useMusicStore((s) => s.radioEnabled)
   const lang = useLangStore((s) => s.lang)
   const setLang = useLangStore((s) => s.setLang)
@@ -116,8 +119,22 @@ export default function SettingsClient() {
           <button onClick={() => eq.setOpen(true)} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-violet-300 font-semibold">
             Ajustar bandas y preajustes <ChevronRight className="w-4 h-4 ml-auto" />
           </button>
-          <Row icon={<Sparkles className="w-4 h-4" />} title="Audio en alta calidad" desc="Usa la mejor calidad disponible (gasta más datos)">
+          <Row icon={<Sparkles className="w-4 h-4" />} title="Audio en alta calidad" desc="Al escuchar con internet: la mejor calidad disponible, también los originales de archive.org (FLAC, MP3 320). Gasta más datos">
             <Switch on={audioBoost} onChange={(v) => useMusicStore.getState().setAudioBoost(v)} label="Audio en alta calidad" />
+          </Row>
+          <Row
+            icon={<HardDriveDownload className="w-4 h-4" />}
+            title="Descargas en calidad máxima"
+            desc={dlMax ? 'Máxima: originales (FLAC / MP3 320) y la mejor pista de YouTube. Ocupan más espacio' : 'Normal: archivos livianos (ocupan menos espacio)'}
+          >
+            <Switch
+              on={dlMax}
+              onChange={(v) => {
+                setDownloadQuality(v ? 'max' : 'normal')
+                setDlMax(v)
+              }}
+              label="Descargas en calidad máxima"
+            />
           </Row>
           <Row icon={<Radio className="w-4 h-4" />} title="Radio automática" desc="Al terminar la cola sigue con música parecida">
             <Switch on={radioEnabled} onChange={(v) => useMusicStore.getState().setRadioEnabled(v)} label="Radio automática" />

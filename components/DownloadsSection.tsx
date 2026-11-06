@@ -1,9 +1,10 @@
 'use client'
+import { isArchiveFile } from '@/lib/audio-quality'
 
 import GenreTag, { useGenreCache } from '@/components/GenreTag'
 import { songArtist } from '@/lib/library-radio'
 import { useEffect, useMemo, useState } from 'react'
-import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff, ChevronDown } from 'lucide-react'
+import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff, ChevronDown, Sparkles } from 'lucide-react'
 import { useOfflineStore, type OfflineItem } from '@/store/offlineStore'
 import { useMusicStore } from '@/store/musicStore'
 import { formatSize, storageEstimate } from '@/lib/offline-files'
@@ -36,6 +37,9 @@ export default function DownloadsSection() {
       .sort((a, b) => Math.max(...b.list.map((x) => x.savedAt)) - Math.max(...a.list.map((x) => x.savedAt)))
   }, [items])
   const total = useMemo(() => Object.values(items).reduce((sum, i) => sum + i.size, 0), [items])
+  // Descargadas antes en calidad normal (se pueden volver a bajar en la mejor calidad)
+  const improvable = useMemo(() => Object.values(items).filter((i) => !i.hq && (i.key.startsWith('/api/stream?') || isArchiveFile(i.key))).length, [items])
+  const upgrading = progress['mejorar-calidad']
 
   useEffect(() => {
     if (!mounted) return
@@ -86,6 +90,22 @@ export default function DownloadsSection() {
           </div>
         )}
       </div>
+      {(improvable > 0 || upgrading) && (
+        <button
+          onClick={() => !upgrading && useOfflineStore.getState().upgrade()}
+          className="mb-3 w-full flex items-center gap-3 rounded-xl bg-violet-500/10 border border-violet-400/30 px-3 py-2.5 text-left"
+        >
+          <Sparkles className="w-4 h-4 text-violet-300 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-white text-sm font-semibold">
+              {upgrading ? `Mejorando la calidad… ${upgrading.done}/${upgrading.total}` : `Mejorar la calidad (${improvable} canciones)`}
+            </span>
+            <span className="block text-slate-400 text-xs">
+              {upgrading ? 'Siguen sonando mientras tanto' : 'Se vuelven a bajar en la mejor calidad: originales de archive.org y la mejor pista de YouTube'}
+            </span>
+          </span>
+        </button>
+      )}
       <ul className="divide-y divide-white/5 max-h-[28rem] overflow-y-auto overscroll-contain">
         {groups.map((g) => {
           const size = g.list.reduce((s, i) => s + i.size, 0)

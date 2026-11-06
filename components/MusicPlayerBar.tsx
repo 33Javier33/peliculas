@@ -43,6 +43,7 @@ import { getFile } from '@/lib/offline-files'
 import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
 import { useSwipeDown } from '@/lib/use-swipe-down'
+import { isArchiveFile } from '@/lib/audio-quality'
 import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
@@ -433,6 +434,7 @@ export default function MusicPlayerBar() {
   const preRef = useRef<{ id: string; url: string | null }>({ id: '', url: null })
   if (currentId && preRef.current.id !== currentId) preRef.current = { id: currentId, url: precachedUrl(currentVideo?.audioUrl) }
   const preUrl = preRef.current.url
+  const hqArchive = useMusicStore((s) => s.audioBoost)
   const remoteCandidates = useMemo(() => {
     const direct = currentVideo?.audioUrl
     if (!direct) return [] as string[]
@@ -443,6 +445,8 @@ export default function MusicPlayerBar() {
     const ytConv = direct.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
     const ytLocal = ytConv ? nativeAudioUrl(ytConv[1]) : null
     if (ytLocal) list.push(ytLocal)
+    // Alta calidad: el original de archive.org (FLAC / MP3 320) antes que la copia liviana
+    if (hqArchive && isArchiveFile(direct)) list.push(`/api/archive-best?u=${encodeURIComponent(direct)}`)
     // Directo primero (comprobado en todos los navegadores, con ecualizador incluido); por el
     // teléfono queda de respaldo (en algunos Android ese camino no suena y saltaba las canciones)
     list.push(direct)
@@ -450,7 +454,7 @@ export default function MusicPlayerBar() {
     if (viaPhone) list.push(viaPhone)
     if (/^https?:\/\//.test(direct)) list.push(`/api/link-audio?u=${encodeURIComponent(direct)}`)
     return list
-  }, [currentVideo?.audioUrl, offlineUrl, preUrl])
+  }, [currentVideo?.audioUrl, offlineUrl, preUrl, hqArchive])
   const [remoteAttempt, setRemoteAttempt] = useState<{ id: string; n: number } | null>(null)
   const remoteIndex = remoteAttempt && currentId && remoteAttempt.id === currentId ? remoteAttempt.n : 0
   const remoteFileUrl = remoteCandidates[remoteIndex] ?? currentVideo?.audioUrl
@@ -551,7 +555,14 @@ export default function MusicPlayerBar() {
   const eqDoesSomething = eqLeveler || eqGains.some((g) => Math.abs(g) > 0.05)
   // App de Android: el ecualizador lo hace el teléfono (Web Audio en Android chisporrotea), así que
   // la música nunca pasa por el sistema de audio de la web
-  const [nativeEq] = useState(() => typeof window !== 'undefined' && hasNativeEq())
+  // (o la app misma, si en ese teléfono el del sistema no se nota: Configuración del ecualizador)
+  const eqEngine = useEqStore((s) => s.engine)
+  const [phoneEqAvailable] = useState(() => typeof window !== 'undefined' && hasNativeEq())
+  const nativeEq = phoneEqAvailable && eqEngine === 'phone'
+  // Al pasar al ecualizador de la app, el del teléfono se apaga
+  useEffect(() => {
+    if (phoneEqAvailable && eqEngine === 'app') applyNativeEq({ on: false, gains: [0, 0, 0, 0, 0], leveler: false })
+  }, [phoneEqAvailable, eqEngine])
   const eqActive = !nativeEq && eqEnabled && eqSafe && eqDoesSomething
   // Al cambiar la salida de sonido (audífonos ↔ parlante Bluetooth) se arma un <audio> nuevo
   const [eqEpoch, setEqEpoch] = useState(0)
@@ -1076,9 +1087,9 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     const el = playerRef.current as unknown as HTMLMediaElement | null
     // (doble seguro: con el ecualizador del teléfono nunca se conecta el de la web)
-    if (!eqActive || !el || hasNativeEq()) return
+    if (!eqActive || !el || nativeEq) return
     if (attachEqualizer(el)) updateEqualizer(el, eqGains, eqLeveler, true)
-  }, [eqActive, eqGains, eqLeveler, audioUrl, eqEpoch])
+  }, [eqActive, eqGains, eqLeveler, audioUrl, eqEpoch, nativeEq])
 
   useEffect(() => {
     const el = playerRef.current

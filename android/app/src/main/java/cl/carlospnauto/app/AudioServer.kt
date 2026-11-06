@@ -87,7 +87,23 @@ object AudioServer {
         }
     }
 
-    /** Dirección del mejor audio (M4A primero: suena en todos los teléfonos) */
+    // Bitrate (kbps) de las pistas de audio de YouTube por su tipo (itag)
+    private val ITAG_KBPS = mapOf(774 to 256, 141 to 256, 251 to 160, 338 to 480, 140 to 128, 171 to 128, 250 to 70, 249 to 50, 139 to 48, 600 to 35, 599 to 30)
+
+    private fun kbps(s: AudioStream): Int {
+        val avg = s.averageBitrate
+        if (avg > 0) return if (avg > 2000) avg / 1000 else avg
+        val br = s.bitrate
+        if (br > 0) return if (br > 2000) br / 1000 else br
+        return ITAG_KBPS[s.itag] ?: 0
+    }
+
+    private fun quality(s: AudioStream): Double {
+        val opus = s.format == MediaFormat.WEBMA_OPUS
+        return kbps(s) * (if (opus) 1.25 else 1.0)
+    }
+
+    /** Dirección del mejor audio (la pista de mayor calidad que tenga el video) */
     fun resolve(id: String, fresh: Boolean = false): Resolved {
         val hit = cache[id]
         if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
@@ -102,9 +118,11 @@ object AudioServer {
             android.os.Process.setThreadPriority(prevPriority)
         }
         val streams = info.audioStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-        val best: AudioStream = streams.filter { it.format == MediaFormat.M4A }.maxByOrNull { it.averageBitrate }
-            ?: streams.maxByOrNull { it.averageBitrate }
-            ?: throw IllegalStateException("sin audio")
+        // La mejor calidad: YouTube no siempre informa el bitrate (y entonces se elegía la pista de
+        // 48 kbps). Se usa el bitrate conocido de cada tipo (itag) y Opus vale un poco más que AAC
+        // a igual bitrate (suena mejor). Orden típico: Opus 160k > AAC 128k > Opus 70k > AAC 48k
+        val best: AudioStream = streams.maxByOrNull { quality(it) } ?: throw IllegalStateException("sin audio")
+        Log.i(TAG, "Audio $id: itag ${best.itag} ${best.format?.name} ${kbps(best)} kbps")
         val url = best.content
         val loc: Localization? = null
         val ua = when {

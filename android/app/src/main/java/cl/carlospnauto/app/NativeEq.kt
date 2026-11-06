@@ -26,7 +26,9 @@ object NativeEq {
 
     private var dp: DynamicsProcessing? = null
     private var eq: Equalizer? = null
-    private var failed = false
+    // Si falla (p. ej. al cambiar a audífonos Bluetooth) se vuelve a intentar al rato: antes quedaba
+    // apagado hasta reiniciar la app
+    private var failedAt = 0L
 
     /** Ganancia (dB) en una frecuencia, interpolando las 5 bandas en escala logarítmica */
     private fun gainAt(hz: Double, gains: DoubleArray): Double {
@@ -57,11 +59,15 @@ object NativeEq {
         val arr = o.optJSONArray("gains")
         val gains = DoubleArray(APP_FREQS.size) { (arr?.optDouble(it, 0.0) ?: 0.0).coerceIn(-12.0, 12.0) }
         val leveler = o.optBoolean("leveler")
-        if (failed) return "unsupported"
+        if (failedAt > 0 && System.currentTimeMillis() - failedAt < 15_000) return "unsupported"
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) applyDp(on, gains, leveler) else applyEq(on, gains)
+            val r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) applyDp(on, gains, leveler) else applyEq(on, gains)
+            failedAt = 0L
+            // Otra app tiene el control: se suelta para volver a pedirlo la próxima vez
+            if (r == "busy") release()
+            r
         } catch (e: Throwable) {
-            failed = true
+            failedAt = System.currentTimeMillis()
             release()
             "unsupported"
         }

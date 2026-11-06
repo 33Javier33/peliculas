@@ -241,6 +241,64 @@ export async function readArchive(id: string, source: string): Promise<LinkAlbum
   }))
 }
 
+// Calidad de cada formato (para «Alta calidad» y las descargas): sin pérdida primero, luego MP3 de
+// alto bitrate y el original; la copia VBR que hace archive.org al final. WAV pesa el doble que FLAC
+// con el mismo sonido: va después del MP3 original.
+const QUALITY_RANK: [RegExp, number][] = [
+  [/flac/i, 0],
+  [/^320kbps mp3$/i, 1],
+  [/^256kbps mp3$/i, 2],
+  [/^(mp3|mpeg)$/i, 3],
+  [/wav|aiff/i, 4],
+  [/m4a|aac|mpeg4|alac/i, 5],
+  [/ogg|vorbis|opus/i, 6],
+  [/^vbr mp3$/i, 7],
+  [/mp3/i, 8],
+]
+const qualityRank = (f: ArchiveFile) => {
+  if (!AUDIO_EXT.test(f.name)) return -1
+  for (const [re, rank] of QUALITY_RANK) if (re.test(f.format || '')) return rank
+  return 9
+}
+
+const bestCache = new Map<string, { at: number; url: string }>()
+
+/**
+ * La mejor versión de una canción de archive.org: dado el archivo (p. ej. el VBR MP3), busca en el
+ * disco el original o la copia de mayor calidad de esa misma canción.
+ */
+export async function bestArchiveFile(fileUrl: string): Promise<string> {
+  const hit = bestCache.get(fileUrl)
+  if (hit && Date.now() - hit.at < 24 * 3600_000) return hit.url
+  let u: URL
+  try {
+    u = new URL(fileUrl)
+  } catch {
+    return fileUrl
+  }
+  const m = u.pathname.match(/^\/download\/([^/]+)\/(.+)$/)
+  if (!m || !/(^|\.)archive\.org$/i.test(u.hostname)) return fileUrl
+  const id = decodeURIComponent(m[1])
+  const name = m[2].split('/').map(decodeURIComponent).join('/')
+  const res = await fetch(`${ARCHIVE}/metadata/${encodeURIComponent(id)}/files`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PulsoMedia/1.0)' },
+    signal: AbortSignal.timeout(10000),
+    next: { revalidate: 86400 },
+  })
+  if (!res.ok) return fileUrl
+  const d = (await res.json()) as { result?: ArchiveFile[] }
+  const files = (d.result ?? []).filter((f) => String((f as { private?: unknown }).private) !== 'true')
+  const me = files.find((f) => f.name === name)
+  if (!me) return fileUrl
+  const song = (me.source === 'derivative' && me.original) || me.name
+  const same = files.filter((f) => f.name === song || (f.source === 'derivative' && f.original === song))
+  const best = same.filter((f) => qualityRank(f) >= 0).sort((a, b) => qualityRank(a) - qualityRank(b))[0]
+  const url = best ? `${ARCHIVE}/download/${encodeURIComponent(id)}/${best.name.split('/').map(encodeURIComponent).join('/')}` : fileUrl
+  bestCache.set(fileUrl, { at: Date.now(), url })
+  if (bestCache.size > 3000) bestCache.delete(bestCache.keys().next().value as string)
+  return url
+}
+
 export interface ArchiveSummary {
   cover?: string
   tracks: number

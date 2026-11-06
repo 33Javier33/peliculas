@@ -20,6 +20,20 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '6 nov 2026',
+    title: 'Audio en calidad premium',
+    Icon: SlidersHorizontal,
+    color: 'from-violet-500 to-amber-500',
+    items: [
+      'YouTube: siempre la mejor pista de audio (Opus 160 kbps o AAC 128 kbps); antes a veces quedaba la de 48 kbps',
+      'Internet Archive: las descargas usan el archivo original (FLAC o MP3 320) en vez de la copia comprimida',
+      'Con «Audio en alta calidad», los discos de archive.org también suenan desde el original',
+      'Nuevo botón «Mejorar la calidad» en Canciones descargadas: vuelve a bajar en la mejor calidad lo que ya tenías',
+      'Configuración: «Descargas en calidad máxima» (o normal, para ocupar menos espacio)',
+      'Ecualizador: elige si lo aplica el teléfono o la app, y ya no queda apagado tras un fallo',
+    ],
+  },
+  {
+    date: '6 nov 2026',
     title: 'Sin internet de verdad',
     Icon: Download,
     color: 'from-emerald-500 to-cyan-500',

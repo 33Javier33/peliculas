@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { downloadAudio, putFile, deleteFile, persistStorage } from '@/lib/offline-files'
+import { getDownloadQuality, bestSourceFor, isArchiveFile } from '@/lib/audio-quality'
 
 // Descargas para escuchar sin conexión. Cada canción descargada recuerda su grupo (disco o
 // playlist) para mostrarlas juntas en "Descargadas". Los archivos están en lib/offline-files.
@@ -16,6 +17,8 @@ export interface OfflineItem {
   groupCover?: string
   size: number
   savedAt: number
+  /** Descargada en la mejor calidad disponible */
+  hq?: boolean
 }
 
 export interface OfflineProgress {
@@ -48,6 +51,8 @@ interface OfflineState {
   cancel: (groupId: string) => void
   removeGroup: (groupId: string) => Promise<void>
   removeKeys: (keys: string[]) => Promise<void>
+  /** Vuelve a descargar en la mejor calidad lo que se bajó antes en calidad normal */
+  upgrade: () => Promise<void>
 }
 
 const controllers = new Map<string, AbortController>()
@@ -89,7 +94,13 @@ export const useOfflineStore = create<OfflineState>()(
         for (const t of list) {
           if (ctrl.signal.aborted) break
           try {
-            const blob = await downloadAudio(t.audioUrl!, (f) => setProg({ current: f }), ctrl.signal)
+            // Máxima calidad: el mejor archivo de esa canción (FLAC / MP3 320 en archive.org)
+            const max = getDownloadQuality() === 'max'
+            const src = max ? await bestSourceFor(t.audioUrl!) : t.audioUrl!
+            const blob = await downloadAudio(src, (f) => setProg({ current: f }), ctrl.signal).catch((e) => {
+              if ((e as Error).name === 'AbortError' || src === t.audioUrl) throw e
+              return downloadAudio(t.audioUrl!, (f) => setProg({ current: f }), ctrl.signal)
+            })
             await putFile(t.audioUrl!, blob)
             set((s) => ({
               items: {
@@ -102,6 +113,7 @@ export const useOfflineStore = create<OfflineState>()(
                   groupCover: group.cover,
                   size: blob.size,
                   savedAt: Date.now(),
+                  hq: max,
                 },
               },
             }))
@@ -132,6 +144,43 @@ export const useOfflineStore = create<OfflineState>()(
                 : `"${group.title}": ${done} descargadas, ${failed} no se pudieron (se reintentará al volver la conexión)`
               : `✓ "${group.title}" ya está descargado: suena sin internet`
           )
+      },
+      upgrade: async () => {
+        const id = 'mejorar-calidad'
+        if (controllers.has(id)) return
+        // YouTube (ahora se elige su mejor pista) y discos de archive.org bajados antes en calidad normal
+        const list = Object.values(get().items).filter((i) => !i.hq && (i.key.startsWith('/api/stream?') || isArchiveFile(i.key)))
+        if (!list.length) return get().notify('Tus descargas ya están en la mejor calidad disponible')
+        const ctrl = new AbortController()
+        controllers.set(id, ctrl)
+        get().notify(`Mejorando la calidad de ${list.length} canciones… (siguen sonando mientras tanto)`)
+        let done = 0
+        let failed = 0
+        const setProg = (p: Partial<OfflineProgress>) =>
+          set((s) => ({ progress: { ...s.progress, [id]: { ...(s.progress[id] ?? { done: 0, total: list.length, current: 0, failed: 0 }), ...p } } }))
+        setProg({ done: 0, total: list.length, current: 0, failed: 0 })
+        for (const it of list) {
+          if (ctrl.signal.aborted) break
+          try {
+            const src = await bestSourceFor(it.key)
+            const blob = await downloadAudio(src, (f) => setProg({ current: f }), ctrl.signal)
+            // Se reemplaza recién cuando la nueva está completa (si falla, queda la anterior)
+            await putFile(it.key, blob)
+            set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: blob.size, hq: true } } }))
+            done++
+          } catch (err) {
+            if ((err as Error).name === 'AbortError') break
+            failed++
+          }
+          setProg({ done, failed, current: 0 })
+        }
+        controllers.delete(id)
+        set((s) => {
+          const progress = { ...s.progress }
+          delete progress[id]
+          return { progress }
+        })
+        get().notify(failed ? `Calidad mejorada en ${done} canciones (${failed} quedaron como estaban)` : `✓ ${done} canciones ahora en la mejor calidad`)
       },
       cancel: (groupId) => {
         controllers.get(groupId)?.abort()
