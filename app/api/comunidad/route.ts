@@ -57,6 +57,35 @@ export async function GET(request: NextRequest) {
   // El servidor de cuentas todavía no tiene la comunidad (hay que actualizar el Apps Script)
   if (!list) return NextResponse.json({ ok: false, error: 'unavailable', playlists: [], mixes: [] })
 
+  // Búsqueda: playlists (por nombre, quién la compartió, género o sus canciones) y canciones
+  const q = (sp.get('q') || '').trim()
+  if (q) {
+    const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const n = norm(q)
+    const has = (x?: string) => !!x && norm(x).includes(n)
+    const songs: (Track & { from: string; fromId: string })[] = []
+    const seen = new Set<string>()
+    const playlists = list.filter((p) => {
+      const byName = has(p.name) || has(p.alias) || has(LABELS[p.genre] || p.genre)
+      let bySong = false
+      for (const t of p.tracks)
+        if (has(t.title) || has(t.channelTitle) || has(t.album)) {
+          bySong = true
+          const key = norm(t.title)
+          if (!seen.has(key) && songs.length < 60) {
+            seen.add(key)
+            songs.push({ ...t, from: p.name, fromId: p.id })
+          }
+        }
+      return byName || bySong
+    })
+    return NextResponse.json({
+      ok: true,
+      playlists: playlists.slice(0, 40).map((p) => ({ id: p.id, alias: p.alias, name: p.name, genre: p.genre, kind: p.kind, count: p.tracks.length, cover: cover(p), updated: p.updated })),
+      songs,
+    })
+  }
+
   const id = sp.get('id')
   if (id) {
     const p = list.find((x) => x.id === id)

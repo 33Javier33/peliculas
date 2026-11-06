@@ -3,6 +3,7 @@
 // del #, comprimidas), así funcionan sin guardar nada en el servidor.
 import type { MusicVideo } from '@/lib/youtube-music'
 import { hash } from '@/lib/link-albums'
+import { shortArchivePath } from '@/lib/short-link'
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/
 
@@ -88,8 +89,14 @@ async function decode<T>(s: string): Promise<T | null> {
 export async function trackShareUrl(t: MusicVideo): Promise<string> {
   const origin = window.location.origin
   if (YT_ID.test(t.id) && !t.audioUrl) return `${origin}/play/${t.id}`
+  // Convertida de YouTube: su enlace corto de YouTube
+  const yt = t.audioUrl?.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
+  if (yt) return `${origin}/play/${yt[1]}`
+  // archive.org: enlace corto (/a/DISCO/CÓDIGO)
+  const short = shortArchivePath(t)
+  if (short) return `${origin}${short}`
   const p = pack(t)
-  return p ? `${origin}/escuchar#${await encode(p)}` : `${origin}/music`
+  return p ? `${origin}/escuchar?d=${await encode(p)}` : `${origin}/music`
 }
 
 /** Canción de un enlace /escuchar#… */
@@ -98,10 +105,13 @@ export async function readSharedTrack(code: string): Promise<MusicVideo | null> 
   return p ? unpack(p) : null
 }
 
+// En las playlists cada canción va lo más corta posible: sin carátula si es de YouTube (se arma sola)
+const slim = (p: Packed): Packed => (p.y ? { y: p.y, t: p.t, a: p.a } : p)
+
 /** Enlace para compartir una playlist completa */
 export async function playlistShareUrl(name: string, tracks: MusicVideo[]): Promise<string> {
   const k = tracks.map(pack).filter((p): p is Packed => !!p)
-  return `${window.location.origin}/music/playlist/compartida#${await encode({ n: name, k })}`
+  return `${window.location.origin}/music/playlist/compartida?d=${await encode({ n: name, k: k.map(slim) })}`
 }
 
 /** Playlist de un enlace /music/playlist/compartida#… */

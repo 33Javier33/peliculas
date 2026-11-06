@@ -1,4 +1,5 @@
 'use client'
+import OpenInAppBanner from '@/components/OpenInAppBanner'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -24,7 +25,7 @@ export default function SharedPlaylistClient() {
   const [savedId, setSavedId] = useState<string | null>(null)
 
   useEffect(() => {
-    readSharedPlaylist(window.location.hash.slice(1)).then(setData)
+    readSharedPlaylist(new URLSearchParams(window.location.search).get('d') || window.location.hash.slice(1)).then(setData)
   }, [])
 
   if (data === undefined)
@@ -54,6 +55,7 @@ export default function SharedPlaylistClient() {
   return (
     <div className="pt-20 min-h-screen bg-obsidian pb-40">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <OpenInAppBanner className="mb-5" />
         <p className="inline-flex items-center gap-2 text-emerald-400 text-[11px] font-bold uppercase tracking-[0.08em] font-display mb-4">
           <span className="w-2 h-2 rounded-full bg-emerald-400" /> Te compartieron una playlist
         </p>

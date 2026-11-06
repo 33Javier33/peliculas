@@ -379,6 +379,13 @@ private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
             item { Entry(icon = R.drawable.ic_radio, title = "Radio por género", sub = "Internet Archive") { nav("list/genres") } }
             item { Entry(icon = R.drawable.ic_radio, title = "NTS Radio", sub = "En vivo y mixtapes") { nav("list/nts") } }
             item { Entry(icon = R.drawable.ic_heart, title = "Radios favoritas", sub = lib?.let { "${it.radios.size}" }) { nav("list/radios") } }
+            // Versión de la app del reloj (para saber si está al día)
+            item {
+                val version = remember {
+                    runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
+                }
+                Text("PulsoMedia reloj · versión $version", color = Grey, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+            }
         }
     }
 }

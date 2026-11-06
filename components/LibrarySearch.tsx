@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, X, User, Disc3, Music2, ListMusic, Play } from 'lucide-react'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { usePlaylistStore } from '@/store/playlistStore'
+import WebMusicResults from '@/components/WebMusicResults'
 import { useMusicStore } from '@/store/musicStore'
 
 // Buscador de tu biblioteca: artistas, álbumes, canciones y playlists que tienes guardados
@@ -47,6 +48,12 @@ export default function LibrarySearch({
     setTimeout(() => box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
   }, [query])
   const playlists = usePlaylistStore((s) => s.playlists)
+  // Lo de internet se busca al dejar de escribir (no en cada letra)
+  const [webQ, setWebQ] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setWebQ(q.trim().length >= 2 ? q.trim() : ''), 700)
+    return () => clearTimeout(t)
+  }, [q])
   const res = useMemo(() => {
     const n = norm(q)
     if (n.length < 2) return null
@@ -77,7 +84,7 @@ export default function LibrarySearch({
           enterKeyHint="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Busca en tu biblioteca: artistas, álbumes, canciones…"
+          placeholder="Buscar en tu biblioteca y en internet…"
           className="w-full bg-surface-1 border border-white/10 text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/15"
           aria-label="Buscar en tu biblioteca"
         />
@@ -90,6 +97,7 @@ export default function LibrarySearch({
 
       {res && (
         <div className="mt-2 rounded-2xl bg-surface-1/70 border border-white/8 p-3 sm:p-4">
+          <p className="text-white text-sm font-semibold mb-1">En tu biblioteca</p>
           {total === 0 && <p className="text-slate-500 text-sm">No tienes nada guardado que coincida con «{q}».</p>}
           {res.artists.length > 0 && (
             <>
@@ -166,6 +174,7 @@ export default function LibrarySearch({
           )}
         </div>
       )}
+      {webQ && <WebMusicResults query={webQ} />}
     </div>
   )
 }

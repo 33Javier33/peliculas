@@ -77,6 +77,14 @@ export default function AndroidAppPage() {
         <p className="mt-6 flex items-start gap-2 text-slate-500 text-xs">
           <ShieldCheck className="w-4 h-4 shrink-0" /> Las versiones nuevas se instalan encima de la anterior, sin perder nada.
         </p>
+        <div className="mt-6 rounded-2xl bg-surface-1 border border-white/8 p-4 text-sm text-slate-300">
+          <p className="font-semibold text-white mb-1">Que los enlaces compartidos abran la app</p>
+          <p className="text-slate-400 text-xs leading-relaxed">
+            Los enlaces de PulsoMedia (por WhatsApp u otras apps) se abren en la app si está instalada. Si se abren en el navegador: en el
+            teléfono ve a Ajustes → Aplicaciones → PulsoMedia → <b>Abrir de forma predeterminada</b> → activa <b>Abrir enlaces compatibles</b>
+            {' '}y marca <b>peliculas-neon.vercel.app</b>. En la página del enlace también aparece el botón «Abrir en la app PulsoMedia».
+          </p>
+        </div>
         <p className="mt-3 text-slate-500 text-xs">
           ¿Tienes iPhone?{' '}
           <Link href="/app-iphone" className="text-violet-300 underline">

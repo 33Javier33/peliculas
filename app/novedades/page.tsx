@@ -20,6 +20,19 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '7 nov 2026',
+    title: 'Enlaces cortos y buscadores en todas partes',
+    Icon: Users,
+    color: 'from-cyan-500 to-fuchsia-500',
+    items: [
+      'Enlaces cortos para compartir canciones de archive.org (…/a/disco/código) y las convertidas de YouTube (…/play/ID)',
+      'Los enlaces compartidos muestran «Abrir en la app PulsoMedia» si se abren en el navegador del teléfono',
+      'El buscador de la Biblioteca busca en tu biblioteca y también en Internet Archive, música libre, el catálogo y YouTube',
+      'Buscador en Comunidad: filtra playlists y mezclas y encuentra canciones en todo lo compartido',
+      'Reloj: la versión instalada aparece al final de la pantalla de inicio',
+    ],
+  },
+  {
+    date: '7 nov 2026',
     title: 'Descargas de YouTube que siguen sonando',
     Icon: Download,
     color: 'from-emerald-500 to-violet-500',

@@ -8,6 +8,7 @@ import { Play, Plus, Music2, ListPlus } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import OpenInAppBanner from '@/components/OpenInAppBanner'
 
 /** Página de una canción compartida: se reproduce dentro de la app. */
 export default function SharedTrackClient({ video }: { video: MusicVideo }) {
@@ -38,6 +39,7 @@ export default function SharedTrackClient({ video }: { video: MusicVideo }) {
       </div>
 
       <div className="relative max-w-md mx-auto px-5 pt-6 text-center">
+        <OpenInAppBanner className="mb-5 text-left" />
         <p className="inline-flex items-center gap-2 text-emerald-400 text-[11px] font-bold uppercase tracking-[0.08em] font-display">
           <span className="w-2 h-2 rounded-full bg-emerald-400" /> Te compartieron una canción
         </p>

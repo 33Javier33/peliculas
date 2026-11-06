@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import LatestApkVersion from '@/components/LatestApkVersion'
 import { Watch, Download, Smartphone, Wifi, Music2 } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -42,6 +43,9 @@ export default function WatchAppPage() {
         >
           <Download className="w-5 h-5" /> Descargar la app del reloj
         </a>
+        <p className="mt-2 text-center text-slate-500 text-xs">
+          <LatestApkVersion /> · En el reloj, la versión instalada aparece al final de la pantalla de inicio (Biblioteca).
+        </p>
 
         <h2 className="mt-10 text-lg font-bold text-white font-display">Cómo instalarla</h2>
         <p className="text-slate-400 text-xs mt-1">

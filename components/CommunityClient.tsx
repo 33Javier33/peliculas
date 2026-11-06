@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Users, Play, Shuffle, ListPlus, Loader2, Check, Trash2, Disc3 } from 'lucide-react'
+import { Users, Play, Shuffle, ListPlus, Loader2, Check, Trash2, Disc3, Search, X } from 'lucide-react'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { useMusicStore } from '@/store/musicStore'
 import { usePlaylistStore } from '@/store/playlistStore'
@@ -38,6 +38,26 @@ export default function CommunityClient() {
   const token = useAccountStore((s) => s.token)
   const [alias, setAlias] = useState('')
   useEffect(() => setAlias(readAlias()), [])
+  // Buscador: filtra al instante lo que hay en pantalla y busca en todas las canciones compartidas
+  const [q, setQ] = useState('')
+  const [found, setFound] = useState<{ q: string; playlists: SharedInfo[]; songs: (MusicVideo & { from: string; fromId: string })[] } | null>(null)
+  useEffect(() => {
+    const text = q.trim()
+    if (text.length < 2) return setFound(null)
+    let cancelled = false
+    const t = setTimeout(() => {
+      fetch(`/api/comunidad?q=${encodeURIComponent(text)}`)
+        .then((r) => r.json())
+        .then((d) => !cancelled && setFound({ q: text, playlists: d.playlists ?? [], songs: d.songs ?? [] }))
+        .catch(() => {})
+    }, 350)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [q])
+  const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const matches = (...xs: (string | undefined)[]) => !q.trim() || xs.some((x) => x && norm(x).includes(norm(q.trim())))
 
   const load = useCallback(() => {
     fetch('/api/comunidad')
@@ -97,6 +117,58 @@ export default function CommunityClient() {
         «Compartir en la comunidad». Se muestra tu nombre público{alias ? ` (${alias})` : ''}, nunca tu correo.
       </p>
 
+      <div className="mt-5 relative max-w-xl">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <input
+          type="text"
+          inputMode="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar playlists, personas, géneros o canciones…"
+          className="w-full bg-surface-1 border border-white/10 text-white placeholder-slate-500 rounded-full pl-10 pr-10 py-3 text-sm focus:outline-none focus:border-violet-500/50"
+          aria-label="Buscar en la comunidad"
+        />
+        {q && (
+          <button onClick={() => setQ('')} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full text-slate-400 flex items-center justify-center" aria-label="Borrar búsqueda">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Canciones de toda la comunidad que coinciden */}
+      {found && found.q === q.trim() && found.songs.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-white text-lg font-bold mb-2">Canciones que coinciden</h2>
+          <ul className="divide-y divide-white/5 rounded-2xl bg-surface-1/60 border border-white/8">
+            {found.songs.slice(0, 30).map((t, i) => (
+              <li key={`${t.id}-${i}`} className="flex items-center gap-3 p-2.5">
+                <button
+                  onClick={() => useMusicStore.getState().play(found.songs, i)}
+                  className="min-w-0 flex-1 flex items-center gap-3 text-left"
+                >
+                  <span className="w-11 h-11 rounded-lg overflow-hidden bg-surface-2 shrink-0">
+                    {t.thumbnail?.startsWith('http') && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={t.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-white text-sm truncate">{t.title.replace(/^.+?\s[-–—]\s/, '') || t.title}</span>
+                    <span className="block text-slate-500 text-xs truncate">
+                      {t.channelTitle} · en «{t.from}»
+                    </span>
+                  </span>
+                </button>
+                <Play className="w-4 h-4 text-violet-300 shrink-0" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {found && found.q === q.trim() && !found.songs.length && !found.playlists.length && (
+        <p className="mt-6 text-slate-500 text-sm">Nadie ha compartido algo que coincida con «{q.trim()}».</p>
+      )}
+
       {!data && (
         <p className="mt-8 flex items-center gap-2 text-slate-400 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" /> Cargando la comunidad…
@@ -117,7 +189,7 @@ export default function CommunityClient() {
               <p className="text-slate-500 text-sm">Todavía no hay suficientes canciones compartidas para armar mezclas.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {data.mixes.map((m) => (
+                {data.mixes.filter((m) => matches(m.label, m.genre)).map((m) => (
                   <div key={m.genre} className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-fuchsia-700 to-violet-800 aspect-square">
                     {m.cover && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -148,7 +220,10 @@ export default function CommunityClient() {
               <p className="text-slate-500 text-sm">Nadie ha compartido playlists todavía. ¡Sé el primero!</p>
             ) : (
               <ul className="divide-y divide-white/5 rounded-2xl bg-surface-1/60 border border-white/8">
-                {data.playlists.map((p) => (
+                {(q.trim() && found?.q === q.trim()
+                  ? [...data.playlists.filter((p) => matches(p.name, p.alias, p.genre)), ...found.playlists.filter((fp) => !data.playlists.some((p) => p.id === fp.id && matches(p.name, p.alias, p.genre)))]
+                  : data.playlists.filter((p) => matches(p.name, p.alias, p.genre))
+                ).map((p) => (
                   <li key={p.id} className="flex items-center gap-3 p-3">
                     <span className="w-14 h-14 rounded-xl overflow-hidden bg-surface-2 shrink-0 flex items-center justify-center">
                       {p.cover ? (
