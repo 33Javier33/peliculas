@@ -114,6 +114,8 @@ export const useOfflineStore = create<OfflineState>()(
         }
         controllers.delete(group.id)
         const aborted = ctrl.signal.aborted
+        // Sus carátulas, guardadas para verse sin internet
+        import('@/lib/cover-cache').then((m) => m.warmCovers([group.cover, ...list.map((t) => t.thumbnail)])).catch(() => {})
         set((s) => {
           const progress = { ...s.progress }
           delete progress[group.id]

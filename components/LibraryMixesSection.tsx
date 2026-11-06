@@ -6,6 +6,7 @@ import { Play, Users, ListPlus, ChevronRight, Check, Heart } from 'lucide-react'
 import { libraryMixes, type Mix } from '@/lib/community'
 import { classifyLibrary } from '@/lib/library-radio'
 import { useMusicStore } from '@/store/musicStore'
+import { useOfflineStore } from '@/store/offlineStore'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { markSource, usePlayingFrom } from '@/lib/shuffle-ui'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -70,6 +71,7 @@ export default function LibraryMixesSection() {
       {liked.length > 0 && (
         <div className="mb-3">
           <LikedCard tracks={liked} onPlay={playLiked} />
+          <LikedList tracks={liked} />
         </div>
       )}
       {mixes.length === 0 ? (
@@ -112,6 +114,77 @@ export default function LibraryMixesSection() {
         </div>
       )}
     </section>
+  )
+}
+
+/** Las canciones de Tus me gusta: se despliegan para elegir cualquiera o quitarle el ♥ */
+function LikedList({ tracks }: { tracks: MusicVideo[] }) {
+  const [open, setOpen] = useState(false)
+  const [shown, setShown] = useState(60)
+  const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
+  const offline = useOfflineStore((s) => s.items)
+  const playFrom = (i: number) => {
+    const st = useMusicStore.getState()
+    if (st.shuffle) st.toggleShuffle()
+    st.play(tracks, i)
+    markSource('liked')
+  }
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 text-violet-200 text-sm font-semibold px-1 py-1"
+        aria-expanded={open}
+      >
+        <ChevronRight className={`w-4 h-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+        {open ? 'Ocultar canciones' : `Ver las ${tracks.length} canciones`}
+      </button>
+      {open && (
+        <ul className="mt-1 divide-y divide-white/5 rounded-2xl bg-surface-1/60 border border-white/8">
+          {tracks.slice(0, shown).map((t, i) => {
+            const m = t.title.match(/^(.+?)\s[-–—]\s(.+)$/)
+            const name = m ? m[2] : t.title
+            const artist = (t as { artist?: string }).artist || (m ? m[1] : t.channelTitle)
+            const isCurrent = t.id === currentId
+            const down = !!(t.audioUrl && offline[t.audioUrl])
+            return (
+              <li key={t.id} className="flex items-center gap-3 px-3 py-2">
+                <button onClick={() => playFrom(i)} className="min-w-0 flex-1 flex items-center gap-3 text-left">
+                  <span className="w-11 h-11 rounded-lg overflow-hidden bg-surface-2 shrink-0">
+                    {t.thumbnail && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={t.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className={`block text-sm truncate ${isCurrent ? 'text-emerald-400 font-semibold' : 'text-white'}`}>{name}</span>
+                    <span className="block text-slate-500 text-xs truncate">
+                      {artist}
+                      {down ? ' · descargada' : ''}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  onClick={() => useMusicStore.getState().toggleSaved(t)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-purple-400 shrink-0"
+                  aria-label={`Quitar ${name} de Me gusta`}
+                  title="Quitar de Me gusta"
+                >
+                  <Heart className="w-4 h-4 fill-purple-400" />
+                </button>
+              </li>
+            )
+          })}
+          {tracks.length > shown && (
+            <li className="p-2 text-center">
+              <button onClick={() => setShown((n) => n + 100)} className="text-violet-300 text-sm font-semibold px-4 py-2">
+                Ver más ({tracks.length - shown})
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
   )
 }
 

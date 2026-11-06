@@ -1,7 +1,41 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y usarla sin conexión: guarda las pantallas principales y sus
 // archivos, así la app abre sin internet (la biblioteca y las canciones descargadas).
-const CACHE = 'cpn-cache-v157'
+const CACHE = 'cpn-cache-v158'
+// Carátulas: caché aparte que NO se borra con las actualizaciones (se ven sin internet)
+const IMG_CACHE = 'cpn-img-v1'
+const IMG_MAX = 2000
+let imgPuts = 0
+
+async function trimImages(cache) {
+  const keys = await cache.keys()
+  if (keys.length > IMG_MAX) await Promise.all(keys.slice(0, keys.length - IMG_MAX).map((k) => cache.delete(k)))
+}
+
+// Una carátula: primero lo guardado; si no, de internet (directo o por el servidor de la app,
+// para que quede guardada aunque el sitio no lo permita) y se guarda
+async function imageResponse(request, url) {
+  const cache = await caches.open(IMG_CACHE)
+  const key = url.href
+  const hit = await cache.match(key)
+  if (hit) return hit
+  let res = null
+  try {
+    if (url.origin === self.location.origin) res = await fetch(request)
+    else {
+      res = await fetch(key, { mode: 'cors', credentials: 'omit' }).catch(() => null)
+      if (!res || !res.ok) res = await fetch(`/api/img?u=${encodeURIComponent(key)}`).catch(() => null)
+    }
+  } catch {}
+  if (res && res.ok && res.type !== 'opaque') {
+    await cache.put(key, res.clone()).catch(() => {})
+    if (++imgPuts % 50 === 0) trimImages(cache)
+    return res
+  }
+  // Último recurso: como siempre (se ve con internet, pero no se puede guardar)
+  return fetch(request)
+}
+
 const OFFLINE_URLS = ['/', '/music', '/music/library', '/radio', '/tv', '/peliculas', '/cine', '/novedades']
 
 // Partes de la app que se cargan "a pedido" (reproductor, ventanas…): están en el índice de webpack.
@@ -50,7 +84,7 @@ self.addEventListener('activate', (event) => {
       // pantalla ya abierta puede seguir pidiéndolos (sobre todo sin conexión)
       const cache = await caches.open(CACHE)
       for (const k of await caches.keys()) {
-        if (k === CACHE) continue
+        if (k === CACHE || k === IMG_CACHE) continue
         const old = await caches.open(k)
         for (const req of await old.keys()) {
           if (new URL(req.url).pathname.startsWith('/_next/static/') && !(await cache.match(req))) {
@@ -58,6 +92,7 @@ self.addEventListener('activate', (event) => {
             if (res) await cache.put(req, res)
           }
         }
+        if (k === IMG_CACHE) continue
         await caches.delete(k)
       }
       await self.clients.claim()
@@ -69,6 +104,17 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
   const url = new URL(request.url)
+  // Carátulas y fotos (de cualquier sitio): guardadas para verse sin internet
+  if (
+    (request.destination === 'image' || url.searchParams.get('cpn-img') === '1') &&
+    /^https?:$/.test(url.protocol) &&
+    !url.pathname.startsWith('/api/') &&
+    !url.pathname.startsWith('/_next/')
+  ) {
+    if (url.searchParams.get('cpn-img') === '1') url.searchParams.delete('cpn-img')
+    event.respondWith(imageResponse(request, url))
+    return
+  }
   // Solo nuestro origen; las APIs y los audios siempre van a la red.
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
 

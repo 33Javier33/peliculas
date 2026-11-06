@@ -19,6 +19,18 @@ interface Stage {
 
 const STAGES: Stage[] = [
   {
+    date: '6 nov 2026',
+    title: 'Sin internet de verdad',
+    Icon: Download,
+    color: 'from-emerald-500 to-cyan-500',
+    items: [
+      'Las carátulas de tu música se guardan en el teléfono: se ven aunque estés sin internet (también las de YouTube)',
+      'Al reabrir la app (o tras una actualización) la canción vuelve a sonar sola si se había quedado detenida',
+      'Tus me gusta: toca «Ver las canciones» para ver la lista completa, elegir cualquiera o quitarle el ♥',
+      'Canciones descargadas: muestra cuántas tienes y cada disco se despliega para tocar sus canciones sin internet',
+    ],
+  },
+  {
     date: '5 nov 2026',
     title: 'Convertir YouTube a audio',
     Icon: Download,

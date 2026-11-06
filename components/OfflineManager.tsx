@@ -6,6 +6,7 @@ import { CheckCircle2, Download } from 'lucide-react'
 import { useOfflineStore } from '@/store/offlineStore'
 import { useMovieStore } from '@/store/movieStore'
 import { getNative } from '@/lib/native'
+import { warmLibraryCovers } from '@/lib/cover-cache'
 
 // Descargas en segundo plano: retoma las pendientes (al abrir la app o al volver la conexión),
 // avisa al teléfono para que no corte la descarga al salir de la app (APK) y muestra los avisos
@@ -21,9 +22,15 @@ export default function OfflineManager() {
     }
     const t = setTimeout(resume, 3000)
     window.addEventListener('online', resume)
+    // Carátulas de tu biblioteca guardadas para verse sin internet (en segundo plano)
+    const covers = setTimeout(() => warmLibraryCovers(), 8000)
+    const onOnline = () => setTimeout(() => warmLibraryCovers(), 3000)
+    window.addEventListener('online', onOnline)
     return () => {
       clearTimeout(t)
+      clearTimeout(covers)
       window.removeEventListener('online', resume)
+      window.removeEventListener('online', onOnline)
     }
   }, [])
 

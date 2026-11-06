@@ -3,7 +3,7 @@
 import GenreTag, { useGenreCache } from '@/components/GenreTag'
 import { songArtist } from '@/lib/library-radio'
 import { useEffect, useMemo, useState } from 'react'
-import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff } from 'lucide-react'
+import { HardDriveDownload, Play, Shuffle, Trash2, Disc3, WifiOff, ChevronDown } from 'lucide-react'
 import { useOfflineStore, type OfflineItem } from '@/store/offlineStore'
 import { useMusicStore } from '@/store/musicStore'
 import { formatSize, storageEstimate } from '@/lib/offline-files'
@@ -20,6 +20,8 @@ export default function DownloadsSection() {
   const progress = useOfflineStore((s) => s.progress)
   const removeGroup = useOfflineStore((s) => s.removeGroup)
   const [confirm, setConfirm] = useState<string | null>(null)
+  // Disco desplegado (para ver y elegir sus canciones)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [free, setFree] = useState<number | null>(null)
 
   const groups = useMemo(() => {
@@ -51,12 +53,22 @@ export default function DownloadsSection() {
     )
   }
 
+  const playAt = (list: OfflineItem[], i: number) => {
+    const st = useMusicStore.getState()
+    if (st.shuffle) st.toggleShuffle()
+    st.play(
+      list.map((x) => x.track),
+      i
+    )
+  }
+
   return (
     <section id="descargas" data-scroll-step className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4 scroll-mt-20">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
-            <HardDriveDownload className="w-5 h-5 text-emerald-400" /> Descargadas
+            <HardDriveDownload className="w-5 h-5 text-emerald-400" /> Canciones descargadas
+            <span className="text-slate-400 text-sm font-normal">({Object.keys(items).length})</span>
           </h2>
           <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">
             <WifiOff className="w-3.5 h-3.5" /> Suenan sin internet · ocupan {formatSize(total)}
@@ -74,12 +86,12 @@ export default function DownloadsSection() {
           </div>
         )}
       </div>
-      <ul className="divide-y divide-white/5 max-h-80 overflow-y-auto overscroll-contain">
+      <ul className="divide-y divide-white/5 max-h-[28rem] overflow-y-auto overscroll-contain">
         {groups.map((g) => {
           const size = g.list.reduce((s, i) => s + i.size, 0)
           const p = progress[g.id]
           return (
-            <li key={g.id} className="flex items-center gap-3 py-2">
+            [<li key={g.id} className="flex items-center gap-3 py-2">
               <button onClick={() => play(g.list)} className="min-w-0 flex-1 flex items-center gap-3 text-left">
                 <span className="w-12 h-12 rounded-lg overflow-hidden bg-surface-2 shrink-0 flex items-center justify-center">
                   {g.cover ? (
@@ -104,6 +116,14 @@ export default function DownloadsSection() {
                   </span>
                 </span>
               </button>
+              <button
+                onClick={() => setOpenId(openId === g.id ? null : g.id)}
+                className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-white"
+                aria-expanded={openId === g.id}
+                aria-label={openId === g.id ? `Ocultar las canciones de ${g.title}` : `Ver las canciones de ${g.title}`}
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${openId === g.id ? 'rotate-180' : ''}`} />
+              </button>
               {confirm === g.id ? (
                 <button
                   onClick={() => {
@@ -119,7 +139,26 @@ export default function DownloadsSection() {
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
-            </li>
+            </li>,
+            openId === g.id && (
+              <li key={`${g.id}-songs`} className="pb-2">
+                <ol className="ml-4 border-l border-white/10 pl-3">
+                  {g.list.map((it, i) => (
+                    <li key={it.key}>
+                      <button onClick={() => playAt(g.list, i)} className="w-full flex items-center gap-2 py-1.5 text-left">
+                        <span className="w-5 text-slate-500 text-xs tabular-nums">{i + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-slate-200 text-sm truncate">{it.track.title.replace(/^.+?\s[-–—]\s/, '') || it.track.title}</span>
+                          <span className="block text-slate-500 text-[11px]">{formatSize(it.size)}</span>
+                        </span>
+                        <Play className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            ),
+          ]
           )
         })}
       </ul>

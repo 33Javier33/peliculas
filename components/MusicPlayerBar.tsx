@@ -837,6 +837,8 @@ export default function MusicPlayerBar() {
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())
+  // Canción a la que ya se le dio un reinicio por no arrancar
+  const kickedRef = useRef<string | null>(null)
   const handleAudioErrorRef = useRef(handleAudioError)
   handleAudioErrorRef.current = handleAudioError
   useEffect(() => {
@@ -844,6 +846,8 @@ export default function MusicPlayerBar() {
     lastProgressRef.current = Date.now()
     let lastTime = -1
     let lastBuffered = -1
+    let advanced = false
+    lastProgressRef.current = Date.now()
     const timer = setInterval(() => {
       // Interrumpida por otra app (WhatsApp, llamada) o buscando la canción: no es una fuente caída
       if (interruptedAtRef.current || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.pending) {
@@ -854,7 +858,10 @@ export default function MusicPlayerBar() {
       // apagada puede llegar tarde y hacía creer que la radio se había cortado)
       const el = playerRef.current as unknown as HTMLAudioElement | null
       if (el && !el.paused && el.currentTime !== lastTime) {
-        if (lastTime >= 0) lastProgressRef.current = Date.now()
+        if (lastTime >= 0) {
+          lastProgressRef.current = Date.now()
+          advanced = true
+        }
         lastTime = el.currentTime
       }
       // Si sigue descargando (conexión lenta, p. ej. 3G), no está caída: se espera
@@ -864,6 +871,21 @@ export default function MusicPlayerBar() {
           if (lastBuffered >= 0) lastProgressRef.current = Date.now()
           lastBuffered = end
         }
+      }
+      // Marcada como sonando pero el audio está detenido (al reabrir la app, tras una
+      // actualización…): se vuelve a arrancar
+      if (el && el.paused && useMusicStore.getState().isPlaying && el.readyState >= 2) el.play()?.catch?.(() => {})
+      // No arrancó en 6 s: se reinicia la canción (lo mismo que hacía falta hacer a mano: volver
+      // atrás). Una vez por canción, antes de dar la fuente por caída
+      if (!isLive && !advanced && Date.now() - lastProgressRef.current > 6000 && kickedRef.current !== currentId && el) {
+        kickedRef.current = currentId ?? null
+        lastProgressRef.current = Date.now()
+        try {
+          el.load()
+          el.currentTime = 0
+        } catch {}
+        el.play()?.catch?.(() => {})
+        return
       }
       // Una fuente de YouTube que no arranca en 7 s se cambia por la siguiente (hay varias). Un
       // archivo (disco de archive.org, MP3, música del teléfono) tiene una sola: se le da más tiempo
