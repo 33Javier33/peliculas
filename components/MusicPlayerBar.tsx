@@ -227,7 +227,21 @@ export default function MusicPlayerBar() {
     }))
   )
 
-  const currentVideo = queue[currentIndex]
+  // Canción de YouTube cuyo audio ya se descargó (convertido): suena desde esa copia, como audio
+  // (sigue con la pantalla apagada y sin internet) en vez del video de YouTube
+  const queuedVideo = queue[currentIndex]
+  const convertedKey =
+    queuedVideo && !queuedVideo.audioUrl && !queuedVideo.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(queuedVideo.id) ? `/api/stream?id=${queuedVideo.id}` : ''
+  const convertedNow = useOfflineStore((s) => !!(convertedKey && s.items[convertedKey]))
+  // Se decide al empezar la canción (si termina de descargarse mientras suena, no se cambia la
+  // fuente: empezaría de nuevo)
+  const convStartRef = useRef<{ id: string; conv: boolean }>({ id: '', conv: false })
+  if (queuedVideo && convStartRef.current.id !== queuedVideo.id) convStartRef.current = { id: queuedVideo.id, conv: convertedNow }
+  const hasConverted = convertedNow && convStartRef.current.conv
+  const currentVideo = useMemo(
+    () => (queuedVideo && hasConverted ? { ...queuedVideo, audioUrl: convertedKey } : queuedVideo),
+    [queuedVideo, hasConverted, convertedKey]
+  )
 
   // ===== Radio: al empezar la última canción de la cola, se añade música parecida =====
   const [isRadioLoading, setIsRadioLoading] = useState(false)
@@ -900,14 +914,17 @@ export default function MusicPlayerBar() {
       }
       // Una fuente de YouTube que no arranca en 7 s se cambia por la siguiente (hay varias). Un
       // archivo (disco de archive.org, MP3, música del teléfono) tiene una sola: se le da más tiempo
-      const limit = isLive ? LIVE_STALL_MS : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? START_MS : STALL_MS
+      // El audio que saca el teléfono (servidor local) puede tardar más en empezar, sobre todo
+      // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
+      const startLimit = isNativeSrc ? 20000 : START_MS
+      const limit = isLive ? LIVE_STALL_MS : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? startLimit : STALL_MS
       if (Date.now() - lastProgressRef.current < limit) return
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()
       else markAudioFailed(currentId)
     }, 3000)
     return () => clearInterval(timer)
-  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed, isLive, isLocal])
+  }, [useAudio, isPlaying, currentId, audioUrl, markAudioFailed, isLive, isLocal, isNativeSrc])
 
   // Al volver la conexión (cambio de Wi-Fi a datos, túnel…) la radio se reconecta al instante
   useEffect(() => {

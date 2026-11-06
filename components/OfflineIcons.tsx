@@ -1,6 +1,7 @@
 'use client'
 
 import { Download, CheckCircle2, Loader2 } from 'lucide-react'
+import { convertedTrack, saveConverted, CONVERTED_ALBUM } from '@/lib/yt-convert'
 import { useOfflineStore, canDownload } from '@/store/offlineStore'
 import { useLinksStore } from '@/store/linksStore'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -18,10 +19,14 @@ const btn = 'shrink-0 w-8 h-8 rounded-full flex items-center justify-center'
 
 /** Una canción: ✓ verde si está descargada, ⬇ para descargarla */
 export function TrackDownloadIcon({ track, overlay = false }: { track: MusicVideo; overlay?: boolean }) {
-  const key = track.audioUrl ?? ''
+  // Canción de YouTube: su audio convertido (se descarga como «Convertidas de YouTube»)
+  const ytId = !track.audioUrl && !track.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(track.id) ? track.id : ''
+  const key = track.audioUrl ?? (ytId ? `/api/stream?id=${ytId}` : '')
   const done = useOfflineStore((s) => !!(key && s.items[key]))
-  const busy = useOfflineStore((s) => Object.keys(s.progress).length > 0 && !!key && !s.items[key] && s.progress[songGroup(track).id] !== undefined)
-  if (!canDownload(track)) return null
+  const busy = useOfflineStore(
+    (s) => !!key && !s.items[key] && (ytId ? !!s.queue[CONVERTED_ALBUM]?.tracks.some((t) => t.audioUrl === key) : Object.keys(s.progress).length > 0 && s.progress[songGroup(track).id] !== undefined)
+  )
+  if (!canDownload(track) && !ytId) return null
   const bg = overlay ? 'bg-black/55 backdrop-blur-md' : ''
   if (done)
     return (
@@ -49,7 +54,8 @@ export function TrackDownloadIcon({ track, overlay = false }: { track: MusicVide
       onClick={(e) => {
         e.stopPropagation()
         e.preventDefault()
-        useOfflineStore.getState().download(songGroup(track), [track])
+        if (ytId) saveConverted([convertedTrack(track)], true)
+        else useOfflineStore.getState().download(songGroup(track), [track])
       }}
       className={`${btn} ${bg} ${overlay ? 'text-white' : 'text-slate-500'} hover:text-emerald-400`}
       title="Descargar para escuchar sin internet"

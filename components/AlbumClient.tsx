@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import QueueMenu from '@/components/QueueMenu'
+import { useOfflineStore } from '@/store/offlineStore'
 import AlbumDownloadButton from '@/components/AlbumDownloadButton'
-import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle, ListPlus } from 'lucide-react'
+import { Play, Shuffle, Heart, Loader2, ChevronLeft, AlertCircle, ListPlus, CheckCircle2 } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import { useMusicStore } from '@/store/musicStore'
 import type { CatalogAlbumDetail } from '@/lib/catalog'
@@ -84,6 +85,17 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
   }, [album.id])
 
   const current = isVisible ? queue[currentIndex] : undefined
+  // Canciones de este álbum ya descargadas (convertidas de YouTube)
+  const offlineItems = useOfflineStore((s) => s.items)
+  const downloadedTitles = useMemo(() => {
+    const set = new Set<string>()
+    if (!mounted) return set
+    for (const it of Object.values(offlineItems)) {
+      if (it.groupId !== `ytalb-${album.id}`) continue
+      set.add(normalize(it.track.title.replace(/^.+?\s[-–—]\s/, '')))
+    }
+    return set
+  }, [offlineItems, album.id, mounted])
   // Por título: las pendientes cambian de ID al encontrar su video
   const playableTitles = new Set(playable?.map((t) => t.title))
   const isAlbumPlaying = !!current && playableTitles.has(current.title)
@@ -213,11 +225,13 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           </div>
         )}
 
-        {/* Canciones */}
+        {/* Canciones (✓ verde: descargada, suena sin internet) */}
         <ol className="mt-8 divide-y divide-white/5 border border-white/5 rounded-2xl overflow-hidden bg-surface-1/50">
           {album.trackList.map((t) => {
             const idx = indexOf(t.title, t.position)
             const isCurrent = isAlbumPlaying && idx >= 0 && playable?.[idx]?.title === current?.title
+            const ytId = idx >= 0 ? resolved?.[idx]?.id : undefined
+            const isDownloaded = (!!ytId && !!offlineItems[`/api/stream?id=${ytId}`]) || downloadedTitles.has(normalize(t.title))
             return (
               <li key={t.id} className="flex items-center">
                 <button
@@ -244,6 +258,9 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
                     </span>
                     {t.artist && t.artist !== album.artist.name && <span className="block text-xs text-slate-500 truncate">{t.artist}</span>}
                   </span>
+                  {isDownloaded && (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-label="Descargada" />
+                  )}
                   <span className="text-xs text-slate-500 font-mono shrink-0">{formatDuration(t.duration)}</span>
                 </button>
                 {/* Agregar esta canción a la cola */}

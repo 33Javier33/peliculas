@@ -19,6 +19,19 @@ interface Stage {
 
 const STAGES: Stage[] = [
   {
+    date: '7 nov 2026',
+    title: 'Descargas de YouTube que siguen sonando',
+    Icon: Download,
+    color: 'from-emerald-500 to-violet-500',
+    items: [
+      'Las canciones de YouTube ya descargadas suenan desde tu teléfono: siguen con la pantalla apagada y sin internet',
+      'En la página de un álbum, las canciones descargadas tienen un ✓ verde',
+      '«Descargar audio» en el reproductor de Videos: el audio de cualquier video (menos películas)',
+      'El ⬇ de las listas también descarga canciones de YouTube',
+      'El audio del teléfono tiene más tiempo para empezar mientras se descargan otras canciones (antes pasaba al video y se cortaba al salir)',
+    ],
+  },
+  {
     date: '6 nov 2026',
     title: 'Audio en calidad premium',
     Icon: SlidersHorizontal,

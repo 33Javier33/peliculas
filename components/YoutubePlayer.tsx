@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { useMusicStore } from '@/store/musicStore'
+import VideoAudioDownload from '@/components/VideoAudioDownload'
 
 interface YoutubePlayerProps {
   videoId: string
@@ -278,6 +279,8 @@ export default function YoutubePlayer({
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-2">
+          {/* Descargar solo el audio (videos musicales, conciertos…; no películas) */}
+          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} />
           {onToggleLater && (
             <button
               onClick={onToggleLater}
