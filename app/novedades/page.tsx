@@ -20,6 +20,18 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '7 nov 2026',
+    title: 'Tus descargas ya no se pierden',
+    Icon: Download,
+    color: 'from-emerald-500 to-cyan-500',
+    items: [
+      'App de Android: las descargas se guardan como música del teléfono (Música/PulsoMedia): no se borran al desinstalar la app',
+      'Al reinstalar, «Recuperar mis descargas» las vuelve a usar sin descargar nada (y aparecen en la biblioteca)',
+      'Lo que ya tenías descargado dentro de la app se pasa solo a la música del teléfono',
+      'Configuración → «Reparar la app»: si algo se traba, se arregla sin desinstalar ni perder nada',
+    ],
+  },
+  {
+    date: '7 nov 2026',
     title: 'Arreglo urgente del sonido',
     Icon: Music2,
     color: 'from-rose-500 to-violet-500',
