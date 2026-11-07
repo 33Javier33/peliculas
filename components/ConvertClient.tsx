@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AudioLines, Loader2, Play, Download, CheckCircle2, FileAudio, ClipboardPaste, AlertCircle, ChevronLeft } from 'lucide-react'
@@ -77,6 +79,7 @@ export default function ConvertClient() {
       </Link>
       <h1 className="mt-4 flex items-center gap-3 text-3xl font-bold text-white font-display">
         <AudioLines className="w-8 h-8 text-cyan-300" /> Convertir a audio
+        <HelpTip title="Convertir a audio" text="Pega uno o varios enlaces de YouTube: la app guarda solo el sonido en tu biblioteca (disco «Convertidas de YouTube») y lo descarga al teléfono. Su video lo puedes seguir viendo con «Video» en el reproductor." />
       </h1>
       <p className="mt-2 text-slate-400 text-sm">
         Pega el enlace de una canción de YouTube: se guarda solo el sonido (sin video) en tu biblioteca, para escucharla sin internet y con la

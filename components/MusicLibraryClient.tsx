@@ -1,4 +1,6 @@
 'use client'
+
+import HelpTip from '@/components/HelpTip'
 import QueueMenu from '@/components/QueueMenu'
 import LibrarySearch from '@/components/LibrarySearch'
 import { useSearchParams } from 'next/navigation'
@@ -376,7 +378,7 @@ export default function MusicLibraryClient() {
                 <Library className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">Mi biblioteca</h1>
+                <h1 className="flex items-center gap-2 text-3xl sm:text-4xl font-black text-white leading-tight">Mi biblioteca <HelpTip title="Tu biblioteca" text="Todo lo que guardas con ♥: canciones (Me gusta), álbumes, playlists y discos. El buscador de aquí busca primero en tu biblioteca y luego en Internet Archive, música libre y YouTube. Arriba a la derecha, el ícono de persona respalda todo en tu cuenta." /></h1>
                 <p className="text-slate-500 text-sm mt-0.5">
                   {saved.length} {saved.length === 1 ? 'canción guardada' : 'canciones guardadas'}
                 </p>

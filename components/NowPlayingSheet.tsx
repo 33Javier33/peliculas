@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
@@ -250,6 +252,7 @@ export default function NowPlayingSheet({
               <button role="tab" aria-selected={false} onClick={onWatchVideo} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold font-display">
                 <MonitorPlay className="w-4 h-4" /> Video
               </button>
+              <span className="self-center px-1.5"><HelpTip title="Canción o video" text="Como en Spotify: «Video» muestra el video de esta canción desde el mismo segundo; «Canción» vuelve al audio desde donde iba. Funciona también con las canciones convertidas a audio o descargadas." /></span>
             </div>
           )}
 

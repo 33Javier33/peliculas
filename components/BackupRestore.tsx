@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useEffect, useRef, useState } from 'react'
 import { ArchiveRestore } from 'lucide-react'
 import { getNative } from '@/lib/native'
@@ -39,6 +41,7 @@ export default function BackupRestore({ compact = false }: { compact?: boolean }
       >
         <ArchiveRestore className="w-4 h-4" /> Recuperar respaldo
       </button>
+      <HelpTip className="ml-2" title="Respaldo" text="La app de Android guarda sola tus playlists, Me gusta, álbumes y artistas en Descargas/PulsoMedia/PulsoMedia-respaldo.json. Ese archivo queda aunque desinstales la app: elígelo aquí y vuelve todo, junto con lo que ya tengas." />
       <input ref={input} type="file" accept=".json,application/json,text/plain,*/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
       {msg && <p className={`mt-2 text-xs ${msg.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{msg.text}</p>}
     </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Users, Play, Shuffle, ListPlus, Loader2, Check, Trash2, Disc3, Search, X } from 'lucide-react'
@@ -111,6 +113,7 @@ export default function CommunityClient() {
       </Link>
       <h1 className="mt-4 flex items-center gap-3 text-3xl font-bold text-white font-display">
         <Users className="w-7 h-7 text-violet-300" /> Comunidad
+        <HelpTip title="Comunidad" text="Playlists que comparten otras personas que usan la app. Tócalas para escucharlas o guardarlas. Para compartir una tuya, ábrela y toca «Compartir en la Comunidad»." />
       </h1>
       <p className="mt-2 text-slate-400 text-sm max-w-xl">
         Playlists y mezclas que comparten quienes usan la app. Para compartir las tuyas: en una playlist o en «Mezclas de tu biblioteca» toca

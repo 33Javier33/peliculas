@@ -232,8 +232,8 @@ export default function Header() {
             >
               <Settings className="w-5 h-5" />
             </Link>
-            {/* Cuenta (respaldo de la biblioteca): en Biblioteca, al lado de la lupa */}
-            {pathname.startsWith('/music/library') && <AccountButton />}
+            {/* Cuenta (respaldo de la biblioteca): en todas las pantallas, también en el computador */}
+            <AccountButton />
             <button
               onClick={() => setIsMobileSearchOpen(true)}
               className="md:hidden p-2 text-slate-400 hover:text-white hover:bg-surface-1 rounded-lg transition-all duration-200"
@@ -251,6 +251,8 @@ export default function Header() {
 
             <Link
               href="/"
+              title="Inicio"
+              aria-label="Inicio"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-surface-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,39 +263,47 @@ export default function Header() {
                   d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                 />
               </svg>
-              Inicio
+              <span className="hidden xl:inline">Inicio</span>
             </Link>
             <Link
               href="/cine"
+              title="CineLatino"
+              aria-label="CineLatino"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
               </svg>
-              CineLatino
+              <span className="hidden xl:inline">CineLatino</span>
             </Link>
             <Link
               href="/music"
+              title="Music"
+              aria-label="Music"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
-              Music
+              <span className="hidden xl:inline">Music</span>
             </Link>
             <Link
               href="/radio"
+              title="En vivo"
+              aria-label="En vivo"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <Radio className="w-4 h-4" />
-              En vivo
+              <span className="hidden xl:inline">En vivo</span>
             </Link>
             <Link
               href="/peliculas"
+              title="Películas gratis"
+              aria-label="Películas gratis"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <Clapperboard className="w-4 h-4" />
-              Películas gratis
+              <span className="hidden xl:inline">Películas gratis</span>
             </Link>
           </div>
         </div>

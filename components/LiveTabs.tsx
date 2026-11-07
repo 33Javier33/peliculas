@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import Link from 'next/link'
 import { Radio, Tv } from 'lucide-react'
 import { LIVE_COUNTRIES } from '@/lib/live'
@@ -24,7 +26,11 @@ export function LiveHeader({ active }: { active: 'radio' | 'tv' }) {
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" /> En vivo
       </p>
       <h1 className="text-[32px] leading-[38px] sm:text-[40px] sm:leading-[48px] font-extrabold text-white mt-1 mb-5">
-        {active === 'radio' ? 'Radio' : 'Televisión'}
+        {active === 'radio' ? 'Radio' : 'Televisión'}{' '}
+        <HelpTip
+          title={active === 'radio' ? 'Radio en vivo' : 'Televisión en vivo'}
+          text={active === 'radio' ? 'Radios de todo el mundo en directo. Toca una para escucharla (sigue con la pantalla bloqueada) y la ♥ para tenerla en tus favoritas.' : 'Canales de TV en directo y gratis. Toca uno para verlo; con «Ver en la TV» lo mandas a tu Chromecast o Google TV.'}
+        />
       </h1>
       <div className="flex gap-2 overflow-x-auto pb-1 mb-5 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
         <Link href="/radio" className={active === 'radio' ? on : off}>

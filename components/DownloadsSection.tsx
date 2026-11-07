@@ -1,4 +1,6 @@
 'use client'
+
+import HelpTip from '@/components/HelpTip'
 import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
 import type { OfflineFailure } from '@/store/offlineStore'
 import { restoreDownloads } from '@/lib/phone-restore'
@@ -83,6 +85,7 @@ export default function DownloadsSection() {
         <div>
           <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
             <HardDriveDownload className="w-5 h-5 text-emerald-400" /> Canciones descargadas
+            <HelpTip title="Canciones descargadas" text="Suenan sin internet y con la pantalla bloqueada. En la app de Android se guardan en la música del teléfono (Música/PulsoMedia), así no se pierden si desinstalas la app. Las que fallan se reintentan solas." />
             <span className="text-slate-400 text-sm font-normal">({Object.keys(items).length})</span>
           </h2>
           <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">

@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { Download, Loader2 } from 'lucide-react'
 import { useOfflineStore } from '@/store/offlineStore'
 import { downloadWholeLibrary, useLibraryJob } from '@/lib/yt-convert'
@@ -15,6 +17,7 @@ export default function LibraryDownloadAll() {
       ? `Disco ${job.index} de ${job.total}: buscando «${job.title}»…`
       : `Disco ${job.index} de ${job.total} «${job.title}»: canción ${Math.min(progress.done + 1, progress.total)}/${progress.total} · ${Math.round(progress.current * 100)}%`
   return (
+    <div className="flex items-center">
     <button
       onClick={() => !job.running && downloadWholeLibrary().catch(() => 0)}
       disabled={job.running}
@@ -23,5 +26,7 @@ export default function LibraryDownloadAll() {
       {job.running ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <Download className="w-4 h-4 shrink-0" />}
       <span className="truncate">{label}</span>
     </button>
+    <HelpTip className="ml-2 mb-3" title="Descargar toda mi biblioteca" text="Baja todo lo que te falta: discos, álbumes guardados con ♥ y Me gusta (lo de YouTube se convierte a audio). Va un disco tras otro y sigue con la app cerrada o la pantalla bloqueada." />
+    </div>
   )
 }

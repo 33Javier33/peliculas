@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { X, SlidersHorizontal, Sparkles, Info } from 'lucide-react'
 import { useEqStore, EQ_BANDS, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
@@ -27,7 +29,7 @@ export default function EqualizerSheet() {
         <SheetHandle />
         <div className="flex items-center gap-3">
           <SlidersHorizontal className="w-5 h-5 text-violet-300" />
-          <p className="flex-1 text-white font-bold font-display">Ecualizador</p>
+          <p className="flex-1 flex items-center gap-2 text-white font-bold font-display">Ecualizador <HelpTip title="Ecualizador" text="Cambia el sonido (más graves, voces…). En la app de Android lo hace el teléfono y solo baja bandas, así nunca satura: si suena más bajo, sube un poco el volumen. «Normal» deja el sonido tal cual." /></p>
           {/* Interruptor */}
           <button
             role="switch"

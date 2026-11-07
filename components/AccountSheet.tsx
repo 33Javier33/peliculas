@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useEffect, useState } from 'react'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import SheetHandle from '@/components/SheetHandle'
@@ -66,7 +68,7 @@ export default function AccountSheet() {
         <SheetHandle className="sm:hidden -mb-2" />
         <div {...swipe.dragProps} className="flex items-center gap-3">
           <Cloud className="w-5 h-5 text-violet-300" />
-          <p className="flex-1 text-white font-bold font-display">{token ? 'Tu cuenta' : 'Respalda tu biblioteca'}</p>
+          <p className="flex-1 flex items-center gap-2 text-white font-bold font-display">{token ? 'Tu cuenta' : 'Respalda tu biblioteca'} <HelpTip title="Cuenta" text="Con tu correo, tu biblioteca, playlists y Me gusta se guardan en la nube. Si cambias de teléfono o reinstalas la app, inicias sesión y vuelve todo. No necesitas contraseña: llega un código a tu correo." /></p>
           <button onClick={() => setOpen(false)} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">
             <X className="w-4 h-4" />
           </button>

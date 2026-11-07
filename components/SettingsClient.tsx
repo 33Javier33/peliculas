@@ -6,6 +6,7 @@ import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
+  HelpCircle,
   Settings,
   SlidersHorizontal,
   Sparkles,
@@ -28,6 +29,7 @@ import { useOfflineStore } from '@/store/offlineStore'
 import { LANGUAGES } from '@/lib/translate'
 import { getNative } from '@/lib/native'
 import ViewToggle from '@/components/ViewToggle'
+import { useHelpTips, setHelpTips } from '@/components/HelpTip'
 import ShareAppButton from '@/components/ShareAppButton'
 
 // Configuración: todo lo que se puede ajustar en la app, en un solo lugar.
@@ -84,6 +86,7 @@ export default function SettingsClient() {
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const [dlMax, setDlMax] = useState(true)
   const [alwaysVideo, setAlwaysVideoOn] = useState(false)
+  const helpOn = useHelpTips()
   useEffect(() => setAlwaysVideoOn(getAlwaysVideo()), [])
   useEffect(() => setDlMax(getDownloadQuality() === 'max'), [])
   const radioEnabled = useMusicStore((s) => s.radioEnabled)
@@ -160,6 +163,9 @@ export default function SettingsClient() {
         </Section>
 
         <Section title="Apariencia e idioma">
+          <Row icon={<HelpCircle className="w-4 h-4" />} title="Ayudas «?»" desc="Signos ? pequeños junto a lo importante: al tocarlos explican cómo funciona">
+            <Switch on={helpOn} onChange={(v) => setHelpTips(v)} label="Ayudas" />
+          </Row>
           <Row icon={<LayoutGrid className="w-4 h-4" />} title="Vista de las listas" desc="Lista o mosaico, en todas las secciones">
             <ViewToggle />
           </Row>

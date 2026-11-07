@@ -1,5 +1,7 @@
 'use client'
 
+import HelpTip from '@/components/HelpTip'
+
 import { useCallback, useEffect, useState } from 'react'
 import { Search, Loader2, AlertCircle, Film, CheckCircle2, Download, Trash2, X } from 'lucide-react'
 import type { FreeMovie, FreeMovieRow } from '@/lib/pluto'
@@ -179,7 +181,7 @@ export default function FreeMoviesClient() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-1 h-8 bg-violet-500 rounded-full" />
-          <h1 className="text-2xl font-bold text-white font-display">Películas gratis</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">Películas gratis <HelpTip title="Películas gratis" text="Películas completas y legales: cine de dominio público (Internet Archive) y Pluto TV. «Mis películas» guarda las que marcas o descargas para ver después." /></h1>
         </div>
         <p className="text-slate-400 text-sm mb-5">Películas completas, gratis y legales: cine de dominio público y Pluto TV. Sin cuenta.</p>
 
