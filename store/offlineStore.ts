@@ -2,7 +2,7 @@ import { isNativeApp } from '@/lib/native'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { MusicVideo } from '@/lib/youtube-music'
-import { downloadAudio, putFile, deleteFile, persistStorage } from '@/lib/offline-files'
+import { downloadAudio, putFile, deleteFile, persistStorage, getFile } from '@/lib/offline-files'
 import { getDownloadQuality, bestSourceFor, isArchiveFile } from '@/lib/audio-quality'
 
 // Descargas para escuchar sin conexión. Cada canción descargada recuerda su grupo (disco o
@@ -53,6 +53,8 @@ interface OfflineState {
   removeKeys: (keys: string[]) => Promise<void>
   /** Vuelve a descargar en la mejor calidad lo que se bajó antes en calidad normal */
   upgrade: () => Promise<void>
+  /** Canciones de YouTube guardadas en Opus (en algunos teléfonos no suenan): se bajan otra vez en M4A */
+  repairOpus: () => Promise<void>
 }
 
 const controllers = new Map<string, AbortController>()
@@ -181,6 +183,35 @@ export const useOfflineStore = create<OfflineState>()(
           return { progress }
         })
         get().notify(failed ? `Calidad mejorada en ${done} canciones (${failed} quedaron como estaban)` : `✓ ${done} canciones ahora en la mejor calidad`)
+      },
+      repairOpus: async () => {
+        const id = 'reparar-audio'
+        if (controllers.has(id)) return
+        const yt = Object.values(get().items).filter((i) => i.key.startsWith('/api/stream?'))
+        const bad: OfflineItem[] = []
+        for (const it of yt) {
+          const blob = await getFile(it.key).catch(() => undefined)
+          if (blob && /webm|opus/i.test(blob.type)) bad.push(it)
+        }
+        if (!bad.length) return
+        const ctrl = new AbortController()
+        controllers.set(id, ctrl)
+        get().notify(`Arreglando ${bad.length} canciones descargadas para que suenen en tu teléfono…`)
+        let done = 0
+        for (const it of bad) {
+          if (ctrl.signal.aborted) break
+          try {
+            const blob = await downloadAudio(it.key, () => {}, ctrl.signal)
+            if (/webm|opus/i.test(blob.type)) continue
+            await putFile(it.key, blob)
+            set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: blob.size } } }))
+            done++
+          } catch (err) {
+            if ((err as Error).name === 'AbortError') break
+          }
+        }
+        controllers.delete(id)
+        if (done) get().notify(`✓ ${done} canciones descargadas arregladas`)
       },
       cancel: (groupId) => {
         controllers.get(groupId)?.abort()

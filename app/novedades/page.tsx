@@ -20,6 +20,18 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '7 nov 2026',
+    title: 'Arreglo urgente del sonido',
+    Icon: Music2,
+    color: 'from-rose-500 to-violet-500',
+    items: [
+      'Arreglo: las canciones de YouTube vuelven a sonar en todos los teléfonos (audio AAC de 128 kbps)',
+      'Las canciones descargadas en las últimas versiones se arreglan solas (se vuelven a bajar en un formato que suena siempre)',
+      'Al cerrar la cola abierta desde el reproductor, vuelves al reproductor',
+      'En la Biblioteca, un artista o álbum se abre como su propia página, arriba del todo; «atrás» vuelve a la Biblioteca',
+    ],
+  },
+  {
+    date: '7 nov 2026',
     title: 'Enlaces cortos y buscadores en todas partes',
     Icon: Users,
     color: 'from-cyan-500 to-fuchsia-500',

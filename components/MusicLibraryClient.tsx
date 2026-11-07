@@ -274,8 +274,7 @@ export default function MusicLibraryClient() {
   const openAlbum = (al: { name: string; artist: string }) => {
     setSelectedArtist(al.artist)
     setSelectedAlbum(al.name)
-    // Se baja a lo elegido (las canciones del disco)
-    setTimeout(() => document.getElementById('lib-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+
   }
   /** Reproducir una lista completa: en orden o en aleatorio */
   const playAll = (list: MusicVideo[], shuffle = false) => {
@@ -300,9 +299,31 @@ export default function MusicLibraryClient() {
   )
 
   const clearSubFilters = () => {
+    // Si se abrió como "página" (con su entrada en el historial), atrás la cierra
+    if (window.history.state?.cpnLibFilter) return window.history.back()
     setSelectedArtist(null)
     setSelectedAlbum(null)
   }
+
+  // Artista o álbum abierto: arriba del todo y con entrada en el historial (el «atrás» del teléfono
+  // vuelve a la biblioteca en vez de salir de ella)
+  useEffect(() => {
+    if (!(selectedArtist || selectedAlbum) || !libRestored.current) return
+    window.scrollTo({ top: 0 })
+    try {
+      if (!window.history.state?.cpnLibFilter) window.history.pushState({ ...window.history.state, cpnLibFilter: true }, '')
+    } catch {}
+  }, [selectedArtist, selectedAlbum])
+  useEffect(() => {
+    const onPop = () => {
+      if (!window.history.state?.cpnLibFilter) {
+        setSelectedArtist(null)
+        setSelectedAlbum(null)
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   if (!mounted) {
     return (
@@ -366,6 +387,16 @@ export default function MusicLibraryClient() {
           )}
         </div>
 
+        {/* Al abrir un artista o un álbum se ve como su propia página: solo eso, arriba del todo */}
+        {activeSubFilter ? (
+          <button
+            onClick={clearSubFilters}
+            className="mb-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-surface-1 border border-white/10 text-slate-200"
+          >
+            <ArrowLeft className="w-4 h-4" /> Volver a la biblioteca
+          </button>
+        ) : (
+          <>
         {/* Buscador de toda tu biblioteca: artistas, álbumes, canciones y playlists */}
         {saved.length > 0 && (
         <LibrarySearch
@@ -420,6 +451,8 @@ export default function MusicLibraryClient() {
         <LibraryMixesSection />
 
         <FollowedArtistsSection showEmpty />
+          </>
+        )}
 
         {/* Empty state */}
         {saved.length === 0 && playlists.length === 0 ? (
@@ -441,7 +474,7 @@ export default function MusicLibraryClient() {
         ) : (
           <>
             {/* Tabs */}
-            <div id="lib-tabs" data-scroll-step className="scroll-mt-20 flex items-center gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]">
+            <div id="lib-tabs" data-scroll-step className={`scroll-mt-20 items-center ${activeSubFilter ? 'hidden' : 'flex'} gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]`}>
               <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
               <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />

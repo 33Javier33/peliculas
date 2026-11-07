@@ -99,8 +99,7 @@ object AudioServer {
     }
 
     private fun quality(s: AudioStream): Double {
-        val opus = s.format == MediaFormat.WEBMA_OPUS
-        return kbps(s) * (if (opus) 1.25 else 1.0)
+        return kbps(s).toDouble()
     }
 
     /** Dirección del mejor audio (la pista de mayor calidad que tenga el video) */
@@ -121,7 +120,11 @@ object AudioServer {
         // La mejor calidad: YouTube no siempre informa el bitrate (y entonces se elegía la pista de
         // 48 kbps). Se usa el bitrate conocido de cada tipo (itag) y Opus vale un poco más que AAC
         // a igual bitrate (suena mejor). Orden típico: Opus 160k > AAC 128k > Opus 70k > AAC 48k
-        val best: AudioStream = streams.maxByOrNull { quality(it) } ?: throw IllegalStateException("sin audio")
+        // AAC (M4A) primero: es lo que suena en todos los teléfonos (con Opus, en algunos no salía
+        // sonido). Entre las M4A, la de mayor calidad (128 kbps, nunca la de 48)
+        val best: AudioStream = streams.filter { it.format == MediaFormat.M4A }.maxByOrNull { quality(it) }
+            ?: streams.maxByOrNull { quality(it) }
+            ?: throw IllegalStateException("sin audio")
         Log.i(TAG, "Audio $id: itag ${best.itag} ${best.format?.name} ${kbps(best)} kbps")
         val url = best.content
         val loc: Localization? = null

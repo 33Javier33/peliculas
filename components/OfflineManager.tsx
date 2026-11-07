@@ -24,11 +24,16 @@ export default function OfflineManager() {
     window.addEventListener('online', resume)
     // Carátulas de tu biblioteca guardadas para verse sin internet (en segundo plano)
     const covers = setTimeout(() => warmLibraryCovers(), 8000)
+    // App de Android: canciones de YouTube descargadas en Opus → otra vez en M4A (suenan siempre)
+    const repair = setTimeout(() => {
+      if (getNative() && navigator.onLine) useOfflineStore.getState().repairOpus()
+    }, 12000)
     const onOnline = () => setTimeout(() => warmLibraryCovers(), 3000)
     window.addEventListener('online', onOnline)
     return () => {
       clearTimeout(t)
       clearTimeout(covers)
+      clearTimeout(repair)
       window.removeEventListener('online', resume)
       window.removeEventListener('online', onOnline)
     }

@@ -1523,6 +1523,7 @@ export default function MusicPlayerBar() {
   const isBarShown = hasHydrated && isVisible && !!currentVideo
 
   // ===== Pantalla completa "Reproduciendo ahora" =====
+  const queueFromFullRef = useRef(false)
   const [isFullOpen, setIsFullOpen] = useState(false)
   const openFull = useCallback(() => {
     setIsFullOpen(true)
@@ -1679,7 +1680,15 @@ export default function MusicPlayerBar() {
   const canWatchVideo = !!currentVideo && !isLive && !isLocal && !isPending && /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id)
 
   // Cola: se cierra deslizando hacia abajo
-  const queueSwipe = useSwipeDown(() => useMusicStore.getState().isQueueOpen && toggleQueue())
+  // Cola abierta desde el reproductor grande: al cerrarla se vuelve a él (antes te sacaba)
+  const closeQueue = () => {
+    if (useMusicStore.getState().isQueueOpen) toggleQueue()
+    if (queueFromFullRef.current) {
+      queueFromFullRef.current = false
+      setTimeout(openFull, 200)
+    }
+  }
+  const queueSwipe = useSwipeDown(closeQueue)
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -1738,6 +1747,7 @@ export default function MusicPlayerBar() {
         onNavigate={leaveFullTo}
         onOpenQueue={() => {
           closeFull()
+          queueFromFullRef.current = true
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()
         }}
         onWatchVideo={
@@ -1786,7 +1796,7 @@ export default function MusicPlayerBar() {
                   Cola <span className="text-slate-500 font-normal">({queue.length})</span>
                 </span>
               </div>
-              <button onClick={toggleQueue} className="p-1 text-slate-500 hover:text-white transition-colors" aria-label="Cerrar cola">
+              <button onClick={closeQueue} className="p-1 text-slate-500 hover:text-white transition-colors" aria-label="Cerrar cola">
                 <ChevronDown className="w-4 h-4" />
               </button>
             </div>
@@ -2146,7 +2156,7 @@ export default function MusicPlayerBar() {
               )}
 
               <button
-                onClick={toggleQueue}
+                onClick={() => (isQueueOpen ? closeQueue() : toggleQueue())}
                 className={`${iconBtn} ${isQueueOpen ? 'text-violet-400' : 'text-slate-500 hover:text-white'}`}
                 title={`Cola (${queue.length})`}
                 aria-label={`Cola (${queue.length})`}
