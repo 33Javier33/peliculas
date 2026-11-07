@@ -52,6 +52,7 @@ import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-pre
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
@@ -545,7 +546,9 @@ export default function MusicPlayerBar() {
     if (!v) return
     const el = playerRef.current as unknown as HTMLMediaElement | null
     const startTime = el && isFinite(el.currentTime) ? el.currentTime : 0
-    setVideoModal({ id: v.id, title: v.title, channelTitle: v.channelTitle, startTime })
+    const id = ytIdOf(v)
+    if (!id) return
+    setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
   }, [])
   const closeVideo = useCallback((t?: number) => {
     setVideoModal(null)
@@ -743,7 +746,7 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     const switchIfNeeded = () => {
       const st = useMusicStore.getState()
-      if (document.visibilityState === 'hidden') {
+      if (appHidden()) {
         // Sonaba al bloquear (YouTube ya pudo haberse pausado solo): se sigue con el audio propio
         if (!(st.isPlaying || hiddenWantRef.current) || useAudioRef.current) return
         // Sonaba por el video porque su audio había fallado: al salir de la app el video se
@@ -783,7 +786,12 @@ export default function MusicPlayerBar() {
     }
     switchIfNeeded()
     document.addEventListener('visibilitychange', switchIfNeeded)
-    return () => document.removeEventListener('visibilitychange', switchIfNeeded)
+    // Ventana flotante con el video: no se pasa al audio (se sigue viendo el video ahí)
+    window.addEventListener(PIP_EVENT, switchIfNeeded)
+    return () => {
+      document.removeEventListener('visibilitychange', switchIfNeeded)
+      window.removeEventListener(PIP_EVENT, switchIfNeeded)
+    }
   }, [quickStartId, currentId, audioReady, audioSwitchId, bgAudioId])
 
   // Radio, discos y enlaces: las próximas canciones se descargan completas antes de su turno
@@ -1282,7 +1290,7 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
+      if (appHidden()) {
         hiddenAtRef.current = Date.now()
         keepPlayingRef.current = isPlayingRef.current
         hiddenWantRef.current = isPlayingRef.current
@@ -1313,8 +1321,10 @@ export default function MusicPlayerBar() {
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener(PIP_EVENT, onVisibility)
     return () => {
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener(PIP_EVENT, onVisibility)
       timers.forEach(clearTimeout)
     }
   }, [resumeIfNeeded, setIsPlaying])
@@ -1715,7 +1725,8 @@ export default function MusicPlayerBar() {
   }, [])
 
   // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)
-  const canWatchVideo = !!currentVideo && !isLive && !isLocal && !isPending && /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id)
+  // Como en Spotify: canción o video. También las convertidas a audio o descargadas (su video sigue en YouTube)
+  const canWatchVideo = !!currentVideo && !isLive && !isLocalFile && !isPending && !!ytIdOf(currentVideo)
 
   // Cola: se cierra deslizando hacia abajo
   // Cola abierta desde el reproductor grande: al cerrarla se vuelve a él (antes te sacaba)
@@ -1774,6 +1785,7 @@ export default function MusicPlayerBar() {
           channelTitle={videoModal.channelTitle}
           startTime={videoModal.startTime}
           onClose={closeVideo}
+          songToggle
         />
       )}
       {/* Reserva el alto del reproductor para que no tape el contenido ni el footer */}
@@ -1952,7 +1964,7 @@ export default function MusicPlayerBar() {
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div
             ref={videoWrapRef}
-            data-cpn-video={!useAudio && currentVideo && !isLive ? (isPlaying ? 'playing' : 'paused') : undefined}
+            data-cpn-video={!useAudio && asVideo && currentVideo && !isLive ? (isPlaying ? 'playing' : 'paused') : undefined}
             className={`bg-obsidian overflow-hidden ${
               isExpanded
                 ? 'relative w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'

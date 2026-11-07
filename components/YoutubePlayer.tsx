@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
 import CastButton, { loadCast } from '@/components/CastButton'
+import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
 import { isNativeApp, nativePrefetch } from '@/lib/native'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -23,6 +24,8 @@ interface YoutubePlayerProps {
   onNext?: () => void
   /** Título del que viene a continuación (se muestra al lado de «Siguiente») */
   upNext?: string
+  /** Video de la canción que suena (como en Spotify): botón «Canción» para volver a escucharla */
+  songToggle?: boolean
 }
 
 interface VideoCandidate {
@@ -61,6 +64,7 @@ export default function YoutubePlayer({
   onToggleLater,
   onNext,
   upNext,
+  songToggle,
 }: YoutubePlayerProps) {
   const onNextRef = useRef(onNext)
   onNextRef.current = onNext
@@ -179,7 +183,7 @@ export default function YoutubePlayer({
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
     const onVis = () => {
       const st = useMusicStore.getState()
-      if (document.visibilityState === 'hidden') {
+      if (appHidden()) {
         const alt = altVideoRef.current
         const playing = modeRef.current === 'youtube' ? ytPlayingRef.current : !!alt && !alt.paused
         if (!playing || handedRef.current) return
@@ -190,7 +194,7 @@ export default function YoutubePlayer({
         const track = { id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '', startAt: t, forceAudio: true }
         // Suena a continuación en la cola (sin borrar lo que había) desde ese segundo
         const cur = st.queue[st.currentIndex]
-        if (cur?.id === videoId && st.isVisible) {
+        if (ytIdOf(cur) === videoId && st.isVisible) {
           useMusicStore.setState({ queue: st.queue.map((x, i) => (i === st.currentIndex ? { ...x, startAt: t, forceAudio: true } : x)) })
           st.playIndex(st.currentIndex)
         } else {
@@ -206,7 +210,7 @@ export default function YoutubePlayer({
         // apaga el audio y se le devuelve el sonido. (Se adelanta un poco lo que tarda en cargar)
         const audio = Array.from(document.querySelectorAll('audio')).find((a) => a.src && a.currentTime > 0)
         const cur = st.queue[st.currentIndex]
-        const t = cur?.id === videoId && audio ? audio.currentTime + 0.8 : timeRef.current
+        const t = ytIdOf(cur) === videoId && audio ? audio.currentTime + 0.8 : timeRef.current
         timeRef.current = t
         swapBackRef.current = true
         if (modeRef.current === 'youtube') {
@@ -223,7 +227,11 @@ export default function YoutubePlayer({
       }
     }
     document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    window.addEventListener(PIP_EVENT, onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener(PIP_EVENT, onVis)
+    }
   }, [videoId, title, channelTitle])
 
   const chooseQuality = (q: string) => {
@@ -418,6 +426,16 @@ export default function YoutubePlayer({
 
       <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 gap-3">
         <div className="w-full max-w-6xl">
+          {songToggle && (
+            <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
+              <button role="tab" aria-selected={false} onClick={() => onClose(timeRef.current)} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
+                <Headphones className="w-4 h-4" /> Canción
+              </button>
+              <button role="tab" aria-selected className="flex items-center gap-1.5 px-5 py-1.5 rounded-full bg-white text-black text-sm font-bold">
+                <MonitorPlay className="w-4 h-4" /> Video
+              </button>
+            </div>
+          )}
           <div
             className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}

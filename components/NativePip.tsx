@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { isNativeApp, reportVideoActive } from '@/lib/native'
+import { PIP_EVENT } from '@/lib/pip'
 
 // App de Android: video en ventana flotante al salir de la app.
 // Los reproductores marcan su recuadro con data-cpn-video. Aquí se le avisa al teléfono si hay
@@ -21,8 +22,14 @@ export default function NativePip() {
       if (now !== last) reportVideoActive((last = now))
     }
     const timer = setInterval(check, 1000)
-    ;(window as unknown as { __cpnPip?: (on: boolean) => void }).__cpnPip = (on) =>
+    const w = window as unknown as { __cpnPip?: (on: boolean) => void; __cpnPipSoon?: number }
+    w.__cpnPip = (on) => {
       document.documentElement.classList.toggle('cpn-pip', on)
+      if (!on) w.__cpnPipSoon = 0
+      // Los reproductores vuelven a mirar si la app se ve (al cerrar la ventanita con la app
+      // en segundo plano, recién ahí pasan al audio)
+      window.dispatchEvent(new Event(PIP_EVENT))
+    }
     return () => {
       clearInterval(timer)
       reportVideoActive(false)

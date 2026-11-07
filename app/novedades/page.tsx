@@ -26,6 +26,8 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Como en Spotify: en el reproductor eliges «Canción» o «Video». También en las canciones convertidas a audio o descargadas (su video se ve desde el mismo segundo y al volver a «Canción» sigue desde ahí)',
+      'Ventana flotante (app de Android 1.0.48): al salir de la app con un video, la ventanita muestra el video (antes quedaba en negro porque pasaba al audio); al bloquear la pantalla sigue el audio',
       'Reproductor ⋮ «Ir al álbum»: ahora abre el disco (antes quedaba escondido en la Biblioteca); también los álbumes guardados con ♥',
       'Ecualizador sin chisporroteo (app de Android 1.0.47): usa el ecualizador liviano del teléfono y solo baja bandas, así nunca satura; ya no se reinicia en cada pausa ni al mover las barras',
       '«Descargar toda mi biblioteca» ahora baja también los álbumes guardados con ♥ desde una carátula (busca sus canciones primero) y muestra en qué disco y canción va',

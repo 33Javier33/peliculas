@@ -241,6 +241,18 @@ export default function NowPlayingSheet({
             </button>
           </div>
 
+          {/* Como en Spotify: escuchar la canción o ver su video */}
+          {onWatchVideo && (
+            <div className="mt-3 mx-auto flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
+              <button role="tab" aria-selected className="flex items-center gap-1.5 px-5 py-1.5 rounded-full bg-white text-black text-sm font-bold font-display">
+                <Headphones className="w-4 h-4" /> Canción
+              </button>
+              <button role="tab" aria-selected={false} onClick={onWatchVideo} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold font-display">
+                <MonitorPlay className="w-4 h-4" /> Video
+              </button>
+            </div>
+          )}
+
           {/* Portada */}
           <div className="mt-4 mb-6">
             <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10">

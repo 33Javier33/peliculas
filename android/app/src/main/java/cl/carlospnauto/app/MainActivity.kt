@@ -283,8 +283,22 @@ class MainActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        // Va a abrirse la ventanita con el video: la web no debe pasar al audio (se vería en negro)
+        if (videoActive) web.evaluateJavascript("window.__cpnPipSoon=Date.now()", null)
         // Android 12+ entra solo (setAutoEnterEnabled); antes hay que pedirlo
         if (videoActive && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) runCatching { enterPictureInPictureMode(pipParams()) }
+    }
+
+    // Ventanita abierta y se bloquea la pantalla (o se cierra la ventanita): el video ya no se ve,
+    // así que la web pasa al audio (sigue sonando). Al volver a verse, otra vez al video.
+    override fun onStop() {
+        super.onStop()
+        if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(false)", null)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(true)", null)
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
