@@ -755,11 +755,14 @@ export default function MusicPlayerBar() {
   const localPlayedRef = useRef(0)
   localPlayedRef.current = localPlayed
   useEffect(() => {
-    const switchIfNeeded = () => {
+    // ¿Sonaba justo al salir de la app? (anotado al instante, antes de que YouTube se pause solo)
+    let playingAtHide = false
+    const switchIfNeeded = (e?: Event) => {
       const st = useMusicStore.getState()
+      if (e?.type === 'visibilitychange') playingAtHide = document.visibilityState === 'hidden' && (st.isPlaying || playingAtHide)
       if (appHidden()) {
         // Sonaba al bloquear (YouTube ya pudo haberse pausado solo): se sigue con el audio propio
-        if (!(st.isPlaying || hiddenWantRef.current) || useAudioRef.current) return
+        if (!(st.isPlaying || hiddenWantRef.current || playingAtHide) || useAudioRef.current) return
         // Sonaba por el video porque su audio había fallado: al salir de la app el video se
         // detiene, así que se vuelve a pedir el audio desde cero (y sigue desde donde iba)
         if (currentId && (audioFailedRef.current.has(currentId) || audioSourcesDown())) {
@@ -1300,11 +1303,17 @@ export default function MusicPlayerBar() {
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
+    // ¿Sonaba justo al salir? (se anota al instante: si se esperaba la ventanita y no se abrió,
+    // la decisión llega 2,5 s después y para entonces YouTube ya pudo haberse pausado solo)
+    let playingAtHide = false
     const onVisibility = () => {
+      if (document.visibilityState === 'hidden' && !hiddenAtRef.current && !playingAtHide) playingAtHide = isPlayingRef.current
+      if (document.visibilityState === 'visible') playingAtHide = false
       if (appHidden()) {
+        const wanted = isPlayingRef.current || playingAtHide
         hiddenAtRef.current = Date.now()
-        keepPlayingRef.current = isPlayingRef.current
-        hiddenWantRef.current = isPlayingRef.current
+        keepPlayingRef.current = wanted
+        hiddenWantRef.current = wanted
         if (keepPlayingRef.current) {
           for (const ms of [250, 800, 1600, 3000]) timers.push(setTimeout(resumeIfNeeded, ms))
           // Canción que solo suena con YouTube (sin audio para segundo plano) y YouTube se detuvo
@@ -1415,8 +1424,13 @@ export default function MusicPlayerBar() {
       return
     }
     const hiddenFor = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : -1
-    if (document.visibilityState === 'hidden' && keepPlayingRef.current && hiddenFor >= 0 && hiddenFor < AUTO_RESUME_WINDOW_MS) {
-      // Pausa automática de YouTube al ir a segundo plano: reanudar.
+    // Pausa automática de YouTube al ir a segundo plano (también mientras se espera o se ve la
+    // ventanita flotante): no la pidió el usuario (los botones y la pantalla de bloqueo cambian
+    // primero el estado a «pausa»), así que la música sigue: se reanuda y, si la app ya no se ve,
+    // pasa al audio propio
+    const stillWanted = useMusicStore.getState().isPlaying
+    if (document.visibilityState === 'hidden' && (stillWanted || (keepPlayingRef.current && hiddenFor >= 0 && hiddenFor < AUTO_RESUME_WINDOW_MS))) {
+      keepPlayingRef.current = true
       setTimeout(resumeIfNeeded, 50)
       return
     }

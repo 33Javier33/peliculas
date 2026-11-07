@@ -13,9 +13,23 @@ export function pipNow(): boolean {
   return Date.now() - soon < 2500
 }
 
+let recheck: ReturnType<typeof setTimeout> | undefined
+
 /** La app de verdad no se ve (pantalla bloqueada o en segundo plano sin ventana flotante) */
 export function appHidden(): boolean {
-  return typeof document !== 'undefined' && document.visibilityState === 'hidden' && !pipNow()
+  if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return false
+  if (document.documentElement.classList.contains('cpn-pip')) return false
+  const soon = (window as W).__cpnPipSoon ?? 0
+  const left = 2500 - (Date.now() - soon)
+  if (left > 0) {
+    // Se esperaba la ventanita, pero puede que el teléfono no la abra (desactivada en Ajustes, o
+    // no hay espacio): si a los 2,5 s no se abrió, los reproductores vuelven a mirar y pasan al
+    // audio (antes la música quedaba detenida)
+    clearTimeout(recheck)
+    recheck = setTimeout(() => window.dispatchEvent(new Event(PIP_EVENT)), left + 100)
+    return false
+  }
+  return true
 }
 
 /** ID del video de YouTube de una canción (también si se convirtió a audio o está descargada) */
