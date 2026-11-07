@@ -194,7 +194,11 @@ export const useOfflineStore = create<OfflineState>()(
       notice: null,
       notify: (text) => set({ notice: { text, at: Date.now() } }),
       resume: () => {
-        for (const q of Object.values(get().queue)) get().download(q.group, q.tracks, true)
+        // Una tras otra (con muchas pendientes, p. ej. toda la biblioteca, no se satura la conexión)
+        const list = Object.values(get().queue)
+        ;(async () => {
+          for (const q of list) await get().download(q.group, q.tracks, true)
+        })()
       },
       download: async (group, tracks, resuming = false) => {
         const list = tracks.filter((t) => canDownload(t) && !get().items[t.audioUrl!])

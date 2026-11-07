@@ -112,3 +112,46 @@ export async function downloadCatalogAlbum(
 
 /** Dirección para bajar el audio como archivo (.m4a, se abre en cualquier reproductor) */
 export const audioFileUrl = (id: string, name: string) => `/api/stream?id=${id}&dl=1&name=${encodeURIComponent(name)}`
+
+/**
+ * Descargar toda la biblioteca: discos de la biblioteca, álbumes guardados con ♥ y Me gusta.
+ * Las canciones de YouTube se convierten a audio. Se descarga un disco tras otro (no satura la
+ * conexión); lo ya descargado se salta. Devuelve cuántas canciones faltaban.
+ */
+export async function downloadWholeLibrary(): Promise<number> {
+  const { useMusicStore } = await import('@/store/musicStore')
+  const links = useLinksStore.getState()
+  const music = useMusicStore.getState()
+  const off = useOfflineStore.getState()
+  const isYt = (t: MusicVideo) => !t.audioUrl && !t.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(t.id)
+  const toAudio = (t: MusicVideo, album?: { title: string; cover?: string }) =>
+    isYt(t) ? { ...convertedTrack({ ...t, artist: t.channelTitle }, album), id: t.id } : t
+  const groups: { group: { id: string; title: string; cover?: string }; tracks: MusicVideo[] }[] = []
+  for (const a of links.albums) {
+    const tracks = links.tracks.filter((t) => a.trackIds.includes(t.id))
+    groups.push({ group: { id: a.id, title: a.title, cover: a.cover }, tracks })
+  }
+  for (const a of music.savedAlbums) {
+    if (groups.some((g) => g.group.id === a.id)) continue
+    groups.push({ group: { id: a.id, title: a.title, cover: a.cover }, tracks: a.tracks.map((t) => toAudio(t)) })
+  }
+  if (music.saved.length) groups.push({ group: { id: 'me-gusta', title: 'Me gusta' }, tracks: music.saved.map((t) => toAudio(t)) })
+  const items = off.items
+  const pending = groups
+    .map((g) => ({ ...g, tracks: g.tracks.filter((t) => t.audioUrl && !t.streamUrl && !items[t.audioUrl]) }))
+    .filter((g) => g.tracks.length)
+  const n = pending.reduce((s, g) => s + g.tracks.length, 0)
+  if (!n) {
+    off.notify('Toda tu biblioteca ya está descargada')
+    return 0
+  }
+  // Quedan todas en la cola guardada: si se cierra la app, se retoman solas
+  useOfflineStore.setState((s) => {
+    const queue = { ...s.queue }
+    for (const g of pending) if (!queue[g.group.id]) queue[g.group.id] = g
+    return { queue }
+  })
+  off.notify(`Descargando tu biblioteca (${n} canciones)… puedes salir de la app, la descarga sigue`)
+  for (const g of pending) await useOfflineStore.getState().download(g.group, g.tracks, true)
+  return n
+}

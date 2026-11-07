@@ -2,6 +2,8 @@
 import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
 import type { OfflineFailure } from '@/store/offlineStore'
 import { restoreDownloads } from '@/lib/phone-restore'
+import LibraryDownloadAll from '@/components/LibraryDownloadAll'
+import { useLinksStore } from '@/store/linksStore'
 import { isArchiveFile } from '@/lib/audio-quality'
 
 import GenreTag, { useGenreCache } from '@/components/GenreTag'
@@ -51,8 +53,10 @@ export default function DownloadsSection() {
 
   const onPhone = mounted && phoneStorageAvailable()
   const failures = useOfflineStore((st) => st.failures)
+  const librarySize = useLinksStore((st) => st.albums.length) + useMusicStore((st) => st.saved.length + st.savedAlbums.length)
   const failedList = mounted ? Object.values(failures).filter((f) => !items[f.key]) : []
-  if (!mounted || (!groups.length && !Object.keys(progress).length && !onPhone && !failedList.length)) return null
+  const hasLibrary = librarySize > 0
+  if (!mounted || (!groups.length && !Object.keys(progress).length && !onPhone && !failedList.length && !hasLibrary)) return null
 
   const play = (list: OfflineItem[], shuffle = false) => {
     const st = useMusicStore.getState()
@@ -97,6 +101,7 @@ export default function DownloadsSection() {
           </div>
         )}
       </div>
+      {hasLibrary && <LibraryDownloadAll />}
       {onPhone && <PhoneRecovery />}
       {/* Las que no se pudieron descargar: el motivo y reintentar */}
       {failedList.length > 0 && (
