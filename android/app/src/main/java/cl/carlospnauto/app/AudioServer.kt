@@ -88,7 +88,7 @@ object AudioServer {
         return try {
             // ?start=N (sin cabecera Range) para descargar por partes desde la página
             val range = session.headers["range"] ?: session.parameters["start"]?.firstOrNull()?.toLongOrNull()?.let { "bytes=$it-" }
-            stream(id, range, retry = true)
+            stream(id, range, retry = true, background = session.parameters["bg"]?.firstOrNull() == "1")
         } catch (e: Exception) {
             Log.w(TAG, "Sin audio para $id: ${e.message}")
             cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
@@ -136,14 +136,30 @@ object AudioServer {
     }
 
     /** Dirección del mejor audio (la pista de mayor calidad que tenga el video) */
-    fun resolve(id: String, fresh: Boolean = false): Resolved {
-        val hit = cache[id]
-        if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
-        // Sacar el audio de YouTube usa harto procesador (descifra su código): se hace con
-        // prioridad baja para que la pantalla de la app no se trabe mientras tanto
+    // Un video a la vez: si llegan varios pedidos del mismo (reproductor, siguiente canción,
+    // descarga), el primero lo busca y los demás esperan su resultado (antes cada uno repetía todo
+    // el trabajo y se estorbaban: la canción tardaba más de un minuto en empezar)
+    private val locks = ConcurrentHashMap<String, Any>()
+
+    fun resolve(id: String, fresh: Boolean = false, background: Boolean = false): Resolved {
+        val fresh0 = cache[id]
+        if (!fresh && fresh0 != null && System.currentTimeMillis() - fresh0.at < 3 * 60 * 60 * 1000) return fresh0
+        val lock = locks.getOrPut(id) { Any() }
+        synchronized(lock) {
+            val hit = cache[id]
+            // Otro pedido ya lo resolvió mientras se esperaba (también si se pidió "fresco")
+            if (hit != null && (!fresh || System.currentTimeMillis() - hit.at < 20_000) && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
+            return resolveNow(id, background).also { if (locks.size > 300) locks.clear() }
+        }
+    }
+
+    private fun resolveNow(id: String, background: Boolean): Resolved {
+        // Sacar el audio de YouTube usa harto procesador (descifra su código). La canción que se va
+        // a escuchar va con prioridad normal (que empiece rápido); lo que se prepara o descarga en
+        // segundo plano, con prioridad baja (para no trabar la pantalla ni la canción que suena)
         val thread = android.os.Process.myTid()
         val prevPriority = android.os.Process.getThreadPriority(thread)
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+        android.os.Process.setThreadPriority(if (background) android.os.Process.THREAD_PRIORITY_BACKGROUND else android.os.Process.THREAD_PRIORITY_DEFAULT)
         val info = try {
             StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
         } finally {
@@ -184,7 +200,7 @@ object AudioServer {
         Thread {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             runCatching {
-                val r = resolve(id)
+                val r = resolve(id, background = true)
                 val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
                     setRequestProperty("User-Agent", r.userAgent)
                     setRequestProperty("Range", "bytes=0-${HEAD_BYTES - 1}")
@@ -281,7 +297,7 @@ object AudioServer {
         return out.toByteArray()
     }
 
-    private fun stream(id: String, rangeHeader: String?, retry: Boolean): NanoHTTPD.Response {
+    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false): NanoHTTPD.Response {
         // Rango pedido por el reproductor (o desde el inicio), en tramos
         val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
@@ -290,7 +306,7 @@ object AudioServer {
         val head = heads[id]
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
-        val r = resolve(id, fresh = !retry)
+        val r = resolve(id, fresh = !retry, background = background)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
@@ -303,7 +319,7 @@ object AudioServer {
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
             cache.remove(id)
-            return stream(id, rangeHeader, retry = false)
+            return stream(id, rangeHeader, retry = false, background = background)
         }
         if (code != 200 && code != 206) {
             conn.disconnect()

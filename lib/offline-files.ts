@@ -70,7 +70,7 @@ async function downloadInParts(url: string, onProgress: (f: number) => void, sig
   const id = new URLSearchParams(url.split('?')[1] || '').get('id') || ''
   const local = nativeAudioUrl(id)
   const sources: ((from: number) => [string, RequestInit])[] = []
-  if (local) sources.push((from) => [local, { headers: { Range: `bytes=${from}-${from + PART - 1}` } }])
+  if (local) sources.push((from) => [`${local}?bg=1`, { headers: { Range: `bytes=${from}-${from + PART - 1}` } }])
   sources.push((from) => [url, { headers: { Range: `bytes=${from}-${from + PART - 1}` } }])
   let lastError: unknown
   for (const src of sources) {

@@ -934,7 +934,9 @@ export default function MusicPlayerBar() {
       if (el && el.paused && useMusicStore.getState().isPlaying && el.readyState >= 2) el.play()?.catch?.(() => {})
       // No arrancó en 6 s: se reinicia la canción (lo mismo que hacía falta hacer a mano: volver
       // atrás). Una vez por canción, antes de dar la fuente por caída
-      if (!isLive && !advanced && Date.now() - lastProgressRef.current > 6000 && kickedRef.current !== currentId && el) {
+      // (No con el audio de un video que el teléfono todavía está buscando: reiniciarlo cortaba esa
+      // búsqueda y empezaba de cero, y la canción demoraba más de un minuto)
+      if (!isLive && !isNativeSrc && !advanced && Date.now() - lastProgressRef.current > 6000 && kickedRef.current !== currentId && el) {
         kickedRef.current = currentId ?? null
         lastProgressRef.current = Date.now()
         try {
@@ -948,7 +950,8 @@ export default function MusicPlayerBar() {
       // archivo (disco de archive.org, MP3, música del teléfono) tiene una sola: se le da más tiempo
       // El audio que saca el teléfono (servidor local) puede tardar más en empezar, sobre todo
       // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
-      const startLimit = isNativeSrc ? 20000 : START_MS
+      // (los reintentos, ?r=1 y ?r=2, ya encuentran el audio buscado: 10 s)
+      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 10000 : 20000) : START_MS
       const limit = isLive ? LIVE_STALL_MS : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? startLimit : STALL_MS
       if (Date.now() - lastProgressRef.current < limit) return
       lastProgressRef.current = Date.now()

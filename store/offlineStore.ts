@@ -93,7 +93,8 @@ function hashKey(s: string) {
 /** De dónde se descarga cada canción (en la app de Android, el audio de YouTube sale del teléfono) */
 async function sourceFor(key: string, max: boolean): Promise<string> {
   const yt = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
-  if (yt) return nativeAudioUrl(yt[1]) || `${window.location.origin}${key}`
+  // (?bg=1: el teléfono la busca con prioridad baja, sin frenar la canción que suena)
+  if (yt) return (nativeAudioUrl(yt[1]) && `${nativeAudioUrl(yt[1])}?bg=1`) || `${window.location.origin}${key}`
   if (isArchiveFile(key)) return max ? await bestSourceFor(key) : key
   return /^https?:\/\//.test(key) ? key : `${window.location.origin}${key}`
 }
