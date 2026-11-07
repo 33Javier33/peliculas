@@ -616,14 +616,23 @@ export default function MusicPlayerBar() {
     if (!nativeEq) useEqStore.getState().setApplies(eqSafe)
   }, [eqSafe, nativeEq])
   // Ecualizador del teléfono: activo solo mientras suena la música de la app
+  // (Al pausar se apaga recién a los 30 s y al mover las barras se aplica cuando se detienen: cada
+  // encendido o cambio del procesador de audio se oía como un chasquido)
   useEffect(() => {
     if (!nativeEq) return
-    const on = eqEnabled && eqDoesSomething && isPlaying
-    const r = applyNativeEq({ on, gains: eqGains, leveler: eqLeveler })
-    if (on || !eqEnabled) {
-      useEqStore.getState().setNative(r)
-      useEqStore.getState().setApplies(r === 'ok')
-    }
+    const want = eqEnabled && eqDoesSomething
+    const t = setTimeout(
+      () => {
+        const on = want && isPlaying
+        const r = applyNativeEq({ on, gains: eqGains, leveler: eqLeveler })
+        if (on || !eqEnabled) {
+          useEqStore.getState().setNative(r)
+          useEqStore.getState().setApplies(r === 'ok')
+        }
+      },
+      want && !isPlaying ? 30000 : 180
+    )
+    return () => clearTimeout(t)
   }, [nativeEq, eqEnabled, eqDoesSomething, isPlaying, eqGains, eqLeveler])
 
   // Canción que no se puede reproducir: se salta para que la música siga fluida

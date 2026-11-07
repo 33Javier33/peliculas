@@ -52,7 +52,7 @@ export default function EqualizerSheet() {
               ? 'Lo aplica la app a la canción que suena.'
               : 'La app ecualiza los discos de archive.org, tu música descargada y las canciones de YouTube de la app.'
             : native === 'ok'
-            ? 'Lo aplica el procesador de audio del teléfono a todo lo que suena en la app (sin chasquidos).'
+            ? 'Lo aplica el teléfono con su ecualizador liviano: solo baja bandas, así nunca satura ni chisporrotea. Si suena más bajo, sube un poco el volumen.'
             : native === 'busy'
               ? 'Otra app de ecualizador del teléfono tiene el control del sonido. Ciérrala o desactívala para usar este.'
               : native === 'unsupported'

@@ -26,6 +26,8 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Reproductor ⋮ «Ir al álbum»: ahora abre el disco (antes quedaba escondido en la Biblioteca); también los álbumes guardados con ♥',
+      'Ecualizador sin chisporroteo (app de Android 1.0.47): usa el ecualizador liviano del teléfono y solo baja bandas, así nunca satura; ya no se reinicia en cada pausa ni al mover las barras',
       '«Descargar toda mi biblioteca» ahora baja también los álbumes guardados con ♥ desde una carátula (busca sus canciones primero) y muestra en qué disco y canción va',
       'Nuevo botón «Descargar toda mi biblioteca» (en Canciones descargadas): baja discos, álbumes guardados y Me gusta, uno tras otro y en segundo plano',
       'Descargas más resistentes: si se corta la conexión (pantalla bloqueada, cambio de Wi-Fi a datos) esperan y siguen desde donde quedaron',

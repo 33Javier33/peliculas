@@ -268,7 +268,14 @@ export default function MusicLibraryClient() {
   const [showArtistSongs, setShowArtistSongs] = useState(false)
   useEffect(() => setShowArtistSongs(false), [selectedArtist])
   // Búsqueda desde el buscador de arriba (/music/library?q=…): se queda en la Biblioteca
-  const headerQuery = useSearchParams().get('q') || ''
+  const params = useSearchParams()
+  const headerQuery = params.get('q') || ''
+  // «Ir al álbum» desde el reproductor (/music/library?album=ID): ese disco solo, como su página
+  const focusAlbumId = params.get('album')
+  const focusAlbum = useLinksStore((s) => (focusAlbumId ? s.albums.find((a) => a.id === focusAlbumId) : undefined))
+  useEffect(() => {
+    if (focusAlbum) window.scrollTo(0, 0)
+  }, [focusAlbum?.id])
   const libArtistOf = useCallback((t: MusicVideo) => (t as SavedTrack).artist ?? parseTrackMeta(t).artist, [])
   const libAlbumOf = useCallback((t: MusicVideo) => (t as SavedTrack).album ?? parseTrackMeta(t).album ?? '', [])
   const openAlbum = (al: { name: string; artist: string }) => {
@@ -334,6 +341,21 @@ export default function MusicLibraryClient() {
   }
 
   const activeSubFilter = selectedArtist || selectedAlbum
+
+  if (focusAlbum)
+    return (
+      <div className="pt-20 min-h-screen bg-obsidian pb-32">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+          <BackButton fallbackHref="/music/library" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Volver
+          </BackButton>
+          <p className="mt-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-violet-300">Disco de tu biblioteca</p>
+          <h1 className="text-white text-2xl font-extrabold font-display mb-4">{focusAlbum.title}</h1>
+          <AudioLinksSection focusId={focusAlbum.id} />
+        </div>
+      </div>
+    )
 
   return (
     <div className="pt-20 min-h-screen bg-obsidian pb-32">

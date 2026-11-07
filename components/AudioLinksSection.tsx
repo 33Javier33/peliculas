@@ -21,7 +21,8 @@ import { toEntries, fetchAlbums } from '@/lib/link-albums'
 const archiveIdOf = (t: MusicVideo) => t.description.match(/^https:\/\/archive\.org\/download\/([^/]+)\//)?.[1]
 const organizing = new Set<string>()
 
-export default function AudioLinksSection() {
+/** focusId: muestra solo ese disco, abierto (página del disco desde «Ir al álbum») */
+export default function AudioLinksSection({ focusId }: { focusId?: string } = {}) {
   const tracks = useLinksStore((s) => s.tracks)
   const albums = useLinksStore((s) => s.albums)
   const addAlbum = useLinksStore((s) => s.addAlbum)
@@ -126,6 +127,25 @@ export default function AudioLinksSection() {
   }, [albums, byId, loose])
 
   if (!mounted) return null
+  if (focusId) {
+    const g = groups.find((x) => x.album.id === focusId)
+    if (!g) return null
+    return (
+      <ul>
+        <AlbumRow
+          album={g.album}
+          items={g.items}
+          open
+          onToggle={() => {}}
+          onPlay={(i, shuffle) => play(g.items, i, shuffle)}
+          currentId={currentId}
+          shuffleOn={shuffleOn}
+          onRemoveTrack={removeTrack}
+          onRemoveAlbum={() => removeAlbum(g.album.id)}
+        />
+      </ul>
+    )
+  }
   return (
     <section ref={sectionRef} className="mb-10 rounded-2xl bg-surface-1/60 border border-white/8 p-4 scroll-mt-20">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">

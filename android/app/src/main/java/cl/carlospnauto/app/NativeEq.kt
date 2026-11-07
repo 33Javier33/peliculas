@@ -29,6 +29,8 @@ object NativeEq {
     // Si falla (p. ej. al cambiar a audífonos Bluetooth) se vuelve a intentar al rato: antes quedaba
     // apagado hasta reiniciar la app
     private var failedAt = 0L
+    private var lastKey = ""
+    private var lastResult = ""
 
     /** Ganancia (dB) en una frecuencia, interpolando las 5 bandas en escala logarítmica */
     private fun gainAt(hz: Double, gains: DoubleArray): Double {
@@ -60,8 +62,13 @@ object NativeEq {
         val gains = DoubleArray(APP_FREQS.size) { (arr?.optDouble(it, 0.0) ?: 0.0).coerceIn(-12.0, 12.0) }
         val leveler = o.optBoolean("leveler")
         if (failedAt > 0 && System.currentTimeMillis() - failedAt < 15_000) return "unsupported"
+        // Lo mismo que ya está puesto: no se toca nada (cada reconfiguración se oía como un chasquido)
+        val key = "$on|${gains.joinToString(",")}|$leveler"
+        if (key == lastKey && lastResult == "ok") return "ok"
         return try {
-            val r = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) applyDp(on, gains, leveler) else applyEq(on, gains)
+            val r = applySoft(on, gains, leveler)
+            lastKey = key
+            lastResult = r
             failedAt = 0L
             // Otra app tiene el control: se suelta para volver a pedirlo la próxima vez
             if (r == "busy") release()
@@ -73,7 +80,30 @@ object NativeEq {
         }
     }
 
-    private fun applyDp(on: Boolean, gains: DoubleArray, leveler: Boolean): String {
+    /**
+     * Ecualizador liviano (sin chisporroteo ni saturación): el Equalizer clásico del teléfono
+     * (filtros simples, casi sin uso del procesador) con las bandas solo bajando: la más alta queda
+     * en 0 dB y las demás bajan lo mismo. La forma del sonido es igual, pero la señal nunca pasa
+     * del máximo, así que no satura. El nivelador (si está activado) lo hace un compresor aparte
+     * del teléfono, sin ecualizador por frecuencias (lo pesado que cortaba el sonido).
+     * Si el teléfono no tiene el Equalizer clásico, se usa el procesador anterior.
+     */
+    private fun applySoft(on: Boolean, gains: DoubleArray, leveler: Boolean): String {
+        val r = try {
+            applyEq(on, gains)
+        } catch (e: Throwable) {
+            runCatching { eq?.release() }
+            eq = null
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return applyDp(on, gains, leveler, withEq = true) else throw e
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (on && leveler) applyDp(true, gains, true, withEq = false)
+            else dp?.setEnabled(false)
+        }
+        return r
+    }
+
+    private fun applyDp(on: Boolean, gains: DoubleArray, leveler: Boolean, withEq: Boolean = true): String {
         if (!on) {
             dp?.setEnabled(false)
             return "ok"
@@ -81,8 +111,8 @@ object NativeEq {
         val d = dp ?: DynamicsProcessing(
             PRIORITY, 0,
             DynamicsProcessing.Config.Builder(
-                DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION, 2,
-                true, BANDS, // ecualizador
+                DynamicsProcessing.VARIANT_FAVOR_TIME_RESOLUTION, 2,
+                withEq, if (withEq) BANDS else 0, // ecualizador (solo si no hay Equalizer clásico)
                 true, 1, // nivelador (compresor de una banda)
                 false, 0,
                 true, // limitador
@@ -94,12 +124,13 @@ object NativeEq {
             val lo = if (i == 0) 20.0 else CUTOFFS[i - 1]
             gainAt(kotlin.math.sqrt(lo * CUTOFFS[i]), gains).toFloat()
         }
-        val peak = max(0f, bandGains.maxOrNull() ?: 0f)
-        d.setInputGainAllChannelsTo(-peak)
-
-        val preEq = DynamicsProcessing.Eq(true, true, BANDS)
-        for (i in 0 until BANDS) preEq.setBand(i, DynamicsProcessing.EqBand(true, CUTOFFS[i].toFloat(), bandGains[i]))
-        d.setPreEqAllChannelsTo(preEq)
+        if (withEq) {
+            val peak = max(0f, bandGains.maxOrNull() ?: 0f)
+            d.setInputGainAllChannelsTo(-peak)
+            val preEq = DynamicsProcessing.Eq(true, true, BANDS)
+            for (i in 0 until BANDS) preEq.setBand(i, DynamicsProcessing.EqBand(true, CUTOFFS[i].toFloat(), bandGains[i]))
+            d.setPreEqAllChannelsTo(preEq)
+        } else d.setInputGainAllChannelsTo(0f)
 
         // Nivelador suave: baja lo fuerte y sube el conjunto (+2,3 dB, como en la web)
         val mbc = DynamicsProcessing.Mbc(true, true, 1)
@@ -129,9 +160,12 @@ object NativeEq {
         }
         val e = eq ?: Equalizer(PRIORITY, 0).also { eq = it }
         val range = e.bandLevelRange
-        for (b in 0 until e.numberOfBands.toInt()) {
-            val hz = e.getCenterFreq(b.toShort()) / 1000.0
-            val mb = (gainAt(hz, gains) * 100).toInt().coerceIn(range[0].toInt(), range[1].toInt())
+        val n = e.numberOfBands.toInt()
+        val levels = DoubleArray(n) { b -> gainAt(e.getCenterFreq(b.toShort()) / 1000.0, gains) }
+        // Solo bajar: la banda más alta queda en 0 dB (nunca satura)
+        val peak = max(0.0, levels.maxOrNull() ?: 0.0)
+        for (b in 0 until n) {
+            val mb = ((levels[b] - peak) * 100).toInt().coerceIn(range[0].toInt(), 0)
             e.setBandLevel(b.toShort(), mb.toShort())
         }
         e.setEnabled(true)
@@ -144,5 +178,7 @@ object NativeEq {
         runCatching { eq?.release() }
         dp = null
         eq = null
+        lastKey = ""
+        lastResult = ""
     }
 }

@@ -9,6 +9,7 @@ import { ARCHIVE_RADIO_GENRES } from '@/components/ArchiveRadioSection'
 import { usePlaylistStore } from '@/store/playlistStore'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import { useLinksStore } from '@/store/linksStore'
+import { useMusicStore } from '@/store/musicStore'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
 
@@ -36,6 +37,8 @@ export default function TrackMenu({
   const [info, setInfo] = useState<Info | undefined>(undefined)
   // Disco guardado desde un enlace o Internet Archive que contiene esta canción
   const linkAlbum = useLinksStore((s) => s.albums.find((a) => a.trackIds.includes(video.id)))
+  // Álbum guardado con ♥ (del catálogo) que tiene esta canción: su página, aunque no se encuentre buscando
+  const savedAlbum = useMusicStore((s) => s.savedAlbums.find((a) => /^deezer-\d+$/.test(a.id) && a.tracks.some((t) => t.id === video.id || t.id === video.id.replace(/^yta-/, ''))))
   // Canción de Internet Archive (radio, discos, buscador): sus páginas están en archive.org, no en
   // el catálogo (ahí casi nunca está y mostraba "No se encontró")
   const source = video.description || video.audioUrl || ''
@@ -72,8 +75,14 @@ export default function TrackMenu({
 
   const swipe = useSwipeDown(onClose)
   const loading = info === undefined
-  const albumHref = linkAlbum ? `/music/library?album=${encodeURIComponent(linkAlbum.id)}` : info?.album ? `/music/album/${info.album.id}` : null
-  const albumName = linkAlbum?.title ?? info?.album?.title
+  const albumHref = linkAlbum
+    ? `/music/library?album=${encodeURIComponent(linkAlbum.id)}`
+    : savedAlbum
+      ? `/music/album/${savedAlbum.id.slice(7)}`
+      : info?.album
+        ? `/music/album/${info.album.id}`
+        : null
+  const albumName = linkAlbum?.title ?? savedAlbum?.title ?? info?.album?.title
 
   const item = 'w-full flex items-center gap-4 px-5 py-3.5 text-left text-white hover:bg-white/5 disabled:opacity-40'
   return (
@@ -157,7 +166,7 @@ export default function TrackMenu({
         ) : (
           <>
             <button className={item} disabled={!albumHref} onClick={() => albumHref && go(albumHref)}>
-              {loading && !linkAlbum ? (
+              {loading && !linkAlbum && !savedAlbum ? (
                 <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
               ) : (
                 <Disc3 className="w-5 h-5 text-violet-300" />

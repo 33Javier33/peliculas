@@ -77,6 +77,10 @@ export const useEqStore = create<EqState>()(
       name: 'cpn-eq',
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ enabled: s.enabled, preset: s.preset, gains: s.gains, leveler: s.leveler, engine: s.engine }),
+      // v1: el ecualizador del teléfono es ahora el liviano (sin chisporroteo): se vuelve a usar
+      // aunque antes se hubiera elegido el de la app
+      version: 1,
+      migrate: (state) => ({ ...(state as object), engine: 'phone' }) as unknown as EqState,
     }
   )
 )
