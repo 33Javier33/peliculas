@@ -2,6 +2,7 @@
 // (/api/stream) y la canción queda en tu biblioteca como un audio más (como un MP3 de un enlace):
 // se puede descargar para escucharla sin internet o bajar como archivo (.m4a).
 import type { MusicVideo } from '@/lib/youtube-music'
+import { create } from 'zustand'
 import { useLinksStore } from '@/store/linksStore'
 import { useOfflineStore } from '@/store/offlineStore'
 
@@ -68,90 +69,143 @@ export const albumKey = (id: number | string) => `ytalb-${id}`
  * canción, se convierte a audio y queda en tu biblioteca como un disco, listo sin internet.
  * Devuelve cuántas canciones se van a descargar.
  */
+/** Las canciones de un álbum del catálogo, ya encontradas en YouTube */
+export async function resolveCatalogAlbum(albumId: number | string, ready?: MusicVideo[]): Promise<MusicVideo[]> {
+  const isYt = (t: MusicVideo) => !t.pending && /^[A-Za-z0-9_-]{11}$/.test(t.id)
+  let tracks = (ready ?? []).filter(isYt)
+  if (tracks.length && ready && tracks.length === ready.length) return tracks
+  const d = (await fetch(`/api/catalog/album/${albumId}/play`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)) as { tracks?: MusicVideo[] } | null
+  const full = (d?.tracks ?? []).filter(isYt)
+  if (full.length >= tracks.length) tracks = full
+  if (tracks.length) return tracks
+  // Canción por canción (si no se encontró el álbum entero en YouTube)
+  const q = (await fetch(`/api/catalog/album/${albumId}/play?quick=1`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)) as { tracks?: MusicVideo[] } | null
+  const pend = q?.tracks ?? []
+  const found: (MusicVideo | null)[] = new Array(pend.length).fill(null)
+  let next = 0
+  await Promise.all(
+    Array.from({ length: 3 }, async () => {
+      while (next < pend.length) {
+        const i = next++
+        const p = pend[i].pending
+        if (!p) {
+          if (isYt(pend[i])) found[i] = pend[i]
+          continue
+        }
+        const params = new URLSearchParams({ artist: p.artist, title: p.title, d: String(p.duration || 0) })
+        const r = (await fetch(`/api/catalog/resolve?${params}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)) as { id?: string } | null
+        if (r?.id) found[i] = { ...pend[i], id: r.id, pending: undefined }
+      }
+    })
+  )
+  return found.filter((t): t is MusicVideo => !!t)
+}
+
+/** Convierte las canciones de un álbum del catálogo y lo deja como disco de tu biblioteca */
+function catalogAlbumGroup(album: { id: number | string; title: string; artist: string; cover?: string }, tracks: MusicVideo[]) {
+  const conv = tracks.map((t) => convertedTrack({ ...t, artist: t.channelTitle }, { title: album.title, cover: album.cover }))
+  const id = albumKey(album.id)
+  useLinksStore.getState().addAlbum({ id, title: album.title, artist: album.artist, cover: album.cover, source: 'https://www.youtube.com', description: 'Álbum convertido de YouTube' }, conv)
+  return { group: { id, title: album.title, cover: album.cover }, tracks: conv }
+}
+
+/**
+ * Descargar un álbum completo (de los que se ven al buscar un artista): se busca el video de cada
+ * canción, se convierte a audio y queda en tu biblioteca como un disco, listo sin internet.
+ * Devuelve cuántas canciones se van a descargar.
+ */
 export async function downloadCatalogAlbum(
   album: { id: number | string; title: string; artist: string; cover?: string },
   ready?: MusicVideo[]
 ): Promise<number> {
-  const isYt = (t: MusicVideo) => /^[A-Za-z0-9_-]{11}$/.test(t.id)
-  let tracks = (ready ?? []).filter(isYt)
-  if (!tracks.length) {
-    const d = (await fetch(`/api/catalog/album/${album.id}/play`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)) as { tracks?: MusicVideo[] } | null
-    tracks = (d?.tracks ?? []).filter(isYt)
-  }
-  if (!tracks.length) {
-    // Canción por canción (si no se encontró el álbum entero en YouTube)
-    const q = (await fetch(`/api/catalog/album/${album.id}/play?quick=1`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)) as { tracks?: MusicVideo[] } | null
-    const pend = q?.tracks ?? []
-    const found: (MusicVideo | null)[] = new Array(pend.length).fill(null)
-    let next = 0
-    await Promise.all(
-      Array.from({ length: 3 }, async () => {
-        while (next < pend.length) {
-          const i = next++
-          const p = pend[i].pending
-          if (!p) continue
-          const params = new URLSearchParams({ artist: p.artist, title: p.title, d: String(p.duration || 0) })
-          const r = (await fetch(`/api/catalog/resolve?${params}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)) as { id?: string } | null
-          if (r?.id) found[i] = { ...pend[i], id: r.id, pending: undefined }
-        }
-      })
-    )
-    tracks = found.filter((t): t is MusicVideo => !!t)
-  }
+  const tracks = await resolveCatalogAlbum(album.id, ready)
   if (!tracks.length) return 0
-  const conv = tracks.map((t) => convertedTrack({ ...t, artist: t.channelTitle }, { title: album.title, cover: album.cover }))
-  const id = albumKey(album.id)
-  useLinksStore.getState().addAlbum({ id, title: album.title, artist: album.artist, cover: album.cover, source: 'https://www.youtube.com', description: 'Álbum convertido de YouTube' }, conv)
-  useOfflineStore.getState().download({ id, title: album.title, cover: album.cover }, conv)
-  return conv.length
+  const g = catalogAlbumGroup(album, tracks)
+  useOfflineStore.getState().download(g.group, g.tracks)
+  return g.tracks.length
 }
 
 /** Dirección para bajar el audio como archivo (.m4a, se abre en cualquier reproductor) */
 export const audioFileUrl = (id: string, name: string) => `/api/stream?id=${id}&dl=1&name=${encodeURIComponent(name)}`
 
+/** Estado de «Descargar toda mi biblioteca» (para mostrar en qué va) */
+export const useLibraryJob = create<{ running: boolean; index: number; total: number; title: string; phase: 'buscando' | 'descargando'; songs: number; gid: string }>()(() => ({
+  gid: '',
+  running: false,
+  index: 0,
+  total: 0,
+  title: '',
+  phase: 'buscando',
+  songs: 0,
+}))
+
 /**
  * Descargar toda la biblioteca: discos de la biblioteca, álbumes guardados con ♥ y Me gusta.
- * Las canciones de YouTube se convierten a audio. Se descarga un disco tras otro (no satura la
+ * Las canciones de YouTube se convierten a audio; los álbumes guardados desde una carátula (sus
+ * canciones aún sin buscar) se buscan en YouTube primero. Un disco tras otro (no satura la
  * conexión); lo ya descargado se salta. Devuelve cuántas canciones faltaban.
  */
 export async function downloadWholeLibrary(): Promise<number> {
+  if (useLibraryJob.getState().running) return 0
   const { useMusicStore } = await import('@/store/musicStore')
   const links = useLinksStore.getState()
   const music = useMusicStore.getState()
-  const off = useOfflineStore.getState()
-  const isYt = (t: MusicVideo) => !t.audioUrl && !t.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(t.id)
+  const isYt = (t: MusicVideo) => !t.audioUrl && !t.streamUrl && !t.pending && /^[A-Za-z0-9_-]{11}$/.test(t.id)
   const toAudio = (t: MusicVideo, album?: { title: string; cover?: string }) =>
     isYt(t) ? { ...convertedTrack({ ...t, artist: t.channelTitle }, album), id: t.id } : t
-  const groups: { group: { id: string; title: string; cover?: string }; tracks: MusicVideo[] }[] = []
+  type Job = { title: string; get: () => Promise<{ group: { id: string; title: string; cover?: string }; tracks: MusicVideo[] } | null> }
+  const jobs: Job[] = []
+  const seen = new Set<string>()
   for (const a of links.albums) {
+    seen.add(a.id)
     const tracks = links.tracks.filter((t) => a.trackIds.includes(t.id))
-    groups.push({ group: { id: a.id, title: a.title, cover: a.cover }, tracks })
+    jobs.push({ title: a.title, get: async () => ({ group: { id: a.id, title: a.title, cover: a.cover }, tracks }) })
   }
   for (const a of music.savedAlbums) {
-    if (groups.some((g) => g.group.id === a.id)) continue
-    groups.push({ group: { id: a.id, title: a.title, cover: a.cover }, tracks: a.tracks.map((t) => toAudio(t)) })
+    const dz = a.id.match(/^deezer-(\d+)$/)?.[1]
+    if (seen.has(a.id) || (dz && seen.has(albumKey(dz)))) continue
+    const ready = a.tracks.filter(isYt)
+    if (dz && ready.length < a.tracks.length) {
+      // Guardado desde una carátula: sus canciones se buscan en YouTube ahora
+      jobs.push({
+        title: a.title,
+        get: async () => {
+          const tracks = await resolveCatalogAlbum(dz, a.tracks).catch(() => [])
+          return tracks.length ? catalogAlbumGroup({ id: dz, title: a.title, artist: a.artist, cover: a.cover }, tracks) : null
+        },
+      })
+    } else {
+      jobs.push({ title: a.title, get: async () => ({ group: { id: a.id, title: a.title, cover: a.cover }, tracks: a.tracks.map((t) => toAudio(t, { title: a.title, cover: a.cover })) }) })
+    }
   }
-  if (music.saved.length) groups.push({ group: { id: 'me-gusta', title: 'Me gusta' }, tracks: music.saved.map((t) => toAudio(t)) })
-  const items = off.items
-  const pending = groups
-    .map((g) => ({ ...g, tracks: g.tracks.filter((t) => t.audioUrl && !t.streamUrl && !items[t.audioUrl]) }))
-    .filter((g) => g.tracks.length)
-  const n = pending.reduce((s, g) => s + g.tracks.length, 0)
-  if (!n) {
-    off.notify('Toda tu biblioteca ya está descargada')
+  if (music.saved.length) jobs.push({ title: 'Me gusta', get: async () => ({ group: { id: 'me-gusta', title: 'Me gusta' }, tracks: music.saved.map((t) => toAudio(t)) }) })
+  const off = useOfflineStore.getState()
+  const missing = (tracks: MusicVideo[]) => tracks.filter((t) => t.audioUrl && !t.streamUrl && !useOfflineStore.getState().items[t.audioUrl])
+  if (!jobs.length) {
+    off.notify('Tu biblioteca está vacía: guarda discos o canciones con ♥')
     return 0
   }
-  // Quedan todas en la cola guardada: si se cierra la app, se retoman solas
-  useOfflineStore.setState((s) => {
-    const queue = { ...s.queue }
-    for (const g of pending) if (!queue[g.group.id]) queue[g.group.id] = g
-    return { queue }
-  })
-  off.notify(`Descargando tu biblioteca (${n} canciones)… puedes salir de la app, la descarga sigue`)
-  for (const g of pending) await useOfflineStore.getState().download(g.group, g.tracks, true)
-  return n
+  off.notify(`Descargando tu biblioteca (${jobs.length} discos)… puedes salir de la app, la descarga sigue`)
+  useLibraryJob.setState({ running: true, index: 0, total: jobs.length, title: '', phase: 'buscando', songs: 0 })
+  let songs = 0
+  try {
+    for (let i = 0; i < jobs.length; i++) {
+      useLibraryJob.setState({ index: i + 1, title: jobs[i].title, phase: 'buscando' })
+      const g = await jobs[i].get().catch(() => null)
+      if (!g) continue
+      const list = missing(g.tracks)
+      if (!list.length) continue
+      songs += list.length
+      useLibraryJob.setState({ phase: 'descargando', songs, gid: g.group.id })
+      await useOfflineStore.getState().download(g.group, list, true)
+    }
+  } finally {
+    useLibraryJob.setState({ running: false })
+  }
+  useOfflineStore.getState().notify(songs ? `✓ Biblioteca revisada: ${songs} canciones bajadas (las que fallaron se reintentan solas)` : 'Toda tu biblioteca ya está descargada')
+  return songs
 }

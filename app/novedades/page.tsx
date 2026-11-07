@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      '«Descargar toda mi biblioteca» ahora baja también los álbumes guardados con ♥ desde una carátula (busca sus canciones primero) y muestra en qué disco y canción va',
       'Nuevo botón «Descargar toda mi biblioteca» (en Canciones descargadas): baja discos, álbumes guardados y Me gusta, uno tras otro y en segundo plano',
       'Descargas más resistentes: si se corta la conexión (pantalla bloqueada, cambio de Wi-Fi a datos) esperan y siguen desde donde quedaron',
       'Las descargas que fallan se reintentan solas (al volver la conexión, al abrir la app y cada 10 minutos)',
