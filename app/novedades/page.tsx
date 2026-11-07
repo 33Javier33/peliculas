@@ -20,6 +20,17 @@ interface Stage {
 const STAGES: Stage[] = [
   {
     date: '7 nov 2026',
+    title: 'Los videos siguen sonando con el teléfono bloqueado',
+    Icon: Clapperboard,
+    color: 'from-violet-500 to-cyan-500',
+    items: [
+      'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
+      'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Nueva opción «Ver siempre el video» (Configuración): las canciones que tienen video se ven como video y al bloquear siguen sonando',
+    ],
+  },
+  {
+    date: '7 nov 2026',
     title: 'Tus descargas ya no se pierden',
     Icon: Download,
     color: 'from-emerald-500 to-cyan-500',

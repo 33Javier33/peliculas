@@ -45,6 +45,7 @@ import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import { isArchiveFile } from '@/lib/audio-quality'
+import { useAlwaysVideo } from '@/lib/always-video'
 import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
@@ -511,7 +512,24 @@ export default function MusicPlayerBar() {
   // Inicio rápido: si el audio para segundo plano tarda más de 2,5 s, la canción empieza con
   // YouTube y pasa al audio propio al bloquear la pantalla o salir de la app (si ya está listo).
   // Los videos (no canciones) se ven en la ventana chica; las canciones van en audio
-  const wantAudio = !!currentId && !currentVideo?.isVideo && !audioFailedIds.has(currentId) && !audioSourcesDown()
+  // «Ver siempre el video» (Configuración): las canciones de YouTube se ven como video; al bloquear
+  // o salir de la app pasan al audio y al volver, otra vez al video (desde donde iba)
+  const alwaysVideo = useAlwaysVideo()
+  const asVideo =
+    !!currentVideo?.isVideo ||
+    (alwaysVideo &&
+      !!currentVideo &&
+      // (el audio que toma el relevo de un video al bloquear el teléfono sigue siendo audio)
+      !(currentVideo as { forceAudio?: boolean }).forceAudio &&
+      /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id) &&
+      !currentVideo.audioUrl &&
+      !currentVideo.streamUrl &&
+      !currentVideo.pending)
+  const wantAudio = !!currentId && !asVideo && !audioFailedIds.has(currentId) && !audioSourcesDown()
+  // Viéndose como video: el teléfono deja listo su audio (al bloquear, el cambio es al instante)
+  useEffect(() => {
+    if (asVideo && currentId && /^[A-Za-z0-9_-]{11}$/.test(currentId)) nativePrefetch(currentId)
+  }, [asVideo, currentId])
   const [quickStartId, setQuickStartId] = useState<string | null>(null)
   const [audioSwitchId, setAudioSwitchId] = useState<string | null>(null)
   // Video en pantalla que pasa a audio propio al salir de la app o bloquear (y vuelve al video al regresar)
@@ -1386,8 +1404,9 @@ export default function MusicPlayerBar() {
       // Video que se venía viendo en grande: sigue desde ese segundo
       const st = useMusicStore.getState()
       const cur = st.queue[st.currentIndex]
-      if (cur?.startAt && startAppliedRef.current !== cur.id) {
-        startAppliedRef.current = cur.id
+      // (por segundo de inicio: un video que pasa a audio varias veces sigue cada vez donde iba)
+      if (cur?.startAt && startAppliedRef.current !== `${cur.id}@${cur.startAt}`) {
+        startAppliedRef.current = `${cur.id}@${cur.startAt}`
         el.currentTime = cur.startAt
         hasResumedRef.current = true
         return
@@ -1616,7 +1635,7 @@ export default function MusicPlayerBar() {
     : ''
 
   // Video a la vista: ventana chica flotante sobre la barra (salvo ampliado o achicado a la barra)
-  const floating = !useAudio && !isExpanded && !videoHidden && !isLive && !!currentVideo?.isVideo
+  const floating = !useAudio && !isExpanded && !videoHidden && !isLive && asVideo
   useEffect(() => setVideoHidden(false), [currentId])
   const [shareNotice, setShareNotice] = useState(false)
   const shareCurrent = useCallback(async () => {
@@ -1994,7 +2013,7 @@ export default function MusicPlayerBar() {
               <>
                 <ReactPlayer {...playerProps} />
                 {/* Música: si solo se pudo con YouTube, igual se muestra la portada (no el video) */}
-                {!currentVideo.isVideo && (
+                {!asVideo && (
                   <div className="absolute inset-0 cursor-pointer" onClick={openFull}>
                     {currentVideo.thumbnail && <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />}
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center">

@@ -1,4 +1,5 @@
 'use client'
+import { getAlwaysVideo, setAlwaysVideo } from '@/lib/always-video'
 import RepairAppButton from '@/components/RepairAppButton'
 import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 
@@ -17,7 +18,7 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users, AudioLines, HardDriveDownload } from 'lucide-react'
+  Users, AudioLines, HardDriveDownload, TvMinimalPlay } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useLangStore } from '@/store/langStore'
@@ -82,6 +83,8 @@ export default function SettingsClient() {
   const eq = useEqStore()
   const audioBoost = useMusicStore((s) => s.audioBoost)
   const [dlMax, setDlMax] = useState(true)
+  const [alwaysVideo, setAlwaysVideoOn] = useState(false)
+  useEffect(() => setAlwaysVideoOn(getAlwaysVideo()), [])
   useEffect(() => setDlMax(getDownloadQuality() === 'max'), [])
   const radioEnabled = useMusicStore((s) => s.radioEnabled)
   const lang = useLangStore((s) => s.lang)
@@ -135,6 +138,20 @@ export default function SettingsClient() {
                 setDlMax(v)
               }}
               label="Descargas en calidad máxima"
+            />
+          </Row>
+          <Row
+            icon={<TvMinimalPlay className="w-4 h-4" />}
+            title="Ver siempre el video"
+            desc="Las canciones que tienen video se ven como video. Al bloquear el teléfono siguen sonando (pasan al audio) y al volver, otra vez el video"
+          >
+            <Switch
+              on={alwaysVideo}
+              onChange={(v) => {
+                setAlwaysVideo(v)
+                setAlwaysVideoOn(v)
+              }}
+              label="Ver siempre el video"
             />
           </Row>
           <Row icon={<Radio className="w-4 h-4" />} title="Radio automática" desc="Al terminar la cola sigue con música parecida">

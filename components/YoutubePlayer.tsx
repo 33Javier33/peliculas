@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import { X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { useMusicStore } from '@/store/musicStore'
+import { isNativeApp, nativePrefetch } from '@/lib/native'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 
 interface YoutubePlayerProps {
@@ -149,6 +150,65 @@ export default function YoutubePlayer({
   // Segundo en que va el video (para seguir desde ahí al cambiar la calidad)
   const timeRef = useRef(startTime)
   const [startAt, setStartAt] = useState(Math.floor(startTime))
+  // ===== Al bloquear el teléfono el video sigue sonando =====
+  // YouTube se detiene con la pantalla bloqueada. Al empezar el video, el teléfono deja listo su
+  // audio; al bloquear (o salir de la app) se pausa el video y sigue el audio desde el mismo
+  // segundo en el reproductor de música; al volver, el video sigue desde donde iba el audio.
+  const ytPlayingRef = useRef(false)
+  ytPlayingRef.current = ytPlaying
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const handedRef = useRef(false)
+  useEffect(() => {
+    if (ytPlaying && isNativeApp()) nativePrefetch(videoId)
+  }, [ytPlaying, videoId])
+  useEffect(() => {
+    if (!isNativeApp()) return
+    const command = (func: string, args: unknown[] = []) =>
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+    const onVis = () => {
+      const st = useMusicStore.getState()
+      if (document.visibilityState === 'hidden') {
+        const alt = altVideoRef.current
+        const playing = modeRef.current === 'youtube' ? ytPlayingRef.current : !!alt && !alt.paused
+        if (!playing || handedRef.current) return
+        handedRef.current = true
+        const t = Math.floor(timeRef.current)
+        command('pauseVideo')
+        alt?.pause()
+        const track = { id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '', startAt: t, forceAudio: true }
+        // Suena a continuación en la cola (sin borrar lo que había) desde ese segundo
+        const cur = st.queue[st.currentIndex]
+        if (cur?.id === videoId && st.isVisible) {
+          useMusicStore.setState({ queue: st.queue.map((x, i) => (i === st.currentIndex ? { ...x, startAt: t, forceAudio: true } : x)) })
+          st.playIndex(st.currentIndex)
+        } else {
+          st.enqueue([track], true)
+          const s2 = useMusicStore.getState()
+          if (s2.queue[s2.currentIndex]?.id !== videoId) s2.playNext()
+        }
+        useMusicStore.getState().setIsPlaying(true)
+      } else if (handedRef.current) {
+        handedRef.current = false
+        // Donde iba el audio → el video sigue desde ahí
+        const audio = Array.from(document.querySelectorAll('audio')).find((a) => a.src && a.currentTime > 0)
+        const cur = st.queue[st.currentIndex]
+        const t = cur?.id === videoId && audio ? audio.currentTime : timeRef.current
+        st.setIsPlaying(false)
+        timeRef.current = t
+        if (modeRef.current === 'youtube') {
+          command('seekTo', [t, true])
+          command('playVideo')
+        } else if (altVideoRef.current) {
+          altVideoRef.current.currentTime = t
+          altVideoRef.current.play().catch(() => {})
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [videoId, title, channelTitle])
+
   const chooseQuality = (q: string) => {
     setQualityOpen(false)
     if (q === quality) return
