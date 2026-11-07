@@ -1,0 +1,15 @@
+name: diagnostico
+on:
+  push:
+    paths: ['.github/workflows/diagnostico.yml']
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          V=7HrAjVtutlg
+          echo "== oembed"; curl -s "https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=$V" | head -c 600; echo
+          pip install -q yt-dlp >/dev/null 2>&1
+          echo "== yt-dlp"; yt-dlp --no-warnings -F "https://www.youtube.com/watch?v=$V" 2>&1 | head -40
+          echo "== info"; yt-dlp --no-warnings --print "%(duration)s s | edad:%(age_limit)s | vivo:%(is_live)s | %(availability)s" "https://www.youtube.com/watch?v=$V" 2>&1 | head -5
+          echo "== app"; curl -s "https://peliculas-neon.vercel.app/api/yt-info?id=$V" -m 30; echo
