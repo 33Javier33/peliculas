@@ -29,6 +29,8 @@ const STAGES: Stage[] = [
       'Lo que ya tenías descargado dentro de la app se pasa solo a la música del teléfono',
       'Configuración → «Reparar la app»: si algo se traba, se arregla sin desinstalar ni perder nada',
       'Descargar el audio de cualquier video: botón ⬇ en cada video de la sección Videos, en los videos del artista y en Me gusta / Ver más tarde',
+      'Videos que el teléfono no logra sacar: se escuchan y descargan desde otras fuentes públicas (plan B)',
+      'Las descargas que fallan se muestran con su motivo y el botón «Reintentar»',
       'Las canciones de YouTube empiezan mucho más rápido: el teléfono busca cada audio una sola vez y con prioridad la que vas a escuchar',
       'Arreglo: al bajar el audio de varios videos seguidos ya no se pierde ninguno (se suman a la descarga en curso)',
     ],

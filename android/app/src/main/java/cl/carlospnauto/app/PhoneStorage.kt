@@ -75,10 +75,13 @@ object PhoneStorage {
                     }
                     val code = runCatching { conn.responseCode }.getOrDefault(-1)
                     if (code != 200 && code != 206) {
+                        // El motivo (p. ej. lo que dijo YouTube) para mostrarlo en la app
+                        val why = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()?.take(200)
                         conn.disconnect()
+                        if (got == 0L && fails >= 3) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
                         // Ya llegó todo (pedir más allá del final da error) o se reintenta
                         if (got > 0 && total < 0) break
-                        if (++fails > 3) throw IllegalStateException("La descarga respondió $code")
+                        if (++fails > 3) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
                         Thread.sleep(1500L * fails)
                         continue
                     }

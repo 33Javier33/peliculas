@@ -40,8 +40,19 @@ interface QueuedGroup {
   tracks: MusicVideo[]
 }
 
+export interface OfflineFailure {
+  key: string
+  track: MusicVideo
+  group: { id: string; title: string; cover?: string }
+  reason: string
+  at: number
+}
+
 interface OfflineState {
   items: Record<string, OfflineItem>
+  /** Descargas que no se pudieron, con el motivo (para verlo y reintentar) */
+  failures: Record<string, OfflineFailure>
+  clearFailure: (key: string) => void
   progress: Record<string, OfflineProgress>
   /** Descargas pendientes (se guardan: si se corta o se cierra la app, se retoman solas) */
   queue: Record<string, QueuedGroup>
@@ -90,6 +101,12 @@ function hashKey(s: string) {
   return (h >>> 0).toString(36)
 }
 
+/** Otras fuentes del audio de un video (servidores públicos, buscados desde el propio teléfono) */
+async function otherSources(id: string): Promise<string[]> {
+  const list = await import('@/lib/audio-sources').then((m) => m.findAudioCandidates(id)).catch(() => [])
+  return list.map((c) => c.url).filter((u) => /^https:\/\//.test(u)).slice(0, 4)
+}
+
 /** De dónde se descarga cada canción (en la app de Android, el audio de YouTube sale del teléfono) */
 async function sourceFor(key: string, max: boolean): Promise<string> {
   const yt = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
@@ -106,17 +123,41 @@ const extOf = (key: string, src: string) =>
  * desinstalar la app). Navegador: dentro de la app (IndexedDB).
  */
 async function saveAudio(key: string, title: string, folder: string, max: boolean, onProgress: (f: number) => void, signal: AbortSignal): Promise<{ size: number; phoneId?: number }> {
+  const ytId = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)?.[1]
   if (phoneStorageAvailable()) {
     const src = await sourceFor(key, max)
-    const r = await storeOnPhone(key, src, title, folder, extOf(key, src), onProgress, signal).catch((e) => {
-      if ((e as Error).name === 'AbortError' || src === key || !isArchiveFile(key)) throw e
+    const r = await storeOnPhone(key, src, title, folder, extOf(key, src), onProgress, signal).catch(async (e) => {
+      if ((e as Error).name === 'AbortError') throw e
+      // Plan B para videos que el teléfono no logra sacar: otras fuentes públicas, desde el teléfono
+      if (ytId) {
+        for (const c of await otherSources(ytId)) {
+          try {
+            return await storeOnPhone(key, c, title, folder, 'm4a', onProgress, signal)
+          } catch (err) {
+            if ((err as Error).name === 'AbortError') throw err
+          }
+        }
+        throw e
+      }
+      if (src === key || !isArchiveFile(key)) throw e
       return storeOnPhone(key, key, title, folder, extOf(key, key), onProgress, signal)
     })
     return { size: r.size, phoneId: r.id }
   }
   const src = max ? await bestSourceFor(key) : key
-  const blob = await downloadAudio(src, onProgress, signal).catch((e) => {
-    if ((e as Error).name === 'AbortError' || src === key) throw e
+  const blob = await downloadAudio(src, onProgress, signal).catch(async (e) => {
+    if ((e as Error).name === 'AbortError') throw e
+    if (ytId) {
+      for (const c of await otherSources(ytId)) {
+        try {
+          return await downloadAudio(c, onProgress, signal)
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') throw err
+        }
+      }
+      throw e
+    }
+    if (src === key) throw e
     return downloadAudio(key, onProgress, signal)
   })
   await putFile(key, blob)
@@ -127,6 +168,13 @@ export const useOfflineStore = create<OfflineState>()(
   persist(
     (set, get) => ({
       items: {},
+      failures: {},
+      clearFailure: (key) =>
+        set((s) => {
+          const failures = { ...s.failures }
+          delete failures[key]
+          return { failures }
+        }),
       progress: {},
       queue: {},
       notice: null,
@@ -200,9 +248,12 @@ export const useOfflineStore = create<OfflineState>()(
               },
             }))
             done++
+            if (get().failures[t.audioUrl!]) get().clearFailure(t.audioUrl!)
           } catch (err) {
             if ((err as Error).name === 'AbortError') break
             failed++
+            const reason = ((err as Error).message || 'No se pudo descargar').slice(0, 200)
+            set((s) => ({ failures: { ...s.failures, [t.audioUrl!]: { key: t.audioUrl!, track: t, group, reason, at: Date.now() } } }))
           }
           setProg({ done, failed, current: 0 })
         }
@@ -374,7 +425,7 @@ export const useOfflineStore = create<OfflineState>()(
     {
       name: 'cpn-offline',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ items: s.items, queue: s.queue }),
+      partialize: (s) => ({ items: s.items, queue: s.queue, failures: s.failures }),
     }
   )
 )

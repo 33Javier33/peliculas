@@ -1,5 +1,6 @@
 'use client'
 import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
+import type { OfflineFailure } from '@/store/offlineStore'
 import { restoreDownloads } from '@/lib/phone-restore'
 import { isArchiveFile } from '@/lib/audio-quality'
 
@@ -49,7 +50,9 @@ export default function DownloadsSection() {
   }, [mounted, total])
 
   const onPhone = mounted && phoneStorageAvailable()
-  if (!mounted || (!groups.length && !Object.keys(progress).length && !onPhone)) return null
+  const failures = useOfflineStore((st) => st.failures)
+  const failedList = mounted ? Object.values(failures).filter((f) => !items[f.key]) : []
+  if (!mounted || (!groups.length && !Object.keys(progress).length && !onPhone && !failedList.length)) return null
 
   const play = (list: OfflineItem[], shuffle = false) => {
     const st = useMusicStore.getState()
@@ -95,6 +98,41 @@ export default function DownloadsSection() {
         )}
       </div>
       {onPhone && <PhoneRecovery />}
+      {/* Las que no se pudieron descargar: el motivo y reintentar */}
+      {failedList.length > 0 && (
+        <div className="mb-3 rounded-xl bg-amber-500/10 border border-amber-400/30 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <p className="flex-1 text-amber-200 text-sm font-semibold">No se pudieron descargar ({failedList.length})</p>
+            <button
+              onClick={() => {
+                const byGroup = new Map<string, { group: OfflineFailure['group']; tracks: OfflineFailure['track'][] }>()
+                for (const f of failedList) {
+                  const g = byGroup.get(f.group.id) ?? { group: f.group, tracks: [] }
+                  g.tracks.push(f.track)
+                  byGroup.set(f.group.id, g)
+                }
+                for (const g of Array.from(byGroup.values())) useOfflineStore.getState().download(g.group, g.tracks)
+              }}
+              className="px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-bold"
+            >
+              Reintentar todas
+            </button>
+          </div>
+          <ul className="space-y-1.5 max-h-48 overflow-y-auto">
+            {failedList.slice(0, 50).map((f) => (
+              <li key={f.key} className="flex items-start gap-2 text-xs">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-white truncate">{f.track.title}</span>
+                  <span className="block text-amber-200/80 break-words">Motivo: {f.reason}</span>
+                </span>
+                <button onClick={() => useOfflineStore.getState().clearFailure(f.key)} className="text-slate-400 underline shrink-0">
+                  Quitar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {(improvable > 0 || upgrading) && (
         <button
           onClick={() => !upgrading && useOfflineStore.getState().upgrade()}
