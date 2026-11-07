@@ -1,4 +1,6 @@
 'use client'
+import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
+import { restoreDownloads } from '@/lib/phone-restore'
 import { isArchiveFile } from '@/lib/audio-quality'
 
 import GenreTag, { useGenreCache } from '@/components/GenreTag'
@@ -46,7 +48,8 @@ export default function DownloadsSection() {
     storageEstimate().then((e) => e && setFree(Math.max(0, e.quota - e.usage)))
   }, [mounted, total])
 
-  if (!mounted || (!groups.length && !Object.keys(progress).length)) return null
+  const onPhone = mounted && phoneStorageAvailable()
+  if (!mounted || (!groups.length && !Object.keys(progress).length && !onPhone)) return null
 
   const play = (list: OfflineItem[], shuffle = false) => {
     const st = useMusicStore.getState()
@@ -76,6 +79,7 @@ export default function DownloadsSection() {
           </h2>
           <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">
             <WifiOff className="w-3.5 h-3.5" /> Suenan sin internet · ocupan {formatSize(total)}
+            {onPhone && <span className="text-emerald-400/80"> · en Música/PulsoMedia (no se borran al desinstalar)</span>}
             {free !== null && <span className="text-slate-600"> · libre en el teléfono: {formatSize(free)}</span>}
           </p>
         </div>
@@ -90,6 +94,7 @@ export default function DownloadsSection() {
           </div>
         )}
       </div>
+      {onPhone && <PhoneRecovery />}
       {(improvable > 0 || upgrading) && (
         <button
           onClick={() => !upgrading && useOfflineStore.getState().upgrade()}
@@ -190,5 +195,31 @@ export default function DownloadsSection() {
           </p>
         ))}
     </section>
+  )
+}
+
+
+/** Tras reinstalar la app: recupera las descargas guardadas en la música del teléfono */
+function PhoneRecovery() {
+  const [state, setState] = useState<'idle' | 'busy' | 'denied' | string>('idle')
+  const run = async () => {
+    setState('busy')
+    let n = await restoreDownloads()
+    if (n === null) {
+      // Falta el permiso para ver la música del teléfono
+      if (await askPhonePermission()) n = await restoreDownloads()
+    }
+    setState(n === null ? 'denied' : n === 0 ? 'Ya está todo recuperado' : `✓ ${n} recuperadas`)
+  }
+  return (
+    <button onClick={run} disabled={state === 'busy'} className="mb-3 w-full flex items-center gap-3 rounded-xl bg-emerald-500/10 border border-emerald-400/30 px-3 py-2.5 text-left">
+      <HardDriveDownload className="w-4 h-4 text-emerald-300 shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-white text-sm font-semibold">
+          {state === 'busy' ? 'Buscando en la música del teléfono…' : state === 'idle' ? '¿Reinstalaste la app? Recuperar mis descargas' : state === 'denied' ? 'Permite el acceso a la música para recuperarlas' : state}
+        </span>
+        <span className="block text-slate-400 text-xs">Las descargas quedan en Música/PulsoMedia del teléfono: se recuperan sin volver a descargarlas</span>
+      </span>
+    </button>
   )
 }

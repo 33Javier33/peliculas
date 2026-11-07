@@ -40,6 +40,7 @@ import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
 import { getFile } from '@/lib/offline-files'
+import { phoneAudioUrl } from '@/lib/phone-storage'
 import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
 import { useSwipeDown } from '@/lib/use-swipe-down'
@@ -430,6 +431,12 @@ export default function MusicPlayerBar() {
   const [offlineUrl, setOfflineUrl] = useState<{ key: string; url: string } | null>(null)
   useEffect(() => {
     if (!isDownloaded || !offlineKey) return
+    // Guardada como música del teléfono (Música/PulsoMedia): suena desde ese archivo
+    const phoneId = useOfflineStore.getState().items[offlineKey]?.phoneId
+    if (phoneId) {
+      setOfflineUrl({ key: offlineKey, url: phoneAudioUrl(phoneId) })
+      return
+    }
     let url = ''
     let cancelled = false
     getFile(offlineKey)

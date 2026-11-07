@@ -68,6 +68,33 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun eqNative(json: String): String = NativeEq.apply(json)
 
+    // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    @JavascriptInterface
+    fun phoneStorage(): Boolean = PhoneStorage.supported()
+
+    @JavascriptInterface
+    fun storeDownload(req: String, src: String, name: String, folder: String, ext: String) =
+        PhoneStorage.store(context, req, src, name, folder, ext)
+
+    @JavascriptInterface
+    fun listStored(): String = PhoneStorage.list(context)
+
+    @JavascriptInterface
+    fun deleteStored(id: String) {
+        id.toLongOrNull()?.let { PhoneStorage.delete(context, it) }
+    }
+
+    /** ¿Puede leer la música del teléfono? (hace falta para recuperar descargas tras reinstalar) */
+    @JavascriptInterface
+    fun audioPermission(): String {
+        val perm = if (android.os.Build.VERSION.SDK_INT >= 33) android.Manifest.permission.READ_MEDIA_AUDIO else android.Manifest.permission.READ_EXTERNAL_STORAGE
+        return if (ContextCompat.checkSelfPermission(context, perm) == android.content.pm.PackageManager.PERMISSION_GRANTED) "granted" else "needed"
+    }
+
+    /** Pide el permiso de música; responde con window.__cpnPerm(true|false) */
+    @JavascriptInterface
+    fun askAudioPermission() = MainActivity.askAudioPermission()
+
     /** Respuesta para el reloj (biblioteca, confirmaciones) */
     @JavascriptInterface
     fun wearReply(path: String, json: String) {

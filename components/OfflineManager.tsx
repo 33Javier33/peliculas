@@ -7,6 +7,8 @@ import { useOfflineStore } from '@/store/offlineStore'
 import { useMovieStore } from '@/store/movieStore'
 import { getNative } from '@/lib/native'
 import { warmLibraryCovers } from '@/lib/cover-cache'
+import { phoneStorageAvailable } from '@/lib/phone-storage'
+import { restoreDownloads } from '@/lib/phone-restore'
 
 // Descargas en segundo plano: retoma las pendientes (al abrir la app o al volver la conexión),
 // avisa al teléfono para que no corte la descarga al salir de la app (APK) y muestra los avisos
@@ -25,9 +27,15 @@ export default function OfflineManager() {
     // Carátulas de tu biblioteca guardadas para verse sin internet (en segundo plano)
     const covers = setTimeout(() => warmLibraryCovers(), 8000)
     // App de Android: canciones de YouTube descargadas en Opus → otra vez en M4A (suenan siempre)
-    const repair = setTimeout(() => {
-      if (getNative() && navigator.onLine) useOfflineStore.getState().repairOpus()
-    }, 12000)
+    const repair = setTimeout(async () => {
+      if (!getNative()) return
+      // Lo guardado en la música del teléfono (p. ej. tras reinstalar) vuelve solo, si hay permiso
+      if (phoneStorageAvailable()) await restoreDownloads().catch(() => null)
+      if (!navigator.onLine) return
+      await useOfflineStore.getState().repairOpus()
+      // Lo descargado dentro de la app pasa a la música del teléfono (no se pierde al desinstalar)
+      useOfflineStore.getState().migrateToPhone()
+    }, 6000)
     const onOnline = () => setTimeout(() => warmLibraryCovers(), 3000)
     window.addEventListener('online', onOnline)
     return () => {

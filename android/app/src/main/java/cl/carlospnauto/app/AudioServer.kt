@@ -62,6 +62,14 @@ object AudioServer {
             return cors(r)
         }
         if (path == "/health") return cors(NanoHTTPD.newFixedLengthResponse("ok"))
+        // Descargas guardadas como música del teléfono (Música/PulsoMedia): /m/ID
+        Regex("^/m/(\\d+)$").find(path)?.let { mm ->
+            return try {
+                serveStored(mm.groupValues[1].toLong(), session.headers["range"])
+            } catch (e: Exception) {
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND, "text/plain", e.message ?: "no"))
+            }
+        }
         // Archivos de audio de archive.org: pasan por aquí para salir rápido (comienzo ya
         // descargado) y con permiso para el ecualizador
         if (path == "/f") {
@@ -100,6 +108,31 @@ object AudioServer {
 
     private fun quality(s: AudioStream): Double {
         return kbps(s).toDouble()
+    }
+
+    @Volatile var appContext: android.content.Context? = null
+
+    private fun serveStored(id: Long, rangeHeader: String?): NanoHTTPD.Response {
+        val ctx = appContext ?: throw IllegalStateException("sin contexto")
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) throw IllegalStateException("Android 10 o más nuevo")
+        val uri = PhoneStorage.uriOf(id)
+        val resolver = ctx.contentResolver
+        val mime = resolver.getType(uri) ?: "audio/mp4"
+        val afd = resolver.openAssetFileDescriptor(uri, "r") ?: throw IllegalStateException("no existe")
+        val total = afd.length
+        val start = Regex("bytes=(\\d+)-").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+        val end = (Regex("bytes=\\d+-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: (total - 1)).coerceAtMost(total - 1)
+        val input = afd.createInputStream()
+        var skipped = 0L
+        while (skipped < start) {
+            val k = input.skip(start - skipped)
+            if (k <= 0) break
+            skipped += k
+        }
+        val len = end - start + 1
+        val res = NanoHTTPD.newFixedLengthResponse(if (rangeHeader != null) NanoHTTPD.Response.Status.PARTIAL_CONTENT else NanoHTTPD.Response.Status.OK, mime, input, len)
+        if (rangeHeader != null) res.addHeader("Content-Range", "bytes $start-$end/$total")
+        return cors(res)
     }
 
     /** Dirección del mejor audio (la pista de mayor calidad que tenga el video) */

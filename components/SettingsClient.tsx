@@ -1,4 +1,5 @@
 'use client'
+import RepairAppButton from '@/components/RepairAppButton'
 import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 
 import { useEffect, useState } from 'react'
@@ -224,6 +225,7 @@ export default function SettingsClient() {
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </Row>
           </Link>
+          <RepairAppButton />
           <Link href="/novedades" className="block">
             <Row icon={<Info className="w-4 h-4" />} title="Novedades" desc={`Versión ${process.env.NEXT_PUBLIC_APP_VERSION}`}>
               <ChevronRight className="w-4 h-4 text-slate-500" />

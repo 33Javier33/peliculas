@@ -65,6 +65,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+    // Permiso de música (recuperar las descargas guardadas en el teléfono tras reinstalar)
+    private val askAudio = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        web.evaluateJavascript("window.__cpnPerm && window.__cpnPerm($ok)", null)
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -364,6 +368,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         fun isOpen() = current?.get() != null
+
+        /** Ejecuta código en la página (avisos de descargas guardadas en el teléfono) */
+        fun toWeb(js: String) {
+            main.post { current?.get()?.web?.evaluateJavascript(js, null) }
+        }
+
+        fun askAudioPermission() {
+            main.post {
+                val a = current?.get() ?: return@post
+                val perm = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+                runCatching { a.askAudio.launch(perm) }
+            }
+        }
 
         /** Orden del reloj para la app web (true si la app está abierta) */
         fun sendActionIfOpen(action: String): Boolean {

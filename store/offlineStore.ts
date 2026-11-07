@@ -1,9 +1,10 @@
-import { isNativeApp } from '@/lib/native'
+import { isNativeApp, nativeAudioUrl } from '@/lib/native'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { downloadAudio, putFile, deleteFile, persistStorage, getFile } from '@/lib/offline-files'
 import { getDownloadQuality, bestSourceFor, isArchiveFile } from '@/lib/audio-quality'
+import { phoneStorageAvailable, storeOnPhone, deleteFromPhone, listPhone, parseFileName } from '@/lib/phone-storage'
 
 // Descargas para escuchar sin conexión. Cada canción descargada recuerda su grupo (disco o
 // playlist) para mostrarlas juntas en "Descargadas". Los archivos están en lib/offline-files.
@@ -19,6 +20,8 @@ export interface OfflineItem {
   savedAt: number
   /** Descargada en la mejor calidad disponible */
   hq?: boolean
+  /** App de Android: guardada como música del teléfono (Música/PulsoMedia), no se borra al desinstalar */
+  phoneId?: number
 }
 
 export interface OfflineProgress {
@@ -55,9 +58,69 @@ interface OfflineState {
   upgrade: () => Promise<void>
   /** Canciones de YouTube guardadas en Opus (en algunos teléfonos no suenan): se bajan otra vez en M4A */
   repairOpus: () => Promise<void>
+  /** App de Android: lo descargado dentro de la app pasa a la música del teléfono (no se pierde al desinstalar) */
+  migrateToPhone: () => Promise<void>
+  /** Tras reinstalar: recupera lo guardado en Música/PulsoMedia (null = falta el permiso) */
+  restoreFromPhone: () => Promise<number | null>
 }
 
 const controllers = new Map<string, AbortController>()
+
+/** Canción a partir de su clave (al recuperar un archivo guardado en el teléfono) */
+function trackFromKey(key: string, title: string, folder: string): MusicVideo {
+  const yt = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
+  const m = title.match(/^(.+?)\s[-–—]\s(.+)$/)
+  const artist = m ? m[1] : ''
+  const archive = key.match(/archive\.org\/download\/([^/]+)\//)
+  return {
+    id: yt ? `yta-${yt[1]}` : `link-${hashKey(key)}`,
+    title,
+    channelTitle: artist,
+    artist: artist || undefined,
+    thumbnail: yt ? `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg` : archive ? `https://archive.org/services/img/${archive[1]}` : '/icons/icon-512.png',
+    publishedAt: '',
+    description: yt ? `https://www.youtube.com/watch?v=${yt[1]}` : key,
+    album: folder || undefined,
+    audioUrl: key,
+  } as MusicVideo
+}
+function hashKey(s: string) {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+
+/** De dónde se descarga cada canción (en la app de Android, el audio de YouTube sale del teléfono) */
+async function sourceFor(key: string, max: boolean): Promise<string> {
+  const yt = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)
+  if (yt) return nativeAudioUrl(yt[1]) || `${window.location.origin}${key}`
+  if (isArchiveFile(key)) return max ? await bestSourceFor(key) : key
+  return /^https?:\/\//.test(key) ? key : `${window.location.origin}${key}`
+}
+const extOf = (key: string, src: string) =>
+  key.startsWith('/api/stream?') ? 'm4a' : (src.split('?')[0].match(/\.(mp3|flac|ogg|oga|opus|m4a|aac|wav)$/i)?.[1] || 'mp3').toLowerCase()
+
+/**
+ * Guarda una canción. App de Android: como archivo de música del teléfono (no se borra al
+ * desinstalar la app). Navegador: dentro de la app (IndexedDB).
+ */
+async function saveAudio(key: string, title: string, folder: string, max: boolean, onProgress: (f: number) => void, signal: AbortSignal): Promise<{ size: number; phoneId?: number }> {
+  if (phoneStorageAvailable()) {
+    const src = await sourceFor(key, max)
+    const r = await storeOnPhone(key, src, title, folder, extOf(key, src), onProgress, signal).catch((e) => {
+      if ((e as Error).name === 'AbortError' || src === key || !isArchiveFile(key)) throw e
+      return storeOnPhone(key, key, title, folder, extOf(key, key), onProgress, signal)
+    })
+    return { size: r.size, phoneId: r.id }
+  }
+  const src = max ? await bestSourceFor(key) : key
+  const blob = await downloadAudio(src, onProgress, signal).catch((e) => {
+    if ((e as Error).name === 'AbortError' || src === key) throw e
+    return downloadAudio(key, onProgress, signal)
+  })
+  await putFile(key, blob)
+  return { size: blob.size }
+}
 
 export const useOfflineStore = create<OfflineState>()(
   persist(
@@ -98,12 +161,7 @@ export const useOfflineStore = create<OfflineState>()(
           try {
             // Máxima calidad: el mejor archivo de esa canción (FLAC / MP3 320 en archive.org)
             const max = getDownloadQuality() === 'max'
-            const src = max ? await bestSourceFor(t.audioUrl!) : t.audioUrl!
-            const blob = await downloadAudio(src, (f) => setProg({ current: f }), ctrl.signal).catch((e) => {
-              if ((e as Error).name === 'AbortError' || src === t.audioUrl) throw e
-              return downloadAudio(t.audioUrl!, (f) => setProg({ current: f }), ctrl.signal)
-            })
-            await putFile(t.audioUrl!, blob)
+            const saved = await saveAudio(t.audioUrl!, t.title, group.title, max, (f) => setProg({ current: f }), ctrl.signal)
             set((s) => ({
               items: {
                 ...s.items,
@@ -113,9 +171,10 @@ export const useOfflineStore = create<OfflineState>()(
                   groupId: group.id,
                   groupTitle: group.title,
                   groupCover: group.cover,
-                  size: blob.size,
+                  size: saved.size,
                   savedAt: Date.now(),
                   hq: max,
+                  phoneId: saved.phoneId,
                 },
               },
             }))
@@ -164,11 +223,11 @@ export const useOfflineStore = create<OfflineState>()(
         for (const it of list) {
           if (ctrl.signal.aborted) break
           try {
-            const src = await bestSourceFor(it.key)
-            const blob = await downloadAudio(src, (f) => setProg({ current: f }), ctrl.signal)
             // Se reemplaza recién cuando la nueva está completa (si falla, queda la anterior)
-            await putFile(it.key, blob)
-            set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: blob.size, hq: true } } }))
+            const saved = await saveAudio(it.key, it.track.title, it.groupTitle, true, (f) => setProg({ current: f }), ctrl.signal)
+            if (it.phoneId && saved.phoneId !== it.phoneId) deleteFromPhone(it.phoneId)
+            if (saved.phoneId && !it.phoneId) deleteFile(it.key).catch(() => {})
+            set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: saved.size, hq: true, phoneId: saved.phoneId } } }))
             done++
           } catch (err) {
             if ((err as Error).name === 'AbortError') break
@@ -183,6 +242,57 @@ export const useOfflineStore = create<OfflineState>()(
           return { progress }
         })
         get().notify(failed ? `Calidad mejorada en ${done} canciones (${failed} quedaron como estaban)` : `✓ ${done} canciones ahora en la mejor calidad`)
+      },
+      migrateToPhone: async () => {
+        const id = 'pasar-al-telefono'
+        if (!phoneStorageAvailable() || controllers.has(id)) return
+        const list = Object.values(get().items).filter((i) => !i.phoneId)
+        if (!list.length) return
+        const ctrl = new AbortController()
+        controllers.set(id, ctrl)
+        get().notify(`Guardando ${list.length} descargas en la música del teléfono (así no se pierden si reinstalas la app)…`)
+        let done = 0
+        for (const it of list) {
+          if (ctrl.signal.aborted || !navigator.onLine) break
+          try {
+            const saved = await saveAudio(it.key, it.track.title, it.groupTitle, !!it.hq, () => {}, ctrl.signal)
+            await deleteFile(it.key).catch(() => {})
+            set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: saved.size, phoneId: saved.phoneId } } }))
+            done++
+          } catch (err) {
+            if ((err as Error).name === 'AbortError') break
+          }
+        }
+        controllers.delete(id)
+        if (done) get().notify(`✓ ${done} descargas guardadas en Música/PulsoMedia`)
+      },
+      restoreFromPhone: async () => {
+        const files = listPhone()
+        if (files === null) return null
+        const items = { ...get().items }
+        const byKey = new Map(Object.values(items).map((i) => [i.key, i]))
+        let added = 0
+        for (const f of files) {
+          const info = parseFileName(f.name)
+          if (!info) continue
+          const prev = byKey.get(info.key)
+          if (prev?.phoneId === f.id) continue
+          const track = trackFromKey(info.key, info.title, f.folder)
+          items[info.key] = {
+            key: info.key,
+            track: prev?.track ?? track,
+            groupId: prev?.groupId ?? `telefono-${f.folder || 'sueltas'}`,
+            groupTitle: prev?.groupTitle ?? (f.folder || 'Canciones sueltas'),
+            groupCover: prev?.groupCover ?? track.thumbnail,
+            size: f.size,
+            savedAt: prev?.savedAt ?? Date.now(),
+            hq: true,
+            phoneId: f.id,
+          }
+          if (!prev) added++
+        }
+        set({ items })
+        return added
       },
       repairOpus: async () => {
         const id = 'reparar-audio'
@@ -228,6 +338,10 @@ export const useOfflineStore = create<OfflineState>()(
         await get().removeKeys(keys)
       },
       removeKeys: async (keys) => {
+        for (const k of keys) {
+          const id = get().items[k]?.phoneId
+          if (id) deleteFromPhone(id)
+        }
         await Promise.all(keys.map((k) => deleteFile(k).catch(() => {})))
         set((s) => {
           const items = { ...s.items }

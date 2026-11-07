@@ -12,6 +12,7 @@ class App : Application() {
         // El extractor de YouTube trabaja desde el propio teléfono (su conexión no está bloqueada)
         val country = Locale.getDefault().country.ifBlank { "CL" }
         NewPipe.init(OkDownloader.instance, Localization("es", country), ContentCountry(country))
+        AudioServer.appContext = applicationContext
         AudioServer.start()
     }
 }
