@@ -3,6 +3,7 @@ import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
 import type { OfflineFailure } from '@/store/offlineStore'
 import { restoreDownloads } from '@/lib/phone-restore'
 import LibraryDownloadAll from '@/components/LibraryDownloadAll'
+import BackupRestore from '@/components/BackupRestore'
 import { useLinksStore } from '@/store/linksStore'
 import { isArchiveFile } from '@/lib/audio-quality'
 
@@ -103,6 +104,7 @@ export default function DownloadsSection() {
       </div>
       {hasLibrary && <LibraryDownloadAll />}
       {onPhone && <PhoneRecovery />}
+      {onPhone && <BackupRestore />}
       {/* Las que no se pudieron descargar: el motivo y reintentar */}
       {failedList.length > 0 && (
         <div className="mb-3 rounded-xl bg-amber-500/10 border border-amber-400/30 p-3">

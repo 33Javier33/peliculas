@@ -10,6 +10,7 @@ import { songArtist, genreOfArtist, GENRE_LABELS, classifyLibrary } from '@/lib/
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import { TrackDownloadIcon, GroupDownloadIcon, OfflineCountText } from '@/components/OfflineIcons'
 import AudioLinksSection from '@/components/AudioLinksSection'
+import BackupRestore from '@/components/BackupRestore'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
@@ -440,6 +441,16 @@ export default function MusicLibraryClient() {
         />
         )}
 
+        {/* Biblioteca vacía (p. ej. recién reinstalada la app): recuperar lo que había */}
+        {saved.length === 0 && playlists.length === 0 && useMusicStore.getState().savedAlbums.length === 0 && (
+          <div className="mb-6 rounded-2xl bg-violet-500/10 border border-violet-400/30 p-4">
+            <p className="text-white font-semibold text-sm">¿Reinstalaste la app?</p>
+            <p className="text-slate-300 text-xs mt-1">
+              Inicia sesión en tu cuenta (arriba, el ícono de persona) si la usabas, o elige el archivo PulsoMedia-respaldo.json de la carpeta Descargas/PulsoMedia para que vuelvan tus playlists, Me gusta y álbumes.
+            </p>
+            <BackupRestore compact />
+          </div>
+        )}
         <DownloadsSection />
 
         <LocalMusicSection />
@@ -1068,6 +1079,8 @@ function PlaylistsTab({ view }: { view: 'list' | 'grid' }) {
       {playlists.length === 0 ? (
         <div className="text-center py-14 border border-dashed border-white/10 rounded-xl text-slate-500 text-sm px-4">
           Crea una playlist aquí o, en cualquier canción, toca el botón <ListPlus className="inline w-4 h-4 -mt-0.5" /> (o ⋮ en el reproductor).
+          <p className="mt-3 text-slate-400">¿Tenías playlists antes de reinstalar? Inicia sesión en tu cuenta (si la usabas) o recupera un respaldo:</p>
+          <BackupRestore compact />
         </div>
       ) : view === 'list' ? (
         <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">

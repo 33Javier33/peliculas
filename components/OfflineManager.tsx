@@ -9,6 +9,7 @@ import { getNative } from '@/lib/native'
 import { warmLibraryCovers } from '@/lib/cover-cache'
 import { phoneStorageAvailable } from '@/lib/phone-storage'
 import { restoreDownloads } from '@/lib/phone-restore'
+import { startPhoneBackup } from '@/lib/local-backup'
 
 // Descargas en segundo plano: retoma las pendientes (al abrir la app o al volver la conexión),
 // avisa al teléfono para que no corte la descarga al salir de la app (APK) y muestra los avisos
@@ -45,9 +46,12 @@ export default function OfflineManager() {
       // Lo descargado dentro de la app pasa a la música del teléfono (no se pierde al desinstalar)
       useOfflineStore.getState().migrateToPhone()
     }, 6000)
+    // Respaldo de la biblioteca en el teléfono (queda aunque se desinstale la app)
+    const stopBackup = startPhoneBackup()
     const onOnline = () => setTimeout(() => warmLibraryCovers(), 3000)
     window.addEventListener('online', onOnline)
     return () => {
+      stopBackup()
       clearTimeout(t)
       clearTimeout(covers)
       clearTimeout(repair)

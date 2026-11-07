@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Respaldo automático de tu biblioteca (app de Android 1.0.49): playlists, Me gusta, álbumes y artistas se guardan solos en Descargas/PulsoMedia/PulsoMedia-respaldo.json, que queda aunque desinstales la app; «Recuperar respaldo» los trae de vuelta',
       'Como en Spotify: en el reproductor eliges «Canción» o «Video». También en las canciones convertidas a audio o descargadas (su video se ve desde el mismo segundo y al volver a «Canción» sigue desde ahí)',
       'Ventana flotante (app de Android 1.0.48): al salir de la app con un video, la ventanita muestra el video (antes quedaba en negro porque pasaba al audio); al bloquear la pantalla sigue el audio',
       'Reproductor ⋮ «Ir al álbum»: ahora abre el disco (antes quedaba escondido en la Biblioteca); también los álbumes guardados con ♥',

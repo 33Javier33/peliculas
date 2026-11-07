@@ -5,6 +5,8 @@ interface CPNNativeBridge {
   audioBase(): string
   version(): string
   mediaState(json: string): void
+  /** APK 1.0.49+: respaldo de la biblioteca en Descargas/PulsoMedia (queda al desinstalar) */
+  saveBackup?(json: string): boolean
   /** APK 1.0.21+: menú Compartir de Android */
   share?(text: string): void
 }

@@ -69,6 +69,10 @@ class NativeBridge(private val context: Context) {
     fun eqNative(json: String): String = NativeEq.apply(json)
 
     // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    /** APK 1.0.49+: respaldo de la biblioteca en Descargas/PulsoMedia (queda al desinstalar) */
+    @JavascriptInterface
+    fun saveBackup(json: String): Boolean = PhoneBackup.save(context, json)
+
     @JavascriptInterface
     fun phoneStorage(): Boolean = PhoneStorage.supported()
 
