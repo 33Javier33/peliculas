@@ -135,7 +135,22 @@ export const useOfflineStore = create<OfflineState>()(
       },
       download: async (group, tracks, resuming = false) => {
         const list = tracks.filter((t) => canDownload(t) && !get().items[t.audioUrl!])
-        if (controllers.has(group.id)) return
+        // Ya se está descargando este grupo (p. ej. «Convertidas de YouTube» al bajar varios videos
+        // seguidos): las nuevas se suman a la descarga en curso (antes se ignoraban)
+        if (controllers.has(group.id)) {
+          if (!list.length) return
+          set((s) => {
+            const q = s.queue[group.id]
+            const have = new Set((q?.tracks ?? []).map((t) => t.audioUrl))
+            const merged = [...(q?.tracks ?? []), ...list.filter((t) => !have.has(t.audioUrl))]
+            const prog = s.progress[group.id]
+            return {
+              queue: { ...s.queue, [group.id]: { group: q?.group ?? group, tracks: merged } },
+              progress: prog ? { ...s.progress, [group.id]: { ...prog, total: merged.length } } : s.progress,
+            }
+          })
+          return
+        }
         if (!list.length) {
           if (!resuming) get().notify(tracks.some(canDownload) ? `Ya está descargado en tu teléfono: "${group.title}"` : 'Las canciones de YouTube no se pueden descargar')
           set((s) => {
@@ -155,8 +170,13 @@ export const useOfflineStore = create<OfflineState>()(
         setProg({ done: 0, total: list.length, current: 0, failed: 0 })
         let done = 0
         let failed = 0
-        // De a una canción (no satura la conexión y se puede cancelar)
-        for (const t of list) {
+        // De a una canción (no satura la conexión y se puede cancelar). Se toma la siguiente de la
+        // cola en cada vuelta: así entran las que se agregaron mientras tanto
+        const tried = new Set<string>()
+        for (;;) {
+          const t = (get().queue[group.id]?.tracks ?? list).find((x) => !tried.has(x.audioUrl!) && !get().items[x.audioUrl!])
+          if (!t) break
+          tried.add(t.audioUrl!)
           if (ctrl.signal.aborted) break
           try {
             // Máxima calidad: el mejor archivo de esa canción (FLAC / MP3 320 en archive.org)

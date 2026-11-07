@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { Play, Clock, Eye, Heart, Clock3 } from 'lucide-react'
+import VideoAudioDownload from '@/components/VideoAudioDownload'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 import { getBestThumbnail, timeAgo } from '@/lib/youtube'
 import { decodeEntities } from '@/lib/youtube-music'
@@ -108,8 +109,9 @@ export default function YoutubeCard({
     </button>
 
       {/* Me gusta y Ver más tarde, sobre la miniatura */}
-      {(onToggleLike || onToggleLater) && (
-        <div className="absolute top-2 right-2 flex gap-1.5">
+      <div className="absolute top-2 right-2 flex gap-1.5">
+          {/* Bajar solo el audio de este video */}
+          <VideoAudioDownload compact id={videoId} title={title} channelTitle={channelTitle} />
           {onToggleLater && (
             <button
               onClick={onToggleLater}
@@ -136,8 +138,7 @@ export default function YoutubeCard({
               <Heart className={`w-4 h-4 ${liked ? 'fill-white' : ''}`} />
             </button>
           )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

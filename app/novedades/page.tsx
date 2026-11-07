@@ -28,6 +28,8 @@ const STAGES: Stage[] = [
       'Al reinstalar, «Recuperar mis descargas» las vuelve a usar sin descargar nada (y aparecen en la biblioteca)',
       'Lo que ya tenías descargado dentro de la app se pasa solo a la música del teléfono',
       'Configuración → «Reparar la app»: si algo se traba, se arregla sin desinstalar ni perder nada',
+      'Descargar el audio de cualquier video: botón ⬇ en cada video de la sección Videos, en los videos del artista y en Me gusta / Ver más tarde',
+      'Arreglo: al bajar el audio de varios videos seguidos ya no se pierde ninguno (se suman a la descarga en curso)',
     ],
   },
   {

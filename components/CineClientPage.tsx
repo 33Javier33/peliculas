@@ -11,6 +11,7 @@ import { useVideoStore, type SavedVideo } from '@/store/videoStore'
 import YoutubeCard from '@/components/YoutubeCard'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import ArchiveMoviesInline from '@/components/ArchiveMoviesInline'
+import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
@@ -461,6 +462,7 @@ export default function CineClientPage({
                   <div className="flex gap-3 overflow-x-auto mt-3 -mx-1 px-1 pb-1 snap-x [scrollbar-width:none]">
                     {(savedTab === 'liked' ? liked : watchLater).map((v) => (
                       <div key={v.id} className="relative shrink-0 w-48 sm:w-56 snap-start">
+                        <VideoAudioDownload compact id={v.id} title={v.title} channelTitle={v.channelTitle} className="absolute top-1.5 left-1.5 z-[1]" />
                         <button onClick={() => openPlayer(v.id, v.title, v.channelTitle)} className="block w-full text-left group">
                           <div className="relative aspect-video rounded-lg overflow-hidden bg-surface-2">
                             <Image src={v.thumbnail} alt={v.title} fill sizes="224px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
