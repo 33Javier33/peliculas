@@ -159,6 +159,17 @@ export default function YoutubePlayer({
   const modeRef = useRef(mode)
   modeRef.current = mode
   const handedRef = useRef(false)
+  // Volviendo del audio al video: se espera a que el video suene para apagar el audio
+  const swapBackRef = useRef(false)
+  const finishSwapBack = () => {
+    if (!swapBackRef.current) return
+    swapBackRef.current = false
+    useMusicStore.getState().setIsPlaying(false)
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*')
+    if (altVideoRef.current) altVideoRef.current.muted = false
+  }
+  const finishSwapBackRef = useRef(finishSwapBack)
+  finishSwapBackRef.current = finishSwapBack
   useEffect(() => {
     if (ytPlaying && isNativeApp()) nativePrefetch(videoId)
   }, [ytPlaying, videoId])
@@ -190,19 +201,25 @@ export default function YoutubePlayer({
         useMusicStore.getState().setIsPlaying(true)
       } else if (handedRef.current) {
         handedRef.current = false
-        // Donde iba el audio → el video sigue desde ahí
+        // Donde iba el audio → el video sigue desde ahí. El audio sigue sonando hasta que el video
+        // de verdad arranca (sin silencio en medio): el video empieza silenciado y al sonar se
+        // apaga el audio y se le devuelve el sonido. (Se adelanta un poco lo que tarda en cargar)
         const audio = Array.from(document.querySelectorAll('audio')).find((a) => a.src && a.currentTime > 0)
         const cur = st.queue[st.currentIndex]
-        const t = cur?.id === videoId && audio ? audio.currentTime : timeRef.current
-        st.setIsPlaying(false)
+        const t = cur?.id === videoId && audio ? audio.currentTime + 0.8 : timeRef.current
         timeRef.current = t
+        swapBackRef.current = true
         if (modeRef.current === 'youtube') {
+          command('mute')
           command('seekTo', [t, true])
           command('playVideo')
         } else if (altVideoRef.current) {
+          altVideoRef.current.muted = true
           altVideoRef.current.currentTime = t
           altVideoRef.current.play().catch(() => {})
         }
+        // Por si el video no avisa que arrancó: a los 4 s se termina el cambio igual
+        setTimeout(finishSwapBack, 4000)
       }
     }
     document.addEventListener('visibilitychange', onVis)
@@ -260,6 +277,8 @@ export default function YoutubePlayer({
       if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
       // 1 = reproduciendo (para la ventana flotante de la app de Android)
       if (typeof info?.playerState === 'number') setYtPlaying(info.playerState === 1)
+      // Ya suena el video al volver del audio: se apaga el audio y el video recupera el sonido
+      if (info?.playerState === 1) finishSwapBackRef.current()
       // 0 = terminó: los videos musicales siguen con el próximo
       if (info?.playerState === 0) onNextRef.current?.()
       if (data.event === 'onError') switchToAlt(true)
@@ -421,6 +440,7 @@ export default function YoutubePlayer({
                 ref={altVideoRef}
                 key={alt.candidates[alt.index].url}
                 onEnded={() => onNextRef.current?.()}
+                onPlaying={() => finishSwapBackRef.current()}
                 onLoadedMetadata={(e) => {
                   if (timeRef.current > 1) e.currentTarget.currentTime = timeRef.current
                 }}

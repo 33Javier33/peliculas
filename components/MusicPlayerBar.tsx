@@ -68,13 +68,10 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
   const native = nativeAudioUrl(id)
   // Dos reintentos (el teléfono puede fallar un momento, p. ej. mientras descarga otras canciones);
   // el servidor local ignora lo que va después de "?"
-  if (native) {
-    const mine = [native, `${native}?r=1`].map((url) => ({ url, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' as const }))
-    // Plan B (videos que el teléfono no logra sacar): las fuentes públicas, buscadas desde el
-    // teléfono. Se esperan como mucho 3 s para no demorar el inicio
-    const web = loadWebCandidates(id).catch(() => [] as AudioCandidate[])
-    return Promise.race([web, new Promise<AudioCandidate[]>((r) => setTimeout(r, 3000, []))]).then((w) => [...mine, ...w.filter((c) => c.source !== 'app')])
-  }
+  // Al instante (sin esperar nada más: al bloquear el teléfono el cambio a audio no se demora). Si
+  // el teléfono no logra sacar el audio, después se prueban las fuentes públicas (plan B, ver
+  // handleAudioError)
+  if (native) return Promise.resolve([native, `${native}?r=1`].map((url) => ({ url, mimeType: 'audio/mp4', bitrate: 160000, source: 'device' as const })))
   return loadWebCandidates(id)
 }
 
