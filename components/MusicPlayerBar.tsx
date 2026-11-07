@@ -1808,6 +1808,14 @@ export default function MusicPlayerBar() {
               }
             : undefined
         }
+        videoOn={asVideo && !useAudio}
+        onSongOnly={() => {
+          // Del video a solo la canción (audio propio), desde el mismo segundo
+          const st = useMusicStore.getState()
+          pendingSeekRef.current = localPlayedRef.current
+          useMusicStore.setState({ queue: st.queue.map((x, i) => (i === st.currentIndex ? { ...x, forceAudio: true } : x)) })
+          setIsExpanded(false)
+        }}
         onSwitchMode={(toAudio) => {
           if (toAudio) {
             switchMode(true)

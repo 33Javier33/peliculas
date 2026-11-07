@@ -55,6 +55,10 @@ interface NowPlayingSheetProps {
   onSwitchMode: (toAudio: boolean) => void
   /** Abrir el video de la canción aparte (si tiene) */
   onWatchVideo?: () => void
+  /** La canción se está viendo como video en el reproductor (no en la ventana aparte) */
+  videoOn?: boolean
+  /** Pasar de ese video a solo la canción (audio), desde el mismo segundo */
+  onSongOnly?: () => void
   isAudioLoading: boolean
   played: number
   duration: number
@@ -69,6 +73,8 @@ export default function NowPlayingSheet({
   onOpenQueue,
   onSwitchMode,
   onWatchVideo,
+  videoOn,
+  onSongOnly,
   isAudioLoading,
   played,
   duration,
@@ -244,15 +250,25 @@ export default function NowPlayingSheet({
           </div>
 
           {/* Como en Spotify: escuchar la canción o ver su video */}
-          {onWatchVideo && (
+          {(onWatchVideo || videoOn) && (
             <div className="mt-3 mx-auto flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
-              <button role="tab" aria-selected className="flex items-center gap-1.5 px-5 py-1.5 rounded-full bg-white text-black text-sm font-bold font-display">
+              <button
+                role="tab"
+                aria-selected={!videoOn}
+                onClick={() => videoOn && onSongOnly?.()}
+                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${!videoOn ? 'bg-white text-black' : 'text-slate-200'}`}
+              >
                 <Headphones className="w-4 h-4" /> Canción
               </button>
-              <button role="tab" aria-selected={false} onClick={onWatchVideo} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold font-display">
+              <button
+                role="tab"
+                aria-selected={!!videoOn}
+                onClick={() => !videoOn && onWatchVideo?.()}
+                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${videoOn ? 'bg-white text-black' : 'text-slate-200'}`}
+              >
                 <MonitorPlay className="w-4 h-4" /> Video
               </button>
-              <span className="self-center px-1.5"><HelpTip title="Canción o video" text="Como en Spotify: «Video» muestra el video de esta canción desde el mismo segundo; «Canción» vuelve al audio desde donde iba. Funciona también con las canciones convertidas a audio o descargadas." /></span>
+              <span className="self-center px-1.5"><HelpTip title="Canción o video" text="Como en Spotify: «Video» muestra el video de esta canción desde el mismo segundo; «Canción» vuelve solo al audio desde donde iba. Si la canción ya está descargada, el cambio es al instante." /></span>
             </div>
           )}
 

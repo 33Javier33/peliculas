@@ -164,7 +164,11 @@ export default function YoutubePlayer({
   modeRef.current = mode
   const handedRef = useRef(false)
   // Volviendo del audio al video: se espera a que el video suene para apagar el audio
-  const swapBackRef = useRef(false)
+  const songToggleRef = useRef(!!songToggle)
+  // Abierto desde «Video» con la canción sonando: el video empieza en silencio y, al sonar, se
+  // apaga la canción y se le da el sonido (finishSwapBack)
+  const swapBackRef = useRef(!!songToggle && useMusicStore.getState().isPlaying)
+  const [startMuted] = useState(() => swapBackRef.current)
   const finishSwapBack = () => {
     if (!swapBackRef.current) return
     swapBackRef.current = false
@@ -174,6 +178,12 @@ export default function YoutubePlayer({
   }
   const finishSwapBackRef = useRef(finishSwapBack)
   finishSwapBackRef.current = finishSwapBack
+  // Si el video no avisa que arrancó, a los 8 s se apaga la canción igual
+  useEffect(() => {
+    if (!swapBackRef.current) return
+    const t = setTimeout(() => finishSwapBackRef.current(), 8000)
+    return () => clearTimeout(t)
+  }, [])
   useEffect(() => {
     if (ytPlaying && isNativeApp()) nativePrefetch(videoId)
   }, [ytPlaying, videoId])
@@ -194,7 +204,11 @@ export default function YoutubePlayer({
         const track = { id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '', startAt: t, forceAudio: true }
         // Suena a continuación en la cola (sin borrar lo que había) desde ese segundo
         const cur = st.queue[st.currentIndex]
-        if (ytIdOf(cur) === videoId && st.isVisible) {
+        const el = Array.from(document.querySelectorAll('audio')).find((a) => a.src && a.readyState > 0)
+        if (ytIdOf(cur) === videoId && st.isVisible && el) {
+          el.currentTime = t
+          el.play().catch(() => {})
+        } else if (ytIdOf(cur) === videoId && st.isVisible) {
           useMusicStore.setState({ queue: st.queue.map((x, i) => (i === st.currentIndex ? { ...x, startAt: t, forceAudio: true } : x)) })
           st.playIndex(st.currentIndex)
         } else {
@@ -254,8 +268,9 @@ export default function YoutubePlayer({
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
-    // El video y la música no suenan a la vez
-    useMusicStore.getState().setIsPlaying(false)
+    // El video y la música no suenan a la vez. Desde «Video» del reproductor la canción sigue
+    // sonando hasta que el video de verdad arranca (sin silencio mientras carga)
+    if (!songToggleRef.current) useMusicStore.getState().setIsPlaying(false)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
@@ -446,7 +461,7 @@ export default function YoutubePlayer({
                 key={`${videoId}-${quality}`}
                 src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&enablejsapi=1${
                   quality !== 'auto' ? `&vq=${quality}` : ''
-                }${startAt ? `&start=${startAt}` : ''}&origin=${encodeURIComponent(origin)}`}
+                }${startAt ? `&start=${startAt}` : ''}${startMuted ? '&mute=1' : ''}&origin=${encodeURIComponent(origin)}`}
                 title={title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
