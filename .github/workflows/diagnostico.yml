@@ -7,9 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          V=7HrAjVtutlg
-          echo "== oembed"; curl -s "https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=$V" | head -c 600; echo
-          pip install -q yt-dlp >/dev/null 2>&1
-          echo "== yt-dlp"; yt-dlp --no-warnings -F "https://www.youtube.com/watch?v=$V" 2>&1 | head -40
-          echo "== info"; yt-dlp --no-warnings --print "%(duration)s s | edad:%(age_limit)s | vivo:%(is_live)s | %(availability)s" "https://www.youtube.com/watch?v=$V" 2>&1 | head -5
-          echo "== app"; curl -s "https://peliculas-neon.vercel.app/api/yt-info?id=$V" -m 30; echo
+          echo "== releases"; curl -s "https://api.github.com/repos/TeamNewPipe/NewPipeExtractor/releases?per_page=4" | python3 -c "import json,sys; [print(r['tag_name'], r['published_at'][:10]) for r in json.load(sys.stdin)]"
+          echo "== usada"; curl -s "https://api.github.com/repos/TeamNewPipe/NewPipeExtractor/commits/6faf40681e" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['sha'][:12], d['commit']['committer']['date'], d['commit']['message'][:90])"
+          echo "== dev"; curl -s "https://api.github.com/repos/TeamNewPipe/NewPipeExtractor/commits?per_page=5&sha=dev" | python3 -c "import json,sys; [print(c['sha'][:10], c['commit']['committer']['date'][:10], c['commit']['message'][:70].replace(chr(10),' ')) for c in json.load(sys.stdin)]"
+          echo "== jitpack dev"; curl -s -o /dev/null -w "%{http_code}\n" "https://jitpack.io/api/builds/com.github.TeamNewPipe/NewPipeExtractor/latest"
+          curl -s "https://jitpack.io/api/builds/com.github.TeamNewPipe/NewPipeExtractor/latest" | head -c 300; echo
