@@ -6,6 +6,7 @@ import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { continueInMiniPlayer } from '@/lib/video-handoff'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
+import { useAutoplay, setAutoplay } from '@/lib/autoplay'
 import { decodeEntities } from '@/lib/youtube-music'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 
@@ -28,7 +29,8 @@ export default function ArtistVideos({ name }: { name: string }) {
 
   // Al terminar un video sigue el próximo (de este artista y, al acabarse, de artistas parecidos)
   const list = (items ?? []).slice(0, 16).map((v) => ({ id: v.id.videoId, title: decodeEntities(v.snippet.title), channel: v.snippet.channelTitle }))
-  const { next, advance } = useNextMusicVideo(
+  const autoplay = useAutoplay()
+  const { next, advance, music: isMusic } = useNextMusicVideo(
     open ? { id: open.id, title: open.title, channel: open.channel } : null,
     list,
     useCallback((v: { id: string; title: string; channel: string }) => setOpen(v), [])
@@ -60,7 +62,7 @@ export default function ArtistVideos({ name }: { name: string }) {
           )
         })}
       </div>
-      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
+      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} autoNext={isMusic || autoplay} onTrackChange={() => setOpen(null)} onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
             // Sigue en la ventana chica del reproductor desde el mismo segundo
             continueInMiniPlayer({ id: open.id, title: open.title, channelTitle: open.channel }, t)
             setOpen(null)

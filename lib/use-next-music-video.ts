@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { isMusicVideo, nextMusicVideo, type VideoRef } from '@/lib/next-music-video'
+import { isMusicVideo, nextMusicVideo, nextOtherVideo, type VideoRef } from '@/lib/next-music-video'
 
 /**
- * Si lo que se ve es un video musical, deja listo el siguiente (para seguir solo al terminar o con
- * «Siguiente»). Con películas y otros videos no hace nada: devuelve next = null.
+ * Deja listo el video siguiente (para seguir al terminar o con «Siguiente»): con videos musicales,
+ * otro musical; con películas y otros, el que sigue en la lista (music dice cuál es el caso).
  */
 export function useNextMusicVideo(cur: VideoRef | null, list: VideoRef[], go: (v: VideoRef) => void, seconds = 0) {
   const [next, setNext] = useState<VideoRef | null>(null)
@@ -15,10 +15,12 @@ export function useNextMusicVideo(cur: VideoRef | null, list: VideoRef[], go: (v
   const music = !!cur && isMusicVideo(cur.title, cur.channel, seconds)
   useEffect(() => {
     setNext(null)
-    if (!cur || !music) return
+    if (!cur) return
     played.current.add(cur.id)
     let cancelled = false
-    nextMusicVideo(cur, listRef.current, played.current)
+    // Música: otro video musical. Lo demás (películas, documentales…): el que sigue en la lista
+    // o, si no hay, otro del mismo canal
+    ;(music ? nextMusicVideo(cur, listRef.current, played.current) : nextOtherVideo(cur, listRef.current, played.current))
       .then((v) => !cancelled && setNext(v))
       .catch(() => {})
     return () => {
@@ -28,5 +30,5 @@ export function useNextMusicVideo(cur: VideoRef | null, list: VideoRef[], go: (v
   const advance = useCallback(() => {
     if (next) go(next)
   }, [next, go])
-  return { next: music ? next : null, advance, music }
+  return { next, advance, music }
 }

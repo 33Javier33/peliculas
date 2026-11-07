@@ -550,6 +550,17 @@ export default function MusicPlayerBar() {
     if (!id) return
     setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
   }, [])
+  // La ventana de video sigue a la canción que suena: si tiene video, se muestra el suyo (desde
+  // donde va el audio); si no, se cierra y sigue la canción
+  const followVideo = useCallback((at?: number) => {
+    const st = useMusicStore.getState()
+    const v = st.queue[st.currentIndex]
+    const id = ytIdOf(v)
+    if (!v || !id) return setVideoModal(null)
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    const startTime = typeof at === 'number' ? at : el && isFinite(el.currentTime) ? el.currentTime + 0.8 : 0
+    setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
+  }, [])
   const closeVideo = useCallback((t?: number) => {
     setVideoModal(null)
     const el = playerRef.current as unknown as HTMLMediaElement | null
@@ -1780,6 +1791,15 @@ export default function MusicPlayerBar() {
     <>
       {videoModal && (
         <YoutubePlayer
+          key={videoModal.id}
+          onTrackChange={followVideo}
+          onNext={() => {
+            // Terminó el video: sigue la próxima canción (con su video si tiene; si no, solo audio)
+            const st = useMusicStore.getState()
+            if (st.currentIndex >= st.queue.length - 1) return setVideoModal(null)
+            st.playNext()
+            followVideo(0)
+          }}
           videoId={videoModal.id}
           title={videoModal.title}
           channelTitle={videoModal.channelTitle}

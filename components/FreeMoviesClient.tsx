@@ -310,9 +310,26 @@ export default function FreeMoviesClient() {
         </p>
       </div>
 
-      {current && <MoviePlayer movie={current} onClose={() => setCurrent(null)} />}
+      {current && (
+        <MoviePlayer
+          key={current.id}
+          movie={current}
+          onClose={() => setCurrent(null)}
+          next={nextOf(current, [...rows.map((r) => r.movies), commons, movies])}
+          onNext={(m) => setCurrent(m)}
+        />
+      )}
     </div>
   )
+}
+
+/** La película que sigue en la misma fila o lista donde estaba la elegida */
+function nextOf(cur: FreeMovie, lists: FreeMovie[][]): FreeMovie | undefined {
+  for (const list of lists) {
+    const i = list.findIndex((m) => m.id === cur.id)
+    if (i >= 0) return list[i + 1] ?? list.find((m) => m.id !== cur.id)
+  }
+  return undefined
 }
 
 function Row({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {

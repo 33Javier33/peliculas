@@ -26,6 +26,12 @@ interface YoutubePlayerProps {
   upNext?: string
   /** Video de la canción que suena (como en Spotify): botón «Canción» para volver a escucharla */
   songToggle?: boolean
+  /** Al terminar pasa solo al siguiente (si no, ofrece «Ver siguiente»). Por defecto sí */
+  autoNext?: boolean
+  /** Interruptor «Reproducción automática» (películas y videos que no son música) */
+  onToggleAutoplay?: () => void
+  /** Con el teléfono bloqueado la música pasó a otra canción: al volver no se retoma este video */
+  onTrackChange?: () => void
 }
 
 interface VideoCandidate {
@@ -65,7 +71,22 @@ export default function YoutubePlayer({
   onNext,
   upNext,
   songToggle,
+  autoNext = true,
+  onToggleAutoplay,
+  onTrackChange,
 }: YoutubePlayerProps) {
+  const onTrackChangeRef = useRef(onTrackChange)
+  onTrackChangeRef.current = onTrackChange
+  // Terminó y no sigue solo: se ofrece «Ver siguiente»
+  const [ended, setEnded] = useState(false)
+  const autoNextRef = useRef(autoNext)
+  autoNextRef.current = autoNext
+  const onEndRef = useRef<() => void>(() => {})
+  onEndRef.current = () => {
+    if (!onNextRef.current) return
+    if (autoNextRef.current) onNextRef.current()
+    else setEnded(true)
+  }
   const onNextRef = useRef(onNext)
   onNextRef.current = onNext
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -219,6 +240,13 @@ export default function YoutubePlayer({
         useMusicStore.getState().setIsPlaying(true)
       } else if (handedRef.current) {
         handedRef.current = false
+        // Mientras estaba bloqueado terminó y la música siguió con otra canción: no se vuelve al
+        // video anterior (quedaba sonando lo que ya había terminado)
+        const now = st.queue[st.currentIndex]
+        if (ytIdOf(now) !== videoId) {
+          if (onTrackChangeRef.current) onTrackChangeRef.current()
+          return
+        }
         // Donde iba el audio → el video sigue desde ahí. El audio sigue sonando hasta que el video
         // de verdad arranca (sin silencio en medio): el video empieza silenciado y al sonar se
         // apaga el audio y se le devuelve el sonido. (Se adelanta un poco lo que tarda en cargar)
@@ -303,7 +331,8 @@ export default function YoutubePlayer({
       // Ya suena el video al volver del audio: se apaga el audio y el video recupera el sonido
       if (info?.playerState === 1) finishSwapBackRef.current()
       // 0 = terminó: los videos musicales siguen con el próximo
-      if (info?.playerState === 0) onNextRef.current?.()
+      if (info?.playerState === 0) onEndRef.current()
+      else if (info?.playerState === 1) setEnded(false)
       if (data.event === 'onError') switchToAlt(true)
     }
     window.addEventListener('message', onMessage)
@@ -422,6 +451,16 @@ export default function YoutubePlayer({
           >
             <ExternalLink className="w-4 h-4" />
           </a>
+          {onNext && onToggleAutoplay && (
+            <button
+              onClick={onToggleAutoplay}
+              aria-pressed={autoNext}
+              className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-semibold ${autoNext ? 'bg-violet-500/25 text-violet-200' : 'bg-white/5 text-slate-400'}`}
+              title="Reproducción automática: al terminar sigue el próximo"
+            >
+              Auto {autoNext ? 'sí' : 'no'}
+            </button>
+          )}
           {onNext && (
             <button
               onClick={onNext}
@@ -455,6 +494,14 @@ export default function YoutubePlayer({
             className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
           >
+            {ended && onNext && (
+              <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center gap-3 p-4 text-center">
+                <p className="text-slate-300 text-sm">Terminó{upNext ? <>. Sigue: <b className="text-white">{upNext}</b></> : ''}</p>
+                <button onClick={() => (setEnded(false), onNext())} className="px-5 py-2.5 rounded-full bg-violet-500 text-white text-sm font-bold">
+                  Ver siguiente
+                </button>
+              </div>
+            )}
             {mode === 'youtube' ? (
               <iframe
                 ref={iframeRef}
@@ -472,7 +519,7 @@ export default function YoutubePlayer({
               <video
                 ref={altVideoRef}
                 key={alt.candidates[alt.index].url}
-                onEnded={() => onNextRef.current?.()}
+                onEnded={() => onEndRef.current()}
                 onPlaying={() => finishSwapBackRef.current()}
                 onLoadedMetadata={(e) => {
                   if (timeRef.current > 1) e.currentTarget.currentTime = timeRef.current

@@ -26,6 +26,9 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Video de una canción: al terminar sigue la próxima canción con su video (o solo audio si no tiene). Si mientras el teléfono estaba bloqueado la música pasó a otra canción, al volver se ve el video de esa (antes volvía al video anterior)',
+      'Videos: al terminar uno de música sigue otro solo; películas y otros videos de YouTube tienen «Auto sí/no» (reproducción automática) y si está apagado se ofrece «Ver siguiente»',
+      'Películas gratis (Pluto TV, Internet Archive…): al terminar se ofrece la siguiente y empieza sola a los 10 s (se puede cancelar)',
       'Canción/Video sin cortes: al tocar «Video» la canción sigue sonando hasta que el video arranca; si la canción ya está descargada, al bloquear el teléfono el audio sigue al instante (sin volver a cargarla); «Canción» también apaga el video cuando se ve en el reproductor',
       'Cuenta (ícono de persona) en todas las pantallas, también en el computador',
       'Ayudas «?»: un signo pequeño junto a lo importante explica cómo funciona (se pueden ocultar en Configuración)',

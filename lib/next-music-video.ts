@@ -54,3 +54,12 @@ export async function nextMusicVideo(cur: VideoRef, list: VideoRef[], played: Se
   }
   return (await search(`${artist} video oficial`)).find((v) => !played.has(v.id) && isMusicVideo(v.title, v.channel)) ?? null
 }
+
+/** Siguiente de un video que no es música: el próximo de la lista o, si no hay, otro del mismo canal */
+export async function nextOtherVideo(cur: VideoRef, list: VideoRef[], played: Set<string>): Promise<VideoRef | null> {
+  const i = list.findIndex((v) => v.id === cur.id)
+  const fromList = list.slice(i + 1).find((v) => !played.has(v.id))
+  if (fromList) return fromList
+  if (!cur.channel) return null
+  return (await search(cur.channel)).find((v) => !played.has(v.id) && v.channel === cur.channel) ?? null
+}

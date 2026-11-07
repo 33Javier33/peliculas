@@ -13,6 +13,7 @@ import YoutubePlayer from '@/components/YoutubePlayer'
 import ArchiveMoviesInline from '@/components/ArchiveMoviesInline'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
+import { useAutoplay, setAutoplay } from '@/lib/autoplay'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
 import type { YouTubeSearchItem, YouTubeVideoItem, VideoLang } from '@/lib/youtube'
 import { parseDuration, formatViewCount } from '@/lib/youtube'
@@ -296,7 +297,8 @@ export default function CineClientPage({
     return m ? Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0) : 0
   }
   const musicList = results.map((it) => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) }))
-  const { next: nextVideo, advance } = useNextMusicVideo(
+  const autoplay = useAutoplay()
+  const { next: nextVideo, advance, music: isMusic } = useNextMusicVideo(
     player ? { id: player.videoId, title: player.title, channel: player.channelTitle } : null,
     musicList,
     useCallback((v: { id: string; title: string; channel: string }) => setPlayer({ videoId: v.id, title: v.title, channelTitle: v.channel }), []),
@@ -318,6 +320,9 @@ export default function CineClientPage({
         <YoutubePlayer
           key={player.videoId}
           onNext={nextVideo ? advance : undefined}
+          autoNext={isMusic || autoplay}
+          onTrackChange={() => setPlayer(null)}
+          onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)}
           upNext={nextVideo?.title}
           videoId={player.videoId}
           title={player.title}

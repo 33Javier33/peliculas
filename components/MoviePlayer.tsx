@@ -25,7 +25,26 @@ const clock = (s: number) => {
 /** Las películas de dominio público se pueden guardar en el teléfono (Pluto TV no) */
 export const canSaveMovie = (m: FreeMovie) => m.source === 'archive' || m.source === 'commons'
 
-export default function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onClose: () => void }) {
+export default function MoviePlayer({
+  movie,
+  onClose,
+  next,
+  onNext,
+}: {
+  movie: FreeMovie
+  onClose: () => void
+  /** Al terminar se ofrece la siguiente (y empieza sola a los 10 s si no se cancela) */
+  next?: FreeMovie
+  onNext?: (m: FreeMovie) => void
+}) {
+  const [ended, setEnded] = useState(false)
+  const [countdown, setCountdown] = useState(10)
+  useEffect(() => {
+    if (!ended || !next || !onNext) return
+    if (countdown <= 0) return onNext(next)
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [ended, countdown, next, onNext])
   const videoRef = useRef<HTMLVideoElement>(null)
   const [info, setInfo] = useState<ArchiveVideo | null>(
     movie.source === 'archive' ? null : { url: movie.url, download: movie.url, subtitles: [] }
@@ -237,11 +256,29 @@ export default function MoviePlayer({ movie, onClose }: { movie: FreeMovie; onCl
             autoPlay
             poster={movie.backdrop || (movie.landscape ? movie.poster : undefined)}
             className={`w-full h-full ${casting ? 'invisible' : ''}`}
+            onEnded={() => {
+              setCountdown(10)
+              setEnded(true)
+            }}
+            onPlay={() => setEnded(false)}
           >
             {subtitles.map((s, i) => (
               <track key={s.src} kind="subtitles" src={s.src} srcLang={s.lang} label={s.label} default={i === defaultSub} />
             ))}
           </video>
+          {ended && next && onNext && (
+            <div className="absolute inset-0 z-30 bg-black/75 flex flex-col items-center justify-center gap-3 p-4 text-center">
+              <p className="text-slate-300 text-sm">Terminó. Sigue: <b className="text-white">{next.title}</b></p>
+              <div className="flex gap-2">
+                <button onClick={() => onNext(next)} className="px-5 py-2.5 rounded-full bg-violet-500 text-white text-sm font-bold">
+                  Ver siguiente ({countdown})
+                </button>
+                <button onClick={() => setEnded(false)} className="px-5 py-2.5 rounded-full bg-surface-2 border border-white/10 text-slate-200 text-sm font-semibold">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
           {!casting && levels.length > 0 && (
             <HlsQualityMenu levels={levels} pref={quality} onChange={changeQuality} className="absolute top-2 left-2 z-20" />
           )}
