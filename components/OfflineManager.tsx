@@ -24,6 +24,15 @@ export default function OfflineManager() {
     }
     const t = setTimeout(resume, 3000)
     window.addEventListener('online', resume)
+    // Las descargas que fallaron (p. ej. se cortó la conexión) se reintentan solas: al volver la
+    // conexión, al volver a la app y cada 10 minutos
+    const retry = () => navigator.onLine && useOfflineStore.getState().retryFailures()
+    const firstRetry = setTimeout(retry, 15000)
+    const every = setInterval(retry, 10 * 60 * 1000)
+    const onOnlineRetry = () => setTimeout(retry, 5000)
+    const onVisRetry = () => document.visibilityState === 'visible' && retry()
+    window.addEventListener('online', onOnlineRetry)
+    document.addEventListener('visibilitychange', onVisRetry)
     // Carátulas de tu biblioteca guardadas para verse sin internet (en segundo plano)
     const covers = setTimeout(() => warmLibraryCovers(), 8000)
     // App de Android: canciones de YouTube descargadas en Opus → otra vez en M4A (suenan siempre)

@@ -312,10 +312,20 @@ object AudioServer {
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
             setRequestProperty("User-Agent", r.userAgent)
             setRequestProperty("Range", "bytes=$start-$end")
-            connectTimeout = 15000
+            connectTimeout = 12000
             readTimeout = 30000
         }
-        val code = conn.responseCode
+        // Sin conexión con ese servidor de YouTube (se tardó o se cortó): se pide otra dirección del
+        // audio (suele ser otro servidor) y se intenta otra vez
+        val code = try {
+            conn.responseCode
+        } catch (e: java.io.IOException) {
+            conn.disconnect()
+            if (!retry) throw e
+            cache.remove(id)
+            Thread.sleep(1500)
+            return stream(id, rangeHeader, retry = false, background = background)
+        }
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
             cache.remove(id)

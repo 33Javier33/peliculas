@@ -67,6 +67,9 @@ object PhoneStorage {
             resolver.openOutputStream(uri)?.use { out ->
                 var fails = 0
                 while (true) {
+                    // Sin internet (pantalla bloqueada, cambio de Wi-Fi a datos…): se espera a que
+                    // vuelva (hasta 3 min) y se sigue desde donde quedó
+                    waitForNetwork(ctx)
                     val conn = (URL(src).openConnection() as HttpURLConnection).apply {
                         setRequestProperty("Range", "bytes=$got-${got + PART - 1}")
                         setRequestProperty("User-Agent", "Mozilla/5.0 PulsoMedia")
@@ -78,26 +81,36 @@ object PhoneStorage {
                         // El motivo (p. ej. lo que dijo YouTube) para mostrarlo en la app
                         val why = runCatching { conn.errorStream?.bufferedReader()?.use { it.readText() } }.getOrNull()?.take(200)
                         conn.disconnect()
-                        if (got == 0L && fails >= 3) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
+                        if (got == 0L && fails >= 5) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
                         // Ya llegó todo (pedir más allá del final da error) o se reintenta
                         if (got > 0 && total < 0) break
-                        if (++fails > 3) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
-                        Thread.sleep(1500L * fails)
+                        if (++fails > 5) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
+                        // Esperas cada vez más largas (3, 6, 12, 24, 48 s): la red suele volver
+                        Thread.sleep(3000L shl (fails - 1))
                         continue
                     }
                     val range = conn.getHeaderField("Content-Range")
                     total = range?.substringAfter('/')?.toLongOrNull() ?: if (code == 200) conn.contentLengthLong else total
                     var n = 0L
-                    conn.inputStream.use { inp ->
-                        val buf = ByteArray(64 * 1024)
-                        while (true) {
-                            val k = inp.read(buf)
-                            if (k < 0) break
-                            out.write(buf, 0, k)
-                            n += k
+                    // Si la conexión se corta a mitad de un tramo, se sigue desde lo ya guardado
+                    val cut = runCatching {
+                        conn.inputStream.use { inp ->
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val k = inp.read(buf)
+                                if (k < 0) break
+                                out.write(buf, 0, k)
+                                n += k
+                            }
                         }
-                    }
+                    }.exceptionOrNull()
                     conn.disconnect()
+                    if (cut != null) {
+                        got += n
+                        if (++fails > 5) throw cut
+                        Thread.sleep(3000L shl (fails - 1))
+                        continue
+                    }
                     got += n
                     if (total > 0) MainActivity.toWeb("window.__cpnStoredProgress && window.__cpnStoredProgress(${JSONObject.quote(JSONObject().put("req", req).put("f", got.toDouble() / total).toString())})")
                     if (code == 200 || n == 0L || (total in 1..got) || (total < 0 && n < PART)) break
@@ -132,6 +145,16 @@ object PhoneStorage {
             "denied"
         } catch (e: Exception) {
             "[]"
+        }
+    }
+
+    /** Espera (hasta 3 minutos) a que haya internet */
+    private fun waitForNetwork(ctx: Context) {
+        val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return
+        var waited = 0
+        while (cm.activeNetwork == null && waited < 180) {
+            Thread.sleep(2000)
+            waited += 2
         }
     }
 

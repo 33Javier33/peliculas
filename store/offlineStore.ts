@@ -46,6 +46,8 @@ export interface OfflineFailure {
   group: { id: string; title: string; cover?: string }
   reason: string
   at: number
+  /** Intentos hechos (se reintenta sola hasta 6 veces) */
+  attempts?: number
 }
 
 interface OfflineState {
@@ -53,6 +55,8 @@ interface OfflineState {
   /** Descargas que no se pudieron, con el motivo (para verlo y reintentar) */
   failures: Record<string, OfflineFailure>
   clearFailure: (key: string) => void
+  /** Vuelve a intentar sola las que fallaron (al volver la conexión, al abrir la app…) */
+  retryFailures: (manual?: boolean) => void
   progress: Record<string, OfflineProgress>
   /** Descargas pendientes (se guardan: si se corta o se cierra la app, se retoman solas) */
   queue: Record<string, QueuedGroup>
@@ -169,6 +173,16 @@ export const useOfflineStore = create<OfflineState>()(
     (set, get) => ({
       items: {},
       failures: {},
+      retryFailures: (manual = false) => {
+        const list = Object.values(get().failures).filter((f) => !get().items[f.key] && (manual || (f.attempts ?? 1) < 6))
+        const byGroup = new Map<string, { group: OfflineFailure['group']; tracks: MusicVideo[] }>()
+        for (const f of list) {
+          const g = byGroup.get(f.group.id) ?? { group: f.group, tracks: [] }
+          g.tracks.push(f.track)
+          byGroup.set(f.group.id, g)
+        }
+        for (const g of Array.from(byGroup.values())) get().download(g.group, g.tracks, !manual)
+      },
       clearFailure: (key) =>
         set((s) => {
           const failures = { ...s.failures }
@@ -253,7 +267,7 @@ export const useOfflineStore = create<OfflineState>()(
             if ((err as Error).name === 'AbortError') break
             failed++
             const reason = ((err as Error).message || 'No se pudo descargar').slice(0, 200)
-            set((s) => ({ failures: { ...s.failures, [t.audioUrl!]: { key: t.audioUrl!, track: t, group, reason, at: Date.now() } } }))
+            set((s) => ({ failures: { ...s.failures, [t.audioUrl!]: { key: t.audioUrl!, track: t, group, reason, at: Date.now(), attempts: (s.failures[t.audioUrl!]?.attempts ?? 0) + 1 } } }))
           }
           setProg({ done, failed, current: 0 })
         }

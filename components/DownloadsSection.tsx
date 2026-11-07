@@ -104,15 +104,7 @@ export default function DownloadsSection() {
           <div className="flex items-center gap-2 mb-2">
             <p className="flex-1 text-amber-200 text-sm font-semibold">No se pudieron descargar ({failedList.length})</p>
             <button
-              onClick={() => {
-                const byGroup = new Map<string, { group: OfflineFailure['group']; tracks: OfflineFailure['track'][] }>()
-                for (const f of failedList) {
-                  const g = byGroup.get(f.group.id) ?? { group: f.group, tracks: [] }
-                  g.tracks.push(f.track)
-                  byGroup.set(f.group.id, g)
-                }
-                for (const g of Array.from(byGroup.values())) useOfflineStore.getState().download(g.group, g.tracks)
-              }}
+              onClick={() => useOfflineStore.getState().retryFailures(true)}
               className="px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-bold"
             >
               Reintentar todas
@@ -124,6 +116,9 @@ export default function DownloadsSection() {
                 <span className="min-w-0 flex-1">
                   <span className="block text-white truncate">{f.track.title}</span>
                   <span className="block text-amber-200/80 break-words">Motivo: {f.reason}</span>
+                  <span className="block text-slate-500">
+                    {(f.attempts ?? 1) < 6 ? `Se vuelve a intentar sola (intento ${f.attempts ?? 1} de 6)` : 'Ya no se reintenta sola: toca «Reintentar todas»'}
+                  </span>
                 </span>
                 <button onClick={() => useOfflineStore.getState().clearFailure(f.key)} className="text-slate-400 underline shrink-0">
                   Quitar
