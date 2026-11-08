@@ -1745,8 +1745,38 @@ export default function MusicPlayerBar() {
     if (!isNativeApp()) return
     ;(window as unknown as { __cpnNativeAction?: (a: string) => void }).__cpnNativeAction = (a: string) => {
       const st = useMusicStore.getState()
-      if (a === 'play') st.setIsPlaying(true)
-      else if (a === 'pause') st.setIsPlaying(false)
+      if (a === 'play') {
+        st.setIsPlaying(true)
+        // Play desde la notificación o el widget tras un rato sin usar el teléfono: la dirección
+        // del audio pudo vencer (YouTube las da por unas horas) y no arrancaba. Si a los 3 s no
+        // avanza, se vuelve a pedir el audio desde el mismo segundo.
+        const el0 = playerRef.current as unknown as HTMLMediaElement | null
+        const t0 = el0?.currentTime ?? 0
+        setTimeout(() => {
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          if (!useMusicStore.getState().isPlaying || !el) return
+          if (!el.paused && el.currentTime > t0 + 0.5) return
+          if (!useAudioRef.current) {
+            // Sonaba por YouTube (que no suena con la app en segundo plano): se pasa al audio propio
+            window.dispatchEvent(new Event(PIP_EVENT))
+            return
+          }
+          const at = el.currentTime || t0
+          try {
+            const src = el.currentSrc || el.src
+            if (/^http:\/\/127\.0\.0\.1:\d+\/yt\//.test(src)) el.src = src.replace(/\?.*$/, '') + '?r=1'
+            else el.load()
+            const seek = () => {
+              el.removeEventListener('loadedmetadata', seek)
+              try {
+                if (at > 1) el.currentTime = at
+              } catch {}
+            }
+            el.addEventListener('loadedmetadata', seek)
+            el.play()?.catch?.(() => {})
+          } catch {}
+        }, 3000)
+      } else if (a === 'pause') st.setIsPlaying(false)
       else if (a === 'next') st.playNext()
       else if (a === 'prev') st.playPrev()
       else if (a === 'route') window.dispatchEvent(new Event('cpn-audio-route'))

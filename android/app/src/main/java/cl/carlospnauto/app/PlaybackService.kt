@@ -49,7 +49,7 @@ class PlaybackService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.channel_name), NotificationManager.IMPORTANCE_LOW))
         session = MediaSessionCompat(this, "CPN").apply {
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() = MainActivity.sendAction("play")
+                override fun onPlay() = MainActivity.play(this@PlaybackService)
                 override fun onPause() = MainActivity.sendAction("pause")
                 override fun onSkipToNext() = MainActivity.sendAction("next")
                 override fun onSkipToPrevious() = MainActivity.sendAction("prev")
@@ -71,10 +71,8 @@ class PlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PLAY -> if (MainActivity.isOpen()) MainActivity.sendAction("play")
-                // La app se cerró (p. ej. deslizada desde Recientes) pero el widget seguía con
-                // botones: se abre para que suene (antes no pasaba nada)
-                else runCatching { startActivity(MainActivity.widgetPlayIntent(this)) }
+            // Con respaldo: si la página no responde o no suena, se recupera sola (ver MainActivity.play)
+            ACTION_PLAY -> MainActivity.play(this)
             ACTION_PAUSE -> MainActivity.sendAction("pause")
             ACTION_NEXT -> MainActivity.sendAction("next")
             ACTION_PREV -> MainActivity.sendAction("prev")

@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Play desde la notificación, el widget, la pantalla bloqueada o los audífonos tras un rato sin usar el teléfono (app de Android 1.0.52): si el audio no arranca en 3 s se vuelve a pedir; si la página no responde (el teléfono la congeló o la cerró) se recupera sola y suena, sin tener que entrar',
       'Widget (app de Android 1.0.51): con la app cerrada, el play abre la app, empieza a sonar y la app vuelve sola al fondo (antes había que entrar)',
       'Descargas que se quedaban detenidas todo el día: una canción sin avance en 2 minutos se da por fallida y el teléfono la suelta; si fallan 4 seguidas se pausa y se reintenta más tarde; «Descargar toda mi biblioteca» se puede detener tocándolo y muestra disco, canción, % y fallidas',
       'Discos de Internet Archive que no cargaban con «Audio en alta calidad»: para escuchar en línea se usa el MP3 de alto bitrate en vez del FLAC pesado (30-100 MB por canción) y, si la versión de alta calidad no arranca en 8 s, suena la de siempre (antes se esperaban 40 s)',

@@ -34,6 +34,7 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun mediaState(json: String) {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
+        if (o.optBoolean("playing")) MainActivity.lastPlayingAt = System.currentTimeMillis()
         val intent = Intent(context, PlaybackService::class.java).apply {
             action = PlaybackService.ACTION_STATE
             putExtra("title", o.optString("title"))

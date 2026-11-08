@@ -120,6 +120,13 @@ class MainActivity : AppCompatActivity() {
                 if (request.isForMainFrame && !online()) view.loadUrl("file:///android_asset/offline.html")
             }
 
+            // El teléfono cerró el motor de la página para liberar memoria (pasa tras un rato sin
+            // usarlo): la app se rearma sola en vez de quedar muerta (los botones no respondían)
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                main.post { recreate() }
+                return true
+            }
+
             override fun onPageFinished(view: WebView, url: String?) {
                 // Con internet otra vez: se vuelve a cargar todo normal
                 if (online()) view.settings.cacheMode = WebSettings.LOAD_DEFAULT
@@ -229,12 +236,23 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState != null && sharedUrl(intent) == null) web.restoreState(savedInstanceState) else web.loadUrl(start)
     }
 
+    private var reloadingAt = 0L
+
+    /** Recarga la página para que vuelva a sonar (una vez cada 20 s como máximo) */
+    fun reloadToPlay() {
+        val now = System.currentTimeMillis()
+        if (now - reloadingAt < 20_000) return
+        reloadingAt = now
+        widgetPlay = true
+        web.reload()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Play del widget con la app ya cargada: suena y la app vuelve al fondo
         if (intent.action == ACTION_WIDGET_PLAY) {
-            sendAction("play")
-            main.postDelayed({ moveTaskToBack(true) }, 1200)
+            play(this)
+            main.postDelayed({ moveTaskToBack(true) }, 1500)
             return
         }
         val url = sharedUrl(intent) ?: intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: return
@@ -390,6 +408,29 @@ class MainActivity : AppCompatActivity() {
             val v = widgetPlay
             widgetPlay = false
             return v
+        }
+
+        /** Última vez que la página avisó que está sonando (mediaState con playing) */
+        @Volatile var lastPlayingAt = 0L
+
+        /**
+         * Play desde la notificación, el widget o los audífonos. Si la página no responde (el
+         * teléfono la congeló o cerró tras un rato sin usarlo) o a los 6 s no está sonando, se
+         * recarga la página y suena sola al cargar (antes había que entrar a la app).
+         */
+        fun play(c: android.content.Context) {
+            val a = current?.get()
+            if (a == null) {
+                runCatching { c.startActivity(widgetPlayIntent(c)) }
+                return
+            }
+            val asked = System.currentTimeMillis()
+            main.post {
+                a.web.evaluateJavascript("window.__cpnNativeAction ? (window.__cpnNativeAction('play'), 'ok') : 'none'") { r ->
+                    if (r?.contains("ok") != true) a.reloadToPlay()
+                }
+            }
+            main.postDelayed({ if (lastPlayingAt < asked && current?.get() === a) a.reloadToPlay() }, 6000)
         }
 
         /** La app vuelve al fondo (la música sigue) */
