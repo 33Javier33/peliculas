@@ -221,13 +221,22 @@ class MainActivity : AppCompatActivity() {
         audioCallback = callback
         getSystemService(AudioManager::class.java).registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
 
-        requestStartupPermissions()
+        // Play del widget con la app cerrada: la página empieza a sonar sola al cargar y la app se va
+        // al fondo (window.CPNNative.takeWidgetPlay / toBackground)
+        if (intent?.action == ACTION_WIDGET_PLAY) widgetPlay = true
+        else requestStartupPermissions()
         val start = sharedUrl(intent) ?: intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: BuildConfig.WEB_URL
         if (savedInstanceState != null && sharedUrl(intent) == null) web.restoreState(savedInstanceState) else web.loadUrl(start)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Play del widget con la app ya cargada: suena y la app vuelve al fondo
+        if (intent.action == ACTION_WIDGET_PLAY) {
+            sendAction("play")
+            main.postDelayed({ moveTaskToBack(true) }, 1200)
+            return
+        }
         val url = sharedUrl(intent) ?: intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: return
         openInPage(url)
     }
@@ -373,6 +382,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        const val ACTION_WIDGET_PLAY = "cl.carlospnauto.app.WIDGET_PLAY"
+        @Volatile private var widgetPlay = false
+
+        /** ¿La app se abrió con el play del widget? (una sola vez) */
+        fun takeWidgetPlay(): Boolean {
+            val v = widgetPlay
+            widgetPlay = false
+            return v
+        }
+
+        /** La app vuelve al fondo (la música sigue) */
+        fun toBackground() {
+            main.post { current?.get()?.moveTaskToBack(true) }
+        }
+
+        /** Abre la app para que suene (play del widget o de la notificación con la app cerrada) */
+        fun widgetPlayIntent(c: android.content.Context): Intent =
+            Intent(c, MainActivity::class.java).setAction(ACTION_WIDGET_PLAY).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+
         private var current: WeakReference<MainActivity>? = null
         private val main = Handler(Looper.getMainLooper())
 

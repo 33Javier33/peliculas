@@ -104,7 +104,13 @@ class PlayerWidget : AppWidgetProvider() {
                 v.setOnClickPendingIntent(R.id.widget_next, service(c, PlaybackService.ACTION_NEXT))
                 v.setOnClickPendingIntent(R.id.widget_like, service(c, PlaybackService.ACTION_LIKE))
             } else {
-                listOf(R.id.widget_prev, R.id.widget_play, R.id.widget_next, R.id.widget_like).forEach { v.setOnClickPendingIntent(it, open) }
+                listOf(R.id.widget_prev, R.id.widget_next, R.id.widget_like).forEach { v.setOnClickPendingIntent(it, open) }
+                // App cerrada: play abre la app, que empieza a sonar sola y vuelve al fondo
+                val play = PendingIntent.getActivity(
+                    c, 101, MainActivity.widgetPlayIntent(c),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                v.setOnClickPendingIntent(R.id.widget_play, play)
             }
             return v
         }

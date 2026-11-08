@@ -7,6 +7,12 @@ interface CPNNativeBridge {
   mediaState(json: string): void
   /** APK 1.0.49+: respaldo de la biblioteca en Descargas/PulsoMedia (queda al desinstalar) */
   saveBackup?(json: string): boolean
+  /** APK 1.0.51+: la app se abrió con el play del widget */
+  takeWidgetPlay?(): boolean
+  /** APK 1.0.51+: la app vuelve al fondo */
+  toBackground?(): void
+  /** APK 1.0.51+: detener una descarga al teléfono */
+  cancelStore?(req: string): void
   /** APK 1.0.21+: menú Compartir de Android */
   share?(text: string): void
 }

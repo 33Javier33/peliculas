@@ -69,6 +69,18 @@ class NativeBridge(private val context: Context) {
     fun eqNative(json: String): String = NativeEq.apply(json)
 
     // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    /** APK 1.0.51+: detener una descarga al teléfono (sin avance o cancelada) */
+    @JavascriptInterface
+    fun cancelStore(req: String) = PhoneStorage.cancel(req)
+
+    /** APK 1.0.51+: ¿la app se abrió con el play del widget? */
+    @JavascriptInterface
+    fun takeWidgetPlay(): Boolean = MainActivity.takeWidgetPlay()
+
+    /** APK 1.0.51+: la app vuelve al fondo (la música sigue) */
+    @JavascriptInterface
+    fun toBackground() = MainActivity.toBackground()
+
     /** APK 1.0.49+: respaldo de la biblioteca en Descargas/PulsoMedia (queda al desinstalar) */
     @JavascriptInterface
     fun saveBackup(json: String): Boolean = PhoneBackup.save(context, json)

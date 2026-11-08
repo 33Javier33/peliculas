@@ -4,7 +4,7 @@
 import type { MusicVideo } from '@/lib/youtube-music'
 import { create } from 'zustand'
 import { useLinksStore } from '@/store/linksStore'
-import { useOfflineStore } from '@/store/offlineStore'
+import { useOfflineStore, downloadsPausedAt } from '@/store/offlineStore'
 
 export const CONVERTED_ALBUM = 'yt-convertidas'
 
@@ -143,6 +143,14 @@ export const useLibraryJob = create<{ running: boolean; index: number; total: nu
   songs: 0,
 }))
 
+let stopLibrary = false
+/** Detiene «Descargar toda mi biblioteca» (lo que falta queda para otra vez) */
+export function stopWholeLibrary() {
+  stopLibrary = true
+  const gid = useLibraryJob.getState().gid
+  if (gid) useOfflineStore.getState().cancel(gid)
+}
+
 /**
  * Descargar toda la biblioteca: discos de la biblioteca, álbumes guardados con ♥ y Me gusta.
  * Las canciones de YouTube se convierten a audio; los álbumes guardados desde una carátula (sus
@@ -190,10 +198,12 @@ export async function downloadWholeLibrary(): Promise<number> {
     return 0
   }
   off.notify(`Descargando tu biblioteca (${jobs.length} discos)… puedes salir de la app, la descarga sigue`)
+  stopLibrary = false
   useLibraryJob.setState({ running: true, index: 0, total: jobs.length, title: '', phase: 'buscando', songs: 0 })
   let songs = 0
   try {
     for (let i = 0; i < jobs.length; i++) {
+      if (stopLibrary) break
       useLibraryJob.setState({ index: i + 1, title: jobs[i].title, phase: 'buscando' })
       const g = await jobs[i].get().catch(() => null)
       if (!g) continue
@@ -201,7 +211,13 @@ export async function downloadWholeLibrary(): Promise<number> {
       if (!list.length) continue
       songs += list.length
       useLibraryJob.setState({ phase: 'descargando', songs, gid: g.group.id })
+      const before = downloadsPausedAt()
       await useOfflineStore.getState().download(g.group, list, true)
+      // Fallaron varias seguidas: se pausa todo (lo que falta queda pendiente y se reintenta solo)
+      if (downloadsPausedAt() !== before) {
+        useOfflineStore.getState().notify('Descarga en pausa: varias canciones seguidas no se pudieron bajar (YouTube no responde o no hay internet). Se reintenta sola más tarde; también puedes tocar el botón de nuevo.')
+        return songs
+      }
     }
   } finally {
     useLibraryJob.setState({ running: false })

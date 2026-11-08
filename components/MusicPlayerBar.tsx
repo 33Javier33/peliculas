@@ -35,7 +35,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, hasNativeEq, applyNativeEq } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, hasNativeEq, applyNativeEq, getNative } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -1041,7 +1041,19 @@ export default function MusicPlayerBar() {
   }, [])
 
   const resumeTriedRef = useRef(false)
+  const widgetPlayRef = useRef(false)
   useEffect(() => {
+    // Play del widget con la app cerrada: suena solo y la app vuelve al fondo
+    if (hasHydrated && !widgetPlayRef.current) {
+      widgetPlayRef.current = true
+      const n = getNative()
+      if (n?.takeWidgetPlay?.()) {
+        resumeTriedRef.current = true
+        setIsPlaying(true)
+        setTimeout(() => n.toBackground?.(), 2500)
+        return
+      }
+    }
     if (!hasHydrated || resumeTriedRef.current) return
     resumeTriedRef.current = true
     let flag: string | null = null

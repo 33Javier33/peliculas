@@ -138,7 +138,8 @@ async function saveAudio(key: string, title: string, folder: string, max: boolea
       if ((e as Error).name === 'AbortError') throw e
       // Plan B para videos que el teléfono no logra sacar: otras fuentes públicas, desde el teléfono
       if (ytId) {
-        for (const c of await otherSources(ytId)) {
+        // (2 fuentes como máximo: con más, una canción que no sale tardaba demasiado)
+        for (const c of (await otherSources(ytId)).slice(0, 2)) {
           try {
             return await storeOnPhone(key, c, title, folder, 'm4a', onProgress, signal)
           } catch (err) {
@@ -171,6 +172,10 @@ async function saveAudio(key: string, title: string, folder: string, max: boolea
   await putFile(key, blob)
   return { size: blob.size }
 }
+
+/** Última vez que una descarga se pausó porque fallaron varias seguidas */
+let pausedAt = 0
+export const downloadsPausedAt = () => pausedAt
 
 export const useOfflineStore = create<OfflineState>()(
   persist(
@@ -241,6 +246,9 @@ export const useOfflineStore = create<OfflineState>()(
         setProg({ done: 0, total: list.length, current: 0, failed: 0 })
         let done = 0
         let failed = 0
+        // Varias seguidas que no salen (YouTube no responde desde el teléfono, sin internet…): se
+        // pausa este disco y se reintenta más tarde, en vez de pasar horas probando una tras otra
+        let streak = 0
         // De a una canción (no satura la conexión y se puede cancelar). Se toma la siguiente de la
         // cola en cada vuelta: así entran las que se agregaron mientras tanto
         const tried = new Set<string>()
@@ -271,12 +279,18 @@ export const useOfflineStore = create<OfflineState>()(
               },
             }))
             done++
+            streak = 0
             if (get().failures[t.audioUrl!]) get().clearFailure(t.audioUrl!)
           } catch (err) {
             if ((err as Error).name === 'AbortError') break
             failed++
             const reason = ((err as Error).message || 'No se pudo descargar').slice(0, 200)
             set((s) => ({ failures: { ...s.failures, [t.audioUrl!]: { key: t.audioUrl!, track: t, group, reason, at: Date.now(), attempts: (s.failures[t.audioUrl!]?.attempts ?? 0) + 1 } } }))
+            if (++streak >= 4) {
+              pausedAt = Date.now()
+              setProg({ done, failed, current: 0 })
+              break
+            }
           }
           setProg({ done, failed, current: 0 })
         }

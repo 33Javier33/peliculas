@@ -8,6 +8,7 @@ interface PhoneBridge {
   storeDownload?: (req: string, src: string, name: string, folder: string, ext: string) => void
   listStored?: () => string
   deleteStored?: (id: string) => void
+  cancelStore?: (req: string) => void
   audioPermission?: () => string
   askAudioPermission?: () => void
   audioBase: () => string
@@ -65,9 +66,40 @@ export function storeOnPhone(key: string, src: string, title: string, folder: st
     const b = bridge()
     if (!b?.storeDownload) return reject(new Error('Sin almacenamiento del teléfono'))
     const req = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
-    pending.set(req, { resolve, reject, progress: onProgress })
-    signal?.addEventListener('abort', () => {
+    // Sin ningún avance en 2 minutos (YouTube no la entrega, conexión colgada…): se da por fallida y
+    // se le pide al teléfono que la suelte, así sigue la próxima (antes la lista quedaba detenida)
+    let watchdog: ReturnType<typeof setTimeout> | undefined
+    const giveUp = () => {
+      if (!pending.has(req)) return
       pending.delete(req)
+      try {
+        b.cancelStore?.(req)
+      } catch {}
+      reject(new Error('Sin avance en 2 minutos: se reintenta más tarde'))
+    }
+    const arm = () => {
+      clearTimeout(watchdog)
+      watchdog = setTimeout(giveUp, 120_000)
+    }
+    const done = <T,>(fn: (v: T) => void) => (v: T) => {
+      clearTimeout(watchdog)
+      fn(v)
+    }
+    pending.set(req, {
+      resolve: done(resolve),
+      reject: done(reject),
+      progress: (f, bytes) => {
+        arm()
+        onProgress(f, bytes)
+      },
+    })
+    arm()
+    signal?.addEventListener('abort', () => {
+      clearTimeout(watchdog)
+      pending.delete(req)
+      try {
+        b.cancelStore?.(req)
+      } catch {}
       reject(Object.assign(new Error('cancelada'), { name: 'AbortError' }))
     })
     b.storeDownload(req, src, fileNameFor(title, key), folder || 'Canciones sueltas', ext)

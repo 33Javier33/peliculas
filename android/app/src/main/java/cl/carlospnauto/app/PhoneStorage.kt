@@ -26,6 +26,17 @@ object PhoneStorage {
     private const val TAG = "PhoneStorage"
     const val ROOT = "Music/PulsoMedia"
     private val pool = Executors.newSingleThreadExecutor()
+    // Descargas que la web dio por perdidas (2 min sin avanzar) o canceló: se dejan apenas se pueda
+    // (antes seguían ocupando la única fila de descargas y las demás esperaban)
+    private val cancelled = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun cancel(req: String) {
+        cancelled.add(req)
+    }
+
+    private fun checkCancel(req: String) {
+        if (req in cancelled) throw IllegalStateException("cancelada")
+    }
     private const val PART = 6L * 1024 * 1024
 
     /** Avance a la web: fracción (o -1 si no se sabe el total) y bytes ya guardados */
@@ -45,6 +56,8 @@ object PhoneStorage {
      */
     fun store(ctx: Context, req: String, src: String, name: String, folder: String, ext: String) {
         pool.execute {
+            // Ya cancelada mientras esperaba su turno: ni se empieza
+            if (cancelled.remove(req)) return@execute
             val r = runCatching {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) throw IllegalStateException("Android 10 o más nuevo")
                 save(ctx, req, src, name, folder, ext)
@@ -52,6 +65,7 @@ object PhoneStorage {
             val o = JSONObject().put("req", req)
             r.onSuccess { (id, size) -> o.put("ok", true).put("id", id).put("size", size) }
             r.onFailure { e -> o.put("ok", false).put("error", e.message ?: "error"); Log.w(TAG, "No se guardó $name: ${e.message}") }
+            cancelled.remove(req)
             MainActivity.toWeb("window.__cpnStored && window.__cpnStored(${JSONObject.quote(o.toString())})")
         }
     }
@@ -76,7 +90,8 @@ object PhoneStorage {
                 while (true) {
                     // Sin internet (pantalla bloqueada, cambio de Wi-Fi a datos…): se espera a que
                     // vuelva (hasta 3 min) y se sigue desde donde quedó
-                    waitForNetwork(ctx)
+                    checkCancel(req)
+                    waitForNetwork(ctx, req)
                     val conn = (URL(src).openConnection() as HttpURLConnection).apply {
                         setRequestProperty("Range", "bytes=$got-${got + PART - 1}")
                         setRequestProperty("User-Agent", "Mozilla/5.0 PulsoMedia")
@@ -93,6 +108,7 @@ object PhoneStorage {
                         if (got > 0 && total < 0) break
                         if (++fails > 5) throw IllegalStateException(why?.ifBlank { null } ?: "La descarga respondió $code")
                         // Esperas cada vez más largas (3, 6, 12, 24, 48 s): la red suele volver
+                        checkCancel(req)
                         Thread.sleep(3000L shl (fails - 1))
                         continue
                     }
@@ -109,6 +125,7 @@ object PhoneStorage {
                                 if (k < 0) break
                                 out.write(buf, 0, k)
                                 n += k
+                                checkCancel(req)
                                 // Avance varias veces por segundo (antes solo al final de cada tramo
                                 // de 6 MB: una canción pasaba de 0 a 100 % de golpe)
                                 val now = System.currentTimeMillis()
@@ -164,10 +181,11 @@ object PhoneStorage {
     }
 
     /** Espera (hasta 3 minutos) a que haya internet */
-    private fun waitForNetwork(ctx: Context) {
+    private fun waitForNetwork(ctx: Context, req: String) {
         val cm = ctx.getSystemService(android.net.ConnectivityManager::class.java) ?: return
         var waited = 0
         while (cm.activeNetwork == null && waited < 180) {
+            checkCancel(req)
             Thread.sleep(2000)
             waited += 2
         }

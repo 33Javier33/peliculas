@@ -71,7 +71,10 @@ class PlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PLAY -> MainActivity.sendAction("play")
+            ACTION_PLAY -> if (MainActivity.isOpen()) MainActivity.sendAction("play")
+                // La app se cerró (p. ej. deslizada desde Recientes) pero el widget seguía con
+                // botones: se abre para que suene (antes no pasaba nada)
+                else runCatching { startActivity(MainActivity.widgetPlayIntent(this)) }
             ACTION_PAUSE -> MainActivity.sendAction("pause")
             ACTION_NEXT -> MainActivity.sendAction("next")
             ACTION_PREV -> MainActivity.sendAction("prev")
