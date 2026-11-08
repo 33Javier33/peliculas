@@ -17,7 +17,7 @@ jobs:
           echo "== archivo (rango)"; curl -s -L -r 0-1000 -o /dev/null -w "%{http_code} %{time_total}s %{url_effective}\n" "https://archive.org/download/$ID/$F"
           echo "== API sitio archive-audio"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/archive-audio?by=all&q=grateful%20dead" | head -c 400; echo
           echo "== API audio-link"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/audio-link?url=https://archive.org/details/$ID" | head -c 600; echo
-          echo "== API archive-best"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/archive-best?json=1&u=https://archive.org/download/$ID/$F" | head -c 400; echo
+          echo "== API archive-best stream"; curl -s "$S/api/archive-best?json=1&stream=1&u=https://archive.org/download/$ID/$F"; echo; echo "== API archive-best"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/archive-best?json=1&u=https://archive.org/download/$ID/$F" | head -c 400; echo
           echo "== API archive-audio info"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/archive-audio?info=$ID" | head -c 400; echo
           echo "== radio archive"; curl -s -w "\n%{http_code} %{time_total}s\n" "$S/api/archive-radio?genre=rock" | head -c 400; echo
       - name: navegador real
@@ -32,7 +32,7 @@ jobs:
             p.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text().slice(0, 200)))
             p.on('requestfailed', (r) => /archive|stream|audio/.test(r.url()) && console.log('FALLO', r.url().slice(0, 140), r.failure()?.errorText))
             p.on('response', (r) => /archive\.org\/download|ia\d+\.us\.archive\.org/.test(r.url()) && console.log('RESP', r.status(), r.url().slice(0, 140)))
-            await p.addInitScript(() => sessionStorage.setItem('cpn-splash-seen', '1'))
+            await p.addInitScript(() => { sessionStorage.setItem('cpn-splash-seen', '1'); if (!localStorage.getItem('carlospn-music-store')) localStorage.setItem('carlospn-music-store', JSON.stringify({ version: 2, state: { albumsSplit: true, saved: [], savedAlbums: [], queue: [], currentIndex: 0, audioBoost: true } })) })
             await p.goto('https://peliculas-neon.vercel.app/music/archive/' + process.env.ID, { waitUntil: 'domcontentloaded' })
             await p.waitForTimeout(8000)
             console.log('PAGINA:', (await p.locator('main, body').first().innerText()).slice(0, 300).replace(/\n+/g, ' | '))
@@ -47,4 +47,4 @@ jobs:
             await b.close()
           })()
           JS
-          node t.js
+          sleep 120; node t.js

@@ -139,6 +139,7 @@ interface ArchiveFile {
   artist?: string
   creator?: string
   length?: string
+  size?: string
 }
 
 const firstText = (v: unknown): string => (Array.isArray(v) ? firstText(v[0]) : typeof v === 'string' ? v : '')
@@ -267,8 +268,9 @@ const bestCache = new Map<string, { at: number; url: string }>()
  * La mejor versión de una canción de archive.org: dado el archivo (p. ej. el VBR MP3), busca en el
  * disco el original o la copia de mayor calidad de esa misma canción.
  */
-export async function bestArchiveFile(fileUrl: string): Promise<string> {
-  const hit = bestCache.get(fileUrl)
+export async function bestArchiveFile(fileUrl: string, stream = false): Promise<string> {
+  const cacheKey = stream ? `s:${fileUrl}` : fileUrl
+  const hit = bestCache.get(cacheKey)
   if (hit && Date.now() - hit.at < 24 * 3600_000) return hit.url
   let u: URL
   try {
@@ -292,9 +294,14 @@ export async function bestArchiveFile(fileUrl: string): Promise<string> {
   if (!me) return fileUrl
   const song = (me.source === 'derivative' && me.original) || me.name
   const same = files.filter((f) => f.name === song || (f.source === 'derivative' && f.original === song))
-  const best = same.filter((f) => qualityRank(f) >= 0).sort((a, b) => qualityRank(a) - qualityRank(b))[0]
+  // Para escuchar en línea (no descargar): un FLAC de 30-100 MB por canción (a menudo 24 bits /
+  // 96 kHz) en el teléfono se quedaba cargando. Se prefiere el MP3 de alto bitrate; el FLAC solo si
+  // es liviano (≤ 35 MB); si no, el archivo de siempre.
+  const usable = (f: ArchiveFile) => !stream || !/flac|wav|aiff/i.test(f.format || '') || (Number(f.size) > 0 && Number(f.size) <= 35 * 1024 * 1024)
+  const rank = (f: ArchiveFile) => (stream && /flac/i.test(f.format || '') ? 2.5 : qualityRank(f))
+  const best = same.filter((f) => qualityRank(f) >= 0 && usable(f)).sort((a, b) => rank(a) - rank(b))[0]
   const url = best ? `${ARCHIVE}/download/${encodeURIComponent(id)}/${best.name.split('/').map(encodeURIComponent).join('/')}` : fileUrl
-  bestCache.set(fileUrl, { at: Date.now(), url })
+  bestCache.set(cacheKey, { at: Date.now(), url })
   if (bestCache.size > 3000) bestCache.delete(bestCache.keys().next().value as string)
   return url
 }

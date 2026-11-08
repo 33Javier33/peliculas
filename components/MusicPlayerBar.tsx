@@ -476,7 +476,7 @@ export default function MusicPlayerBar() {
     const ytLocal = ytConv ? nativeAudioUrl(ytConv[1]) : null
     if (ytLocal) list.push(ytLocal)
     // Alta calidad: el original de archive.org (FLAC / MP3 320) antes que la copia liviana
-    if (hqArchive && isArchiveFile(direct)) list.push(`/api/archive-best?u=${encodeURIComponent(direct)}`)
+    if (hqArchive && isArchiveFile(direct)) list.push(`/api/archive-best?stream=1&u=${encodeURIComponent(direct)}`)
     // Directo primero (comprobado en todos los navegadores, con ecualizador incluido); por el
     // teléfono queda de respaldo (en algunos Android ese camino no suena y saltaba las canciones)
     list.push(direct)
@@ -1002,7 +1002,10 @@ export default function MusicPlayerBar() {
       // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
       // (los reintentos, ?r=1 y ?r=2, ya encuentran el audio buscado: 10 s)
       const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 10000 : 20000) : START_MS
-      const limit = isLive ? LIVE_STALL_MS : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? startLimit : STALL_MS
+      // La versión de alta calidad de archive.org que no arranca en 8 s se cambia por la de siempre
+      // (antes se esperaban 40 s: parecía que los discos no cargaban)
+      const hqStart = !!audioUrl?.includes('/api/archive-best') && lastTime <= 0
+      const limit = isLive ? LIVE_STALL_MS : hqStart ? 8000 : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? startLimit : STALL_MS
       if (Date.now() - lastProgressRef.current < limit) return
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()

@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Discos de Internet Archive que no cargaban con «Audio en alta calidad»: para escuchar en línea se usa el MP3 de alto bitrate en vez del FLAC pesado (30-100 MB por canción) y, si la versión de alta calidad no arranca en 8 s, suena la de siempre (antes se esperaban 40 s)',
       'Descargas con barra que se va llenando (y un brillo mientras avanza) en canciones, álbumes, videos y «Descargar toda mi biblioteca»; al tocar se ve al instante «En cola…» y luego «preparando», los MB o el % (app de Android 1.0.50: el avance llega varias veces por segundo, antes saltaba de 0 a 100 %)',
       '«Canción» en el reproductor se respeta: deja de mostrar el video (también en los que venían de Videos) y apaga «Ver siempre el video» para las que siguen. Para ver un video: «Video»',
       'Música en modo video: al salir de la app ya no se detiene (YouTube se pausaba solo y se tomaba como una pausa tuya); si el teléfono no abre la ventanita, pasa al audio y sigue sonando',
