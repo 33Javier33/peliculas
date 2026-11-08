@@ -28,6 +28,13 @@ object PhoneStorage {
     private val pool = Executors.newSingleThreadExecutor()
     private const val PART = 6L * 1024 * 1024
 
+    /** Avance a la web: fracción (o -1 si no se sabe el total) y bytes ya guardados */
+    private fun sendProgress(req: String, bytes: Long, total: Long) {
+        val f = if (total > 0) (bytes.toDouble() / total).coerceAtMost(1.0) else -1.0
+        val o = JSONObject().put("req", req).put("f", f).put("b", bytes)
+        MainActivity.toWeb("window.__cpnStoredProgress && window.__cpnStoredProgress(${JSONObject.quote(o.toString())})")
+    }
+
     fun supported() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
     private fun clean(s: String, max: Int) = s.replace(Regex("[\\\\/:*?\"<>|\\x00-\\x1f]+"), " ").replace(Regex("\\s+"), " ").trim().take(max).ifBlank { "Canción" }
@@ -96,11 +103,19 @@ object PhoneStorage {
                     val cut = runCatching {
                         conn.inputStream.use { inp ->
                             val buf = ByteArray(64 * 1024)
+                            var lastSent = 0L
                             while (true) {
                                 val k = inp.read(buf)
                                 if (k < 0) break
                                 out.write(buf, 0, k)
                                 n += k
+                                // Avance varias veces por segundo (antes solo al final de cada tramo
+                                // de 6 MB: una canción pasaba de 0 a 100 % de golpe)
+                                val now = System.currentTimeMillis()
+                                if (now - lastSent > 250) {
+                                    lastSent = now
+                                    sendProgress(req, got + n, total)
+                                }
                             }
                         }
                     }.exceptionOrNull()
@@ -112,7 +127,7 @@ object PhoneStorage {
                         continue
                     }
                     got += n
-                    if (total > 0) MainActivity.toWeb("window.__cpnStoredProgress && window.__cpnStoredProgress(${JSONObject.quote(JSONObject().put("req", req).put("f", got.toDouble() / total).toString())})")
+                    sendProgress(req, got, total)
                     if (code == 200 || n == 0L || (total in 1..got) || (total < 0 && n < PART)) break
                 }
             } ?: throw IllegalStateException("No se pudo escribir")

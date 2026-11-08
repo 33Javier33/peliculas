@@ -30,6 +30,10 @@ export interface OfflineProgress {
   /** Avance de la canción que se está descargando (0..1) */
   current: number
   failed: number
+  /** Canción que se está bajando ahora (su dirección) */
+  key?: string
+  /** Bytes ya guardados de esa canción (cuando no se sabe el total) */
+  bytes?: number
 }
 
 /** ¿Se puede descargar? (archivos de audio: discos de archive.org y enlaces MP3; no YouTube) */
@@ -126,7 +130,7 @@ const extOf = (key: string, src: string) =>
  * Guarda una canción. App de Android: como archivo de música del teléfono (no se borra al
  * desinstalar la app). Navegador: dentro de la app (IndexedDB).
  */
-async function saveAudio(key: string, title: string, folder: string, max: boolean, onProgress: (f: number) => void, signal: AbortSignal): Promise<{ size: number; phoneId?: number }> {
+async function saveAudio(key: string, title: string, folder: string, max: boolean, onProgress: (f: number, bytes?: number) => void, signal: AbortSignal): Promise<{ size: number; phoneId?: number }> {
   const ytId = key.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)?.[1]
   if (phoneStorageAvailable()) {
     const src = await sourceFor(key, max)
@@ -248,7 +252,8 @@ export const useOfflineStore = create<OfflineState>()(
           try {
             // Máxima calidad: el mejor archivo de esa canción (FLAC / MP3 320 en archive.org)
             const max = getDownloadQuality() === 'max'
-            const saved = await saveAudio(t.audioUrl!, t.title, group.title, max, (f) => setProg({ current: f }), ctrl.signal)
+            setProg({ current: 0, key: t.audioUrl, bytes: 0 })
+            const saved = await saveAudio(t.audioUrl!, t.title, group.title, max, (f, b) => setProg(f >= 0 ? { current: f, bytes: b } : { bytes: b }), ctrl.signal)
             set((s) => ({
               items: {
                 ...s.items,
@@ -314,7 +319,8 @@ export const useOfflineStore = create<OfflineState>()(
           if (ctrl.signal.aborted) break
           try {
             // Se reemplaza recién cuando la nueva está completa (si falla, queda la anterior)
-            const saved = await saveAudio(it.key, it.track.title, it.groupTitle, true, (f) => setProg({ current: f }), ctrl.signal)
+            setProg({ current: 0, key: it.key, bytes: 0 })
+            const saved = await saveAudio(it.key, it.track.title, it.groupTitle, true, (f, b) => setProg(f >= 0 ? { current: f, bytes: b } : { bytes: b }), ctrl.signal)
             if (it.phoneId && saved.phoneId !== it.phoneId) deleteFromPhone(it.phoneId)
             if (saved.phoneId && !it.phoneId) deleteFile(it.key).catch(() => {})
             set((s) => ({ items: { ...s.items, [it.key]: { ...s.items[it.key], size: saved.size, hq: true, phoneId: saved.phoneId } } }))

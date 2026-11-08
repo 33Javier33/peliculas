@@ -8,6 +8,7 @@ import { formatSize } from '@/lib/offline-files'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { songGroup } from '@/components/OfflineIcons'
 import { convertedTrack, saveConverted, CONVERTED_ALBUM } from '@/lib/yt-convert'
+import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 // Descargar la canción que suena (para escucharla sin internet). Queda en "Descargadas", junto
 // a su disco si es de uno guardado o en "Canciones sueltas"
@@ -19,10 +20,14 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
   useLinksStore((s) => s.albums.length)
   const group = ytId ? { id: CONVERTED_ALBUM, title: 'Convertidas de YouTube' } : songGroup(video)
   const progress = useOfflineStore((s) => s.progress[group.id])
+  // ¿Esta canción ya está pedida (bajándose o esperando su turno en su grupo)?
+  const queued = useOfflineStore((s) => !!key && !!s.queue[group.id]?.tracks.some((t) => t.audioUrl === key))
+  const mine = progress?.key === key ? progress : undefined
+  const [starting, setStarting] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [note, setNote] = useState('')
 
-  const base = `flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${className}`
+  const base = `relative overflow-hidden flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${className}`
 
   if (!canDownload(video) && !ytId)
     return (
@@ -53,16 +58,26 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
       </button>
     )
 
-  if (progress)
+  if (mine || queued || starting)
     return (
-      <button onClick={() => useOfflineStore.getState().cancel(group.id)} className={`${base} bg-violet-500/15 border-violet-400/40 text-violet-200`} aria-label="Cancelar descarga">
-        <Loader2 className="w-4 h-4 animate-spin" /> Descargando {Math.round(progress.current * 100)}%
+      <button onClick={() => useOfflineStore.getState().cancel(group.id)} className={`${base} bg-violet-500/10 border-violet-400/40 text-violet-100`} aria-label="Cancelar descarga">
+        <ProgressFill value={mine && mine.current > 0 ? mine.current : null} />
+        <span className="relative flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          {mine ? `Descargando ${progressText(mine)}` : 'En cola…'}
+        </span>
       </button>
     )
 
   return (
     <button
-      onClick={() => (ytId ? saveConverted([convertedTrack(video)], true) : useOfflineStore.getState().download(group, [video]))}
+      onClick={() => {
+        // Se ve al instante que empezó (antes no cambiaba nada hasta que llegaba el primer avance)
+        setStarting(true)
+        setTimeout(() => setStarting(false), 4000)
+        if (ytId) saveConverted([convertedTrack(video)], true)
+        else useOfflineStore.getState().download(group, [video])
+      }}
       className={`${base} bg-surface-1/80 border-white/8 text-slate-200`}
       title={ytId ? 'Convierte la canción a audio y la guarda sin internet' : undefined}
     >

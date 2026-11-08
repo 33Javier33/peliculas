@@ -1,4 +1,5 @@
 'use client'
+import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle2, X, Loader2, Trash2 } from 'lucide-react'
@@ -29,17 +30,20 @@ export default function DownloadButton({
   const skipped = tracks.length - downloadable.length
   const have = downloadable.filter((t) => items[t.audioUrl!])
   const size = have.reduce((sum, t) => sum + (items[t.audioUrl!]?.size ?? 0), 0)
-  const base = `inline-flex items-center gap-1.5 rounded-full border text-xs font-semibold ${compact ? 'px-3 py-1.5' : 'px-4 py-2.5 text-sm'}`
+  const base = `relative overflow-hidden inline-flex items-center gap-1.5 rounded-full border text-xs font-semibold ${compact ? 'px-3 py-1.5' : 'px-4 py-2.5 text-sm'}`
 
   if (!downloadable.length)
     return skipped && !compact ? <span className="text-slate-500 text-xs">Las canciones de YouTube no se pueden descargar</span> : null
 
   if (progress) {
-    const pct = Math.round(((progress.done + progress.current) / progress.total) * 100)
+    const all = (progress.done + progress.current) / progress.total
     return (
-      <button onClick={() => cancel(group.id)} className={`${base} bg-violet-500/15 border-violet-400/40 text-violet-200`} aria-label="Cancelar descarga">
-        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Descargando {progress.done + 1}/{progress.total} · {pct}%
-        <X className="w-3.5 h-3.5 opacity-70" />
+      <button onClick={() => cancel(group.id)} className={`${base} bg-violet-500/10 border-violet-400/40 text-violet-100`} aria-label="Cancelar descarga">
+        <ProgressFill value={all > 0 ? all : null} />
+        <span className="relative inline-flex items-center gap-1.5">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Descargando {Math.min(progress.done + 1, progress.total)}/{progress.total} · {progressText(progress)}
+          <X className="w-3.5 h-3.5 opacity-70" />
+        </span>
       </button>
     )
   }

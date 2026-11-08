@@ -42,7 +42,7 @@ export function parseFileName(name: string): { key: string; title: string } | nu
 export const phoneAudioUrl = (id: number) => `${bridge()?.audioBase()}/m/${id}`
 
 // Respuestas de Android (descarga terminada, avance)
-const pending = new Map<string, { resolve: (r: { id: number; size: number }) => void; reject: (e: Error) => void; progress: (f: number) => void }>()
+const pending = new Map<string, { resolve: (r: { id: number; size: number }) => void; reject: (e: Error) => void; progress: (f: number, bytes?: number) => void }>()
 if (typeof window !== 'undefined') {
   const w = window as unknown as Record<string, unknown>
   w.__cpnStored = (json: string) => {
@@ -54,13 +54,13 @@ if (typeof window !== 'undefined') {
     else p.reject(new Error(o.error || 'No se pudo guardar'))
   }
   w.__cpnStoredProgress = (json: string) => {
-    const o = JSON.parse(json) as { req: string; f: number }
-    pending.get(o.req)?.progress(o.f)
+    const o = JSON.parse(json) as { req: string; f: number; b?: number }
+    pending.get(o.req)?.progress(o.f, o.b)
   }
 }
 
 /** Descarga `src` y la guarda en Música/PulsoMedia/<folder> */
-export function storeOnPhone(key: string, src: string, title: string, folder: string, ext: string, onProgress: (f: number) => void, signal?: AbortSignal): Promise<{ id: number; size: number }> {
+export function storeOnPhone(key: string, src: string, title: string, folder: string, ext: string, onProgress: (f: number, bytes?: number) => void, signal?: AbortSignal): Promise<{ id: number; size: number }> {
   return new Promise((resolve, reject) => {
     const b = bridge()
     if (!b?.storeDownload) return reject(new Error('Sin almacenamiento del teléfono'))

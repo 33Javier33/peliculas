@@ -134,3 +134,9 @@ html.cpn-hidden *::before,
 html.cpn-hidden *::after {
   animation-play-state: paused !important;
 }
+
+/* Brillo que corre sobre las barras de descarga */
+@keyframes cpn-shimmer {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(300%); }
+}

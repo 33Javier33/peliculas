@@ -1,4 +1,5 @@
 'use client'
+import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 import { useState } from 'react'
 import { Download, Loader2, CheckCircle2 } from 'lucide-react'
@@ -49,7 +50,7 @@ export default function AlbumDownloadButton({
     state === 'done'
       ? `Descargado · ${saved} canciones`
       : state === 'progress'
-        ? `Descargando ${Math.min(progress!.done + 1, progress!.total)}/${progress!.total} · ${Math.round(progress!.current * 100)}%`
+        ? `Descargando ${Math.min(progress!.done + 1, progress!.total)}/${progress!.total} · ${progressText(progress)}`
         : state === 'busy'
           ? 'Buscando las canciones…'
           : note || (saved ? `Descargar el resto (${saved}/${total})` : 'Descargar álbum')
@@ -59,22 +60,24 @@ export default function AlbumDownloadButton({
     return (
       <button
         onClick={start}
-        className={`w-8 h-8 rounded-full backdrop-blur-md flex items-center justify-center ${state === 'done' ? 'bg-emerald-500 text-white' : 'bg-black/55 text-white hover:text-cyan-300'} ${className}`}
+        className={`relative overflow-hidden w-8 h-8 rounded-full backdrop-blur-md flex items-center justify-center ${state === 'done' ? 'bg-emerald-500 text-white' : 'bg-black/55 text-white hover:text-cyan-300'} ${className}`}
         aria-label={state === 'done' ? `${album.title} descargado` : `Descargar ${album.title}`}
         title={label}
       >
-        {icon}
+        {state === 'progress' && <ProgressFill value={(progress!.done + progress!.current) / progress!.total || null} className="bg-cyan-400/45" />}
+        <span className="relative">{icon}</span>
       </button>
     )
   return (
     <button
       onClick={start}
-      className={`inline-flex items-center gap-2 h-12 px-5 rounded-full border text-sm font-semibold ${
+      className={`relative overflow-hidden inline-flex items-center gap-2 h-12 px-5 rounded-full border text-sm font-semibold ${
         state === 'done' ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300' : 'bg-surface-2/80 border-white/10 text-slate-100'
       } ${className}`}
       aria-label={label}
     >
-      {icon} {label}
+      {(state === 'progress' || state === 'busy') && <ProgressFill value={progress ? (progress.done + progress.current) / progress.total || null : null} />}
+      <span className="relative inline-flex items-center gap-2">{icon} {label}</span>
     </button>
   )
 }

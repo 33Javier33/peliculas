@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Descargas con barra que se va llenando (y un brillo mientras avanza) en canciones, álbumes, videos y «Descargar toda mi biblioteca»; al tocar se ve al instante «En cola…» y luego «preparando», los MB o el % (app de Android 1.0.50: el avance llega varias veces por segundo, antes saltaba de 0 a 100 %)',
       '«Canción» en el reproductor se respeta: deja de mostrar el video (también en los que venían de Videos) y apaga «Ver siempre el video» para las que siguen. Para ver un video: «Video»',
       'Música en modo video: al salir de la app ya no se detiene (YouTube se pausaba solo y se tomaba como una pausa tuya); si el teléfono no abre la ventanita, pasa al audio y sigue sonando',
       'Video de una canción: al terminar sigue la próxima canción con su video (o solo audio si no tiene). Si mientras el teléfono estaba bloqueado la música pasó a otra canción, al volver se ve el video de esa (antes volvía al video anterior)',

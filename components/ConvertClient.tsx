@@ -1,4 +1,5 @@
 'use client'
+import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 import HelpTip from '@/components/HelpTip'
 
@@ -173,7 +174,7 @@ function Row({ track, onPlay }: { track: MusicVideo; onPlay: () => void }) {
         <span className="block text-white text-sm font-semibold line-clamp-2">{name.replace(/^.+?\s[-–—]\s/, '')}</span>
         <span className="block text-slate-400 text-xs truncate">
           {track.channelTitle}
-          {item ? ` · sin internet · ${formatSize(item.size)}` : queued && progress ? ` · convirtiendo ${Math.round(progress.current * 100)}%` : ''}
+          {item ? ` · sin internet · ${formatSize(item.size)}` : queued && progress ? ` · convirtiendo ${progressText(progress)}` : ''}
         </span>
       </span>
       {item ? (
