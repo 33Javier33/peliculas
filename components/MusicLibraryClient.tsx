@@ -269,8 +269,14 @@ export default function MusicLibraryClient() {
     byOrder(saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name && (!artist || (t.artist ?? parseTrackMeta(t).artist) === artist)))
   // ===== Quitar un álbum de la biblioteca (y su descarga) =====
   const [toDelete, setToDelete] = useState<{ name: string; artist?: string } | null>(null)
+  // Una canción: sale de la biblioteca (también de Me gusta y de su disco) y se borra su descarga
+  const removeSong = (t: MusicVideo) => removeTracks([t], false, `«${t.title.replace(/^.+?\s[-–—]\s/, '')}» se quitó de tu biblioteca`)
   const deleteAlbum = (al: { name: string; artist?: string }, keepInLibrary = false) => {
-    const tracks = tracksOfAlbum(al.name, al.artist)
+    removeTracks(tracksOfAlbum(al.name, al.artist), keepInLibrary, keepInLibrary ? `Se borró la descarga de «${al.name}»` : `«${al.name}» se quitó de tu biblioteca`)
+    if (!keepInLibrary && selectedAlbum === al.name) setSelectedAlbum(null)
+    setToDelete(null)
+  }
+  const removeTracks = (tracks: MusicVideo[], keepInLibrary: boolean, notice: string) => {
     const ids = new Set(tracks.map((t) => t.id))
     // Sus descargas (también las convertidas de YouTube: /api/stream?id=…), del teléfono y de la app
     const keyOf = (t: MusicVideo) => [t.audioUrl, /^[A-Za-z0-9_-]{11}$/.test(t.id) ? `/api/stream?id=${t.id}` : ''].filter(Boolean) as string[]
@@ -292,10 +298,8 @@ export default function MusicLibraryClient() {
       useOfflineStore.setState((st) => ({
         failures: Object.fromEntries(Object.entries(st.failures).filter(([k, f]) => !keys.has(k) && !ids.has(f.track.id))),
       }))
-      if (selectedAlbum === al.name) setSelectedAlbum(null)
     }
-    useOfflineStore.getState().notify(keepInLibrary ? `Se borró la descarga de «${al.name}»` : `«${al.name}» se quitó de tu biblioteca${dl.length ? ' y del teléfono' : ''}`)
-    setToDelete(null)
+    useOfflineStore.getState().notify(`${notice}${!keepInLibrary && dl.length ? ' y del teléfono' : ''}`)
   }
   // Al abrir un artista: primero sus discos (al tocar uno se ven sus canciones)
   const artistAlbums = useMemo(() => (selectedArtist ? albums.filter((a) => a.artist === selectedArtist) : []), [albums, selectedArtist])
@@ -822,16 +826,7 @@ export default function MusicLibraryClient() {
                             >
                               <Heart className={`w-4 h-4 ${likedIds.has(track.id) ? 'fill-purple-400' : ''}`} />
                             </button>
-                            {!likedIds.has(track.id) && (
-                              <button
-                                onClick={() => removeSaved(track.id)}
-                                className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white"
-                                aria-label="Quitar de la biblioteca"
-                                title="Quitar de la biblioteca"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            )}
+                            <TrashConfirm overlay onConfirm={() => removeSong(track)} label={track.title} />
                           </div>
                         </div>
                       )
@@ -929,19 +924,7 @@ export default function MusicLibraryClient() {
                           >
                             <Heart className={`w-4 h-4 ${likedIds.has(track.id) ? 'fill-purple-500' : ''}`} />
                           </button>
-                          {!likedIds.has(track.id) && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeSaved(track.id)
-                              }}
-                              className="p-2 text-slate-600 hover:text-white transition-colors"
-                              aria-label="Quitar de la biblioteca"
-                              title="Quitar de la biblioteca"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
+                          <TrashConfirm onConfirm={() => removeSong(track)} label={track.title} />
                         </div>
                       </li>
                     ))}
@@ -1207,5 +1190,37 @@ function PlaylistsTab({ view }: { view: 'list' | 'grid' }) {
         </div>
       )}
     </div>
+  )
+}
+
+/** Basurero de una canción: el primer toque pide confirmar («¿Quitar?»), el segundo la quita */
+function TrashConfirm({ onConfirm, label, overlay = false }: { onConfirm: () => void; label: string; overlay?: boolean }) {
+  const [ask, setAsk] = useState(false)
+  useEffect(() => {
+    if (!ask) return
+    const t = setTimeout(() => setAsk(false), 3500)
+    return () => clearTimeout(t)
+  }, [ask])
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        if (ask) onConfirm()
+        else setAsk(true)
+      }}
+      className={
+        ask
+          ? `h-8 px-2.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center gap-1`
+          : overlay
+            ? 'w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-red-300'
+            : 'p-2 text-slate-500 hover:text-red-300 transition-colors'
+      }
+      aria-label={ask ? `Confirmar: quitar ${label}` : `Quitar ${label} de la biblioteca`}
+      title="Quitar de la biblioteca (y borrar su descarga)"
+    >
+      <Trash2 className="w-4 h-4" />
+      {ask && '¿Quitar?'}
+    </button>
   )
 }

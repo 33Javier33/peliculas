@@ -78,6 +78,8 @@ class MainActivity : AppCompatActivity() {
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         setContentView(root)
         current = WeakReference(this)
+        // Chromecast: la app busca las TV de la casa (para transmitir sin duplicar pantalla)
+        NativeCast.init(this)
         root.setBackgroundColor(0xFF0B0C10.toInt())
         // Android 15 dibuja la app detrás de la barra de estado y la de navegación: se deja el
         // espacio de ambas (y del teclado) para que la página no quede tapada. En pantalla
@@ -408,6 +410,11 @@ class MainActivity : AppCompatActivity() {
             val v = widgetPlay
             widgetPlay = false
             return v
+        }
+
+        /** Hace algo con la app abierta, en el hilo principal (Chromecast necesita la pantalla) */
+        fun onMain(fn: (MainActivity) -> Unit) {
+            main.post { current?.get()?.let(fn) }
         }
 
         /** Última vez que la página avisó que está sonando (mediaState con playing) */

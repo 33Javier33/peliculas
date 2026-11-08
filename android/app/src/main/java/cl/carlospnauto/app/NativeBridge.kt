@@ -70,6 +70,20 @@ class NativeBridge(private val context: Context) {
     fun eqNative(json: String): String = NativeEq.apply(json)
 
     // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    /** APK 1.0.53+: transmitir a la TV (Chromecast) desde la app */
+    @JavascriptInterface
+    fun castMedia(json: String) = MainActivity.onMain { NativeCast.cast(it, json) }
+
+    @JavascriptInterface
+    fun castStop() = MainActivity.onMain { NativeCast.stop() }
+
+    @JavascriptInterface
+    fun castControl(action: String) = MainActivity.onMain { NativeCast.control(action) }
+
+    /** TV sin Chromecast: abre «Transmitir / Smart View» del teléfono directo */
+    @JavascriptInterface
+    fun openMirroring() = MainActivity.onMain { NativeCast.openMirroring(it) }
+
     /** APK 1.0.51+: detener una descarga al teléfono (sin avance o cancelada) */
     @JavascriptInterface
     fun cancelStore(req: String) = PhoneStorage.cancel(req)

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { Cast, MonitorSmartphone, Tv2, X, Airplay } from 'lucide-react'
 import { create } from 'zustand'
+import { nativeCast, nativeCastAvailable, nativeCastStop, openMirroring, canOpenMirroring } from '@/lib/native-cast'
 
 type TvState = '' | 'loading' | 'playing' | 'error'
 
@@ -210,7 +211,19 @@ export default function CastButton({
     }
   }
 
+  // App de Android: la TV se elige en la lista de la app (Chromecast / Google TV)
+  const [native, setNative] = useState(false)
+  useEffect(() => setNative(nativeCastAvailable()), [])
+  const castNative = () => {
+    const m = mediaRef.current
+    const video = videoRef.current
+    nativeCast({ url: m.url, title: m.title, image: m.poster, live: m.live, video: true, kind: 'video', position: !m.live && video && video.currentTime > 5 ? video.currentTime : 0 })
+    video?.pause()
+    setOpen(false)
+  }
+
   const stopCasting = () => {
+    if (native) nativeCastStop()
     window.cast?.framework.CastContext.getInstance().endCurrentSession(true)
     lastSent.current = ''
     setTvState('')
@@ -284,7 +297,23 @@ export default function CastButton({
             )}
 
             <div className="space-y-2">
-              {castReady && (
+              {native && (
+                <Option
+                  icon={<Cast className="w-5 h-5" />}
+                  title={castingTo ? `Enviar a ${castingTo}` : 'Chromecast / Google TV'}
+                  text="Elige tu TV aquí mismo: la TV reproduce sola y puedes usar el teléfono."
+                  onClick={castNative}
+                />
+              )}
+              {native && canOpenMirroring() && (
+                <Option
+                  icon={<MonitorSmartphone className="w-5 h-5" />}
+                  title="Otra TV (Smart View, Miracast…)"
+                  text="Abre directo «Transmitir / Duplicar pantalla» del teléfono para elegir la TV."
+                  onClick={() => (openMirroring(), setOpen(false))}
+                />
+              )}
+              {castReady && !native && (
                 <Option
                   icon={<Cast className="w-5 h-5" />}
                   title={castingTo ? 'Enviar este video a la TV' : 'Chromecast / Google TV'}
@@ -302,7 +331,7 @@ export default function CastButton({
 
             {message && <p className="mt-3 text-amber-300 text-sm">{message}</p>}
 
-            <div className="mt-4 rounded-2xl bg-surface-2/60 border border-white/8 p-4">
+            {!native && <div className="mt-4 rounded-2xl bg-surface-2/60 border border-white/8 p-4">
               <p className="flex items-center gap-2 text-white font-semibold text-sm mb-2">
                 <MonitorSmartphone className="w-5 h-5 text-violet-300" /> Duplicar pantalla (screen mirroring)
               </p>
@@ -317,7 +346,7 @@ export default function CastButton({
                 <li>Luego pon el video en pantalla completa y gira el teléfono.</li>
                 <li>El teléfono y la TV deben estar en la misma red Wi-Fi.</li>
               </ul>
-            </div>
+            </div>}
           </div>
         </div>
       )}

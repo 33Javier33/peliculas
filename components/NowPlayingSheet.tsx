@@ -14,6 +14,7 @@ import SongDownloadButton from '@/components/SongDownloadButton'
 import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
 import {
+  Cast,
   ChevronDown,
   ListMusic,
   Heart,
@@ -57,6 +58,11 @@ interface NowPlayingSheetProps {
   onWatchVideo?: () => void
   /** La canción se está viendo como video en el reproductor (no en la ventana aparte) */
   videoOn?: boolean
+  /** App de Android: mandar lo que suena a la TV (Chromecast) */
+  onCast?: () => void
+  /** TV en la que suena ahora (null si no) */
+  castDevice?: string | null
+  onCastStop?: () => void
   /** Pasar de ese video a solo la canción (audio), desde el mismo segundo */
   onSongOnly?: () => void
   isAudioLoading: boolean
@@ -75,6 +81,9 @@ export default function NowPlayingSheet({
   onWatchVideo,
   videoOn,
   onSongOnly,
+  onCast,
+  castDevice,
+  onCastStop,
   isAudioLoading,
   played,
   duration,
@@ -457,6 +466,26 @@ export default function NowPlayingSheet({
             </span>
           </button>
 
+          )}
+
+          {/* En la TV: lo que suena va a la TV (la TV sigue la cola sola) */}
+          {castDevice ? (
+            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 px-4 py-3">
+              <Cast className="w-5 h-5 text-emerald-300 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-emerald-200 text-sm font-semibold truncate">Sonando en {castDevice}</span>
+                <span className="block text-slate-400 text-xs">Siguiente y anterior cambian la canción en la TV</span>
+              </span>
+              <button onClick={onCastStop} className="shrink-0 text-xs font-bold text-white bg-white/10 rounded-full px-3 py-1.5">
+                Detener
+              </button>
+            </div>
+          ) : (
+            onCast && (
+              <button onClick={onCast} className="mt-6 w-full flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display">
+                <Cast className="w-4 h-4" /> Escuchar en la TV
+              </button>
+            )
           )}
 
           {/* Acciones */}

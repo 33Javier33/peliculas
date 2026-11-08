@@ -53,6 +53,9 @@ import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equa
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
+import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
+import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind } from '@/lib/native-cast'
+import { useCastStore } from '@/components/CastButton'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
@@ -79,6 +82,8 @@ function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
 function loadWebCandidates(id: string): Promise<AudioCandidate[]> {
   let p = audioCache.get(id)
   if (!p) {
+    // Copia guardada en el dispositivo (audio de un video ya visto): primero, al instante
+    const saved = cachedYtAudio(id).catch(() => null)
     p = fetch(`/api/audio?id=${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : { candidates: [] }))
       .then((d: { candidates?: AudioCandidate[] }) => d.candidates ?? [])
@@ -93,7 +98,9 @@ function loadWebCandidates(id: string): Promise<AudioCandidate[]> {
               .catch(() => [] as AudioCandidate[])
               .then((mine) => [...mine, ...c])
       )
-      .then((c) => {
+      .then(async (c) => {
+        const mine = await saved
+        if (mine) c = [{ url: mine, mimeType: 'audio/mp4', bitrate: 130000, source: 'app' as const }, ...c]
         if (c.length === 0) {
           audioCache.delete(id)
           // Varias canciones seguidas sin audio: por un rato no se espera (se evita la demora)
@@ -733,6 +740,15 @@ export default function MusicPlayerBar() {
         return
       }
       setAudioSrc({ id: currentId, candidates: orderCandidates(candidates, useMusicStore.getState().audioBoost), index: 0 })
+      // Web, viéndose como video: su audio se guarda en el dispositivo; al minimizar o bloquear
+      // sigue desde esa copia al instante (como en la app de Android)
+      if (!wantAudio && !isNativeApp()) {
+        const id = currentId
+        cacheYtAudio(id).then((url) => {
+          if (!url || cancelled) return
+          setAudioSrc((prev) => (prev && prev.id === id && !useAudioRef.current && !prev.candidates.some((c) => c.url === url) ? { ...prev, candidates: [{ url, mimeType: 'audio/mp4', bitrate: 130000, source: 'app' }, ...prev.candidates], index: 0 } : prev))
+        })
+      }
     }), delay)
     return () => {
       cancelled = true
@@ -761,6 +777,8 @@ export default function MusicPlayerBar() {
     const switchIfNeeded = (e?: Event) => {
       const st = useMusicStore.getState()
       if (e?.type === 'visibilitychange') playingAtHide = document.visibilityState === 'hidden' && (st.isPlaying || playingAtHide)
+      // Computador: el video sigue sonando solo al minimizar o cambiar de pestaña (no se corta)
+      if (!isNativeApp() && isDesktop() && !bgActiveRef.current) return
       if (appHidden()) {
         // Sonaba al bloquear (YouTube ya pudo haberse pausado solo): se sigue con el audio propio
         if (!(st.isPlaying || hiddenWantRef.current || playingAtHide) || useAudioRef.current) return
@@ -1795,6 +1813,47 @@ export default function MusicPlayerBar() {
     }
   }, [])
 
+  // ===== Transmitir la música o la radio a la TV (app de Android, Chromecast) =====
+  const castDevice = useCastStore((s) => s.device)
+  const castingMusic = !!castDevice && castKind() === 'music'
+  const castingMusicRef = useRef(false)
+  castingMusicRef.current = castingMusic
+  const castTrack = useCallback((position = 0) => {
+    const st = useMusicStore.getState()
+    const v = st.queue[st.currentIndex]
+    if (!v) return
+    const yt = ytIdOf(v)
+    const base = { title: v.title.replace(/^.+?\s[-–—]\s/, ''), subtitle: v.channelTitle, image: v.thumbnail, position, kind: 'music' as const }
+    if (v.streamUrl) nativeCast({ ...base, url: v.streamUrl, live: true })
+    else if (v.audioUrl && !/^\/api\/stream\?id=/.test(v.audioUrl)) nativeCast({ ...base, url: v.audioUrl })
+    else if (yt) nativeCast({ ...base, yt, video: !!v.isVideo })
+    else return
+    st.setIsPlaying(false)
+  }, [])
+  // En la TV: al cambiar de canción, la TV pone la nueva; al terminar en la TV, sigue la cola
+  const castedIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!castingMusic || !currentId) return
+    if (castedIdRef.current === null) castedIdRef.current = currentId
+    if (castedIdRef.current === currentId) return
+    castedIdRef.current = currentId
+    castTrack(0)
+  }, [castingMusic, currentId, castTrack])
+  useEffect(() => {
+    if (!castingMusic) castedIdRef.current = null
+  }, [castingMusic])
+  useEffect(() => {
+    const ended = () => castingMusicRef.current && useMusicStore.getState().playNext()
+    window.addEventListener('cpn-cast-ended', ended)
+    return () => window.removeEventListener('cpn-cast-ended', ended)
+  }, [])
+  // Con la música en la TV el teléfono no suena: «reproducir» le dice a la TV que siga
+  useEffect(() => {
+    if (!castingMusic || !isPlaying) return
+    setIsPlaying(false)
+    nativeCastControl('play')
+  }, [castingMusic, isPlaying, setIsPlaying])
+
   // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)
   // Como en Spotify: canción o video. También las convertidas a audio o descargadas (su video sigue en YouTube)
   const canWatchVideo = !!currentVideo && !isLive && !isLocalFile && !isPending && !!ytIdOf(currentVideo)
@@ -1888,6 +1947,19 @@ export default function MusicPlayerBar() {
               }
             : undefined
         }
+        onCast={
+          nativeCastAvailable() && currentVideo
+            ? () => {
+                castedIdRef.current = currentId ?? null
+                castTrack(isLive ? 0 : localPlayed * localDuration)
+              }
+            : undefined
+        }
+        castDevice={castingMusic ? castDevice : null}
+        onCastStop={() => {
+          nativeCastStop()
+          setIsPlaying(true)
+        }}
         videoOn={asVideo && !useAudio}
         onSongOnly={() => {
           // «Canción» es una elección que se respeta: se apaga «Ver siempre el video» (las que

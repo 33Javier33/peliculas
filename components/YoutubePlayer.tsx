@@ -6,6 +6,8 @@ import CastButton, { loadCast } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
 import { isNativeApp, nativePrefetch } from '@/lib/native'
+import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
+import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 
 interface YoutubePlayerProps {
@@ -117,6 +119,14 @@ export default function YoutubePlayer({
   const tvSessionRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const castToTv = async () => {
     setTvError('')
+    // App de Android: la TV se elige en la lista de la app y reproduce el video sola
+    if (nativeCastAvailable()) {
+      nativeCast({ yt: videoId, video: true, title, subtitle: channelTitle, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, position: timeRef.current, kind: 'video' })
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
+      altVideoRef.current?.pause()
+      setCastOpen(false)
+      return
+    }
     setTvStatus('connecting')
     if (!(await loadCast())) return setTvStatus('unsupported')
     const cast = (window as any).chrome?.cast // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -206,10 +216,16 @@ export default function YoutubePlayer({
     return () => clearTimeout(t)
   }, [])
   useEffect(() => {
-    if (ytPlaying && isNativeApp()) nativePrefetch(videoId)
+    if (!ytPlaying) return
+    // App de Android: el teléfono deja listo su audio. Web: el audio del video se guarda en el
+    // dispositivo (al minimizar o bloquear sigue desde esa copia, como en la app)
+    if (isNativeApp()) nativePrefetch(videoId)
+    else cacheYtAudio(videoId)
   }, [ytPlaying, videoId])
   useEffect(() => {
-    if (!isNativeApp()) return
+    // En el computador los videos siguen sonando solos al minimizar o cambiar de pestaña: no se
+    // cambia nada. En el teléfono (app o navegador) se pasa al audio al bloquear o salir.
+    if (!isNativeApp() && isDesktop()) return
     const command = (func: string, args: unknown[] = []) =>
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
     const onVis = () => {
@@ -652,7 +668,7 @@ export default function YoutubePlayer({
                   <span className="block text-white font-semibold text-sm">
                     {tvStatus === 'connecting' ? 'Conectando con la TV…' : 'Transmitir a Chromecast / Google TV'}
                   </span>
-                  <span className="block text-slate-400 text-xs">La TV abre YouTube y pone este video desde el mismo segundo.</span>
+                  <span className="block text-slate-400 text-xs">{nativeCastAvailable() ? 'Elige tu TV aquí mismo: pone este video desde el mismo segundo.' : 'La TV abre YouTube y pone este video desde el mismo segundo.'}</span>
                 </span>
               </button>
             )}
@@ -666,6 +682,20 @@ export default function YoutubePlayer({
                 <span className="text-slate-300 text-sm">Enviar esta fuente con Chromecast o AirPlay</span>
               </div>
             )}
+            {canOpenMirroring() ? (
+              <button
+                onClick={() => (openMirroring(), setCastOpen(false))}
+                className="w-full flex items-center gap-3 text-left rounded-2xl bg-surface-2/60 border border-white/8 px-4 py-3"
+              >
+                <span className="shrink-0 w-10 h-10 rounded-full bg-surface-1 text-violet-300 flex items-center justify-center">
+                  <MonitorSmartphone className="w-5 h-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-white font-semibold text-sm">Otra TV (Smart View, Miracast…)</span>
+                  <span className="block text-slate-400 text-xs">Abre directo «Transmitir / Duplicar pantalla» del teléfono para elegir la TV.</span>
+                </span>
+              </button>
+            ) : (
             <div className="rounded-2xl bg-surface-2/60 border border-white/8 p-4">
               <p className="flex items-center gap-2 text-white font-semibold text-sm mb-2">
                 <MonitorSmartphone className="w-5 h-5 text-violet-300" /> Duplicar pantalla
@@ -681,6 +711,7 @@ export default function YoutubePlayer({
                 <li>Luego pon el video en pantalla completa.</li>
               </ul>
             </div>
+            )}
           </div>
         </div>
       )}

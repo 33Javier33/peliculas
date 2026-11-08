@@ -26,6 +26,9 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Transmitir a la TV desde la app (Android 1.0.53): videos, música y radios van a tu Chromecast / Google TV eligiendo la TV en la propia app (sin duplicar pantalla); la música sigue la cola en la TV. Para otras TV, un botón abre directo «Transmitir / Smart View» del teléfono',
+      'Web como la app: el audio de los videos queda guardado en el dispositivo y, al minimizar o bloquear el teléfono, sigue sonando desde esa copia; en el computador el video sigue sonando al cambiar de pestaña o minimizar',
+      'Biblioteca: basurero en cada canción para quitarla (toca dos veces para confirmar), también dentro de un álbum; se borra su descarga',
       'Quitar un álbum: en Biblioteca → Álbumes, el basurero de cada disco (o «Quitar álbum» al abrirlo) lo saca de tu biblioteca y borra su descarga del teléfono; o solo borra la descarga y lo deja en la biblioteca',
       'Play desde la notificación, el widget, la pantalla bloqueada o los audífonos tras un rato sin usar el teléfono (app de Android 1.0.52): si el audio no arranca en 3 s se vuelve a pedir; si la página no responde (el teléfono la congeló o la cerró) se recupera sola y suena, sin tener que entrar',
       'Widget (app de Android 1.0.51): con la app cerrada, el play abre la app, empieza a sonar y la app vuelve sola al fondo (antes había que entrar)',

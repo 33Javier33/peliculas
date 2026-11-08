@@ -34,7 +34,7 @@ object AudioServer {
     fun start() {
         if (server != null) return
         val s = object : NanoHTTPD("127.0.0.1", 0) {
-            override fun serve(session: IHTTPSession): Response = handle(session)
+            override fun serve(session: IHTTPSession): Response = handle(session, session.uri)
         }
         s.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
         server = s
@@ -51,8 +51,7 @@ object AudioServer {
         return r
     }
 
-    private fun handle(session: NanoHTTPD.IHTTPSession): NanoHTTPD.Response {
-        val path = session.uri
+    private fun handle(session: NanoHTTPD.IHTTPSession, path: String): NanoHTTPD.Response {
         // Verificación previa del navegador (CORS / acceso a la red local)
         if (session.method == NanoHTTPD.Method.OPTIONS) {
             val r = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NO_CONTENT, "text/plain", "")
@@ -79,6 +78,15 @@ object AudioServer {
                 streamFile(u, session.headers["range"])
             } catch (e: Exception) {
                 Log.w(TAG, "Sin archivo $u: ${e.message}")
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
+            }
+        }
+        // Video de YouTube (con su sonido, para la TV): /v/ID
+        Regex("^/v/([A-Za-z0-9_-]{11})$").find(path)?.let { vm ->
+            return try {
+                stream(vm.groupValues[1], session.headers["range"], retry = true, video = true)
+            } catch (e: Exception) {
+                Log.w(TAG, "Sin video para ${vm.groupValues[1]}: ${e.message}")
                 cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
             }
         }
@@ -184,6 +192,69 @@ object AudioServer {
         val r = Resolved(url, best.format?.mimeType ?: "audio/mp4", ua, System.currentTimeMillis())
         cache[id] = r
         return r
+    }
+
+    // ===== Video para la TV (Chromecast) =====
+    // La TV recibe un solo archivo con imagen y sonido (MP4 «progresivo»: el que YouTube da con
+    // ambos juntos). Pasa por el teléfono, que lo pide con su conexión y sus permisos.
+    private val vcache = ConcurrentHashMap<String, Resolved>()
+
+    private fun resolveVideo(id: String, fresh: Boolean): Resolved {
+        val hit = vcache[id]
+        if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
+        val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+        val muxed = info.videoStreams.filter { !it.isVideoOnly && it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+        fun height(v: org.schabi.newpipe.extractor.stream.VideoStream) = v.resolution.filter { it.isDigit() }.take(4).toIntOrNull() ?: 0
+        val best = muxed.filter { it.format == MediaFormat.MPEG_4 }.maxByOrNull { height(it) }
+            ?: muxed.maxByOrNull { height(it) }
+            ?: throw IllegalStateException("sin video")
+        val url = best.content
+        val loc: Localization? = null
+        val ua = if (YoutubeParsingHelper.isVisionOsStreamingUrl(url)) YoutubeParsingHelper.getVisionOsUserAgent(loc) else OkDownloader.USER_AGENT
+        val r = Resolved(url, best.format?.mimeType ?: "video/mp4", ua, System.currentTimeMillis())
+        vcache[id] = r
+        return r
+    }
+
+    // ===== Servidor para la TV =====
+    // La TV (Chromecast) no puede entrar al servidor interno del teléfono (127.0.0.1): este otro
+    // escucha en la red de la casa, solo con una clave al azar en la dirección (/c/CLAVE/…).
+    private var castServer: NanoHTTPD? = null
+    val castToken: String = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
+    @Volatile var castPort: Int = 0
+        private set
+
+    fun startCastServer(): Boolean {
+        if (castServer != null) return true
+        return runCatching {
+            val s = object : NanoHTTPD(0) {
+                override fun serve(session: IHTTPSession): Response {
+                    val prefix = "/c/$castToken"
+                    if (!session.uri.startsWith("$prefix/")) return newFixedLengthResponse(Response.Status.FORBIDDEN, "text/plain", "no")
+                    return handle(session, session.uri.removePrefix(prefix))
+                }
+            }
+            s.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true)
+            castServer = s
+            castPort = s.listeningPort
+            true
+        }.getOrDefault(false)
+    }
+
+    /** IP del teléfono en la red de la casa (Wi-Fi) */
+    fun lanIp(): String? = runCatching {
+        java.net.NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }
+            .filterIsInstance<java.net.Inet4Address>()
+            .firstOrNull { it.isSiteLocalAddress }?.hostAddress
+    }.getOrNull()
+
+    /** Dirección base para la TV: http://IP:PUERTO/c/CLAVE */
+    fun castBase(): String? {
+        if (!startCastServer()) return null
+        val ip = lanIp() ?: return null
+        return "http://$ip:$castPort/c/$castToken"
     }
 
     // ===== Siguiente canción lista de antemano =====
@@ -297,16 +368,16 @@ object AudioServer {
         return out.toByteArray()
     }
 
-    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false): NanoHTTPD.Response {
+    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false, video: Boolean = false): NanoHTTPD.Response {
         // Rango pedido por el reproductor (o desde el inicio), en tramos
         val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
-        val head = heads[id]
+        val head = if (video) null else heads[id]
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
-        val r = resolve(id, fresh = !retry, background = background)
+        val r = if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
@@ -322,14 +393,14 @@ object AudioServer {
         } catch (e: java.io.IOException) {
             conn.disconnect()
             if (!retry) throw e
-            cache.remove(id)
+            if (video) vcache.remove(id) else cache.remove(id)
             Thread.sleep(1500)
-            return stream(id, rangeHeader, retry = false, background = background)
+            return stream(id, rangeHeader, retry = false, background = background, video = video)
         }
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
-            cache.remove(id)
-            return stream(id, rangeHeader, retry = false, background = background)
+            if (video) vcache.remove(id) else cache.remove(id)
+            return stream(id, rangeHeader, retry = false, background = background, video = video)
         }
         if (code != 200 && code != 206) {
             conn.disconnect()

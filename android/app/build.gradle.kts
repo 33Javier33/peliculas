@@ -75,4 +75,7 @@ dependencies {
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     // Reloj (Wear OS): mensajes entre la app del reloj y la del teléfono
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    // Transmitir a la TV (Chromecast / Google TV) desde la app
+    implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
 }
