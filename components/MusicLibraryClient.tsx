@@ -27,6 +27,7 @@ import { readSession, patchSession } from '@/lib/session-cache'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
+  Trash2,
   Heart,
   Play,
   Plus,
@@ -266,6 +267,36 @@ export default function MusicLibraryClient() {
   // Un disco es suyo y de su artista: los recopilatorios con el mismo nombre quedan separados
   const tracksOfAlbum = (name: string, artist?: string) =>
     byOrder(saved.filter((t) => (t.album ?? parseTrackMeta(t).album) === name && (!artist || (t.artist ?? parseTrackMeta(t).artist) === artist)))
+  // ===== Quitar un álbum de la biblioteca (y su descarga) =====
+  const [toDelete, setToDelete] = useState<{ name: string; artist?: string } | null>(null)
+  const deleteAlbum = (al: { name: string; artist?: string }, keepInLibrary = false) => {
+    const tracks = tracksOfAlbum(al.name, al.artist)
+    const ids = new Set(tracks.map((t) => t.id))
+    // Sus descargas (también las convertidas de YouTube: /api/stream?id=…), del teléfono y de la app
+    const keyOf = (t: MusicVideo) => [t.audioUrl, /^[A-Za-z0-9_-]{11}$/.test(t.id) ? `/api/stream?id=${t.id}` : ''].filter(Boolean) as string[]
+    const keys = new Set(tracks.flatMap(keyOf))
+    const offline = useOfflineStore.getState()
+    const dl = Object.values(offline.items).filter((i) => keys.has(i.key) || ids.has(i.track.id)).map((i) => i.key)
+    if (dl.length) offline.removeKeys(dl)
+    if (!keepInLibrary) {
+      // Sale de todas partes: Me gusta, álbumes guardados y discos de enlaces / Internet Archive
+      useMusicStore.setState((st) => ({
+        saved: st.saved.filter((t) => !ids.has(t.id)),
+        savedAlbums: st.savedAlbums.map((a) => ({ ...a, tracks: a.tracks.filter((t) => !ids.has(t.id)) })).filter((a) => a.tracks.length),
+      }))
+      useLinksStore.setState((st) => ({
+        tracks: st.tracks.filter((t) => !ids.has(t.id)),
+        albums: st.albums.map((a) => ({ ...a, trackIds: a.trackIds.filter((id) => !ids.has(id)) })).filter((a) => a.trackIds.length),
+      }))
+      // Tampoco queda pendiente de descarga
+      useOfflineStore.setState((st) => ({
+        failures: Object.fromEntries(Object.entries(st.failures).filter(([k, f]) => !keys.has(k) && !ids.has(f.track.id))),
+      }))
+      if (selectedAlbum === al.name) setSelectedAlbum(null)
+    }
+    useOfflineStore.getState().notify(keepInLibrary ? `Se borró la descarga de «${al.name}»` : `«${al.name}» se quitó de tu biblioteca${dl.length ? ' y del teléfono' : ''}`)
+    setToDelete(null)
+  }
   // Al abrir un artista: primero sus discos (al tocar uno se ven sus canciones)
   const artistAlbums = useMemo(() => (selectedArtist ? albums.filter((a) => a.artist === selectedArtist) : []), [albums, selectedArtist])
   const [showArtistSongs, setShowArtistSongs] = useState(false)
@@ -362,6 +393,36 @@ export default function MusicLibraryClient() {
 
   return (
     <div className="pt-20 min-h-screen bg-obsidian pb-32">
+      {/* Quitar un álbum: de la biblioteca y del teléfono, o solo su descarga */}
+      {toDelete && (() => {
+        const tr = tracksOfAlbum(toDelete.name, toDelete.artist)
+        const keys = new Set(tr.flatMap((t) => [t.audioUrl, /^[A-Za-z0-9_-]{11}$/.test(t.id) ? `/api/stream?id=${t.id}` : ''].filter(Boolean) as string[]))
+        const ids = new Set(tr.map((t) => t.id))
+        const dlCount = Object.values(downloadedItems).filter((i) => keys.has(i.key) || ids.has(i.track.id)).length
+        return (
+          <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={`Quitar ${toDelete.name}`}>
+            <button className="absolute inset-0 bg-black/60" onClick={() => setToDelete(null)} aria-label="Cancelar" />
+            <div className="relative w-full max-w-sm rounded-t-3xl sm:rounded-2xl bg-surface-1 border border-white/10 p-5 pb-[max(20px,env(safe-area-inset-bottom))]">
+              <p className="text-white font-bold">Quitar «{toDelete.name}»</p>
+              <p className="text-slate-400 text-sm mt-1">
+                {tr.length} {tr.length === 1 ? 'canción' : 'canciones'}
+                {dlCount ? ` · ${dlCount} descargadas en el teléfono` : ''}. Sus canciones con ♥ también salen de Me gusta.
+              </p>
+              <div className="mt-4 flex flex-col gap-2">
+                <button onClick={() => deleteAlbum(toDelete)} className="w-full py-3 rounded-full bg-red-500 text-white text-sm font-bold">
+                  Quitar de la biblioteca{dlCount ? ' y borrar la descarga' : ''}
+                </button>
+                {dlCount > 0 && (
+                  <button onClick={() => deleteAlbum(toDelete, true)} className="w-full py-3 rounded-full bg-surface-2 border border-white/10 text-slate-200 text-sm font-semibold">
+                    Solo borrar la descarga (queda en la biblioteca)
+                  </button>
+                )}
+                <button onClick={() => setToDelete(null)} className="w-full py-2.5 text-slate-400 text-sm">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
@@ -559,6 +620,14 @@ export default function MusicLibraryClient() {
                 >
                   <ListPlus className="w-3.5 h-3.5" /> Todas a una playlist
                 </button>
+                {selectedAlbum && (
+                  <button
+                    onClick={() => setToDelete({ name: selectedAlbum, artist: selectedArtist ?? undefined })}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border border-red-400/30 text-red-300 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Quitar álbum
+                  </button>
+                )}
               </div>
             )}
 
@@ -972,6 +1041,14 @@ export default function MusicLibraryClient() {
                           </span>
                         </span>
                         <GroupDownloadIcon group={{ id: `lib-album-${al.name}-${al.artist}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name, al.artist)} />
+                        <button
+                          onClick={(e) => (e.stopPropagation(), setToDelete(al))}
+                          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-red-300 hover:bg-red-500/10"
+                          aria-label={`Quitar ${al.name}`}
+                          title="Quitar el álbum"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <PlayBtn list={tracksOfAlbum(al.name, al.artist)} label={al.name} />
                       </li>
                     ))}
@@ -989,6 +1066,14 @@ export default function MusicLibraryClient() {
                         <span className="absolute top-2 right-2 z-[1]">
                           <GroupDownloadIcon overlay group={{ id: `lib-album-${al.name}-${al.artist}`, title: al.name, cover: al.cover }} tracks={tracksOfAlbum(al.name, al.artist)} />
                         </span>
+                        <button
+                          onClick={(e) => (e.stopPropagation(), setToDelete(al))}
+                          className="absolute top-2 left-2 z-[1] w-8 h-8 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-red-300"
+                          aria-label={`Quitar ${al.name}`}
+                          title="Quitar el álbum"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                         <div className="relative aspect-square bg-surface-2">
                           <span className="absolute right-2 bottom-2 z-[1]">
                             <PlayBtn overlay list={tracksOfAlbum(al.name, al.artist)} label={al.name} />
