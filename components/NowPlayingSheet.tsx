@@ -255,7 +255,7 @@ export default function NowPlayingSheet({
               <button
                 role="tab"
                 aria-selected={!videoOn}
-                onClick={() => videoOn && onSongOnly?.()}
+                onClick={() => onSongOnly?.()}
                 className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${!videoOn ? 'bg-white text-black' : 'text-slate-200'}`}
               >
                 <Headphones className="w-4 h-4" /> Canción

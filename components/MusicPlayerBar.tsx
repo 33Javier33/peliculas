@@ -45,7 +45,7 @@ import { useEqStore } from '@/store/eqStore'
 import { fetchRadioTracks } from '@/lib/archive-radio-client'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import { isArchiveFile } from '@/lib/audio-quality'
-import { useAlwaysVideo } from '@/lib/always-video'
+import { useAlwaysVideo, getAlwaysVideo, setAlwaysVideo } from '@/lib/always-video'
 import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
@@ -513,16 +513,17 @@ export default function MusicPlayerBar() {
   // «Ver siempre el video» (Configuración): las canciones de YouTube se ven como video; al bloquear
   // o salir de la app pasan al audio y al volver, otra vez al video (desde donde iba)
   const alwaysVideo = useAlwaysVideo()
+  // («Canción» elegida en el reproductor —o el audio que toma el relevo al bloquear— se respeta
+  // siempre, también en los videos que venían de la sección Videos)
   const asVideo =
-    !!currentVideo?.isVideo ||
-    (alwaysVideo &&
-      !!currentVideo &&
-      // (el audio que toma el relevo de un video al bloquear el teléfono sigue siendo audio)
-      !(currentVideo as { forceAudio?: boolean }).forceAudio &&
+    !!currentVideo &&
+    !(currentVideo as { forceAudio?: boolean }).forceAudio &&
+    (!!currentVideo.isVideo ||
+      (alwaysVideo &&
       /^[A-Za-z0-9_-]{11}$/.test(currentVideo.id) &&
       !currentVideo.audioUrl &&
       !currentVideo.streamUrl &&
-      !currentVideo.pending)
+      !currentVideo.pending))
   const wantAudio = !!currentId && !asVideo && !audioFailedIds.has(currentId) && !audioSourcesDown()
   // Viéndose como video: el teléfono deja listo su audio (al bloquear, el cambio es al instante)
   useEffect(() => {
@@ -1844,7 +1845,11 @@ export default function MusicPlayerBar() {
         }
         videoOn={asVideo && !useAudio}
         onSongOnly={() => {
-          // Del video a solo la canción (audio propio), desde el mismo segundo
+          // «Canción» es una elección que se respeta: se apaga «Ver siempre el video» (las que
+          // siguen también van como canción) y, si se veía el video, sigue solo el audio desde el
+          // mismo segundo. Para ver un video: «Video».
+          if (getAlwaysVideo()) setAlwaysVideo(false)
+          if (!(asVideo && !useAudio)) return
           const st = useMusicStore.getState()
           pendingSeekRef.current = localPlayedRef.current
           useMusicStore.setState({ queue: st.queue.map((x, i) => (i === st.currentIndex ? { ...x, forceAudio: true } : x)) })
