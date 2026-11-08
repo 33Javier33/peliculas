@@ -99,8 +99,8 @@ object NativeCast {
         if (url.isBlank()) return report("error")
         val video = o.optBoolean("video") || o.optString("kind") == "video"
         val meta = MediaMetadata(if (video) MediaMetadata.MEDIA_TYPE_MOVIE else MediaMetadata.MEDIA_TYPE_MUSIC_TRACK).apply {
-            putString(MediaMetadata.KEY_TITLE, o.optString("title", "PulsoMedia"))
-            putString(if (video) MediaMetadata.KEY_SUBTITLE else MediaMetadata.KEY_ARTIST, o.optString("subtitle", "PulsoMedia"))
+            putString(MediaMetadata.KEY_TITLE, o.optString("title", "Pulso"))
+            putString(if (video) MediaMetadata.KEY_SUBTITLE else MediaMetadata.KEY_ARTIST, o.optString("subtitle", ""))
             o.optString("image").takeIf { it.startsWith("http") }?.let { addImage(WebImage(Uri.parse(it))) }
         }
         val mime = when {

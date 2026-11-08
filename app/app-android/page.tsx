@@ -32,9 +32,24 @@ export default function AndroidAppPage() {
           ⌚ ¿Tienes reloj con Wear OS? Instala la app del reloj →
         </Link>
 
+        {/* PulsoMusic: la app solo de música (se instala aparte, junto a PulsoMedia) */}
+        <div id="pulsomusic" className="mt-8 rounded-2xl bg-gradient-to-br from-fuchsia-500/15 to-cyan-500/10 border border-fuchsia-400/30 p-4 scroll-mt-24">
+          <p className="text-white font-bold font-display text-lg">
+            <span className="text-cyan-300">Pulso</span>Music <span className="text-xs font-semibold text-fuchsia-200 align-middle">nueva</span>
+          </p>
+          <p className="text-slate-300 text-sm mt-1">
+            Solo música: canciones, álbumes, radios y videos musicales, con tu biblioteca, descargas, ecualizador y la TV. Sin películas ni
+            canales de TV. Se instala aparte (puedes tener las dos).
+          </p>
+          <DownloadApkButton app="music" />
+          <Link href="/app-reloj#pulsomusic" className="mt-3 inline-flex items-center gap-1.5 text-fuchsia-200 text-sm font-semibold">
+            ⌚ Reloj para PulsoMusic →
+          </Link>
+        </div>
+
         <ol className="mt-8 space-y-3 text-slate-300 text-sm list-decimal pl-5">
           <li>Toca <b>Descargar la app</b>. Si el navegador avisa que el archivo puede ser dañino, elige <b>Descargar de todos modos</b>.</li>
-          <li>Abre el archivo <b>CarlosPNauto.apk</b> (en la notificación o en la app <i>Archivos → Descargas</i>).</li>
+          <li>Abre el archivo <b>CarlosPNauto.apk</b> (PulsoMedia) o <b>PulsoMusic.apk</b> (en la notificación o en la app <i>Archivos → Descargas</i>).</li>
           <li>Si Android lo pide, permite <b>instalar apps desconocidas</b> para ese navegador o para Archivos, y vuelve atrás.</li>
           <li>
             Toca <b>Instalar</b>. Si aparece Play Protect, toca <b>Más detalles → Instalar de todos modos</b> (es tu app, solo que no viene

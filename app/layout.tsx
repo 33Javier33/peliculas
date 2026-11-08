@@ -23,6 +23,7 @@ import AccountSync from '@/components/AccountSync'
 import AccountSheet from '@/components/AccountSheet'
 import OfflineBanner from '@/components/OfflineBanner'
 import OfflineManager from '@/components/OfflineManager'
+import MusicAppGuard from '@/components/MusicAppGuard'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -168,6 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SafeBoundary name="OfflineBanner">
           <OfflineBanner />
         </SafeBoundary>
+        <MusicAppGuard />
         <SafeBoundary name="OfflineManager">
           <OfflineManager />
         </SafeBoundary>

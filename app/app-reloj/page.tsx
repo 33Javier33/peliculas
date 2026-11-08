@@ -46,6 +46,17 @@ export default function WatchAppPage() {
         <p className="mt-2 text-center text-slate-500 text-xs">
           <LatestApkVersion /> · En el reloj, la versión instalada aparece al final de la pantalla de inicio (Biblioteca).
         </p>
+        {/* Cada app tiene su reloj: el de PulsoMusic solo funciona con PulsoMusic en el teléfono */}
+        <div id="pulsomusic" className="mt-4 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30 p-4 scroll-mt-24">
+          <p className="text-white font-semibold text-sm">¿Usas PulsoMusic en el teléfono?</p>
+          <p className="text-slate-400 text-xs mt-1">Instala el reloj de PulsoMusic (archivo <b>PulsoMusic-Reloj.apk</b>, mismos pasos de abajo). Cada reloj trabaja con su app.</p>
+          <a
+            href="/api/apk?f=reloj&app=music"
+            className="mt-3 flex items-center justify-center gap-2 w-full rounded-full bg-fuchsia-500 text-white font-bold py-3 text-sm active:scale-[0.97] transition-transform"
+          >
+            <Download className="w-5 h-5" /> Descargar el reloj de PulsoMusic
+          </a>
+        </div>
 
         <h2 className="mt-10 text-lg font-bold text-white font-display">Cómo instalarla</h2>
         <p className="text-slate-400 text-xs mt-1">

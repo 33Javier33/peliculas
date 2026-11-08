@@ -2,13 +2,22 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, TvMinimalPlay, Music2, Library, Radio } from 'lucide-react'
+import { Home, TvMinimalPlay, Music2, Library, Radio, MonitorPlay } from 'lucide-react'
+import { useAppFlavor } from '@/lib/app-flavor'
 
 const items = [
   { href: '/', label: 'Inicio', Icon: Home, active: 'text-violet-400' },
   { href: '/cine', label: 'Videos', Icon: TvMinimalPlay, active: 'text-violet-400' },
   { href: '/music', label: 'Música', Icon: Music2, active: 'text-violet-400' },
   { href: '/radio', label: 'En vivo', Icon: Radio, active: 'text-violet-400' },
+  { href: '/music/library', label: 'Biblioteca', Icon: Library, active: 'text-violet-400' },
+]
+
+// PulsoMusic: solo música, videos musicales, radios y biblioteca
+const musicItems = [
+  { href: '/music', label: 'Música', Icon: Music2, active: 'text-violet-400' },
+  { href: '/music/videos', label: 'Videos', Icon: MonitorPlay, active: 'text-violet-400' },
+  { href: '/radio', label: 'Radios', Icon: Radio, active: 'text-violet-400' },
   { href: '/music/library', label: 'Biblioteca', Icon: Library, active: 'text-violet-400' },
 ]
 
@@ -22,14 +31,16 @@ function isActive(pathname: string, href: string) {
 // Barra de navegación inferior: solo en móvil (en escritorio los enlaces están en el Header).
 export default function MobileNav() {
   const pathname = usePathname()
+  const music = useAppFlavor() === 'music'
+  const list = music ? musicItems : items
 
   return (
     <nav
       className="sm:hidden fixed bottom-0 left-0 right-0 z-[85] h-14 bg-surface-1 border-t border-white/8 pb-[env(safe-area-inset-bottom)]"
       aria-label="Navegación principal"
     >
-      <ul className="grid grid-cols-5 h-full">
-        {items.map(({ href, label, Icon, active }) => {
+      <ul className={`grid ${music ? 'grid-cols-4' : 'grid-cols-5'} h-full`}>
+        {list.map(({ href, label, Icon, active }) => {
           const on = isActive(pathname, href)
           return (
             <li key={href}>

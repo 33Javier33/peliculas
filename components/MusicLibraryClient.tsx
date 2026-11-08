@@ -1,4 +1,5 @@
 'use client'
+import { useAppFlavor, brandName } from '@/lib/app-flavor'
 
 import HelpTip from '@/components/HelpTip'
 import QueueMenu from '@/components/QueueMenu'
@@ -62,6 +63,7 @@ type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 type SortOrder = 'recent' | 'title' | 'artist'
 
 export default function MusicLibraryClient() {
+  const brand = brandName(useAppFlavor())
   const shuffleSaved = useShuffleOn('library-saved')
   const shuffleFilter = useShuffleOn('library-filter')
   const shuffleGenre = useShuffleOn('library-genre')
@@ -513,7 +515,7 @@ export default function MusicLibraryClient() {
           <div className="mb-6 rounded-2xl bg-violet-500/10 border border-violet-400/30 p-4">
             <p className="text-white font-semibold text-sm">¿Reinstalaste la app?</p>
             <p className="text-slate-300 text-xs mt-1">
-              Inicia sesión en tu cuenta (arriba, el ícono de persona) si la usabas, o elige el archivo PulsoMedia-respaldo.json de la carpeta Descargas/PulsoMedia para que vuelvan tus playlists, Me gusta y álbumes.
+              Inicia sesión en tu cuenta (arriba, el ícono de persona) si la usabas, o elige el archivo {brand}-respaldo.json de la carpeta Descargas/{brand} para que vuelvan tus playlists, Me gusta y álbumes.
             </p>
             <BackupRestore compact />
           </div>

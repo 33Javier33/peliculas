@@ -1,4 +1,5 @@
 'use client'
+import { isMusicApp } from '@/lib/app-flavor'
 
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Sparkles } from 'lucide-react'
@@ -14,7 +15,7 @@ export default function ApkVersionInfo() {
     try {
       setInstalled(getNative()?.version() ?? null)
     } catch {}
-    fetch('/api/apk/version')
+    fetch(`/api/apk/version${isMusicApp() ? '?app=music' : ''}`)
       .then((r) => r.json())
       .then(setLatest)
       .catch(() => {})

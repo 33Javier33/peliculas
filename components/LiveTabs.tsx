@@ -5,6 +5,7 @@ import HelpTip from '@/components/HelpTip'
 import Link from 'next/link'
 import { Radio, Tv } from 'lucide-react'
 import { LIVE_COUNTRIES } from '@/lib/live'
+import { useAppFlavor } from '@/lib/app-flavor'
 
 export function countryName(code: string): string {
   if (!code || code === 'WORLD') return 'Todo el mundo'
@@ -20,6 +21,8 @@ export function LiveHeader({ active }: { active: 'radio' | 'tv' }) {
   const chip = 'shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors'
   const on = `${chip} bg-violet-300 text-violet-950`
   const off = `${chip} bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white`
+  // PulsoMusic: solo radios (sin la pestaña de TV)
+  const music = useAppFlavor() === 'music'
   return (
     <>
       <p className="flex items-center gap-2 text-emerald-400 text-[11px] font-bold uppercase tracking-[0.08em] font-display">
@@ -32,7 +35,7 @@ export function LiveHeader({ active }: { active: 'radio' | 'tv' }) {
           text={active === 'radio' ? 'Radios de todo el mundo en directo. Toca una para escucharla (sigue con la pantalla bloqueada) y la ♥ para tenerla en tus favoritas.' : 'Canales de TV en directo y gratis. Toca uno para verlo; con «Ver en la TV» lo mandas a tu Chromecast o Google TV.'}
         />
       </h1>
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-5 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+      <div className={`${music ? 'hidden' : 'flex'} gap-2 overflow-x-auto pb-1 mb-5 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]`}>
         <Link href="/radio" className={active === 'radio' ? on : off}>
           <Radio className="w-4 h-4" /> Radio
         </Link>

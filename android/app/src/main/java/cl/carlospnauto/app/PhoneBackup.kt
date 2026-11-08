@@ -13,8 +13,9 @@ import android.provider.MediaStore
  * «Recuperar respaldo» y vuelve todo.
  */
 object PhoneBackup {
-    private const val NAME = "PulsoMedia-respaldo.json"
-    private const val PATH = "Download/PulsoMedia"
+    private val BRAND = BuildConfig.STORAGE_ROOT.substringAfter("/")
+    private val NAME = "$BRAND-respaldo.json"
+    private val PATH = "Download/$BRAND"
 
     @Synchronized
     fun save(ctx: Context, json: String): Boolean {

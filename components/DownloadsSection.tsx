@@ -1,4 +1,5 @@
 'use client'
+import { useAppFlavor, brandName } from '@/lib/app-flavor'
 
 import HelpTip from '@/components/HelpTip'
 import { phoneStorageAvailable, askPhonePermission } from '@/lib/phone-storage'
@@ -21,6 +22,7 @@ import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 // "Descargadas": todo lo que se puede escuchar sin internet (discos, playlists y enlaces
 // descargados), agrupado, con cuánto ocupa y para borrarlo
 export default function DownloadsSection() {
+  const brand = brandName(useAppFlavor())
   const shuffleOn = useShuffleOn('downloads')
   const genres = useGenreCache()
   const [mounted, setMounted] = useState(false)
@@ -85,12 +87,12 @@ export default function DownloadsSection() {
         <div>
           <h2 className="flex items-center gap-2 text-white font-bold text-lg font-display">
             <HardDriveDownload className="w-5 h-5 text-emerald-400" /> Canciones descargadas
-            <HelpTip title="Canciones descargadas" text="Suenan sin internet y con la pantalla bloqueada. En la app de Android se guardan en la música del teléfono (Música/PulsoMedia), así no se pierden si desinstalas la app. Las que fallan se reintentan solas." />
+            <HelpTip title="Canciones descargadas" text={`Suenan sin internet y con la pantalla bloqueada. En la app de Android se guardan en la música del teléfono (Música/${brand}), así no se pierden si desinstalas la app. Las que fallan se reintentan solas.`} />
             <span className="text-slate-400 text-sm font-normal">({Object.keys(items).length})</span>
           </h2>
           <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1.5">
             <WifiOff className="w-3.5 h-3.5" /> Suenan sin internet · ocupan {formatSize(total)}
-            {onPhone && <span className="text-emerald-400/80"> · en Música/PulsoMedia (no se borran al desinstalar)</span>}
+            {onPhone && <span className="text-emerald-400/80"> · en Música/{brand} (no se borran al desinstalar)</span>}
             {free !== null && <span className="text-slate-600"> · libre en el teléfono: {formatSize(free)}</span>}
           </p>
         </div>
@@ -244,6 +246,7 @@ export default function DownloadsSection() {
 
 /** Tras reinstalar la app: recupera las descargas guardadas en la música del teléfono */
 function PhoneRecovery() {
+  const brand = brandName(useAppFlavor())
   const [state, setState] = useState<'idle' | 'busy' | 'denied' | string>('idle')
   const run = async () => {
     setState('busy')
@@ -261,7 +264,7 @@ function PhoneRecovery() {
         <span className="block text-white text-sm font-semibold">
           {state === 'busy' ? 'Buscando en la música del teléfono…' : state === 'idle' ? '¿Reinstalaste la app? Recuperar mis descargas' : state === 'denied' ? 'Permite el acceso a la música para recuperarlas' : state}
         </span>
-        <span className="block text-slate-400 text-xs">Las descargas quedan en Música/PulsoMedia del teléfono: se recuperan sin volver a descargarlas</span>
+        <span className="block text-slate-400 text-xs">Las descargas quedan en Música/{brand} del teléfono: se recuperan sin volver a descargarlas</span>
       </span>
     </button>
   )

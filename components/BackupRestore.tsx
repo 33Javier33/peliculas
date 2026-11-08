@@ -1,4 +1,5 @@
 'use client'
+import { useAppFlavor, brandName } from '@/lib/app-flavor'
 
 import HelpTip from '@/components/HelpTip'
 
@@ -11,6 +12,7 @@ import { useOfflineStore } from '@/store/offlineStore'
 // «Recuperar respaldo»: elige el archivo PulsoMedia-respaldo.json (Descargas/PulsoMedia) y vuelven
 // tus playlists, Me gusta, álbumes y artistas (se juntan con lo que ya tengas)
 export default function BackupRestore({ compact = false }: { compact?: boolean }) {
+  const brand = brandName(useAppFlavor())
   const input = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [native, setNative] = useState(false)
@@ -31,7 +33,7 @@ export default function BackupRestore({ compact = false }: { compact?: boolean }
       {!compact && (
         <p className="text-slate-300 text-xs mb-2">
           {native
-            ? 'Tu biblioteca y playlists se respaldan solas en Descargas/PulsoMedia (el archivo queda aunque desinstales la app).'
+            ? `Tu biblioteca y playlists se respaldan solas en Descargas/${brand} (el archivo queda aunque desinstales la app).`
             : 'Si tienes un respaldo de PulsoMedia (archivo .json), recupéralo aquí.'}
         </p>
       )}
@@ -41,7 +43,7 @@ export default function BackupRestore({ compact = false }: { compact?: boolean }
       >
         <ArchiveRestore className="w-4 h-4" /> Recuperar respaldo
       </button>
-      <HelpTip className="ml-2" title="Respaldo" text="La app de Android guarda sola tus playlists, Me gusta, álbumes y artistas en Descargas/PulsoMedia/PulsoMedia-respaldo.json. Ese archivo queda aunque desinstales la app: elígelo aquí y vuelve todo, junto con lo que ya tengas." />
+      <HelpTip className="ml-2" title="Respaldo" text={`La app de Android guarda sola tus playlists, Me gusta, álbumes y artistas en Descargas/${brand}/${brand}-respaldo.json. Ese archivo queda aunque desinstales la app: elígelo aquí y vuelve todo, junto con lo que ya tengas.`} />
       <input ref={input} type="file" accept=".json,application/json,text/plain,*/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
       {msg && <p className={`mt-2 text-xs ${msg.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{msg.text}</p>}
     </div>

@@ -384,7 +384,7 @@ private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
                 val version = remember {
                     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
                 }
-                Text("PulsoMedia reloj · versión $version", color = Grey, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
+                Text("${ctx.getString(R.string.app_name)} reloj · versión $version", color = Grey, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }

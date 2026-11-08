@@ -70,6 +70,10 @@ class NativeBridge(private val context: Context) {
     fun eqNative(json: String): String = NativeEq.apply(json)
 
     // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    /** «media» (PulsoMedia, completa) o «music» (PulsoMusic: solo música, radios y videos musicales) */
+    @JavascriptInterface
+    fun flavor(): String = BuildConfig.FLAVOR_NAME
+
     /** APK 1.0.53+: transmitir a la TV (Chromecast) desde la app */
     @JavascriptInterface
     fun castMedia(json: String) = MainActivity.onMain { NativeCast.cast(it, json) }

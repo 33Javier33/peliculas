@@ -1,4 +1,5 @@
 'use client'
+import { useAppFlavor } from '@/lib/app-flavor'
 import LibrarySimilarArtists from '@/components/LibrarySimilarArtists'
 import AlbumCardActions from '@/components/AlbumCardActions'
 
@@ -34,6 +35,8 @@ interface MusicSearchClientProps {
 }
 
 export default function MusicSearchClient({ initialVideos }: MusicSearchClientProps) {
+  // PulsoMusic: Videos lleva a Videos musicales y no hay TV
+  const musicApp = useAppFlavor() === 'music'
   const savedCount = useMusicStore((s) => s.saved.length)
   const view = useView()
   const [query, setQuery] = useState('')
@@ -281,15 +284,17 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           <span className={`${chip} bg-violet-300 text-violet-950`}>
             <Music2 className="w-4 h-4" /> Música
           </span>
-          <Link href="/cine" className={chipIdle}>
+          <Link href={musicApp ? '/music/videos' : '/cine'} className={chipIdle}>
             <TvMinimalPlay className="w-4 h-4 text-violet-300" /> Videos
           </Link>
           <Link href="/radio" className={chipIdle}>
             <RadioIcon className="w-4 h-4 text-emerald-400" /> Radio
           </Link>
-          <Link href="/tv" className={chipIdle}>
-            <Tv className="w-4 h-4 text-violet-300" /> TV
-          </Link>
+          {!musicApp && (
+            <Link href="/tv" className={chipIdle}>
+              <Tv className="w-4 h-4 text-violet-300" /> TV
+            </Link>
+          )}
           <Link href="/music/library" className={chipIdle}>
             <Library className="w-4 h-4 text-emerald-400" /> Biblioteca
             {savedCount > 0 && <span className="text-xs text-slate-500">{savedCount}</span>}

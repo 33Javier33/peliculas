@@ -11,7 +11,10 @@ const FALLBACK = 'https://github.com/33Javier33/peliculas/releases/download/andr
 
 export async function GET(request: Request) {
   // ?f=reloj → la app del reloj (Wear OS)
-  const name = new URL(request.url).searchParams.get('f') === 'reloj' ? 'CarlosPNauto-Reloj.apk' : 'CarlosPNauto.apk'
+  // ?app=music → PulsoMusic (solo música); si no, PulsoMedia (completa)
+  const q = new URL(request.url).searchParams
+  const watch = q.get('f') === 'reloj'
+  const name = q.get('app') === 'music' ? (watch ? 'PulsoMusic-Reloj.apk' : 'PulsoMusic.apk') : watch ? 'CarlosPNauto-Reloj.apk' : 'CarlosPNauto.apk'
   let target = ''
   try {
     const { assets } = await releaseAssets()

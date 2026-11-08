@@ -20,6 +20,20 @@ android {
         versionName = "1.0.$buildNumber"
     }
 
+    // Reloj de cada app (mismo identificador que su app del teléfono: Wear OS lo exige)
+    flavorDimensions += "app"
+    productFlavors {
+        create("media") {
+            dimension = "app"
+            applicationId = "cl.carlospnauto.app"
+        }
+        create("music") {
+            dimension = "app"
+            applicationId = "cl.carlospnauto.music"
+            versionName = "1.0.${(buildNumber - 53).coerceAtLeast(1)}"
+        }
+    }
+
     val keystorePath = System.getenv("ANDROID_KEYSTORE_FILE")
     signingConfigs {
         if (!keystorePath.isNullOrBlank() && file(keystorePath).exists()) {

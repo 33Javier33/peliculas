@@ -2,6 +2,7 @@
 
 import ShareAppButton from '@/components/ShareAppButton'
 import AccountButton from '@/components/AccountButton'
+import { useAppFlavor } from '@/lib/app-flavor'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
@@ -9,11 +10,13 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import InstallAppButton from '@/components/InstallAppButton'
 import { useSearchSuggestions, rememberSearch, type SuggestKind } from '@/components/SearchSuggestions'
 import { useMusicStore } from '@/store/musicStore'
-import { Radio, Clapperboard, Settings } from 'lucide-react'
+import { Radio, Clapperboard, Settings, MonitorPlay } from 'lucide-react'
 
 export default function Header() {
   const router = useRouter()
   const pathname = usePathname()
+  // PulsoMusic: solo música, videos musicales y radios (otro nombre y menú)
+  const musicApp = useAppFlavor() === 'music'
   const searchParams = useSearchParams()
   const [query, setQuery] = useState('')
   const [isScrolled, setIsScrolled] = useState(false)
@@ -36,6 +39,8 @@ export default function Header() {
   const sectionLabel =
     pathname === '/music/library'
       ? 'Biblioteca'
+      : pathname === '/music/videos'
+        ? 'Videos'
       : { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
   const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
   // En la Biblioteca se busca en la Biblioteca (no se cambia de sección)
@@ -131,9 +136,9 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           <Link
-            href="/"
+            href={musicApp ? '/music' : '/'}
             className="flex items-center gap-2 min-w-0 group"
-            aria-label="PulsoMedia - Inicio"
+            aria-label={musicApp ? 'PulsoMusic - Música' : 'PulsoMedia - Inicio'}
           >
             <Image
               src="/brand/logo-mark.png"
@@ -147,7 +152,7 @@ export default function Header() {
               <span className="flex items-baseline gap-1.5">
                 <span className="font-bold text-sm leading-tight whitespace-nowrap">
                   <span className="text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.55)]">Pulso</span>
-                  <span className="text-white">Media</span>
+                  <span className="text-white">{musicApp ? 'Music' : 'Media'}</span>
                 </span>
                 {/* Versión de la app (para saber si ya llegó la última) */}
                 <span className="hidden min-[400px]:inline text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
@@ -249,7 +254,7 @@ export default function Header() {
               </svg>
             </button>
 
-            <Link
+            {!musicApp && <Link
               href="/"
               title="Inicio"
               aria-label="Inicio"
@@ -264,8 +269,8 @@ export default function Header() {
                 />
               </svg>
               <span className="hidden xl:inline">Inicio</span>
-            </Link>
-            <Link
+            </Link>}
+            {!musicApp && <Link
               href="/cine"
               title="CineLatino"
               aria-label="CineLatino"
@@ -275,7 +280,7 @@ export default function Header() {
                 <path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
               </svg>
               <span className="hidden xl:inline">CineLatino</span>
-            </Link>
+            </Link>}
             <Link
               href="/music"
               title="Music"
@@ -287,6 +292,17 @@ export default function Header() {
               </svg>
               <span className="hidden xl:inline">Music</span>
             </Link>
+            {musicApp && (
+              <Link
+                href="/music/videos"
+                title="Videos musicales"
+                aria-label="Videos musicales"
+                className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+              >
+                <MonitorPlay className="w-4 h-4" />
+                <span className="hidden xl:inline">Videos</span>
+              </Link>
+            )}
             <Link
               href="/radio"
               title="En vivo"
@@ -296,7 +312,7 @@ export default function Header() {
               <Radio className="w-4 h-4" />
               <span className="hidden xl:inline">En vivo</span>
             </Link>
-            <Link
+            {!musicApp && <Link
               href="/peliculas"
               title="Películas gratis"
               aria-label="Películas gratis"
@@ -304,7 +320,7 @@ export default function Header() {
             >
               <Clapperboard className="w-4 h-4" />
               <span className="hidden xl:inline">Películas gratis</span>
-            </Link>
+            </Link>}
           </div>
         </div>
       </div>

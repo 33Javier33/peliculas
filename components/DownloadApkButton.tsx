@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { getNative } from '@/lib/native'
+import { appFlavor, type AppFlavor } from '@/lib/app-flavor'
 
 // Botón de descarga del APK, con respuesta visible al tocarlo:
 // - App 1.0.22+: la app descarga la actualización ella misma, muestra el avance, la revisa
@@ -25,7 +26,13 @@ type State =
 
 const mb = (b: number) => (b / 1048576).toFixed(1).replace('.', ',')
 
-export default function DownloadApkButton() {
+export default function DownloadApkButton({ app }: { app?: AppFlavor } = {}) {
+  // Qué app se baja: la indicada o, dentro de una app, esa misma (PulsoMusic se actualiza con PulsoMusic)
+  const [flavor, setFlavor] = useState<AppFlavor>(app ?? 'media')
+  useEffect(() => setFlavor(app ?? appFlavor()), [app])
+  const music = flavor === 'music'
+  const apkUrl = music ? '/api/apk?app=music' : '/api/apk'
+  const fileName = music ? 'PulsoMusic.apk' : 'CarlosPNauto.apk'
   const [mode, setMode] = useState<'web' | 'old' | 'dm' | 'native'>('web')
   const [st, setSt] = useState<State>({ s: 'idle' })
   const timer = useRef<ReturnType<typeof setTimeout>>()
@@ -55,7 +62,7 @@ export default function DownloadApkButton() {
     if (mode === 'native') {
       e.preventDefault()
       setSt({ s: 'start' })
-      ;(getNative() as Native).updateApp!('/api/apk')
+      ;(getNative() as Native).updateApp!(apkUrl)
       return
     }
     // Las demás: el enlace hace la descarga; aquí solo se muestra que algo pasó
@@ -87,8 +94,8 @@ export default function DownloadApkButton() {
   return (
     <>
       <a
-        href={mode === 'old' ? GITHUB : '/api/apk'}
-        download={mode === 'web' ? 'CarlosPNauto.apk' : undefined}
+        href={mode === 'old' ? (music ? GITHUB.replace('CarlosPNauto.apk', 'PulsoMusic.apk') : GITHUB) : apkUrl}
+        download={mode === 'web' ? fileName : undefined}
         onClick={onClick}
         aria-busy={busy}
         className={`relative overflow-hidden mt-6 flex items-center justify-center gap-2 w-full rounded-full text-white font-bold py-4 shadow-glow select-none transition-transform active:scale-[0.97] ${
@@ -103,7 +110,7 @@ export default function DownloadApkButton() {
         {st.s === 'verifying' && 'Se comprueba que el archivo llegó completo antes de instalarlo.'}
         {st.s === 'permission' && 'Android pide permitir "instalar apps desconocidas" para esta app. Actívalo y vuelve: el instalador se abre solo.'}
         {st.s === 'installing' && 'Toca "Actualizar" en el instalador de Android. No pierdes nada de lo guardado.'}
-        {(st.s === 'start' || st.s === 'handed') && mode === 'dm' && 'Mira el avance en la notificación. Al terminar, toca CarlosPNauto.apk para instalarla.'}
+        {(st.s === 'start' || st.s === 'handed') && mode === 'dm' && `Mira el avance en la notificación. Al terminar, toca ${fileName} para instalarla.`}
         {(st.s === 'start' || st.s === 'handed') && mode === 'web' && 'Al terminar, abre el archivo desde la notificación o en Descargas e instálalo.'}
         {mode === 'old' && (st.s === 'idle' || st.s === 'start' || st.s === 'handed') &&
           'Se abrirá el navegador del teléfono para descargarla. Después abre el archivo desde la notificación e instálalo encima.'}

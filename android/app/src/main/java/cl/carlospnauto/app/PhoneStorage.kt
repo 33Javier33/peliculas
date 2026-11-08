@@ -24,7 +24,8 @@ import java.util.concurrent.Executors
  */
 object PhoneStorage {
     private const val TAG = "PhoneStorage"
-    const val ROOT = "Music/PulsoMedia"
+    // Música/PulsoMedia (app completa) o Música/PulsoMusic (app de música)
+    val ROOT = BuildConfig.STORAGE_ROOT
     private val pool = Executors.newSingleThreadExecutor()
     // Descargas que la web dio por perdidas (2 min sin avanzar) o canceló: se dejan apenas se pueda
     // (antes seguían ocupando la única fila de descargas y las demás esperaban)

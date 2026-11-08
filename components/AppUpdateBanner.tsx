@@ -1,4 +1,5 @@
 'use client'
+import { isMusicApp } from '@/lib/app-flavor'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -27,7 +28,7 @@ export default function AppUpdateBanner() {
       }
     }
     let cancelled = false
-    fetch('/api/apk/version')
+    fetch(`/api/apk/version${isMusicApp() ? '?app=music' : ''}`)
       .then((r) => r.json())
       .then((d: { version?: string | null; notes?: string }) => {
         if (cancelled || !d.version) return

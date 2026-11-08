@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Nueva app PulsoMusic 1.0.1 (aparte de PulsoMedia): solo música, radios y videos musicales, con su propio reloj. Se descarga en «App para Android» y se puede tener junto a PulsoMedia',
       'Transmitir a la TV desde la app (Android 1.0.53): videos, música y radios van a tu Chromecast / Google TV eligiendo la TV en la propia app (sin duplicar pantalla); la música sigue la cola en la TV. Para otras TV, un botón abre directo «Transmitir / Smart View» del teléfono',
       'Web como la app: el audio de los videos queda guardado en el dispositivo y, al minimizar o bloquear el teléfono, sigue sonando desde esa copia; en el computador el video sigue sonando al cambiar de pestaña o minimizar',
       'Biblioteca: basurero en cada canción para quitarla (toca dos veces para confirmar), también dentro de un álbum; se borra su descarga',

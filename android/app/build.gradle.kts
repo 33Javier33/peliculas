@@ -20,6 +20,29 @@ android {
         buildConfigField("String", "WEB_URL", "\"https://peliculas-neon.vercel.app\"")
     }
 
+    // Dos apps del mismo código:
+    //  - PulsoMedia (completa): películas, videos, TV, música y radios
+    //  - PulsoMusic (solo música): música, radios y videos musicales. Se instala aparte (otro
+    //    identificador) y tiene su propia numeración (empezó en 1.0.1)
+    flavorDimensions += "app"
+    productFlavors {
+        create("media") {
+            dimension = "app"
+            applicationId = "cl.carlospnauto.app"
+            buildConfigField("String", "START_PATH", "\"/\"")
+            buildConfigField("String", "FLAVOR_NAME", "\"media\"")
+            buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMedia\"")
+        }
+        create("music") {
+            dimension = "app"
+            applicationId = "cl.carlospnauto.music"
+            versionName = "1.0.${(buildNumber - 53).coerceAtLeast(1)}"
+            buildConfigField("String", "START_PATH", "\"/music\"")
+            buildConfigField("String", "FLAVOR_NAME", "\"music\"")
+            buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMusic\"")
+        }
+    }
+
     // Firma: una propia si está configurada en los secretos de GitHub (ANDROID_KEYSTORE_*);
     // si no, la de depuración, que GitHub guarda entre compilaciones (caché privada) para que
     // cada APK nuevo se instale encima del anterior sin desinstalar.

@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
             // las animaciones) y le quitaba procesador al audio, que se oía con chasquidos
             offscreenPreRaster = false
             // La web sabe que está dentro de la app
-            userAgentString = "$userAgentString CPNApp/${BuildConfig.VERSION_NAME}"
+            userAgentString = "$userAgentString CPNApp/${BuildConfig.VERSION_NAME} CPNFlavor/${BuildConfig.FLAVOR_NAME}"
         }
         web.addJavascriptInterface(NativeBridge(applicationContext), "CPNNative")
         // Al salir de la app o bloquear, Android le baja la prioridad a la web y el audio se traba
@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
         // al fondo (window.CPNNative.takeWidgetPlay / toBackground)
         if (intent?.action == ACTION_WIDGET_PLAY) widgetPlay = true
         else requestStartupPermissions()
-        val start = sharedUrl(intent) ?: intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: BuildConfig.WEB_URL
+        val start = sharedUrl(intent) ?: intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: (BuildConfig.WEB_URL + BuildConfig.START_PATH)
         if (savedInstanceState != null && sharedUrl(intent) == null) web.restoreState(savedInstanceState) else web.loadUrl(start)
     }
 
@@ -355,7 +355,7 @@ class MainActivity : AppCompatActivity() {
         runCatching {
             val dm = getSystemService(DownloadManager::class.java)
             val request = DownloadManager.Request(absolute)
-                .setTitle("PulsoMedia: actualización")
+                .setTitle("${getString(R.string.app_name)}: actualización")
                 .setDescription("Descargando la nueva versión de la app")
                 .setMimeType(mimeType?.takeIf { it.isNotBlank() } ?: "application/vnd.android.package-archive")
                 .addRequestHeader("User-Agent", userAgent)

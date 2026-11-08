@@ -1,4 +1,5 @@
 'use client'
+import { isMusicApp } from '@/lib/app-flavor'
 
 import { useEffect, useState } from 'react'
 
@@ -6,7 +7,7 @@ import { useEffect, useState } from 'react'
 export default function LatestApkVersion({ prefix = 'Última versión' }: { prefix?: string }) {
   const [v, setV] = useState<string | null>(null)
   useEffect(() => {
-    fetch('/api/apk/version')
+    fetch(`/api/apk/version${isMusicApp() ? '?app=music' : ''}`)
       .then((r) => r.json())
       .then((d: { version?: string }) => setV(d.version ?? null))
       .catch(() => {})

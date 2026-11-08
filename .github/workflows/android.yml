@@ -66,9 +66,12 @@ jobs:
 
       - name: Nombre del archivo
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk CarlosPNauto.apk
-          # App del reloj (Wear OS)
-          cp android/wear/build/outputs/apk/release/wear-release.apk CarlosPNauto-Reloj.apk
+          # PulsoMedia (completa) y su reloj
+          cp android/app/build/outputs/apk/media/release/app-media-release.apk CarlosPNauto.apk
+          cp android/wear/build/outputs/apk/media/release/wear-media-release.apk CarlosPNauto-Reloj.apk
+          # PulsoMusic (solo música, radios y videos musicales) y su reloj
+          cp android/app/build/outputs/apk/music/release/app-music-release.apk PulsoMusic.apk
+          cp android/wear/build/outputs/apk/music/release/wear-music-release.apk PulsoMusic-Reloj.apk
 
       # Enlaces compartidos (WhatsApp…) que abren la app: Android comprueba que la web y la app son
       # del mismo dueño con la huella de la firma (assetlinks.json; la web lo sirve desde el release)
@@ -79,7 +82,7 @@ jobs:
           test -n "$SHA" || { echo "No se pudo leer la huella"; exit 1; }
           echo "Huella SHA-256: $SHA"
           cat > assetlinks.json <<JSON
-          [{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"cl.carlospnauto.app","sha256_cert_fingerprints":["$SHA"]}}]
+          [{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"cl.carlospnauto.app","sha256_cert_fingerprints":["$SHA"]}},{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"cl.carlospnauto.music","sha256_cert_fingerprints":["$SHA"]}}]
           JSON
           cat assetlinks.json
 
@@ -97,8 +100,16 @@ jobs:
             'notes': notes,
             'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
           }, open('version.json', 'w'), ensure_ascii=False)
+          # PulsoMusic: su propia numeración (empezó en 1.0.1)
+          n = int(os.environ['GITHUB_RUN_NUMBER'])
+          json.dump({
+            'version': '1.0.' + str(max(1, n - 53)),
+            'build': n,
+            'notes': notes,
+            'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
+          }, open('version-music.json', 'w'), ensure_ascii=False)
           PY
-          cat version.json
+          cat version.json version-music.json
 
       - name: Publicar en "android-latest"
         uses: softprops/action-gh-release@v2
@@ -108,11 +119,15 @@ jobs:
           body: |
             Descarga **CarlosPNauto.apk** e instálalo (Android te pedirá permitir "instalar apps desconocidas").
             Reloj (Wear OS): **CarlosPNauto-Reloj.apk** (pasos en la página /app-reloj de la app).
+            PulsoMusic (solo música, radios y videos musicales): **PulsoMusic.apk** y su reloj **PulsoMusic-Reloj.apk**.
             Compilación ${{ github.run_number }} · ${{ github.sha }}
           files: |
             CarlosPNauto.apk
             CarlosPNauto-Reloj.apk
+            PulsoMusic.apk
+            PulsoMusic-Reloj.apk
             version.json
+            version-music.json
             assetlinks.json
           make_latest: true
 
@@ -122,3 +137,5 @@ jobs:
           path: |
             CarlosPNauto.apk
             CarlosPNauto-Reloj.apk
+            PulsoMusic.apk
+            PulsoMusic-Reloj.apk
