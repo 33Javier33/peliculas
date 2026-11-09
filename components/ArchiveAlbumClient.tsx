@@ -1,4 +1,5 @@
 'use client'
+import { appBrand } from '@/lib/app-flavor'
 
 import { TrackDownloadIcon } from '@/components/OfflineIcons'
 import DownloadButton from '@/components/DownloadButton'
@@ -121,7 +122,7 @@ export default function ArchiveAlbumClient({ id }: { id: string }) {
                   </button>
                   <button
                     onClick={async () =>
-                      shareLink(first?.title || 'Disco', `Escucha "${first?.title}" en PulsoMedia`, await playlistShareUrl(first?.title || 'Disco', tracks))
+                      shareLink(first?.title || 'Disco', `Escucha "${first?.title}" en ${appBrand()}`, await playlistShareUrl(first?.title || 'Disco', tracks))
                     }
                     className="w-10 h-10 rounded-full bg-surface-1 border border-white/10 text-slate-200 flex items-center justify-center"
                     aria-label="Compartir el disco"

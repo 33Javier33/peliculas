@@ -1,4 +1,5 @@
 'use client'
+import { appBrand } from '@/lib/app-flavor'
 
 import { useShallow } from 'zustand/react/shallow'
 import dynamic from 'next/dynamic'
@@ -1878,7 +1879,7 @@ export default function MusicPlayerBar() {
     const v = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]
     if (!v) return
     const url = await trackShareUrl(v)
-    const text = `Escucha "${v.title}" en PulsoMedia`
+    const text = `Escucha "${v.title}" en ${appBrand()}`
     try {
       if (navigator.share) await navigator.share({ title: v.title, text, url })
       else {

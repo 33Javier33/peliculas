@@ -4,6 +4,7 @@
 import type { MusicVideo } from '@/lib/youtube-music'
 import { hash } from '@/lib/link-albums'
 import { shortArchivePath } from '@/lib/short-link'
+import { withAppParam } from '@/lib/app-flavor'
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/
 
@@ -87,6 +88,9 @@ async function decode<T>(s: string): Promise<T | null> {
 
 /** Enlace para compartir una canción */
 export async function trackShareUrl(t: MusicVideo): Promise<string> {
+  return withAppParam(await trackShareUrlBase(t))
+}
+async function trackShareUrlBase(t: MusicVideo): Promise<string> {
   const origin = window.location.origin
   if (YT_ID.test(t.id) && !t.audioUrl) return `${origin}/play/${t.id}`
   // Convertida de YouTube: su enlace corto de YouTube
@@ -111,7 +115,7 @@ const slim = (p: Packed): Packed => (p.y ? { y: p.y, t: p.t, a: p.a } : p)
 /** Enlace para compartir una playlist completa */
 export async function playlistShareUrl(name: string, tracks: MusicVideo[]): Promise<string> {
   const k = tracks.map(pack).filter((p): p is Packed => !!p)
-  return `${window.location.origin}/music/playlist/compartida?d=${await encode({ n: name, k: k.map(slim) })}`
+  return withAppParam(`${window.location.origin}/music/playlist/compartida?d=${await encode({ n: name, k: k.map(slim) })}`)
 }
 
 /** Playlist de un enlace /music/playlist/compartida#… */

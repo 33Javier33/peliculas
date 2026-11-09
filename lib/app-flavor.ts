@@ -30,3 +30,12 @@ export function useAppFlavor(): AppFlavor {
 
 /** Nombre de la app (para los textos de carpetas y respaldo) */
 export const brandName = (f: AppFlavor) => (f === 'music' ? 'PulsoMusic' : 'PulsoMedia')
+
+/** Nombre de la app en uso (para los textos al compartir) */
+export const appBrand = () => brandName(appFlavor())
+
+/** Enlace compartido desde PulsoMusic: lleva ?app=music (así se abre y se descarga PulsoMusic) */
+export function withAppParam(url: string): string {
+  if (!isMusicApp()) return url
+  return url + (url.includes('?') ? '&' : '?') + 'app=music'
+}

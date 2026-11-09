@@ -1,4 +1,5 @@
 'use client'
+import { appBrand } from '@/lib/app-flavor'
 
 import HelpTip from '@/components/HelpTip'
 
@@ -204,7 +205,7 @@ export default function NowPlayingSheet({
   // Enlace a la propia app: quien lo abra la escucha aquí (YouTube, discos de archive.org y MP3)
   const handleShare = async () => {
     const url = await trackShareUrl(video)
-    const text = `Escucha "${songTitle}"${artist ? ` de ${artist}` : ''} en PulsoMedia`
+    const text = `Escucha "${songTitle}"${artist ? ` de ${artist}` : ''} en ${appBrand()}`
     try {
       if (navigator.share) {
         await navigator.share({ title: video.title, text, url })
