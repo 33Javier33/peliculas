@@ -26,8 +26,8 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
-      'Vista previa de los enlaces de PulsoMusic (WhatsApp…): con el nombre PulsoMusic y su imagen',
-      'Compartir desde PulsoMusic: la app se comparte con su propia página de descarga (/app-music) y las canciones, discos y playlists dicen «en PulsoMusic»; quien recibe el enlace ve «Abrir en la app PulsoMusic». Desde PulsoMedia todo sigue igual',
+      'Vista previa de los enlaces de PulsoMusic (WhatsApp…): con el nombre PulsoMusic y su imagen; la app se comparte con el enlace nuevo /pulsomusic para que WhatsApp no muestre la vista previa antigua',
+      'Compartir desde PulsoMusic: la app se comparte con su propia página de descarga (/pulsomusic) y las canciones, discos y playlists dicen «en PulsoMusic»; quien recibe el enlace ve «Abrir en la app PulsoMusic». Desde PulsoMedia todo sigue igual',
       'Sin espacios vacíos: el pie de página aparece apenas termina el contenido (en todas las secciones y en Configuración) y en PulsoMusic dice PulsoMusic',
       'Ventanita del teléfono (al salir de la app con video): solo el video, sin el menú de la app ni los botones de la ventana',
       'Ventana flotante: con el video en el reproductor, el botón ⧉ lo deja flotando sobre la app mientras navegas; ⤢ lo vuelve al reproductor y ✕ cierra solo la ventana (la música sigue). En la app de Android, al salir pasa a la ventanita del teléfono',

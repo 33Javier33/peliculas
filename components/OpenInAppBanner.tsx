@@ -34,7 +34,7 @@ export default function OpenInAppBanner({ className = '' }: { className?: string
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              window.location.href = music ? '/app-music' : '/app-android'
+              window.location.href = music ? '/pulsomusic' : '/app-android'
             }}
           >
             descárgala

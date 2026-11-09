@@ -13,7 +13,7 @@ function target(): { url: string; text: string } {
   const origin = typeof window !== 'undefined' && /^https:/.test(window.location.origin) ? window.location.origin : SITE
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
   // Desde PulsoMusic: directo a la descarga de PulsoMusic (sin mezclarla con PulsoMedia)
-  if (isMusicApp()) return { url: `${origin}/app-music`, text: 'Te comparto PulsoMusic: música, radios y videos musicales, con la pantalla bloqueada y sin internet. Descarga la app para Android:' }
+  if (isMusicApp()) return { url: `${origin}/pulsomusic`, text: 'Te comparto PulsoMusic: música, radios y videos musicales, con la pantalla bloqueada y sin internet. Descarga la app para Android:' }
   if (getNative() || /CPNApp\//.test(ua) || /Android/i.test(ua))
     return { url: `${origin}/app-android`, text: 'Te comparto PulsoMedia: música, radios, TV y películas gratis. Descarga la app para Android:' }
   if (/iPhone|iPad|iPod/i.test(ua)) return { url: `${origin}/app-iphone`, text: 'Te comparto PulsoMedia: música, radios, TV y películas gratis. Instálala en tu iPhone:' }
