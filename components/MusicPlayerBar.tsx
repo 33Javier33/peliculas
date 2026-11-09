@@ -56,6 +56,7 @@ import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind } from '@/lib/native-cast'
 import { useCastStore } from '@/components/CastButton'
+import InlineVideo from '@/components/InlineVideo'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
@@ -548,7 +549,8 @@ export default function MusicPlayerBar() {
   // Video de la canción abierto aparte (reproductor de Videos)
   const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string; startTime: number } | null>(null)
   // ===== Video dentro del reproductor grande (en el lugar de la carátula) =====
-  const [inline, setInline] = useState<{ id: string; start: number } | null>(null)
+  // place: dentro del reproductor grande o en ventana flotante sobre la app
+  const [inline, setInline] = useState<{ id: string; start: number; place?: 'sheet' | 'float'; key?: number } | null>(null)
   const inlineRef = useRef(inline)
   inlineRef.current = inline
   const inlineTimeRef = useRef(0)
@@ -600,6 +602,25 @@ export default function MusicPlayerBar() {
     setTimeout(finish, 2500)
     el.play()?.catch?.(() => finish())
     useMusicStore.getState().setIsPlaying(true)
+  }, [])
+
+  /**
+   * Mover el video entre el reproductor y la ventana flotante sin que se note: la canción sigue
+   * sonando desde el segundo del video mientras el video se vuelve a cargar en su nuevo lugar
+   * (empieza en silencio, se pone parejo y retoma el sonido)
+   */
+  const moveInline = useCallback((place: 'sheet' | 'float') => {
+    const cur = inlineRef.current
+    if (!cur) return
+    const at = inlineTimeRef.current
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (videoOwnsRef.current && el) {
+      videoOwnsRef.current = false
+      if (at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+      el.muted = false
+      if (useMusicStore.getState().isPlaying) el.play()?.catch?.(() => {})
+    }
+    setInline({ id: cur.id, start: at, place, key: Date.now() })
   }, [])
 
   // Ver el video desde donde va la canción (y al cerrarlo, la canción sigue desde donde quedó el video)
@@ -1779,23 +1800,28 @@ export default function MusicPlayerBar() {
     // Otra canción: suena su audio hasta que su video arranque
     videoOwnsRef.current = false
     if (!id) return setInline(null)
-    setInline({ id, start: 0 })
+    setInline({ id, start: 0, place: inlineRef.current.place })
   }, [currentId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!isFullOpen && inlineRef.current) backToSong()
+    if (!isFullOpen && inlineRef.current && inlineRef.current.place !== 'float') backToSong()
   }, [isFullOpen, backToSong])
+  // Se abre el reproductor grande con la ventana flotante puesta: el video pasa al reproductor
+  useEffect(() => {
+    if (isFullOpen && inlineRef.current?.place === 'float') moveInline('sheet')
+  }, [isFullOpen]) // eslint-disable-line react-hooks/exhaustive-deps
   // Bloquear o salir con el video en el reproductor: sigue la canción (YouTube no suena en segundo
   // plano) y al volver, otra vez el video desde donde va
   useEffect(() => {
-    let resume: string | null = null
+    let resume: { id: string; place?: 'sheet' | 'float' } | null = null
     const onVis = () => {
       if (appHidden()) {
         if (!inlineRef.current) return
-        resume = inlineRef.current.id
+        resume = { id: inlineRef.current.id, place: inlineRef.current.place }
         backToSong()
       } else if (resume) {
         const st = useMusicStore.getState()
-        if (ytIdOf(st.queue[st.currentIndex]) === resume) showInline()
+        const el = playerRef.current as unknown as HTMLMediaElement | null
+        if (ytIdOf(st.queue[st.currentIndex]) === resume.id) setInline({ id: resume.id, start: el && isFinite(el.currentTime) ? el.currentTime : 0, place: resume.place })
         resume = null
       }
     }
@@ -2039,6 +2065,44 @@ export default function MusicPlayerBar() {
     },
   }
 
+  // Lo que hace el video del reproductor (en el reproductor o flotando): mismo comportamiento
+  const inlineHandlers = {
+    onPlaying: () => {
+          // El video ya suena (parejo con la canción): la canción queda en pausa y el reproductor
+          // sigue «sonando» (su play/pausa controla el video)
+          videoOwnsRef.current = true
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          el?.pause()
+          // Web: su audio queda guardado en el dispositivo (al bloquear sigue sin esperar internet)
+          if (!isNativeApp() && inlineRef.current) cacheYtAudio(inlineRef.current.id)
+          if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
+    },
+    onState: (playing: boolean) => {
+          if (!videoOwnsRef.current) return
+          if (playing) {
+            if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
+            return
+          }
+          // ¿Lo pausó el usuario o el teléfono al bloquear/salir? (el teléfono pausa el video un
+          // instante antes de avisar): se espera; si la app quedó oculta, la canción sigue sola
+          setTimeout(() => {
+            if (document.visibilityState === 'hidden' || appHidden()) return
+            if (videoOwnsRef.current && useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(false)
+          }, 900)
+        },
+    syncTo: () => {
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          return el && !el.paused && isFinite(el.currentTime) ? el.currentTime : inlineTimeRef.current
+    },
+    onEnded: () => {
+          // Terminó el video: sigue la próxima canción con su video (o solo audio si no tiene)
+          const st = useMusicStore.getState()
+          if (st.currentIndex >= st.queue.length - 1) return backToSong(0)
+          videoOwnsRef.current = false
+          st.playNext()
+    },
+  }
+
   const iconBtn = 'p-2 sm:p-1.5 transition-colors'
 
   return (
@@ -2088,43 +2152,18 @@ export default function MusicPlayerBar() {
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()
         }}
         onWatchVideo={canWatchVideo ? showInline : undefined}
-        inline={isFullOpen ? inline : null}
+        inline={isFullOpen && inline?.place !== 'float' ? inline : null}
+        onInlineFloat={() => {
+          // A la ventana flotante: se cierra el reproductor y el video sigue flotando sobre la app
+          moveInline('float')
+          closeFull()
+        }}
         inlineTimeRef={inlineTimeRef}
-        onInlinePlaying={() => {
-          // El video ya suena (parejo con la canción): la canción queda en pausa y el reproductor
-          // sigue «sonando» (su play/pausa controla el video)
-          videoOwnsRef.current = true
-          const el = playerRef.current as unknown as HTMLMediaElement | null
-          el?.pause()
-          // Web: su audio queda guardado en el dispositivo (al bloquear sigue sin esperar internet)
-          if (!isNativeApp() && inlineRef.current) cacheYtAudio(inlineRef.current.id)
-          if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
-        }}
-        onInlineState={(playing) => {
-          if (!videoOwnsRef.current) return
-          if (playing) {
-            if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
-            return
-          }
-          // ¿Lo pausó el usuario o el teléfono al bloquear/salir? (el teléfono pausa el video un
-          // instante antes de avisar): se espera; si la app quedó oculta, la canción sigue sola
-          setTimeout(() => {
-            if (document.visibilityState === 'hidden' || appHidden()) return
-            if (videoOwnsRef.current && useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(false)
-          }, 900)
-        }}
+        onInlinePlaying={inlineHandlers.onPlaying}
+        onInlineState={inlineHandlers.onState}
         inlineControlRef={inlineCtlRef}
-        inlineSyncTo={() => {
-          const el = playerRef.current as unknown as HTMLMediaElement | null
-          return el && !el.paused && isFinite(el.currentTime) ? el.currentTime : inlineTimeRef.current
-        }}
-        onInlineEnded={() => {
-          // Terminó el video: sigue la próxima canción con su video (o solo audio si no tiene)
-          const st = useMusicStore.getState()
-          if (st.currentIndex >= st.queue.length - 1) return backToSong(0)
-          videoOwnsRef.current = false
-          st.playNext()
-        }}
+        inlineSyncTo={inlineHandlers.syncTo}
+        onInlineEnded={inlineHandlers.onEnded}
         onInlineExpand={() => {
           const cur = inlineRef.current
           if (!cur) return
@@ -2180,6 +2219,31 @@ export default function MusicPlayerBar() {
 
       {/* ===== PLAYER BAR ===== */}
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col">
+        {/* Ventana flotante con el video (sobre la app; al cerrarla la música sigue) */}
+        {inline?.place === 'float' && (
+          <div
+            data-cpn-video={isPlaying ? 'playing' : 'paused'}
+            className="absolute right-2 bottom-[calc(100%+12px)] z-10 w-[62vw] max-w-[360px] aspect-video rounded-xl overflow-hidden border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)] bg-black"
+          >
+            <InlineVideo
+              key={`${inline.id}-${inline.key ?? 0}`}
+              videoId={inline.id}
+              startAt={inline.start}
+              timeRef={inlineTimeRef}
+              controlRef={inlineCtlRef}
+              onPlaying={inlineHandlers.onPlaying}
+              onState={inlineHandlers.onState}
+              onEnded={inlineHandlers.onEnded}
+              syncTo={inlineHandlers.syncTo}
+              onExpand={() => {
+                // Agrandar: vuelve al reproductor grande con el video al medio
+                moveInline('sheet')
+                openFull()
+              }}
+              onCloseFloat={() => backToSong()}
+            />
+          </div>
+        )}
         {(skipNotice || needsTap) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
             <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">

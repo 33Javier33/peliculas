@@ -75,6 +75,7 @@ interface NowPlayingSheetProps {
   onInlineState?: (playing: boolean) => void
   inlineControlRef?: React.MutableRefObject<((func: 'playVideo' | 'pauseVideo') => void) | null>
   inlineSyncTo?: () => number
+  onInlineFloat?: () => void
   isAudioLoading: boolean
   played: number
   duration: number
@@ -99,6 +100,7 @@ export default function NowPlayingSheet({
   onInlineState,
   inlineControlRef,
   inlineSyncTo,
+  onInlineFloat,
   onCast,
   castDevice,
   onCastStop,
@@ -305,7 +307,7 @@ export default function NowPlayingSheet({
               {inline && inlineTimeRef && (
                 <div className="absolute inset-0 z-[2]">
                   <InlineVideo
-                    key={inline.id}
+                    key={`${inline.id}-${(inline as { key?: number }).key ?? 0}`}
                     videoId={inline.id}
                     startAt={inline.start}
                     timeRef={inlineTimeRef}
@@ -315,6 +317,7 @@ export default function NowPlayingSheet({
                     onState={onInlineState}
                     controlRef={inlineControlRef}
                     syncTo={inlineSyncTo}
+                    onFloat={onInlineFloat}
                   />
                 </div>
               )}
