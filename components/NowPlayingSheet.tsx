@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
+import InlineVideo from '@/components/InlineVideo'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
 import LyricsSheet from '@/components/LyricsSheet'
@@ -65,6 +66,12 @@ interface NowPlayingSheetProps {
   onCastStop?: () => void
   /** Pasar de ese video a solo la canción (audio), desde el mismo segundo */
   onSongOnly?: () => void
+  /** Video de la canción dentro del reproductor (en el lugar de la carátula) */
+  inline?: { id: string; start: number } | null
+  inlineTimeRef?: React.MutableRefObject<number>
+  onInlinePlaying?: () => void
+  onInlineEnded?: () => void
+  onInlineExpand?: () => void
   isAudioLoading: boolean
   played: number
   duration: number
@@ -81,6 +88,11 @@ export default function NowPlayingSheet({
   onWatchVideo,
   videoOn,
   onSongOnly,
+  inline,
+  inlineTimeRef,
+  onInlinePlaying,
+  onInlineEnded,
+  onInlineExpand,
   onCast,
   castDevice,
   onCastStop,
@@ -263,17 +275,17 @@ export default function NowPlayingSheet({
             <div className="mt-3 mx-auto flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button
                 role="tab"
-                aria-selected={!videoOn}
+                aria-selected={!(videoOn || inline)}
                 onClick={() => onSongOnly?.()}
-                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${!videoOn ? 'bg-white text-black' : 'text-slate-200'}`}
+                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${!(videoOn || inline) ? 'bg-white text-black' : 'text-slate-200'}`}
               >
                 <Headphones className="w-4 h-4" /> Canción
               </button>
               <button
                 role="tab"
-                aria-selected={!!videoOn}
-                onClick={() => !videoOn && onWatchVideo?.()}
-                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${videoOn ? 'bg-white text-black' : 'text-slate-200'}`}
+                aria-selected={!!(videoOn || inline)}
+                onClick={() => !(videoOn || inline) && onWatchVideo?.()}
+                className={`flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-bold font-display ${videoOn || inline ? 'bg-white text-black' : 'text-slate-200'}`}
               >
                 <MonitorPlay className="w-4 h-4" /> Video
               </button>
@@ -283,7 +295,20 @@ export default function NowPlayingSheet({
 
           {/* Portada */}
           <div className="mt-4 mb-6">
-            <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10">
+            <div className={`relative w-full mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10 ${inline ? 'aspect-video' : 'max-w-[min(100%,44vh)] aspect-square'}`}>
+              {inline && inlineTimeRef && (
+                <div className="absolute inset-0 z-[2]">
+                  <InlineVideo
+                    key={inline.id}
+                    videoId={inline.id}
+                    startAt={inline.start}
+                    timeRef={inlineTimeRef}
+                    onPlaying={() => onInlinePlaying?.()}
+                    onEnded={() => onInlineEnded?.()}
+                    onExpand={() => onInlineExpand?.()}
+                  />
+                </div>
+              )}
               {isLive ? (
                 <LiveArtwork src={video.thumbnail} alt={video.title} sizes="(max-width: 448px) 90vw, 400px" imageClassName="object-contain p-10" />
               ) : (

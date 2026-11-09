@@ -547,6 +547,29 @@ export default function MusicPlayerBar() {
   const [videoHidden, setVideoHidden] = useState(false)
   // Video de la canción abierto aparte (reproductor de Videos)
   const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string; startTime: number } | null>(null)
+  // ===== Video dentro del reproductor grande (en el lugar de la carátula) =====
+  const [inline, setInline] = useState<{ id: string; start: number } | null>(null)
+  const inlineRef = useRef(inline)
+  inlineRef.current = inline
+  const inlineTimeRef = useRef(0)
+  // El video agrandado viene del reproductor: al cerrarlo vuelve ahí (al video); «Canción», a la canción
+  const expandedFromInlineRef = useRef(false)
+  const showInline = useCallback(() => {
+    const st = useMusicStore.getState()
+    const id = ytIdOf(st.queue[st.currentIndex])
+    if (!id) return
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    setInline({ id, start: el && isFinite(el.currentTime) ? el.currentTime : 0 })
+  }, [])
+  /** Del video a la canción, desde el mismo segundo (sin salir del reproductor) */
+  const backToSong = useCallback((t?: number) => {
+    const at = typeof t === 'number' ? t : inlineTimeRef.current
+    setInline(null)
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (el && at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+    useMusicStore.getState().setIsPlaying(true)
+  }, [])
+
   // Ver el video desde donde va la canción (y al cerrarlo, la canción sigue desde donde quedó el video)
   const openVideo = useCallback(() => {
     const st = useMusicStore.getState()
@@ -1672,6 +1695,40 @@ export default function MusicPlayerBar() {
     if (!isBarShown) setIsFullOpen(false)
   }, [isBarShown])
 
+  // Video en el reproductor: al cambiar de canción sigue con el video de la nueva (o vuelve a la
+  // carátula si no tiene); al cerrar el reproductor sigue la canción desde donde iba el video
+  useEffect(() => {
+    if (!inlineRef.current) return
+    const id = ytIdOf(currentVideo)
+    if (!id) return setInline(null)
+    if (id !== inlineRef.current.id) setInline({ id, start: 0 })
+  }, [currentId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isFullOpen && inlineRef.current) backToSong()
+  }, [isFullOpen, backToSong])
+  // Bloquear o salir con el video en el reproductor: sigue la canción (YouTube no suena en segundo
+  // plano) y al volver, otra vez el video desde donde va
+  useEffect(() => {
+    let resume: string | null = null
+    const onVis = () => {
+      if (appHidden()) {
+        if (!inlineRef.current) return
+        resume = inlineRef.current.id
+        backToSong()
+      } else if (resume) {
+        const st = useMusicStore.getState()
+        if (ytIdOf(st.queue[st.currentIndex]) === resume) showInline()
+        resume = null
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener(PIP_EVENT, onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener(PIP_EVENT, onVis)
+    }
+  }, [backToSong, showInline])
+
   // Abrir la pantalla completa cuando otra parte de la app lo pide (enlace compartido)
   const fullPlayerRequested = useMusicStore((s) => s.fullPlayerRequested)
   const pathname = usePathname()
@@ -1923,7 +1980,20 @@ export default function MusicPlayerBar() {
           title={videoModal.title}
           channelTitle={videoModal.channelTitle}
           startTime={videoModal.startTime}
-          onClose={closeVideo}
+          onClose={(t) => {
+            // Agrandado desde el reproductor: al cerrar vuelve al video en el reproductor
+            if (expandedFromInlineRef.current) {
+              expandedFromInlineRef.current = false
+              setVideoModal(null)
+              setInline({ id: videoModal.id, start: t ?? 0 })
+              return
+            }
+            closeVideo(t)
+          }}
+          onSong={(t) => {
+            expandedFromInlineRef.current = false
+            closeVideo(t)
+          }}
           songToggle
         />
       )}
@@ -1939,14 +2009,25 @@ export default function MusicPlayerBar() {
           queueFromFullRef.current = true
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()
         }}
-        onWatchVideo={
-          canWatchVideo
-            ? () => {
-                closeFull()
-                openVideo()
-              }
-            : undefined
-        }
+        onWatchVideo={canWatchVideo ? showInline : undefined}
+        inline={isFullOpen ? inline : null}
+        inlineTimeRef={inlineTimeRef}
+        onInlinePlaying={() => useMusicStore.getState().setIsPlaying(false)}
+        onInlineEnded={() => {
+          // Terminó el video: sigue la próxima canción con su video (o solo audio si no tiene)
+          const st = useMusicStore.getState()
+          if (st.currentIndex >= st.queue.length - 1) return backToSong(0)
+          st.playNext()
+        }}
+        onInlineExpand={() => {
+          const cur = inlineRef.current
+          if (!cur) return
+          const st = useMusicStore.getState()
+          const v = st.queue[st.currentIndex]
+          expandedFromInlineRef.current = true
+          setInline(null)
+          setVideoModal({ id: cur.id, title: v?.title ?? '', channelTitle: v?.channelTitle ?? '', startTime: inlineTimeRef.current })
+        }}
         onCast={
           nativeCastAvailable() && currentVideo
             ? () => {
@@ -1966,6 +2047,7 @@ export default function MusicPlayerBar() {
           // siguen también van como canción) y, si se veía el video, sigue solo el audio desde el
           // mismo segundo. Para ver un video: «Video».
           if (getAlwaysVideo()) setAlwaysVideo(false)
+          if (inlineRef.current) return backToSong()
           if (!(asVideo && !useAudio)) return
           const st = useMusicStore.getState()
           pendingSeekRef.current = localPlayedRef.current
