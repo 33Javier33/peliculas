@@ -61,7 +61,8 @@ function useMyArtists(): string[] {
 }
 
 export default function MusicVideosClient() {
-  const [genre, setGenre] = useState('estrenos')
+  // Opción elegida en «Explorar»: un artista tuyo, uno parecido o (sin biblioteca) un género
+  const [genre, setGenre] = useState('')
   const [query, setQuery] = useState('')
   const [submitted, setSubmitted] = useState('')
   const [items, setItems] = useState<V[] | null>(null)
@@ -79,6 +80,7 @@ export default function MusicVideosClient() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const [rows, setRows] = useState<{ title: string; sub: string; items: V[] }[]>([])
+  const [similarNames, setSimilarNames] = useState<string[]>([])
   const seeds = mine.slice(0, 4).join('|')
   useEffect(() => {
     if (!mounted || !seeds) return setRows([])
@@ -94,7 +96,9 @@ export default function MusicVideosClient() {
       const rel = await Promise.all(
         names.slice(0, 2).map((n) => cachedJson<{ artists?: CatalogArtist[] }>(`/api/catalog/related?name=${encodeURIComponent(n)}`, 86400_000).then((d) => d?.artists ?? []).catch(() => [] as CatalogArtist[]))
       )
-      const similar = Array.from(new Set(rel.flat().map((a) => a.name).filter((n) => !known.has(n.toLowerCase())))).slice(0, 4)
+      const allSimilar = Array.from(new Set(rel.flat().map((a) => a.name).filter((n) => !known.has(n.toLowerCase()))))
+      if (!cancelled) setSimilarNames(allSimilar.slice(0, 10))
+      const similar = allSimilar.slice(0, 4)
       if (similar.length) {
         const vids = await searchVideos(`${similar.join('|')} video oficial`).catch(() => [] as V[])
         if (vids.length) out.push({ title: 'Artistas parecidos', sub: similar.slice(0, 3).join(', '), items: vids })
@@ -122,25 +126,44 @@ export default function MusicVideosClient() {
 
   useEffect(() => {
     writeSession('music-videos', { genre, submitted })
-    const q = submitted ? `${submitted} video oficial` : GENRES.find((g) => g.id === genre)?.q || GENRES[0].q
+    const chip = genre.startsWith('a:') || genre.startsWith('s:') ? `${genre.slice(2)} video oficial` : GENRES.find((g) => g.id === genre)?.q
+    const q = submitted ? `${submitted} video oficial` : chip
+    if (!q) {
+      setItems([])
+      return
+    }
     let cancelled = false
     setItems(null)
     setError(false)
-    fetch(`/api/youtube/search?lang=todo&q=${encodeURIComponent(q)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: { items?: YouTubeSearchItem[] }) => {
+    searchVideos(q)
+      .then((list) => {
         if (cancelled) return
-        setItems(
-          (d.items ?? [])
-            .filter((it) => it.id?.videoId)
-            .map((it) => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) }))
-        )
+        if (!list.length) setError(true)
+        setItems(list)
       })
       .catch(() => !cancelled && (setError(true), setItems([])))
     return () => {
       cancelled = true
     }
   }, [genre, submitted])
+
+  // «Explorar»: tus artistas y artistas parecidos (sin biblioteca: géneros)
+  const chips = useMemo(
+    () =>
+      mine.length
+        ? [
+            ...mine.slice(0, 10).map((n) => ({ id: `a:${n}`, label: n, q: `${n} video oficial`, similar: false })),
+            ...similarNames.filter((n) => !mine.slice(0, 10).includes(n)).map((n) => ({ id: `s:${n}`, label: n, q: `${n} video oficial`, similar: true })),
+          ]
+        : GENRES.map((g) => ({ ...g, similar: false })),
+    [mine, similarNames]
+  )
+  // Sin biblioteca se parte con un género; con biblioteca, con las filas de tus artistas
+  useEffect(() => {
+    if (!mounted) return
+    if (!mine.length && !genre) setGenre(GENRES[0].id)
+    if (mine.length && GENRES.some((g) => g.id === genre)) setGenre('')
+  }, [mounted, mine.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { next, advance } = useNextMusicVideo(open, openList.length ? openList : items ?? [], useCallback((v: V) => setOpen(v), []))
 
@@ -195,24 +218,31 @@ export default function MusicVideosClient() {
             </section>
           ))}
 
-        {!submitted && rows.length > 0 && <h2 className="mt-8 text-white font-bold text-lg font-display">Explorar</h2>}
-        <div className="flex gap-2 overflow-x-auto mt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
-          {GENRES.map((g) => (
+        {mine.length > 0 && <h2 className="mt-8 text-white font-bold text-lg font-display">Explorar tus artistas</h2>}
+        {mine.length > 0 && <p className="text-slate-500 text-xs">Tus artistas y, en fucsia, artistas parecidos a los de tu biblioteca</p>}
+        <div className="flex gap-2 overflow-x-auto mt-3 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+          {chips.map((g) => (
             <button
               key={g.id}
               onClick={() => {
                 setSubmitted('')
                 setQuery('')
-                setGenre(g.id)
+                setGenre(genre === g.id ? '' : g.id)
               }}
-              className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold ${!submitted && genre === g.id ? 'bg-violet-500 text-white' : 'bg-surface-2/60 border border-white/8 text-slate-300'}`}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold ${
+                !submitted && genre === g.id
+                  ? 'bg-violet-500 text-white'
+                  : g.similar
+                    ? 'bg-fuchsia-500/10 border border-fuchsia-400/30 text-fuchsia-200'
+                    : 'bg-surface-2/60 border border-white/8 text-slate-300'
+              }`}
             >
               {g.label}
             </button>
           ))}
         </div>
 
-        {items === null ? (
+        {!submitted && !genre ? null : items === null ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
           </div>
