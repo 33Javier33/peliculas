@@ -13,6 +13,9 @@ export default function InlineVideo({
   onPlaying,
   onEnded,
   onExpand,
+  onState,
+  controlRef,
+  syncTo,
 }: {
   videoId: string
   startAt: number
@@ -21,16 +24,32 @@ export default function InlineVideo({
   onPlaying: () => void
   onEnded: () => void
   onExpand: () => void
+  /** Se pausó o siguió desde los controles del video (para que el reproductor haga lo mismo) */
+  onState?: (playing: boolean) => void
+  /** Para mandar órdenes al video desde el reproductor (play / pausa) */
+  controlRef?: MutableRefObject<((func: 'playVideo' | 'pauseVideo') => void) | null>
+  /** Segundo en que va la canción: el video se pone parejo con ella antes de tomar el sonido */
+  syncTo?: () => number
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const started = useRef(false)
-  const cb = useRef({ onPlaying, onEnded })
-  cb.current = { onPlaying, onEnded }
+  const syncing = useRef(false)
+  const cb = useRef({ onPlaying, onEnded, onState, syncTo })
+  cb.current = { onPlaying, onEnded, onState, syncTo }
+  const command = (func: string, args: unknown[] = []) => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+  useEffect(() => {
+    if (!controlRef) return
+    controlRef.current = (func) => command(func)
+    return () => {
+      controlRef.current = null
+    }
+  }, [controlRef])
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
 
   useEffect(() => {
     timeRef.current = startAt
     started.current = false
+    syncing.current = false
     const onMessage = (e: MessageEvent) => {
       if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/.test(e.origin) || e.source !== iframeRef.current?.contentWindow) return
       let data: { event?: string; info?: { currentTime?: number; playerState?: number } }
@@ -42,10 +61,21 @@ export default function InlineVideo({
       const info = data.info
       if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
       if (info?.playerState === 1 && !started.current) {
+        // Parejo con la canción: si el video quedó atrás o adelante (lo que tardó en cargar), se
+        // mueve al segundo en que va la canción y recién ahí toma el sonido
+        const target = cb.current.syncTo?.()
+        if (typeof target === 'number' && !syncing.current && Math.abs(target - timeRef.current) > 0.35) {
+          syncing.current = true
+          command('seekTo', [target + 0.15, true])
+          return
+        }
         started.current = true
-        iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*')
+        command('unMute')
         cb.current.onPlaying()
+        return
       }
+      // Pausa o play desde los controles del propio video
+      if (started.current && (info?.playerState === 1 || info?.playerState === 2)) cb.current.onState?.(info.playerState === 1)
       if (info?.playerState === 0) cb.current.onEnded()
     }
     window.addEventListener('message', onMessage)

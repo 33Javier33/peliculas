@@ -552,6 +552,10 @@ export default function MusicPlayerBar() {
   const inlineRef = useRef(inline)
   inlineRef.current = inline
   const inlineTimeRef = useRef(0)
+  // El video del reproductor está sonando: la canción espera en pausa (sin darla por caída) y el
+  // play/pausa del reproductor manda al video
+  const videoOwnsRef = useRef(false)
+  const inlineCtlRef = useRef<((func: 'playVideo' | 'pauseVideo') => void) | null>(null)
   // El video agrandado viene del reproductor: al cerrarlo vuelve ahí (al video); «Canción», a la canción
   const expandedFromInlineRef = useRef(false)
   const showInline = useCallback(() => {
@@ -564,9 +568,28 @@ export default function MusicPlayerBar() {
   /** Del video a la canción, desde el mismo segundo (sin salir del reproductor) */
   const backToSong = useCallback((t?: number) => {
     const at = typeof t === 'number' ? t : inlineTimeRef.current
-    setInline(null)
+    const wasPlaying = useMusicStore.getState().isPlaying
+    videoOwnsRef.current = false
     const el = playerRef.current as unknown as HTMLMediaElement | null
-    if (el && at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+    if (el && at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at + 0.1, el.duration - 1)
+    if (!el || !wasPlaying || !inlineRef.current) {
+      setInline(null)
+      return
+    }
+    // Sin silencio en medio: el video sigue sonando hasta que la canción de verdad suena (empieza
+    // en silencio en el mismo segundo y en ese instante se quita el video)
+    el.muted = true
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      el.removeEventListener('playing', finish)
+      el.muted = false
+      setInline(null)
+    }
+    el.addEventListener('playing', finish)
+    setTimeout(finish, 2500)
+    el.play()?.catch?.(() => finish())
     useMusicStore.getState().setIsPlaying(true)
   }, [])
 
@@ -997,6 +1020,11 @@ export default function MusicPlayerBar() {
     let advanced = false
     lastProgressRef.current = Date.now()
     const timer = setInterval(() => {
+      // Suena el video del reproductor (la canción espera a propósito): no está caída
+      if (videoOwnsRef.current) {
+        lastProgressRef.current = Date.now()
+        return
+      }
       // Interrumpida por otra app (WhatsApp, llamada) o buscando la canción: no es una fuente caída
       if (interruptedAtRef.current || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.pending) {
         lastProgressRef.current = Date.now()
@@ -1252,6 +1280,12 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     const el = playerRef.current
     if (!useAudio || !el || !audioUrl) return
+    // Suena el video del reproductor: play y pausa van al video (la canción sigue en pausa)
+    if (videoOwnsRef.current) {
+      if (!el.paused) el.pause()
+      inlineCtlRef.current?.(isPlaying ? 'playVideo' : 'pauseVideo')
+      return
+    }
     if (isPlaying && eqActive) resumeEqualizer()
     if (isPlaying && el.paused) {
       el.play()
@@ -1415,7 +1449,7 @@ export default function MusicPlayerBar() {
     const tryResume = () => {
       const el = playerRef.current
       const st = useMusicStore.getState()
-      if (!interruptedAtRef.current || !useAudioRef.current || !st.isPlaying || !el?.paused) return
+      if (videoOwnsRef.current || !interruptedAtRef.current || !useAudioRef.current || !st.isPlaying || !el?.paused) return
       if (Date.now() - interruptedAtRef.current > 30 * 60 * 1000) {
         interruptedAtRef.current = 0
         st.setIsPlaying(false)
@@ -1466,6 +1500,8 @@ export default function MusicPlayerBar() {
   const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
     // Al terminar una canción también llega "pause": lo gestiona onEnded
     if (e?.currentTarget?.ended) return
+    // La pausa la hizo la app porque suena el video del reproductor
+    if (videoOwnsRef.current) return
     // Pausa causada por la reconexión de una radio: no es del usuario
     if (reconnectingRef.current) return
     if (useAudioRef.current) {
@@ -1700,8 +1736,11 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     if (!inlineRef.current) return
     const id = ytIdOf(currentVideo)
+    if (id === inlineRef.current.id) return
+    // Otra canción: suena su audio hasta que su video arranque
+    videoOwnsRef.current = false
     if (!id) return setInline(null)
-    if (id !== inlineRef.current.id) setInline({ id, start: 0 })
+    setInline({ id, start: 0 })
   }, [currentId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!isFullOpen && inlineRef.current) backToSong()
@@ -2012,11 +2051,27 @@ export default function MusicPlayerBar() {
         onWatchVideo={canWatchVideo ? showInline : undefined}
         inline={isFullOpen ? inline : null}
         inlineTimeRef={inlineTimeRef}
-        onInlinePlaying={() => useMusicStore.getState().setIsPlaying(false)}
+        onInlinePlaying={() => {
+          // El video ya suena (parejo con la canción): la canción queda en pausa y el reproductor
+          // sigue «sonando» (su play/pausa controla el video)
+          videoOwnsRef.current = true
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          el?.pause()
+          if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
+        }}
+        onInlineState={(playing) => {
+          if (videoOwnsRef.current && useMusicStore.getState().isPlaying !== playing) useMusicStore.getState().setIsPlaying(playing)
+        }}
+        inlineControlRef={inlineCtlRef}
+        inlineSyncTo={() => {
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          return el && !el.paused && isFinite(el.currentTime) ? el.currentTime : inlineTimeRef.current
+        }}
         onInlineEnded={() => {
           // Terminó el video: sigue la próxima canción con su video (o solo audio si no tiene)
           const st = useMusicStore.getState()
           if (st.currentIndex >= st.queue.length - 1) return backToSong(0)
+          videoOwnsRef.current = false
           st.playNext()
         }}
         onInlineExpand={() => {
@@ -2025,6 +2080,9 @@ export default function MusicPlayerBar() {
           const st = useMusicStore.getState()
           const v = st.queue[st.currentIndex]
           expandedFromInlineRef.current = true
+          videoOwnsRef.current = false
+          // La pantalla grande sigue el video desde el mismo segundo (la canción queda en pausa)
+          useMusicStore.getState().setIsPlaying(false)
           setInline(null)
           setVideoModal({ id: cur.id, title: v?.title ?? '', channelTitle: v?.channelTitle ?? '', startTime: inlineTimeRef.current })
         }}

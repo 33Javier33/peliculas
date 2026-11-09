@@ -72,6 +72,9 @@ interface NowPlayingSheetProps {
   onInlinePlaying?: () => void
   onInlineEnded?: () => void
   onInlineExpand?: () => void
+  onInlineState?: (playing: boolean) => void
+  inlineControlRef?: React.MutableRefObject<((func: 'playVideo' | 'pauseVideo') => void) | null>
+  inlineSyncTo?: () => number
   isAudioLoading: boolean
   played: number
   duration: number
@@ -93,6 +96,9 @@ export default function NowPlayingSheet({
   onInlinePlaying,
   onInlineEnded,
   onInlineExpand,
+  onInlineState,
+  inlineControlRef,
+  inlineSyncTo,
   onCast,
   castDevice,
   onCastStop,
@@ -306,6 +312,9 @@ export default function NowPlayingSheet({
                     onPlaying={() => onInlinePlaying?.()}
                     onEnded={() => onInlineEnded?.()}
                     onExpand={() => onInlineExpand?.()}
+                    onState={onInlineState}
+                    controlRef={inlineControlRef}
+                    syncTo={inlineSyncTo}
                   />
                 </div>
               )}

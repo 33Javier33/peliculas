@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Video en el reproductor: el play/pausa del reproductor controla el video y los controles del video, el reproductor (en las dos apps); el cambio canción ↔ video queda parejo: el video se pone en el mismo segundo antes de tomar el sonido y al volver a «Canción» el video sigue hasta que la canción suena',
       'Accesos rápidos de Música: botón ▶ para reproducir ahí mismo (Tus me gusta, playlists, artistas y discos); tocar la carátula abre el disco, la playlist, el artista o la nueva página Tus me gusta',
       'Videos musicales (también en PulsoMusic) y videos de un artista: botón «Canción» que sigue como canción desde el mismo segundo y abre el reproductor (ahí «Video» lo vuelve a mostrar al medio)',
       'Reproductor: «Video» muestra el video dentro del reproductor (en el lugar de la carátula), con botón para agrandarlo; «Canción» vuelve a la carátula sin salir del reproductor. Al cerrar el video grande vuelves al video en el reproductor; al bloquear sigue la canción y al volver, el video',
