@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { PlayCircle } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
-import { continueInMiniPlayer } from '@/lib/video-handoff'
+import { continueInMiniPlayer, continueAsSong } from '@/lib/video-handoff'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { useAutoplay, setAutoplay } from '@/lib/autoplay'
 import { decodeEntities } from '@/lib/youtube-music'
@@ -62,7 +62,7 @@ export default function ArtistVideos({ name }: { name: string }) {
           )
         })}
       </div>
-      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} autoNext={isMusic || autoplay} onTrackChange={() => setOpen(null)} onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
+      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} autoNext={isMusic || autoplay} onTrackChange={() => setOpen(null)} songToggle={isMusic} onSong={(t) => { continueAsSong({ id: open.id, title: open.title, channelTitle: open.channel }, t); setOpen(null) }} onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={(t) => {
             // Sigue en la ventana chica del reproductor desde el mismo segundo
             continueInMiniPlayer({ id: open.id, title: open.title, channelTitle: open.channel }, t)
             setOpen(null)

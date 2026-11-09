@@ -1,6 +1,6 @@
 'use client'
 
-import { continueInMiniPlayer } from '@/lib/video-handoff'
+import { continueInMiniPlayer, continueAsSong } from '@/lib/video-handoff'
 import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -322,6 +322,11 @@ export default function CineClientPage({
           onNext={nextVideo ? advance : undefined}
           autoNext={isMusic || autoplay}
           onTrackChange={() => setPlayer(null)}
+          songToggle={isMusic}
+          onSong={(t) => {
+            continueAsSong({ id: player.videoId, title: player.title, channelTitle: player.channelTitle }, t)
+            setPlayer(null)
+          }}
           onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)}
           upNext={nextVideo?.title}
           videoId={player.videoId}

@@ -5,7 +5,7 @@ import { Search, PlayCircle, Loader2, MonitorPlay } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import HelpTip from '@/components/HelpTip'
-import { continueInMiniPlayer } from '@/lib/video-handoff'
+import { continueInMiniPlayer, continueAsSong } from '@/lib/video-handoff'
 import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { decodeEntities } from '@/lib/youtube-music'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -278,6 +278,11 @@ export default function MusicVideosClient() {
           onNext={next ? advance : undefined}
           upNext={next?.title}
           autoNext
+          songToggle
+          onSong={(t) => {
+            continueAsSong({ id: open.id, title: open.title, channelTitle: open.channel }, t)
+            setOpen(null)
+          }}
           onTrackChange={() => setOpen(null)}
           onClose={(t) => {
             // Sigue en la ventana chica del reproductor desde el mismo segundo
