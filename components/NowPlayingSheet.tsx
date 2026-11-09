@@ -75,7 +75,7 @@ interface NowPlayingSheetProps {
   onInlineUnavailable?: () => void
   onInlineExpand?: () => void
   onInlineState?: (playing: boolean) => void
-  inlineControlRef?: React.MutableRefObject<((func: 'playVideo' | 'pauseVideo') => void) | null>
+  inlineControlRef?: React.MutableRefObject<((func: 'playVideo' | 'pauseVideo' | 'seekTo', at?: number) => void) | null>
   inlineSyncTo?: () => number
   onInlineFloat?: () => void
   isAudioLoading: boolean

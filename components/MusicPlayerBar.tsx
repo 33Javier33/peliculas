@@ -166,6 +166,8 @@ function formatTime(seconds: number): string {
 export default function MusicPlayerBar() {
   const playerRef = useRef<HTMLVideoElement>(null)
   const [isSeeking, setIsSeeking] = useState(false)
+  const isSeekingRef = useRef(false)
+  isSeekingRef.current = isSeeking
   const [localPlayed, setLocalPlayed] = useState(0)
   const [localDuration, setLocalDuration] = useState(0)
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
@@ -558,7 +560,7 @@ export default function MusicPlayerBar() {
   // El video del reproductor está sonando: la canción espera en pausa (sin darla por caída) y el
   // play/pausa del reproductor manda al video
   const videoOwnsRef = useRef(false)
-  const inlineCtlRef = useRef<((func: 'playVideo' | 'pauseVideo') => void) | null>(null)
+  const inlineCtlRef = useRef<((func: 'playVideo' | 'pauseVideo' | 'seekTo', at?: number) => void) | null>(null)
   // El video agrandado viene del reproductor: al cerrarlo vuelve ahí (al video); «Canción», a la canción
   const expandedFromInlineRef = useRef(false)
   const showInline = useCallback(() => {
@@ -588,22 +590,62 @@ export default function MusicPlayerBar() {
       useMusicStore.getState().setIsPlaying(true)
       return
     }
-    // Sin silencio en medio: el video sigue sonando hasta que la canción de verdad suena (empieza
-    // en silencio en el mismo segundo y en ese instante se quita el video)
+    // Sin silencio ni eco: el video sigue sonando mientras la canción arranca en silencio; la
+    // canción se pone pareja con el segundo exacto del video (acelerando o frenando un poco, sin
+    // que se oiga) y recién ahí se cambia el sonido de uno a otro
     el.muted = true
     let done = false
+    const t0 = Date.now()
+    let timer: ReturnType<typeof setInterval> | null = null
     const finish = () => {
       if (done) return
       done = true
-      el.removeEventListener('playing', finish)
+      if (timer) clearInterval(timer)
+      el.playbackRate = 1
       el.muted = false
       setInline(null)
     }
-    el.addEventListener('playing', finish)
-    setTimeout(finish, 2500)
+    // Si el video no avanza (en pausa o detenido) no hay nada con qué empalmar: la canción entra ya
+    let vLast = inlineTimeRef.current
+    let vMovedAt = Date.now()
+    timer = setInterval(() => {
+      if (!inlineRef.current || Date.now() - t0 > 3000) return finish()
+      if (inlineTimeRef.current !== vLast) {
+        vLast = inlineTimeRef.current
+        vMovedAt = Date.now()
+      }
+      if (el.paused || el.readyState < 3) return
+      if (Date.now() - vMovedAt > 200) return finish()
+      const d = el.currentTime - inlineTimeRef.current
+      if (Math.abs(d) <= 0.05) return finish()
+      if (Math.abs(d) > 1.5) {
+        el.currentTime = inlineTimeRef.current + 0.25
+        return
+      }
+      el.playbackRate = d < 0 ? (d < -0.4 ? 1.6 : 1.25) : d > 0.4 ? 0.6 : 0.8
+    }, 40)
     el.play()?.catch?.(() => finish())
     useMusicStore.getState().setIsPlaying(true)
   }, [])
+
+  // Con el video sonando, la barra y los segundos siguen al video (la canción está en pausa)
+  useEffect(() => {
+    if (!inline) return
+    let lastSave = 0
+    const id = setInterval(() => {
+      if (!videoOwnsRef.current || isSeekingRef.current) return
+      const el = playerRef.current as unknown as HTMLMediaElement | null
+      const d = el && isFinite(el.duration) && el.duration > 0 ? el.duration : useMusicStore.getState().duration
+      if (!d) return
+      const f = Math.min(1, Math.max(0, inlineTimeRef.current / d))
+      setLocalPlayed(f)
+      if (Date.now() - lastSave > 1000) {
+        lastSave = Date.now()
+        useMusicStore.getState().setPlayed(f)
+      }
+    }, 250)
+    return () => clearInterval(id)
+  }, [inline])
 
   /**
    * Mover el video entre el reproductor y la ventana flotante sin que se note: la canción sigue
@@ -1356,6 +1398,7 @@ export default function MusicPlayerBar() {
       const el = playerRef.current
       if (el && isFinite(el.duration) && el.duration > 0) {
         el.currentTime = fraction * el.duration
+        if (videoOwnsRef.current) inlineCtlRef.current?.('seekTo', fraction * el.duration)
       }
     })
   }, [registerSeek])
@@ -1644,6 +1687,7 @@ export default function MusicPlayerBar() {
     const el = playerRef.current
     if (el && isFinite(el.duration) && el.duration > 0) {
       el.currentTime = fraction * el.duration
+      if (videoOwnsRef.current) inlineCtlRef.current?.('seekTo', fraction * el.duration)
     }
     setPlayed(fraction)
     setLocalPlayed(fraction)
@@ -1848,6 +1892,8 @@ export default function MusicPlayerBar() {
     (fraction: number) => {
       const el = playerRef.current
       if (el && isFinite(el.duration) && el.duration > 0) el.currentTime = fraction * el.duration
+      // Suena el video: el salto va al video
+      if (videoOwnsRef.current && el && isFinite(el.duration)) inlineCtlRef.current?.('seekTo', fraction * el.duration)
       setPlayed(fraction)
       setLocalPlayed(fraction)
     },
