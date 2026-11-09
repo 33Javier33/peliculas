@@ -127,6 +127,19 @@ html[data-splash='done'] #cpn-splash {
 .cpn-pip [data-cpn-video] > :not(video):not(iframe):not(:has(video, iframe)) {
   display: none !important;
 }
+/* Que nada de la app quede encima del video (el menú de abajo tiene su propia capa) */
+.cpn-pip *:has([data-cpn-video]) {
+  z-index: 2147483647 !important;
+}
+.cpn-pip nav,
+.cpn-pip header {
+  display: none !important;
+}
+/* Los botones de la ventana (agrandar, cerrar…) no sirven en la ventanita del teléfono */
+.cpn-pip [data-cpn-video] button,
+.cpn-pip [data-cpn-video] .animate-spin {
+  display: none !important;
+}
 
 /* App en segundo plano: animaciones en pausa (el procesador queda para el audio) */
 html.cpn-hidden *,

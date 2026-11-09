@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Ventanita del teléfono (al salir de la app con video): solo el video, sin el menú de la app ni los botones de la ventana',
       'Ventana flotante: con el video en el reproductor, el botón ⧉ lo deja flotando sobre la app mientras navegas; ⤢ lo vuelve al reproductor y ✕ cierra solo la ventana (la música sigue). En la app de Android, al salir pasa a la ventanita del teléfono',
       'Al salir de la app, bloquear o abrir otra app con video: la música sigue al instante (antes podía tardar 20-40 s: la canción arrancaba en silencio y el teléfono la pausaba, y la app esperaba como si fuera una llamada)',
       'Con video la música ya no se detiene al bloquear: el teléfono pausaba el video un instante antes de avisar el bloqueo y se tomaba como pausa tuya (en el reproductor, la ventanita y la pantalla de video). Solo se detiene con pausa',
