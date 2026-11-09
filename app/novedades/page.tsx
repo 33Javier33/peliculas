@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Al salir de la app, bloquear o abrir otra app con video: la música sigue al instante (antes podía tardar 20-40 s: la canción arrancaba en silencio y el teléfono la pausaba, y la app esperaba como si fuera una llamada)',
       'Con video la música ya no se detiene al bloquear: el teléfono pausaba el video un instante antes de avisar el bloqueo y se tomaba como pausa tuya (en el reproductor, la ventanita y la pantalla de video). Solo se detiene con pausa',
       'Video en el reproductor: el play/pausa del reproductor controla el video y los controles del video, el reproductor (en las dos apps); el cambio canción ↔ video queda parejo: el video se pone en el mismo segundo antes de tomar el sonido y al volver a «Canción» el video sigue hasta que la canción suena',
       'Accesos rápidos de Música: botón ▶ para reproducir ahí mismo (Tus me gusta, playlists, artistas y discos); tocar la carátula abre el disco, la playlist, el artista o la nueva página Tus me gusta',

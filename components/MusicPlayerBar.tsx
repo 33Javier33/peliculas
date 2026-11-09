@@ -576,6 +576,15 @@ export default function MusicPlayerBar() {
       setInline(null)
       return
     }
+    // App en segundo plano (bloqueo, otra app): la canción suena YA, con sonido. (Android pausa
+    // solo cualquier audio en silencio con la app oculta: el empalme en silencio la dejaba muda)
+    if (document.visibilityState === 'hidden') {
+      el.muted = false
+      setInline(null)
+      el.play()?.catch?.(() => {})
+      useMusicStore.getState().setIsPlaying(true)
+      return
+    }
     // Sin silencio en medio: el video sigue sonando hasta que la canción de verdad suena (empieza
     // en silencio en el mismo segundo y en ese instante se quita el video)
     el.muted = true
@@ -777,7 +786,8 @@ export default function MusicPlayerBar() {
     if (!currentId || isLive || isLocal || isPending || audioFailedIds.has(currentId)) return
     if (audioSrc?.id === currentId) return
     let cancelled = false
-    const delay = wantAudio || document.visibilityState === 'hidden' ? 0 : 4000
+    // (En la app el audio del video se deja listo al instante: al salir o bloquear suena sin esperar)
+    const delay = wantAudio || document.visibilityState === 'hidden' || isNativeApp() ? 0 : 1500
     const timer = setTimeout(() =>
     loadAudioCandidates(currentId).then((candidates) => {
       if (cancelled) return
@@ -1070,7 +1080,8 @@ export default function MusicPlayerBar() {
       // El audio que saca el teléfono (servidor local) puede tardar más en empezar, sobre todo
       // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
       // (los reintentos, ?r=1 y ?r=2, ya encuentran el audio buscado: 10 s)
-      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 10000 : 20000) : START_MS
+      // (Con la app en segundo plano no se espera tanto: si no arranca en 6 s se pide de nuevo)
+      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 8000 : document.visibilityState === 'hidden' ? 6000 : 20000) : START_MS
       // La versión de alta calidad de archive.org que no arranca en 8 s se cambia por la de siempre
       // (antes se esperaban 40 s: parecía que los discos no cargaban)
       const hqStart = !!audioUrl?.includes('/api/archive-best') && lastTime <= 0
@@ -1509,6 +1520,15 @@ export default function MusicPlayerBar() {
       // pantalla de bloqueo cambian primero el estado): la cortó otra app, p. ej. al grabar o
       // escuchar un audio de WhatsApp, una llamada o una alarma. Se reanuda sola después.
       if (useMusicStore.getState().isPlaying && !unpluggedRecently()) {
+        const el = e?.currentTarget ?? (playerRef.current as unknown as HTMLMediaElement | null)
+        // Justo al salir de la app o bloquear (no es otra app sonando): se sigue AL INSTANTE.
+        // Antes se esperaba como si fuera una llamada (20 s o más)
+        const sinceHide = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : document.visibilityState === 'hidden' ? 0 : -1
+        if (el && (el.muted || (sinceHide >= 0 && sinceHide < 5000))) {
+          el.muted = false
+          for (const ms of [50, 400, 1200, 2500]) setTimeout(() => el.paused && useMusicStore.getState().isPlaying && el.play()?.catch?.(() => {}), ms)
+          return
+        }
         interruptedAtRef.current = Date.now()
         return
       }
