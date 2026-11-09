@@ -170,7 +170,7 @@ export default function StatusClient() {
   const failing = all.filter((c) => !c.ok).length
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-3xl mx-auto px-4 py-6">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">
           <Activity className="w-6 h-6 text-violet-300" /> Estado de las fuentes

@@ -58,7 +58,7 @@ export default function PlaylistClient({ id }: { id: string }) {
   const btn = 'w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white bg-black/40 sm:bg-transparent'
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-40">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <BackButton fallbackHref="/music/library?tab=playlists" className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-4">
           Volver

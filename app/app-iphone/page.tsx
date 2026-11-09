@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 // Safari ("Agregar a pantalla de inicio"): queda con su ícono y se abre a pantalla completa.
 export default function IphoneAppPage() {
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-xl mx-auto px-4 py-8">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">
           <Smartphone className="w-7 h-7 text-violet-300" /> App para iPhone

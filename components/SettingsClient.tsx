@@ -111,7 +111,7 @@ export default function SettingsClient() {
   const size = downloads.reduce((n, i) => n + (i.size || 0), 0)
 
   return (
-    <div className="pt-24 pb-40 px-4 max-w-2xl mx-auto min-h-screen">
+    <div className="pt-24 pb-8 px-4 max-w-2xl mx-auto">
       <h1 className="flex items-center gap-3 text-2xl font-bold text-white font-display mb-6">
         <Settings className="w-6 h-6 text-violet-300" /> Configuración
       </h1>

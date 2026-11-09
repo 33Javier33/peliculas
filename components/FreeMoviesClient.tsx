@@ -177,7 +177,7 @@ export default function FreeMoviesClient() {
     }`
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-1 h-8 bg-violet-500 rounded-full" />

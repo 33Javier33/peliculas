@@ -344,7 +344,7 @@ export default function CineClientPage({
         />
       )}
 
-      <div className="pt-20 min-h-screen bg-obsidian">
+      <div className="pt-20 bg-obsidian pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 bg-violet-600/20 border border-violet-600/30 text-violet-400 text-xs font-bold px-4 py-2 rounded-full uppercase tracking-widest mb-5">

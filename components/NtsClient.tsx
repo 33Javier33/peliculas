@@ -196,7 +196,7 @@ function MixtapeTile({ m }: { m: NtsMixtape }) {
 export default function NtsClient() {
   const data = useNts()
   return (
-    <div className="pt-24 pb-40 px-4 max-w-6xl mx-auto min-h-screen">
+    <div className="pt-24 pb-8 px-4 max-w-6xl mx-auto">
       <Link href="/music/library" className="text-slate-400 text-sm hover:text-white">
         ← Biblioteca
       </Link>

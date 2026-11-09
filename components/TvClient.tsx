@@ -196,7 +196,7 @@ export default function TvClient() {
     `${chip} ${on ? 'bg-violet-500 text-white shadow-glow' : 'bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white'}`
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <LiveHeader active="tv" />
 

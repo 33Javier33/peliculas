@@ -20,7 +20,7 @@ export default function LikedSongsClient() {
   }
   if (!mounted) return <div className="pt-20 min-h-screen bg-obsidian" />
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-3xl mx-auto px-4 py-6">
         <BackButton fallbackHref="/music" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium">
           <ArrowLeft className="w-3.5 h-3.5" /> Volver

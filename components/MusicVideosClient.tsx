@@ -168,7 +168,7 @@ export default function MusicVideosClient() {
   const { next, advance } = useNextMusicVideo(open, openList.length ? openList : items ?? [], useCallback((v: V) => setOpen(v), []))
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <h1 className="flex items-center gap-2 text-3xl font-black text-white font-display">
           <MonitorPlay className="w-7 h-7 text-violet-300" /> Videos musicales

@@ -61,7 +61,7 @@ export default function SharedPlaylistClient() {
   }
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-40">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
         <OpenInAppBanner className="mb-5" />
         <p className="inline-flex items-center gap-2 text-emerald-400 text-[11px] font-bold uppercase tracking-[0.08em] font-display mb-4">

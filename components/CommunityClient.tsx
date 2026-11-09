@@ -107,7 +107,7 @@ export default function CommunityClient() {
   const icon = (key: string, what: string, el: React.ReactNode) => (busy === `${key}:${what}` ? <Loader2 className="w-4 h-4 animate-spin" /> : el)
 
   return (
-    <div className="pt-24 pb-40 px-4 max-w-5xl mx-auto min-h-screen">
+    <div className="pt-24 pb-8 px-4 max-w-5xl mx-auto">
       <Link href="/music/library" className="text-slate-400 text-sm hover:text-white">
         ← Biblioteca
       </Link>

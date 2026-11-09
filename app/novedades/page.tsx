@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Sin espacios vacíos: el pie de página aparece apenas termina el contenido (en todas las secciones y en Configuración) y en PulsoMusic dice PulsoMusic',
       'Ventanita del teléfono (al salir de la app con video): solo el video, sin el menú de la app ni los botones de la ventana',
       'Ventana flotante: con el video en el reproductor, el botón ⧉ lo deja flotando sobre la app mientras navegas; ⤢ lo vuelve al reproductor y ✕ cierra solo la ventana (la música sigue). En la app de Android, al salir pasa a la ventanita del teléfono',
       'Al salir de la app, bloquear o abrir otra app con video: la música sigue al instante (antes podía tardar 20-40 s: la canción arrancaba en silencio y el teléfono la pausaba, y la app esperaba como si fuera una llamada)',
@@ -390,7 +391,7 @@ const NUMBERS = [
 
 export default function NovedadesPage() {
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">
           <Sparkles className="w-7 h-7 text-fuchsia-300" /> Cómo ha crecido la app

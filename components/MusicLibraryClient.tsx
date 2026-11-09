@@ -374,7 +374,7 @@ export default function MusicLibraryClient() {
 
   if (!mounted) {
     return (
-      <div className="pt-20 min-h-screen bg-obsidian pb-32">
+      <div className="pt-20 bg-obsidian pb-8">
         <div className="max-w-7xl mx-auto px-4 py-12 text-slate-500 text-sm">Cargando biblioteca...</div>
       </div>
     )
@@ -384,7 +384,7 @@ export default function MusicLibraryClient() {
 
   if (focusAlbum)
     return (
-      <div className="pt-20 min-h-screen bg-obsidian pb-32">
+      <div className="pt-20 bg-obsidian pb-8">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
           <BackButton fallbackHref="/music/library" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -398,7 +398,7 @@ export default function MusicLibraryClient() {
     )
 
   return (
-    <div className="pt-20 min-h-screen bg-obsidian pb-32">
+    <div className="pt-20 bg-obsidian pb-8">
       {/* Quitar un álbum: de la biblioteca y del teléfono, o solo su descarga */}
       {toDelete && (() => {
         const tr = tracksOfAlbum(toDelete.name, toDelete.artist)

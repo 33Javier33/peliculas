@@ -74,7 +74,7 @@ export default function ConvertClient() {
   const shown = results.length ? [...results, ...previous.filter((p) => !results.some((r) => r.id === p.id))] : previous
 
   return (
-    <div className="pt-24 pb-40 px-4 max-w-3xl mx-auto min-h-screen">
+    <div className="pt-24 pb-8 px-4 max-w-3xl mx-auto">
       <Link href="/music/library" className="inline-flex items-center gap-1 text-slate-400 text-sm hover:text-white">
         <ChevronLeft className="w-4 h-4" /> Biblioteca
       </Link>

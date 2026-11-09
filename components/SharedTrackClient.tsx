@@ -32,7 +32,7 @@ export default function SharedTrackClient({ video }: { video: MusicVideo }) {
   }
 
   return (
-    <div className="relative min-h-screen pt-20 pb-32 overflow-hidden">
+    <div className="relative pt-20 pb-8 overflow-hidden">
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
         <Image src={video.thumbnail} alt="" fill sizes="100vw" className="object-cover scale-150 blur-3xl opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-b from-obsidian/40 via-obsidian/80 to-obsidian" />

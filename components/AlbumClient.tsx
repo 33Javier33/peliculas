@@ -131,7 +131,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
   }
 
   return (
-    <div className="relative min-h-screen pt-20 pb-32 overflow-hidden">
+    <div className="relative pt-20 pb-8 overflow-hidden">
       {/* Luz ambiental con la portada */}
       {album.cover && (
         <div className="absolute inset-x-0 top-0 h-[520px] pointer-events-none" aria-hidden>

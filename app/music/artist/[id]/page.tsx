@@ -75,7 +75,7 @@ export default async function ArtistPage({ params }: Props) {
   const { artist, albums } = data
 
   return (
-    <div className="relative min-h-screen pt-20 pb-32 overflow-hidden">
+    <div className="relative pt-20 pb-8 overflow-hidden">
       {artist.picture && (
         <div className="absolute inset-x-0 top-0 h-[460px] pointer-events-none" aria-hidden>
           <Image src={artist.picture} alt="" fill sizes="100vw" className="object-cover blur-3xl opacity-30 scale-125" />

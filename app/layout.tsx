@@ -178,13 +178,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Header />
           </Suspense>
         </SafeBoundary>
-        <main className="min-h-screen pb-20">{children}</main>
-        <footer className="bg-surface-1 border-t border-white/8 pt-10 pb-[calc(56px+92px+130px)] sm:pb-[200px] mt-20">
+        <main>{children}</main>
+        <footer className="bg-surface-1 border-t border-white/8 pt-7 pb-6 mt-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />
               <span className="flex flex-col items-start leading-tight">
-                <span className="font-bold bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent">PulsoMedia</span>
+                <span className="font-bold bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent">
+                  Pulso<span className="cpn-brand-media">Media</span>
+                  <span className="cpn-brand-music">Music</span>
+                </span>
                 <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">por Carlos P. Nauto Interactive</span>
               </span>
             </div>
