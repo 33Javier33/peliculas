@@ -2095,6 +2095,19 @@ export default function MusicPlayerBar() {
           const el = playerRef.current as unknown as HTMLMediaElement | null
           return el && !el.paused && isFinite(el.currentTime) ? el.currentTime : inlineTimeRef.current
     },
+    onUnavailable: () => {
+          // YouTube no deja ver este video aquí: la canción sigue (o vuelve a sonar) desde el
+          // segundo en que iba, sin saltarla; la próxima canción vuelve a mostrar su video
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          if (!el) return
+          if (videoOwnsRef.current) {
+            videoOwnsRef.current = false
+            const at = inlineTimeRef.current
+            if (at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+          }
+          el.muted = false
+          if (useMusicStore.getState().isPlaying && el.paused) el.play()?.catch?.(() => {})
+    },
     onEnded: () => {
           // Terminó el video: sigue la próxima canción con su video (o solo audio si no tiene)
           const st = useMusicStore.getState()
@@ -2165,6 +2178,7 @@ export default function MusicPlayerBar() {
         inlineControlRef={inlineCtlRef}
         inlineSyncTo={inlineHandlers.syncTo}
         onInlineEnded={inlineHandlers.onEnded}
+        onInlineUnavailable={inlineHandlers.onUnavailable}
         onInlineExpand={() => {
           const cur = inlineRef.current
           if (!cur) return
@@ -2235,6 +2249,7 @@ export default function MusicPlayerBar() {
               onPlaying={inlineHandlers.onPlaying}
               onState={inlineHandlers.onState}
               onEnded={inlineHandlers.onEnded}
+              onUnavailable={inlineHandlers.onUnavailable}
               syncTo={inlineHandlers.syncTo}
               onExpand={() => {
                 // Agrandar: vuelve al reproductor grande con el video al medio

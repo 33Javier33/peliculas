@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Video en el reproductor: si el video de una canción no se puede ver aquí (bloqueado por derechos), la canción sigue sonando sin cortarse ni saltarse; en el lugar del video aparece un aviso y la siguiente canción vuelve a mostrar su video',
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
       'Vista previa de los enlaces de PulsoMusic (WhatsApp…): con el nombre PulsoMusic y su imagen; la app se comparte con el enlace nuevo /pulsomusic para que WhatsApp no muestre la vista previa antigua',

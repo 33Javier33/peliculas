@@ -72,6 +72,7 @@ interface NowPlayingSheetProps {
   inlineTimeRef?: React.MutableRefObject<number>
   onInlinePlaying?: () => void
   onInlineEnded?: () => void
+  onInlineUnavailable?: () => void
   onInlineExpand?: () => void
   onInlineState?: (playing: boolean) => void
   inlineControlRef?: React.MutableRefObject<((func: 'playVideo' | 'pauseVideo') => void) | null>
@@ -97,6 +98,7 @@ export default function NowPlayingSheet({
   inlineTimeRef,
   onInlinePlaying,
   onInlineEnded,
+  onInlineUnavailable,
   onInlineExpand,
   onInlineState,
   inlineControlRef,
@@ -319,6 +321,7 @@ export default function NowPlayingSheet({
                     controlRef={inlineControlRef}
                     syncTo={inlineSyncTo}
                     onFloat={onInlineFloat}
+                    onUnavailable={onInlineUnavailable}
                   />
                 </div>
               )}
