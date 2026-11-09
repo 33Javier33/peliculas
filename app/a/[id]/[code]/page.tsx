@@ -24,14 +24,15 @@ async function findSong(id: string, code: string): Promise<MusicVideo | null> {
   return null
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props & { searchParams?: { app?: string } }): Promise<Metadata> {
+  const brand = searchParams?.app === 'music' ? 'PulsoMusic' : 'PulsoMedia'
   const t = await findSong(decodeURIComponent(params.id), params.code)
   if (!t) return { title: 'Canción compartida' }
   const description = `Escúchala en PulsoMedia${t.channelTitle ? ` · ${t.channelTitle}` : ''}`
   return {
     title: t.title,
     description,
-    openGraph: { title: `${t.title} — PulsoMedia`, description, type: 'music.song', images: t.thumbnail?.startsWith('http') ? [{ url: t.thumbnail }] : undefined },
+    openGraph: { title: `${t.title} — ${brand}`, siteName: brand, description, type: 'music.song', images: t.thumbnail?.startsWith('http') ? [{ url: t.thumbnail }] : undefined },
   }
 }
 

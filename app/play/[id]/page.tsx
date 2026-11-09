@@ -6,17 +6,21 @@ import SharedTrackClient from '@/components/SharedTrackClient'
 
 interface PlayPageProps {
   params: { id: string }
+  searchParams?: { app?: string }
 }
 
-export async function generateMetadata({ params }: PlayPageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PlayPageProps): Promise<Metadata> {
   if (!isYouTubeId(params.id)) return {}
   const video = await getSharedVideo(params.id)
-  const description = `Escúchala en PulsoMedia${video.channelTitle ? ` · ${video.channelTitle}` : ''}`
+  // Compartida desde PulsoMusic (?app=music): la vista previa dice PulsoMusic
+  const brand = searchParams?.app === 'music' ? 'PulsoMusic' : 'PulsoMedia'
+  const description = `Escúchala en ${brand}${video.channelTitle ? ` · ${video.channelTitle}` : ''}`
   return {
     title: video.title,
     description,
     openGraph: {
-      title: `${video.title} — PulsoMedia`,
+      title: `${video.title} — ${brand}`,
+      siteName: brand,
       description,
       type: 'music.song',
       images: [{ url: video.thumbnail, alt: video.title }],
