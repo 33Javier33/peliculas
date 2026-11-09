@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, PlayCircle, Loader2, MonitorPlay } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -10,6 +10,11 @@ import { useNextMusicVideo } from '@/lib/use-next-music-video'
 import { decodeEntities } from '@/lib/youtube-music'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { YouTubeSearchItem } from '@/lib/youtube'
+import { cachedJson } from '@/lib/client-cache'
+import { useMusicStore } from '@/store/musicStore'
+import { useFollowStore } from '@/store/followStore'
+import { songArtist } from '@/lib/library-radio'
+import type { CatalogArtist } from '@/lib/catalog'
 
 // Videos musicales: géneros rápidos y buscador (siempre videos oficiales de música). Al terminar
 // uno, sigue otro solo; se pueden mandar a la TV y bajar su audio.
@@ -28,6 +33,33 @@ const GENRES = [
 
 type V = { id: string; title: string; channel: string }
 
+const toV = (it: YouTubeSearchItem): V => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) })
+
+/** Videos de una búsqueda (guardados 12 h: no se gasta la cuota de YouTube en cada visita) */
+async function searchVideos(q: string): Promise<V[]> {
+  const d = await cachedJson<{ items?: YouTubeSearchItem[] }>(`/api/youtube/search?lang=todo&q=${encodeURIComponent(q)}`, 12 * 3600_000, (x) => !!x?.items?.length)
+  return (d?.items ?? []).filter((it) => it.id?.videoId).map(toV)
+}
+
+/** Tus artistas: los que sigues y los que más tienes en la biblioteca */
+function useMyArtists(): string[] {
+  const saved = useMusicStore((s) => s.saved)
+  const savedAlbums = useMusicStore((s) => s.savedAlbums)
+  const follows = useFollowStore((s) => s.artists)
+  return useMemo(() => {
+    const count = new Map<string, { name: string; n: number }>()
+    const add = (name: string, n: number) => {
+      const k = name?.trim().toLowerCase()
+      if (!k || k === 'various artists' || k === 'varios artistas') return
+      count.set(k, { name: name.trim(), n: (count.get(k)?.n ?? 0) + n })
+    }
+    follows.forEach((a) => add(a.name, 5))
+    savedAlbums.forEach((a) => add(a.artist, 3))
+    saved.forEach((t) => add(songArtist(t), 1))
+    return Array.from(count.values()).sort((a, b) => b.n - a.n).map((a) => a.name)
+  }, [saved, savedAlbums, follows])
+}
+
 export default function MusicVideosClient() {
   const [genre, setGenre] = useState('estrenos')
   const [query, setQuery] = useState('')
@@ -35,6 +67,44 @@ export default function MusicVideosClient() {
   const [items, setItems] = useState<V[] | null>(null)
   const [error, setError] = useState(false)
   const [open, setOpen] = useState<V | null>(null)
+  // De dónde se abrió el video (para que al terminar siga con los de esa misma fila)
+  const [openList, setOpenList] = useState<V[]>([])
+  const play = (v: V, list: V[]) => {
+    setOpenList(list)
+    setOpen(v)
+  }
+
+  // Filas de tus artistas y de artistas parecidos
+  const mine = useMyArtists()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const [rows, setRows] = useState<{ title: string; sub: string; items: V[] }[]>([])
+  const seeds = mine.slice(0, 4).join('|')
+  useEffect(() => {
+    if (!mounted || !seeds) return setRows([])
+    let cancelled = false
+    const names = seeds.split('|')
+    ;(async () => {
+      const out: { title: string; sub: string; items: V[] }[] = []
+      const own = await searchVideos(`${names.join('|')} video oficial`).catch(() => [] as V[])
+      if (own.length) out.push({ title: 'De tus artistas', sub: names.slice(0, 3).join(', '), items: own })
+      if (!cancelled) setRows([...out])
+      // Parecidos a tus dos artistas principales (sin repetir los tuyos)
+      const known = new Set(mine.map((n) => n.toLowerCase()))
+      const rel = await Promise.all(
+        names.slice(0, 2).map((n) => cachedJson<{ artists?: CatalogArtist[] }>(`/api/catalog/related?name=${encodeURIComponent(n)}`, 86400_000).then((d) => d?.artists ?? []).catch(() => [] as CatalogArtist[]))
+      )
+      const similar = Array.from(new Set(rel.flat().map((a) => a.name).filter((n) => !known.has(n.toLowerCase())))).slice(0, 4)
+      if (similar.length) {
+        const vids = await searchVideos(`${similar.join('|')} video oficial`).catch(() => [] as V[])
+        if (vids.length) out.push({ title: 'Artistas parecidos', sub: similar.slice(0, 3).join(', '), items: vids })
+      }
+      if (!cancelled) setRows(out)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [seeds, mounted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const s = readSession<{ genre: string; submitted: string }>('music-videos')
@@ -72,7 +142,7 @@ export default function MusicVideosClient() {
     }
   }, [genre, submitted])
 
-  const { next, advance } = useNextMusicVideo(open, items ?? [], useCallback((v: V) => setOpen(v), []))
+  const { next, advance } = useNextMusicVideo(open, openList.length ? openList : items ?? [], useCallback((v: V) => setOpen(v), []))
 
   return (
     <div className="pt-20 min-h-screen bg-obsidian pb-32">
@@ -98,6 +168,34 @@ export default function MusicVideosClient() {
             className="w-full bg-surface-1 border border-white/10 text-white placeholder-slate-500 rounded-full pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-violet-400/70"
           />
         </form>
+        {/* De tus artistas y de artistas parecidos (según tu biblioteca) */}
+        {!submitted &&
+          rows.map((r) => (
+            <section key={r.title} className="mt-6">
+              <h2 className="text-white font-bold text-lg font-display leading-tight">{r.title}</h2>
+              <p className="text-slate-500 text-xs truncate mb-2">{r.sub}</p>
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+                {r.items.slice(0, 12).map((v) => (
+                  <div key={v.id} className="relative shrink-0 w-60">
+                    <VideoAudioDownload compact id={v.id} title={v.title} channelTitle={v.channel} className="absolute top-2 right-2 z-[1]" />
+                    <button onClick={() => play(v, r.items)} className="w-full text-left group">
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-2 border border-white/8">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/15">
+                          <PlayCircle className="w-10 h-10 text-white/90 drop-shadow" />
+                        </span>
+                      </div>
+                      <p className="text-white text-sm font-semibold leading-snug line-clamp-2 mt-1.5">{v.title}</p>
+                      <p className="text-slate-500 text-xs truncate">{v.channel}</p>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+
+        {!submitted && rows.length > 0 && <h2 className="mt-8 text-white font-bold text-lg font-display">Explorar</h2>}
         <div className="flex gap-2 overflow-x-auto mt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
           {GENRES.map((g) => (
             <button
@@ -125,7 +223,7 @@ export default function MusicVideosClient() {
             {items.map((v) => (
               <div key={v.id} className="relative">
                 <VideoAudioDownload compact id={v.id} title={v.title} channelTitle={v.channel} className="absolute top-2 right-2 z-[1]" />
-                <button onClick={() => setOpen(v)} className="w-full text-left group">
+                <button onClick={() => play(v, items)} className="w-full text-left group">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-2 border border-white/8">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

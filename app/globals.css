@@ -140,3 +140,19 @@ html.cpn-hidden *::after {
   0% { transform: translateX(0); }
   100% { transform: translateX(300%); }
 }
+
+/* PulsoMusic: pantalla de inicio y nombre propios (html[data-app=music], puesto antes de dibujar) */
+.cpn-splash-music { display: none; }
+html[data-app='music'] .cpn-splash-music { display: flex; }
+html[data-app='music'] .cpn-splash-media { display: none; }
+.cpn-brand-music { display: none; }
+html[data-app='music'] .cpn-brand-music { display: inline; }
+html[data-app='music'] .cpn-brand-media { display: none; }
+@keyframes cpn-splash-pop {
+  0% { transform: scale(0.4) rotate(-12deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes cpn-splash-rise {
+  0% { transform: translateY(14px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}

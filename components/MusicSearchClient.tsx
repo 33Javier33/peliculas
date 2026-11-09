@@ -1,4 +1,6 @@
 'use client'
+import QuickAccessGrid from '@/components/QuickAccessGrid'
+import CollapsibleCard from '@/components/CollapsibleCard'
 import { useAppFlavor } from '@/lib/app-flavor'
 import LibrarySimilarArtists from '@/components/LibrarySimilarArtists'
 import AlbumCardActions from '@/components/AlbumCardActions'
@@ -427,7 +429,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </section>
         ) : (
           <>
-            <FollowedArtistsSection />
+            {/* Accesos rápidos (como en Spotify): me gusta, playlists, artistas y discos */}
+            <QuickAccessGrid />
 
             {/* ===== Escuchado recientemente ===== */}
             {hasHydrated && recent.length > 0 && (
@@ -466,6 +469,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </section>
             )}
+
+            {/* ===== Novedades de tus artistas ===== */}
+            <FollowedArtistsSection />
 
             {/* ===== Hecho para ti ===== */}
             {(forYou || isForYouLoading) && (
@@ -532,15 +538,19 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               </section>
             )}
 
-            {/* ===== Radios de Internet Archive por género (no se detienen) ===== */}
-            <ArchiveRadioSection />
-
-            {/* ===== Internet Archive y música libre: buscar y escuchar discos completos ===== */}
-            <ArchiveSearchSection />
-            <ArchiveSearchSection variant="free" />
-
             {/* ===== Artistas similares a los de tu biblioteca (antes: Tendencias) ===== */}
             <LibrarySimilarArtists />
+
+            {/* ===== Internet Archive y música libre: tarjetas que se despliegan (no ocupan pantalla) ===== */}
+            <div className="mb-10 space-y-3">
+              <CollapsibleCard id="music-archive" icon={<RadioIcon className="w-4 h-4 text-amber-400" />} title="Internet Archive" desc="Radios por género y buscador de discos y conciertos libres">
+                <ArchiveRadioSection />
+                <ArchiveSearchSection />
+              </CollapsibleCard>
+              <CollapsibleCard id="music-free" icon={<Library className="w-4 h-4 text-rose-400" />} title="Música libre" desc="Jamendo y Free Music Archive: artistas independientes (Creative Commons)">
+                <ArchiveSearchSection variant="free" />
+              </CollapsibleCard>
+            </div>
           </>
         )}
       </div>

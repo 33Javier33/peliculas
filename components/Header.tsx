@@ -152,7 +152,10 @@ export default function Header() {
               <span className="flex items-baseline gap-1.5">
                 <span className="font-bold text-sm leading-tight whitespace-nowrap">
                   <span className="text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.55)]">Pulso</span>
-                  <span className="text-white">{musicApp ? 'Music' : 'Media'}</span>
+                  <span className="text-white">
+                    <span className="cpn-brand-media">Media</span>
+                    <span className="cpn-brand-music">Music</span>
+                  </span>
                 </span>
                 {/* Versión de la app (para saber si ya llegó la última) */}
                 <span className="hidden min-[400px]:inline text-[9px] font-semibold text-slate-500 tabular-nums">v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
