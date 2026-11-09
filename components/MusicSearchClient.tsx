@@ -152,8 +152,8 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         router.replace(`/music?q=${encodeURIComponent(q)}`, { scroll: false })
       }
 
-      // Música busca en Internet Archive, música libre y el catálogo de artistas y álbumes.
-      // Los videos de YouTube se buscan en la sección Videos (enlace en los resultados).
+      // Música busca primero artistas y álbumes completos (YouTube), luego canciones de YouTube y
+      // al final Internet Archive y música libre.
       setVideos([])
       setNextPageToken(undefined)
       setIsSearchMode(true)
@@ -162,9 +162,23 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
       const cached = readSession<SearchCache>(cacheKey)
       if (cached?.catalog) {
         setCatalog(cached.catalog)
-        return
+        if (cached.videos?.length) {
+          setVideos(cached.videos)
+          setNextPageToken(cached.nextPageToken)
+          return
+        }
       }
       setCatalog(null)
+      // Canciones de YouTube (después de artistas y álbumes)
+      fetch(`/api/youtube/music?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { videos?: MusicVideo[]; nextPageToken?: string } | null) => {
+          if (!d?.videos || lastSearchedRef.current !== q) return
+          setVideos(d.videos)
+          setNextPageToken(d.nextPageToken)
+          patchSession<SearchCache>(cacheKey, { videos: d.videos, nextPageToken: d.nextPageToken })
+        })
+        .catch(() => {})
       fetch(`/api/catalog/search?q=${encodeURIComponent(q)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { artists: CatalogArtist[]; albums: CatalogAlbum[] } | null) => {
@@ -176,29 +190,6 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     },
     [router]
   )
-
-  const handleSearch = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault()
-      rememberSearch('music', query)
-      suggestions.close()
-      runSearch(query)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [query, runSearch]
-  )
-
-  // Sugerencias mientras se escribe (autocompletado de YouTube + búsquedas recientes)
-  const suggestions = useSearchSuggestions({
-    kind: 'music',
-    value: query,
-    onChange: setQuery,
-    onPick: (s) => {
-      setQuery(s)
-      inputRef.current?.blur()
-      runSearch(s)
-    },
-  })
 
   // Búsqueda desde la barra superior (/music?q=...)
   const searchParams = useSearchParams()
@@ -303,45 +294,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
           </Link>
         </div>
 
-        {/* Búsqueda */}
-        <form onSubmit={handleSearch} className="mb-8" role="search">
-          <div className="relative flex items-center">
-            <div className="absolute left-4 text-slate-400 pointer-events-none">
-              {isPending ? <Loader2 className="w-5 h-5 animate-spin text-violet-400" /> : <Search className="w-5 h-5" />}
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Artista, canción, álbum..."
-              aria-label="Buscar música"
-              enterKeyHint="search"
-              className="w-full bg-surface-1 border border-white/8 text-white placeholder-slate-500 rounded-full pl-12 pr-28 py-3.5 text-base focus:outline-none focus:border-violet-500 transition-colors"
-              {...suggestions.inputProps}
-            />
-            {suggestions.dropdown}
-            <div className="absolute right-1.5 flex items-center gap-1">
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="p-1.5 text-slate-500 hover:text-white transition-colors rounded-full"
-                  aria-label="Limpiar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={!query.trim() || isPending}
-                className="bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold px-4 py-2 rounded-full text-sm transition-colors"
-              >
-                Buscar
-              </button>
-            </div>
-          </div>
-        </form>
+        {/* (La búsqueda se hace con la lupa de arriba: /music?q=…) */}
 
         {/* Error (sin mensajes técnicos) */}
         {error && (
@@ -373,9 +326,6 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </button>
               )}
             </div>
-            {/* Primero lo libre: Internet Archive y música libre; después el catálogo y YouTube */}
-            {isSearchMode && <ArchiveInlineResults query={submittedQuery} />}
-            {isSearchMode && <ArchiveInlineResults query={submittedQuery} scope="free" />}
             {/* Artistas y álbumes (como en Spotify) */}
             {catalog && catalog.artists.length > 0 && (
               <div className="mb-7">
@@ -412,6 +362,37 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </div>
               </div>
             )}
+            {/* Canciones de YouTube */}
+            {videos.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Canciones</h3>
+                <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
+                  {videos.map((v, i) => (
+                    <li key={v.id}>
+                      <button onClick={() => play(videos, i)} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/5 active:bg-white/10">
+                        <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2">
+                          {v.thumbnail && <Image src={v.thumbnail} alt="" fill sizes="48px" className="object-cover" />}
+                          <TrackStateOverlay id={v.id} size="sm" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-white text-sm font-semibold truncate">{v.title.replace(/^[^-–]+[-–]\s*/, '') || v.title}</span>
+                          <span className="block text-slate-500 text-xs truncate">{v.channelTitle}</span>
+                        </span>
+                        <Play className="w-4 h-4 text-slate-400 shrink-0" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {nextPageToken && (
+                  <button onClick={handleLoadMore} disabled={isLoadingMore} className="mt-3 w-full py-2.5 rounded-full border border-white/10 text-slate-300 text-sm font-semibold">
+                    {isLoadingMore ? 'Cargando…' : 'Ver más canciones'}
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Después: Internet Archive y música libre */}
+            {isSearchMode && <ArchiveInlineResults query={submittedQuery} />}
+            {isSearchMode && <ArchiveInlineResults query={submittedQuery} scope="free" />}
             {/* Los videos de YouTube están en la sección Videos */}
             {isSearchMode && (
               <Link

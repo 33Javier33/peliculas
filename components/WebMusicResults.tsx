@@ -35,8 +35,7 @@ export default function WebMusicResults({ query }: { query: string }) {
       <p className="flex items-center gap-2 text-white text-sm font-semibold mb-3">
         <Globe className="w-4 h-4 text-cyan-300" /> También en internet
       </p>
-      <ArchiveInlineResults query={q} />
-      <ArchiveInlineResults query={q} scope="free" />
+      {/* Primero artistas, álbumes y canciones de YouTube; al final Internet Archive y música libre */}
       {catalog === null ? (
         <p className="flex items-center gap-2 text-slate-500 text-xs mb-4">
           <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando artistas y álbumes…
@@ -114,6 +113,10 @@ export default function WebMusicResults({ query }: { query: string }) {
           </ul>
         </div>
       ) : null}
+      <div className="mt-5">
+        <ArchiveInlineResults query={q} />
+        <ArchiveInlineResults query={q} scope="free" />
+      </div>
     </div>
   )
 }

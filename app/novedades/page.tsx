@@ -26,6 +26,7 @@ const STAGES: Stage[] = [
     items: [
       'Videos: al bloquear el teléfono el video pasa a audio desde el mismo segundo; al desbloquear vuelve el video desde donde iba',
       'El audio del video se deja listo al empezar, para que el cambio sea al instante',
+      'Música: un solo buscador (la lupa de arriba). Primero artistas y álbumes completos, luego canciones de YouTube y al final Internet Archive y música libre (también en la Biblioteca)',
       'PulsoMusic: pantalla de inicio y nombre propios (ya no dice PulsoMedia)',
       'Música ordenada como en Spotify: arriba accesos rápidos (Tus me gusta, playlists, artistas y discos), luego Escuchado recientemente, Novedades de tus artistas, Hecho para ti y Artistas similares; Internet Archive (radios y buscador) y Música libre quedan en botones que se despliegan',
       'Videos musicales: filas «De tus artistas» y «Artistas parecidos» según tu biblioteca, antes de los géneros',
