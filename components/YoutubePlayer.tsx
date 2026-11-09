@@ -194,6 +194,10 @@ export default function YoutubePlayer({
   // segundo en el reproductor de música; al volver, el video sigue desde donde iba el audio.
   const ytPlayingRef = useRef(false)
   ytPlayingRef.current = ytPlaying
+  // Última vez que el video estaba sonando: el teléfono lo pausa un instante ANTES de avisar que
+  // la pantalla se bloqueó; si sonaba hasta hace poco, igual se pasa al audio (la música sigue)
+  const lastPlayingAtRef = useRef(0)
+  if (ytPlaying) lastPlayingAtRef.current = Date.now()
   const modeRef = useRef(mode)
   modeRef.current = mode
   const handedRef = useRef(false)
@@ -235,7 +239,7 @@ export default function YoutubePlayer({
       const st = useMusicStore.getState()
       if (appHidden()) {
         const alt = altVideoRef.current
-        const playing = modeRef.current === 'youtube' ? ytPlayingRef.current : !!alt && !alt.paused
+        const playing = modeRef.current === 'youtube' ? ytPlayingRef.current || Date.now() - lastPlayingAtRef.current < 2500 : !!alt && (!alt.paused || Date.now() - lastPlayingAtRef.current < 2500)
         if (!playing || handedRef.current) return
         handedRef.current = true
         const t = Math.floor(timeRef.current)
@@ -346,7 +350,10 @@ export default function YoutubePlayer({
       const info = data.info as { currentTime?: number; playerState?: number } | undefined
       if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
       // 1 = reproduciendo (para la ventana flotante de la app de Android)
-      if (typeof info?.playerState === 'number') setYtPlaying(info.playerState === 1)
+      if (typeof info?.playerState === 'number') {
+        if (info.playerState === 1 || ytPlayingRef.current) lastPlayingAtRef.current = Date.now()
+        setYtPlaying(info.playerState === 1)
+      }
       // Ya suena el video al volver del audio: se apaga el audio y el video recupera el sonido
       if (info?.playerState === 1) finishSwapBackRef.current()
       // 0 = terminó: los videos musicales siguen con el próximo
@@ -545,6 +552,7 @@ export default function YoutubePlayer({
                 }}
                 onTimeUpdate={(e) => {
                   timeRef.current = e.currentTarget.currentTime
+                  if (!e.currentTarget.paused) lastPlayingAtRef.current = Date.now()
                 }}
                 src={alt.candidates[alt.index].url}
                 controls

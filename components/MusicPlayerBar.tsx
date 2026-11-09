@@ -1527,6 +1527,25 @@ export default function MusicPlayerBar() {
       setTimeout(resumeIfNeeded, 50)
       return
     }
+    // YouTube se pausó con la app todavía visible y la app quiere sonar: puede ser el teléfono
+    // bloqueándose (pausa el video un instante ANTES de avisar que la pantalla se apagó). Se espera
+    // un momento: si la app quedó oculta, era el bloqueo y la música sigue (pasa al audio propio);
+    // si no, la pausó el usuario desde el video
+    if (stillWanted) {
+      setTimeout(() => {
+        if (document.visibilityState === 'hidden') {
+          keepPlayingRef.current = true
+          hiddenWantRef.current = true
+          window.dispatchEvent(new Event(PIP_EVENT))
+          return
+        }
+        if (useMusicStore.getState().isPlaying && (playerRef.current as unknown as HTMLMediaElement | null)?.paused) {
+          keepPlayingRef.current = false
+          setIsPlaying(false)
+        }
+      }, 900)
+      return
+    }
     // Pausa real del usuario (también desde la pantalla de bloqueo)
     keepPlayingRef.current = false
     setIsPlaying(false)
@@ -2057,10 +2076,22 @@ export default function MusicPlayerBar() {
           videoOwnsRef.current = true
           const el = playerRef.current as unknown as HTMLMediaElement | null
           el?.pause()
+          // Web: su audio queda guardado en el dispositivo (al bloquear sigue sin esperar internet)
+          if (!isNativeApp() && inlineRef.current) cacheYtAudio(inlineRef.current.id)
           if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
         }}
         onInlineState={(playing) => {
-          if (videoOwnsRef.current && useMusicStore.getState().isPlaying !== playing) useMusicStore.getState().setIsPlaying(playing)
+          if (!videoOwnsRef.current) return
+          if (playing) {
+            if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
+            return
+          }
+          // ¿Lo pausó el usuario o el teléfono al bloquear/salir? (el teléfono pausa el video un
+          // instante antes de avisar): se espera; si la app quedó oculta, la canción sigue sola
+          setTimeout(() => {
+            if (document.visibilityState === 'hidden' || appHidden()) return
+            if (videoOwnsRef.current && useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(false)
+          }, 900)
         }}
         inlineControlRef={inlineCtlRef}
         inlineSyncTo={() => {
