@@ -10,6 +10,7 @@ import { warmLibraryCovers } from '@/lib/cover-cache'
 import { phoneStorageAvailable } from '@/lib/phone-storage'
 import { restoreDownloads } from '@/lib/phone-restore'
 import { startPhoneBackup } from '@/lib/local-backup'
+import { autoImportSibling } from '@/lib/sibling-library'
 
 // Descargas en segundo plano: retoma las pendientes (al abrir la app o al volver la conexión),
 // avisa al teléfono para que no corte la descarga al salir de la app (APK) y muestra los avisos
@@ -48,10 +49,30 @@ export default function OfflineManager() {
     }, 6000)
     // Respaldo de la biblioteca en el teléfono (queda aunque se desinstale la app)
     const stopBackup = startPhoneBackup()
+    // PulsoMedia ↔ PulsoMusic en el mismo teléfono: la primera vez se trae la biblioteca de la otra
+    const sibling = setTimeout(() => getNative() && autoImportSibling(), 4000)
+    // Descargas compartidas (misma carpeta): al dar el permiso de música y al volver a la app
+    // (cada 3 min como máximo) aparecen las que bajó la otra app
+    let lastRestore = 0
+    const restoreShared = () => {
+      if (!getNative() || !phoneStorageAvailable() || Date.now() - lastRestore < 3 * 60_000) return
+      lastRestore = Date.now()
+      restoreDownloads().catch(() => null)
+    }
+    const onPerm = () => {
+      lastRestore = 0
+      restoreShared()
+    }
+    const onVisShared = () => document.visibilityState === 'visible' && restoreShared()
+    window.addEventListener('cpn-audio-permission', onPerm)
+    document.addEventListener('visibilitychange', onVisShared)
     const onOnline = () => setTimeout(() => warmLibraryCovers(), 3000)
     window.addEventListener('online', onOnline)
     return () => {
       stopBackup()
+      clearTimeout(sibling)
+      window.removeEventListener('cpn-audio-permission', onPerm)
+      document.removeEventListener('visibilitychange', onVisShared)
       clearTimeout(t)
       clearTimeout(covers)
       clearTimeout(repair)

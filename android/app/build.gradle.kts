@@ -32,6 +32,8 @@ android {
             buildConfigField("String", "START_PATH", "\"/\"")
             buildConfigField("String", "FLAVOR_NAME", "\"media\"")
             buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMedia\"")
+            buildConfigField("String", "BRAND", "\"PulsoMedia\"")
+            buildConfigField("String", "OTHER_APP", "\"cl.carlospnauto.music\"")
         }
         create("music") {
             dimension = "app"
@@ -39,7 +41,11 @@ android {
             versionName = "1.0.${(buildNumber - 53).coerceAtLeast(1)}"
             buildConfigField("String", "START_PATH", "\"/music\"")
             buildConfigField("String", "FLAVOR_NAME", "\"music\"")
-            buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMusic\"")
+            // Misma carpeta de descargas que PulsoMedia: en el mismo teléfono las dos apps comparten
+            // lo descargado (no se baja dos veces)
+            buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMedia\"")
+            buildConfigField("String", "BRAND", "\"PulsoMusic\"")
+            buildConfigField("String", "OTHER_APP", "\"cl.carlospnauto.app\"")
         }
     }
 

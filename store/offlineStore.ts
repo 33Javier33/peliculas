@@ -56,6 +56,9 @@ export interface OfflineFailure {
 
 interface OfflineState {
   items: Record<string, OfflineItem>
+  /** Quitadas a propósito: al leer la música del teléfono no vuelven (p. ej. un archivo que
+   *  bajó la otra app —PulsoMedia/PulsoMusic— y esta no puede borrar) */
+  hidden: Record<string, number>
   /** Descargas que no se pudieron, con el motivo (para verlo y reintentar) */
   failures: Record<string, OfflineFailure>
   clearFailure: (key: string) => void
@@ -181,6 +184,7 @@ export const useOfflineStore = create<OfflineState>()(
   persist(
     (set, get) => ({
       items: {},
+      hidden: {},
       failures: {},
       retryFailures: (manual = false) => {
         const list = Object.values(get().failures).filter((f) => !get().items[f.key] && (manual || (f.attempts ?? 1) < 6))
@@ -280,6 +284,11 @@ export const useOfflineStore = create<OfflineState>()(
             }))
             done++
             streak = 0
+            if (get().hidden?.[t.audioUrl!]) set((s) => {
+              const hidden = { ...s.hidden }
+              delete hidden[t.audioUrl!]
+              return { hidden }
+            })
             if (get().failures[t.audioUrl!]) get().clearFailure(t.audioUrl!)
           } catch (err) {
             if ((err as Error).name === 'AbortError') break
@@ -382,9 +391,10 @@ export const useOfflineStore = create<OfflineState>()(
         const items = { ...get().items }
         const byKey = new Map(Object.values(items).map((i) => [i.key, i]))
         let added = 0
+        const hidden = get().hidden ?? {}
         for (const f of files) {
           const info = parseFileName(f.name)
-          if (!info) continue
+          if (!info || hidden[info.key]) continue
           const prev = byKey.get(info.key)
           if (prev?.phoneId === f.id) continue
           const track = trackFromKey(info.key, info.title, f.folder)
@@ -455,15 +465,19 @@ export const useOfflineStore = create<OfflineState>()(
         await Promise.all(keys.map((k) => deleteFile(k).catch(() => {})))
         set((s) => {
           const items = { ...s.items }
-          keys.forEach((k) => delete items[k])
-          return { items }
+          const hidden = { ...(s.hidden ?? {}) }
+          keys.forEach((k) => {
+            delete items[k]
+            hidden[k] = Date.now()
+          })
+          return { items, hidden }
         })
       },
     }),
     {
       name: 'cpn-offline',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ items: s.items, queue: s.queue, failures: s.failures }),
+      partialize: (s) => ({ items: s.items, hidden: s.hidden, queue: s.queue, failures: s.failures }),
     }
   )
 )

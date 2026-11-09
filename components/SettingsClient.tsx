@@ -6,6 +6,7 @@ import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
+  RefreshCw,
   HelpCircle,
   Settings,
   SlidersHorizontal,
@@ -30,6 +31,7 @@ import { LANGUAGES } from '@/lib/translate'
 import { getNative } from '@/lib/native'
 import ViewToggle from '@/components/ViewToggle'
 import { useHelpTips, setHelpTips } from '@/components/HelpTip'
+import { importSiblingLibrary, otherAppName } from '@/lib/sibling-library'
 import ShareAppButton from '@/components/ShareAppButton'
 
 // Configuración: todo lo que se puede ajustar en la app, en un solo lugar.
@@ -186,6 +188,16 @@ export default function SettingsClient() {
         </Section>
 
         <Section title="Tu música">
+          {/* PulsoMedia ↔ PulsoMusic en el mismo teléfono */}
+          {mounted && apk && (
+            <button onClick={() => importSiblingLibrary()} className="w-full text-left">
+              <Row
+                icon={<RefreshCw className="w-4 h-4" />}
+                title={`Traer mi biblioteca de ${otherAppName()}`}
+                desc={`Si tienes ${otherAppName()} en este teléfono: trae sus playlists, Me gusta y discos (se juntan con los de aquí). Las descargas ya se comparten solas. Con la misma cuenta en las dos, todo queda igual siempre.`}
+              />
+            </button>
+          )}
           <button onClick={() => useAccountStore.getState().setOpen(true)} className="w-full text-left">
             <Row
               icon={<CloudUpload className={`w-4 h-4 ${account.email ? 'text-emerald-300' : ''}`} />}

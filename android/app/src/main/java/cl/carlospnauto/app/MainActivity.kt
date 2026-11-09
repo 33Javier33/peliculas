@@ -64,10 +64,14 @@ class MainActivity : AppCompatActivity() {
         fileCallback = null
     }
 
-    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+    private val askPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        // Con el permiso de música la página trae ya las descargas de la otra app
+        if (r.any { (k, ok) -> ok && (k == Manifest.permission.READ_MEDIA_AUDIO || k == Manifest.permission.READ_EXTERNAL_STORAGE) })
+            web.evaluateJavascript("window.__cpnPerm && window.__cpnPerm(true); window.dispatchEvent(new Event('cpn-audio-permission'))", null)
+    }
     // Permiso de música (recuperar las descargas guardadas en el teléfono tras reinstalar)
     private val askAudio = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        web.evaluateJavascript("window.__cpnPerm && window.__cpnPerm($ok)", null)
+        web.evaluateJavascript("window.__cpnPerm && window.__cpnPerm($ok); $ok && window.dispatchEvent(new Event('cpn-audio-permission'))", null)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -283,6 +287,9 @@ class MainActivity : AppCompatActivity() {
     private fun requestStartupPermissions() {
         val wanted = mutableListOf(Manifest.permission.ACCESS_COARSE_LOCATION)
         if (Build.VERSION.SDK_INT >= 33) wanted += Manifest.permission.POST_NOTIFICATIONS
+        // Música del teléfono: para ver las descargas de la otra app (PulsoMedia ↔ PulsoMusic, misma
+        // carpeta) y recuperarlas tras reinstalar
+        wanted += if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
         val missing = wanted.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) askPermissions.launch(missing.toTypedArray())
     }

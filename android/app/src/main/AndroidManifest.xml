@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Biblioteca compartida entre PulsoMedia y PulsoMusic (solo apps con la misma firma) -->
+    <permission android:name="cl.carlospnauto.permission.LIBRARY" android:protectionLevel="signature" />
+    <uses-permission android:name="cl.carlospnauto.permission.LIBRARY" />
+    <queries>
+        <package android:name="cl.carlospnauto.app" />
+        <package android:name="cl.carlospnauto.music" />
+    </queries>
     <!-- Recuperar las descargas guardadas en Música/PulsoMedia después de reinstalar la app -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
@@ -26,6 +33,12 @@
         android:theme="@style/Theme.CPN"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config">
+
+        <provider
+            android:name=".LibraryProvider"
+            android:authorities="${applicationId}.library"
+            android:exported="true"
+            android:readPermission="cl.carlospnauto.permission.LIBRARY" />
 
         <!-- Transmitir a la TV (Chromecast) -->
         <meta-data

@@ -13,12 +13,21 @@ import android.provider.MediaStore
  * «Recuperar respaldo» y vuelve todo.
  */
 object PhoneBackup {
-    private val BRAND = BuildConfig.STORAGE_ROOT.substringAfter("/")
+    private val BRAND = BuildConfig.BRAND
     private val NAME = "$BRAND-respaldo.json"
     private val PATH = "Download/$BRAND"
 
+    /** Copia interna (la que lee la otra app del mismo teléfono: PulsoMedia ↔ PulsoMusic) */
+    fun internalFile(ctx: Context) = java.io.File(ctx.filesDir, "library.json")
+
+    /** Biblioteca de la otra app (PulsoMedia o PulsoMusic) si está instalada en este teléfono */
+    fun readOther(ctx: Context): String = runCatching {
+        ctx.contentResolver.openInputStream(Uri.parse("content://${BuildConfig.OTHER_APP}.library/library.json"))?.use { it.readBytes().decodeToString() } ?: ""
+    }.getOrDefault("")
+
     @Synchronized
     fun save(ctx: Context, json: String): Boolean {
+        if (json.length >= 20) runCatching { internalFile(ctx).writeText(json) }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || json.length < 20) return false
         val prefs = ctx.getSharedPreferences("phone-backup", Context.MODE_PRIVATE)
         val resolver = ctx.contentResolver

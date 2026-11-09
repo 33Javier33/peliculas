@@ -70,6 +70,10 @@ class NativeBridge(private val context: Context) {
     fun eqNative(json: String): String = NativeEq.apply(json)
 
     // ===== Descargas como música del teléfono (no se borran al desinstalar la app) =====
+    /** Biblioteca de la otra app (PulsoMedia ↔ PulsoMusic) en este teléfono; "" si no está */
+    @JavascriptInterface
+    fun otherLibrary(): String = PhoneBackup.readOther(context)
+
     /** «media» (PulsoMedia, completa) o «music» (PulsoMusic: solo música, radios y videos musicales) */
     @JavascriptInterface
     fun flavor(): String = BuildConfig.FLAVOR_NAME
