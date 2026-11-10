@@ -81,6 +81,14 @@ object AudioServer {
                 cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
             }
         }
+        // Video para el reloj (por el Wi-Fi del teléfono): /wv/ID
+        Regex("^/wv/([A-Za-z0-9_-]{11})$").find(path)?.let { vm ->
+            return try {
+                stream(vm.groupValues[1], session.headers["range"], retry = true, watch = true)
+            } catch (e: Exception) {
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
+            }
+        }
         // Video de YouTube (con su sonido, para la TV): /v/ID
         Regex("^/v/([A-Za-z0-9_-]{11})$").find(path)?.let { vm ->
             return try {
@@ -216,14 +224,46 @@ object AudioServer {
         return r
     }
 
-    /**
-     * Video para el reloj: la dirección directa de YouTube (con la cabecera que pide), y la del
-     * teléfono en el Wi-Fi de la casa por si el reloj no puede entrar directo.
-     */
-    fun videoForWatch(id: String): Triple<String, String, String> {
-        val r = resolveVideo(id, fresh = false)
-        val lan = castBase()?.let { "$it/v/$id" } ?: ""
-        return Triple(r.url, r.userAgent, lan)
+    // ===== Video para el reloj =====
+    // YouTube casi ya no da el MP4 con imagen y sonido juntos: entonces va la imagen sola en baja
+    // resolución (H.264 ≤ 360p, la que los relojes reproducen sin esfuerzo) y el sonido aparte;
+    // el reloj los reproduce juntos.
+    class WatchVideo(val video: String, val videoUa: String, val audio: String, val audioUa: String, val lanVideo: String, val lanAudio: String)
+    private val wcache = ConcurrentHashMap<String, Resolved>()
+
+    private fun resolveWatch(id: String, fresh: Boolean): Pair<Resolved, Boolean> {
+        val hit = wcache[id]
+        if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit to (hit.mime == "muxed")
+        val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+        fun height(v: org.schabi.newpipe.extractor.stream.VideoStream) = v.resolution.filter { it.isDigit() }.take(4).toIntOrNull() ?: 0
+        val loc: Localization? = null
+        fun ua(url: String) = if (YoutubeParsingHelper.isVisionOsStreamingUrl(url)) YoutubeParsingHelper.getVisionOsUserAgent(loc) else OkDownloader.USER_AGENT
+        // 1) Imagen y sonido juntos (si YouTube aún lo da), hasta 360p
+        val muxed = info.videoStreams.filter { !it.isVideoOnly && it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.MPEG_4 }
+        val m = muxed.filter { height(it) in 1..360 }.maxByOrNull { height(it) } ?: muxed.minByOrNull { height(it) }
+        if (m != null) {
+            val r = Resolved(m.content, "muxed", ua(m.content), System.currentTimeMillis())
+            wcache[id] = r
+            return r to true
+        }
+        // 2) Imagen sola: H.264 (avc1) en MP4, la más grande hasta 360p (si no, la más chica)
+        val only = info.videoOnlyStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.MPEG_4 }
+        // AV1 (itag 394–402, 694–702) va en MP4 pero los relojes no lo decodifican: se prefiere H.264
+        val avc = only.filter { it.itag !in 394..402 && it.itag !in 694..702 }.ifEmpty { only }
+        val v = avc.filter { height(it) in 1..360 }.maxByOrNull { height(it) } ?: avc.minByOrNull { height(it) }
+            ?: throw IllegalStateException("YouTube no entregó video para este tema")
+        val r = Resolved(v.content, "video/mp4", ua(v.content), System.currentTimeMillis())
+        wcache[id] = r
+        return r to false
+    }
+
+    /** Lo que necesita el reloj: directo de YouTube y, por si no entra directo, por el Wi-Fi del teléfono */
+    fun videoForWatch(id: String): WatchVideo {
+        val (v, muxed) = resolveWatch(id, fresh = false)
+        val base = castBase()
+        if (muxed) return WatchVideo(v.url, v.userAgent, "", "", base?.let { "$it/wv/$id" } ?: "", "")
+        val a = resolve(id)
+        return WatchVideo(v.url, v.userAgent, a.url, a.userAgent, base?.let { "$it/wv/$id" } ?: "", base?.let { "$it/yt/$id" } ?: "")
     }
 
     // ===== Servidor para la TV =====
@@ -378,16 +418,17 @@ object AudioServer {
         return out.toByteArray()
     }
 
-    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false, video: Boolean = false): NanoHTTPD.Response {
+    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false, video: Boolean = false, watch: Boolean = false): NanoHTTPD.Response {
         // Rango pedido por el reproductor (o desde el inicio), en tramos
         val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
-        val head = if (video) null else heads[id]
+        val head = if (video || watch) null else heads[id]
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
-        val r = if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
+        val r = if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
+            else if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
@@ -403,14 +444,14 @@ object AudioServer {
         } catch (e: java.io.IOException) {
             conn.disconnect()
             if (!retry) throw e
-            if (video) vcache.remove(id) else cache.remove(id)
+            if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
             Thread.sleep(1500)
-            return stream(id, rangeHeader, retry = false, background = background, video = video)
+            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch)
         }
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
-            if (video) vcache.remove(id) else cache.remove(id)
-            return stream(id, rangeHeader, retry = false, background = background, video = video)
+            if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
+            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch)
         }
         if (code != 200 && code != 206) {
             conn.disconnect()

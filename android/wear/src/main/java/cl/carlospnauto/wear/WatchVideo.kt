@@ -41,7 +41,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.wear.compose.material.CircularProgressIndicator
@@ -89,13 +91,8 @@ private fun VideoPlayer(v: WatchVideo.Ready, close: () -> Unit) {
     var failed by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val player = remember(v.url) {
-        val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(v.ua.ifBlank { null })
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(20000)
-        ExoPlayer.Builder(ctx).setMediaSourceFactory(DefaultMediaSourceFactory(http)).build().apply {
-            setMediaItem(MediaItem.fromUri(v.url), (v.at * 1000).toLong().coerceAtLeast(0))
+        ExoPlayer.Builder(ctx).build().apply {
+            setMediaSource(source(v.url, v.ua, v.audio, v.audioUa), (v.at * 1000).toLong().coerceAtLeast(0))
             playWhenReady = true
             prepare()
         }
@@ -117,7 +114,7 @@ private fun VideoPlayer(v: WatchVideo.Ready, close: () -> Unit) {
                 if (!triedLan && v.lan.isNotBlank()) {
                     triedLan = true
                     val pos = player.currentPosition.takeIf { it > 0 } ?: (v.at * 1000).toLong()
-                    player.setMediaItem(MediaItem.fromUri(v.lan), pos)
+                    player.setMediaSource(source(v.lan, "", v.lanAudio, ""), pos)
                     player.prepare()
                     player.play()
                 } else failed = true
@@ -171,4 +168,18 @@ private fun VideoPlayer(v: WatchVideo.Ready, close: () -> Unit) {
                 Icon(painterResource(R.drawable.ic_play), contentDescription = "Seguir", modifier = Modifier.size(28.dp))
             }
     }
+}
+
+/** Imagen y sonido: un archivo, o la imagen y el sonido aparte reproducidos juntos */
+@OptIn(UnstableApi::class)
+private fun source(video: String, videoUa: String, audio: String, audioUa: String): MediaSource {
+    fun http(ua: String) = DefaultHttpDataSource.Factory()
+        .setUserAgent(ua.ifBlank { null })
+        .setAllowCrossProtocolRedirects(true)
+        .setConnectTimeoutMs(15000)
+        .setReadTimeoutMs(20000)
+    val v = ProgressiveMediaSource.Factory(http(videoUa)).createMediaSource(MediaItem.fromUri(video))
+    if (audio.isBlank()) return v
+    val a = ProgressiveMediaSource.Factory(http(audioUa)).createMediaSource(MediaItem.fromUri(audio))
+    return MergingMediaSource(v, a)
 }

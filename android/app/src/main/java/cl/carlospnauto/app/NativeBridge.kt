@@ -58,8 +58,11 @@ class NativeBridge(private val context: Context) {
         kotlin.concurrent.thread {
             val o = JSONObject().put("id", id).put("at", if (at.isFinite()) at else 0.0).put("title", title.take(80))
             runCatching { AudioServer.videoForWatch(id) }
-                .onSuccess { (url, ua, lan) -> o.put("url", url).put("ua", ua).put("lan", lan) }
-                .onFailure { o.put("error", "No se pudo preparar el video") }
+                .onSuccess { w ->
+                    o.put("url", w.video).put("ua", w.videoUa).put("lan", w.lanVideo)
+                    if (w.audio.isNotEmpty()) o.put("audio", w.audio).put("aua", w.audioUa).put("lanAudio", w.lanAudio)
+                }
+                .onFailure { o.put("error", "No se pudo preparar el video" + (it.message?.let { m -> " ($m)" }?.take(90) ?: "")) }
             WearSync.send(context, "/cpn/video", o.toString())
         }
     }

@@ -50,7 +50,11 @@ enum class Link { Searching, NoPhone, AppClosed, Ok }
 /** Video de lo que suena, para verlo en el reloj */
 sealed class WatchVideo {
     object Loading : WatchVideo()
-    data class Ready(val id: String, val url: String, val ua: String, val lan: String, val at: Double, val title: String) : WatchVideo()
+    /** audio: el sonido aparte (cuando YouTube da la imagen sola); vacío si viene todo junto */
+    data class Ready(
+        val id: String, val url: String, val ua: String, val lan: String, val at: Double, val title: String,
+        val audio: String = "", val audioUa: String = "", val lanAudio: String = "",
+    ) : WatchVideo()
     data class Failed(val message: String) : WatchVideo()
 }
 
@@ -253,7 +257,10 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 val o = runCatching { JSONObject(text) }.getOrNull() ?: return
                 _link.value = Link.Ok
                 _video.value = if (o.has("error") || o.optString("url").isBlank()) WatchVideo.Failed(o.optString("error").ifBlank { "No se pudo preparar el video" })
-                else WatchVideo.Ready(o.optString("id"), o.optString("url"), o.optString("ua"), o.optString("lan"), o.optDouble("at", 0.0), o.optString("title"))
+                else WatchVideo.Ready(
+                    o.optString("id"), o.optString("url"), o.optString("ua"), o.optString("lan"), o.optDouble("at", 0.0), o.optString("title"),
+                    o.optString("audio"), o.optString("aua"), o.optString("lanAudio"),
+                )
             }
             "/cpn/played" -> {
                 _busy.value = false
