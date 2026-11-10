@@ -19,7 +19,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
 import DownloadsSection from '@/components/DownloadsSection'
-import CollapsibleCard from '@/components/CollapsibleCard'
 import LibraryMixesSection from '@/components/LibraryMixesSection'
 import { NtsLibraryCard } from '@/components/NtsClient'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
@@ -47,6 +46,9 @@ import {
   Link2,
   AudioLines,
   ChevronRight,
+  Download,
+  Smartphone,
+  Radio,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
 import { useLinksStore } from '@/store/linksStore'
@@ -60,6 +62,9 @@ import { useProgressive } from '@/lib/use-progressive'
 import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 type Tab = 'all' | 'artists' | 'albums' | 'playlists'
+/** Parte de la biblioteca que se ve (barra de botones de arriba) */
+type Sec = 'mine' | 'downloads' | 'phone' | 'nts' | 'archive' | 'free' | 'links'
+const SECS: Sec[] = ['mine', 'downloads', 'phone', 'nts', 'archive', 'free', 'links']
 type SortOrder = 'recent' | 'title' | 'artist'
 
 export default function MusicLibraryClient() {
@@ -134,13 +139,18 @@ export default function MusicLibraryClient() {
   const playlists = usePlaylistStore((s) => s.playlists)
   const openAdd = usePlaylistStore((s) => s.openAdd)
   const [tab, setTab] = useState<Tab>('all')
+  const [sec, setSec] = useState<Sec>('mine')
   // Al volver atrás se ve la misma pestaña y filtro; /music/library?tab=playlists abre las playlists
   const libRestored = useRef(false)
   useEffect(() => {
-    const saved = readSession<{ tab: Tab; artist: string | null; album: string | null; query: string; scrollY: number }>('library-view')
-    if (new URLSearchParams(window.location.search).get('tab') === 'playlists') setTab('playlists')
+    const saved = readSession<{ tab: Tab; sec?: Sec; artist: string | null; album: string | null; query: string; scrollY: number }>('library-view')
+    const qs = new URLSearchParams(window.location.search)
+    const qSec = qs.get('seccion') as Sec | null
+    if (qs.get('tab') === 'playlists') setTab('playlists')
+    else if (qSec && SECS.includes(qSec)) setSec(qSec)
     else if (saved) {
       setTab(saved.tab)
+      if (saved.sec && SECS.includes(saved.sec)) setSec(saved.sec)
       setSelectedArtist(saved.artist)
       setSelectedAlbum(saved.album)
       setQuery(saved.query)
@@ -167,8 +177,8 @@ export default function MusicLibraryClient() {
     return () => clearTimeout(t)
   }, [saved.length])
   useEffect(() => {
-    if (libRestored.current) patchSession('library-view', { tab, artist: selectedArtist, album: selectedAlbum, query })
-  }, [tab, selectedArtist, selectedAlbum, query])
+    if (libRestored.current) patchSession('library-view', { tab, sec, artist: selectedArtist, album: selectedAlbum, query })
+  }, [tab, sec, selectedArtist, selectedAlbum, query])
 
   // Persisted state via zustand is only populated after mount on the client.
   useEffect(() => setMounted(true), [])
@@ -352,6 +362,17 @@ export default function MusicLibraryClient() {
     setSelectedAlbum(null)
   }
 
+  // Botón de la barra de arriba: muestra esa parte desde su comienzo (y el botón queda a la vista)
+  const pick = (next: Sec, nextTab?: Tab) => {
+    setSec(next)
+    if (nextTab) setTab(nextTab)
+    setSelectedArtist(null)
+    setSelectedAlbum(null)
+    setSelectedGenre(null)
+    if (window.scrollY > 260) window.scrollTo({ top: 200 })
+    requestAnimationFrame(() => document.querySelector('[role="tablist"][aria-label="Partes de tu biblioteca"] [aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }))
+  }
+
   // Artista o álbum abierto: arriba del todo y con entrada en el historial (el «atrás» del teléfono
   // vuelve a la biblioteca en vez de salir de ella)
   useEffect(() => {
@@ -479,6 +500,30 @@ export default function MusicLibraryClient() {
           )}
         </div>
 
+        {/* Barra de arriba (se desliza de lado): cada botón muestra una parte de la biblioteca */}
+        {!activeSubFilter && (
+          <div className="sticky top-16 z-30 -mx-4 sm:-mx-6 lg:-mx-8 py-2.5 mb-5 bg-obsidian/95 backdrop-blur-md border-b border-white/5">
+            <div role="tablist" aria-label="Partes de tu biblioteca" className="flex items-center gap-2 overflow-x-auto px-4 sm:px-6 lg:px-8 scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabButton active={sec === 'mine' && tab === 'all'} onClick={() => pick('mine', 'all')} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
+              <TabButton active={sec === 'mine' && tab === 'artists'} onClick={() => pick('mine', 'artists')} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
+              <TabButton active={sec === 'mine' && tab === 'albums'} onClick={() => pick('mine', 'albums')} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
+              <TabButton active={sec === 'mine' && tab === 'playlists'} onClick={() => pick('mine', 'playlists')} icon={<ListMusic className="w-4 h-4" />} label={`Playlists (${playlists.length})`} />
+              <TabButton active={sec === 'downloads'} onClick={() => pick('downloads')} icon={<Download className="w-4 h-4" />} label="Descargas" />
+              <TabButton active={sec === 'phone'} onClick={() => pick('phone')} icon={<Smartphone className="w-4 h-4" />} label="En este teléfono" />
+              <TabButton active={sec === 'nts'} onClick={() => pick('nts')} icon={<Radio className="w-4 h-4" />} label="Radios NTS" />
+              <TabButton active={sec === 'archive'} onClick={() => pick('archive')} icon={<Library className="w-4 h-4" />} label="Internet Archive" />
+              <TabButton active={sec === 'free'} onClick={() => pick('free')} icon={<Library className="w-4 h-4" />} label="Música libre" />
+              <TabButton active={sec === 'links'} onClick={() => pick('links')} icon={<Link2 className="w-4 h-4" />} label="Desde un enlace" />
+              <Link
+                href="/music/convertir"
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold font-display whitespace-nowrap bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white"
+              >
+                <AudioLines className="w-4 h-4 text-cyan-300" /> Convertir YouTube
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Al abrir un artista o un álbum se ve como su propia página: solo eso, arriba del todo */}
         {activeSubFilter ? (
           <button
@@ -487,7 +532,7 @@ export default function MusicLibraryClient() {
           >
             <ArrowLeft className="w-4 h-4" /> Volver a la biblioteca
           </button>
-        ) : (
+        ) : sec === 'mine' ? (
           <>
         {/* Buscador de toda tu biblioteca: artistas, álbumes, canciones y playlists */}
         {saved.length > 0 && (
@@ -520,44 +565,21 @@ export default function MusicLibraryClient() {
             <BackupRestore compact />
           </div>
         )}
-        <DownloadsSection />
-
-        <LocalMusicSection />
-
-        {/* Fuentes para agregar música: tarjetas que se expanden (no ocupan tanto espacio) */}
-        <div className="mb-10">
-          <NtsLibraryCard />
-          <CollapsibleCard id="archive" icon={<Library className="w-4 h-4 text-amber-400" />} title="Internet Archive" desc="Discos y conciertos libres de archive.org">
-            <ArchiveSearchSection />
-          </CollapsibleCard>
-          <CollapsibleCard id="free" icon={<Library className="w-4 h-4 text-rose-400" />} title="Música libre · Jamendo y Free Music Archive" desc="Artistas independientes con licencias Creative Commons">
-            <ArchiveSearchSection variant="free" />
-          </CollapsibleCard>
-          <CollapsibleCard id="links" icon={<Link2 className="w-4 h-4 text-sky-400" />} title="Desde un enlace" desc="MP3 y otros audios de internet, tus discos de enlaces">
-            <AudioLinksSection />
-          </CollapsibleCard>
-          {/* YouTube → audio (sin video) para guardarlo */}
-          <Link
-            href="/music/convertir"
-            className="mt-3 flex items-center gap-3 rounded-2xl bg-surface-1/70 border border-white/8 px-4 py-3 hover:border-cyan-400/40"
-          >
-            <AudioLines className="w-4 h-4 text-cyan-300 shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-white text-sm font-semibold">Convertir YouTube a audio</span>
-              <span className="block text-slate-500 text-xs">Pega un enlace y guarda solo el sonido, para escucharlo sin internet</span>
-            </span>
-            <ChevronRight className="w-4 h-4 text-slate-500" />
-          </Link>
-        </div>
-
-        <LibraryMixesSection />
-
-        <FollowedArtistsSection showEmpty />
+        {tab === 'all' && <LibraryMixesSection />}
           </>
+        ) : (
+          <div className="mb-10">
+            {sec === 'downloads' && <DownloadsSection />}
+            {sec === 'phone' && <LocalMusicSection />}
+            {sec === 'nts' && <NtsLibraryCard />}
+            {sec === 'archive' && <ArchiveSearchSection />}
+            {sec === 'free' && <ArchiveSearchSection variant="free" />}
+            {sec === 'links' && <AudioLinksSection />}
+          </div>
         )}
 
         {/* Empty state */}
-        {saved.length === 0 && playlists.length === 0 ? (
+        {sec !== 'mine' && !activeSubFilter ? null : saved.length === 0 && playlists.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 border border-dashed border-white/10 rounded-2xl">
             <Heart className="w-14 h-14 text-slate-800" />
             <div className="text-center">
@@ -575,13 +597,6 @@ export default function MusicLibraryClient() {
           </div>
         ) : (
           <>
-            {/* Tabs */}
-            <div id="lib-tabs" data-scroll-step className={`scroll-mt-20 items-center ${activeSubFilter ? 'hidden' : 'flex'} gap-2 mb-5 overflow-x-auto pb-1 [scrollbar-width:none]`}>
-              <TabButton active={tab === 'all'} onClick={() => { setTab('all'); clearSubFilters() }} icon={<Music2 className="w-4 h-4" />} label={`Canciones (${saved.length})`} />
-              <TabButton active={tab === 'artists'} onClick={() => { setTab('artists'); clearSubFilters() }} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
-              <TabButton active={tab === 'albums'} onClick={() => { setTab('albums'); clearSubFilters() }} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
-              <TabButton active={tab === 'playlists'} onClick={() => { setTab('playlists'); clearSubFilters() }} icon={<ListMusic className="w-4 h-4" />} label={`Playlists (${playlists.length})`} />
-            </div>
             <div className="flex justify-end -mt-2 mb-4">
               <ViewToggle />
             </div>
@@ -1089,6 +1104,7 @@ export default function MusicLibraryClient() {
             {tab === 'albums' && !selectedArtist && !selectedAlbum && shownAlbums.length < albums.length && <div ref={moreAlbums} className="h-16" aria-hidden />}
             {tab === 'playlists' && !selectedArtist && !selectedAlbum && <PlaylistsTab view={view} />}
             {selectedArtist && <SimilarArtists name={selectedArtist} className="mt-10" />}
+            {tab === 'artists' && !activeSubFilter && <div className="mt-10"><FollowedArtistsSection showEmpty /></div>}
           </>
         )}
       </div>
@@ -1110,6 +1126,8 @@ function TabButton({
   return (
     <button
       onClick={onClick}
+      role="tab"
+      aria-selected={active}
       className={`shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold font-display transition-colors whitespace-nowrap ${
         active
           ? 'bg-violet-300 text-violet-950'

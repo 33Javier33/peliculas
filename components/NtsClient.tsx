@@ -262,7 +262,7 @@ export default function NtsClient() {
 /** Biblioteca: acceso a NTS con los dos canales en vivo para ponerlos al tiro */
 export function NtsLibraryCard() {
   const data = useNts()
-  const live = data && data !== 'error' ? data.live : []
+  const live = (data && data !== 'error' ? data.live : null) ?? []
   return (
     <section className="mb-3 relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-br from-zinc-900 via-surface-1 to-violet-950/60 p-4">
       <div className="flex items-center gap-2">
