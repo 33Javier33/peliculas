@@ -65,6 +65,9 @@ const comunidad = () => sheet('Comunidad', ['id', 'email', 'alias', 'clave', 'no
 // Me gusta y comentarios de canciones y videos (los ven todos; se muestra el nombre público, nunca el correo)
 const meGusta = () => sheet('MeGusta', ['item', 'email', 'fecha'])
 const comentarios = () => sheet('Comentarios', ['id', 'item', 'email', 'alias', 'texto', 'fecha'])
+// Dispositivos de una cuenta (teléfono PulsoMedia, PulsoMusic, navegador): qué suena en cada uno
+// y los comandos que se les mandan (se entregan una vez, al próximo aviso del dispositivo)
+const presencia = () => sheet('Presencia', ['email', 'device', 'name', 'app', 'playing', 'track', 'at', 'cmds'])
 
 function instalar() {
   usuarios(); codigos(); sesiones(); datos(); comunidad(); meGusta(); comentarios(); salt()
@@ -83,6 +86,7 @@ function doPost(e) {
     lock.waitLock(20000)
     const body = JSON.parse(e.postData.contents)
     const a = body.action
+    if (a === 'presence') return out(presence(body))
     if (a === 'like') return out(like(body))
     if (a === 'comment') return out(comment(body))
     if (a === 'uncomment') return out(uncomment(body))
@@ -420,4 +424,52 @@ function uncomment(body) {
   const rows = rowsWith(sh, 1, String(body.id || ''))
   for (let i = rows.length - 1; i >= 0; i--) if (String(sh.getRange(rows[i], 3).getValue()) === email) sh.deleteRow(rows[i])
   return { ok: true }
+}
+
+// ══════════════ Dispositivos (qué suena en cada uno) ══════════════
+// presence: { token, device, name, app, state: {playing, track}, cmd?: {to, type, payload} }
+// Devuelve los otros dispositivos de la cuenta que avisaron hace poco y los comandos para este.
+const PRESENCE_TTL = 60 * 1000
+
+function presence(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const dev = clean(body.device, 60)
+  if (!dev) return { ok: false, error: 'device' }
+  const sh = presencia()
+  const data = sh.getDataRange().getValues()
+  const now = Date.now()
+  let me = 0
+  let target = 0
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== email) continue
+    if (String(data[i][1]) === dev) me = i + 1
+    if (body.cmd && String(data[i][1]) === clean(body.cmd.to, 60)) target = i + 1
+  }
+  // Comandos para este dispositivo (se entregan y se borran)
+  let deliver = []
+  if (me) {
+    try { deliver = JSON.parse(String(data[me - 1][7] || '[]')) } catch (e) {}
+  }
+  // Comando para otro dispositivo de la misma cuenta: se deja en su fila
+  if (body.cmd && target && target !== me) {
+    let list = []
+    try { list = JSON.parse(String(data[target - 1][7] || '[]')) } catch (e) {}
+    list.push({ type: clean(body.cmd.type, 20), payload: body.cmd.payload || null, from: clean(body.name, 40), at: now })
+    sh.getRange(target, 8).setValue(JSON.stringify(list.slice(-10)))
+  }
+  const st = body.state || {}
+  const row = [email, dev, clean(body.name, 40), clean(body.app, 10), st.playing ? 1 : 0, JSON.stringify(st.track || null).slice(0, 2000), now, '[]']
+  if (me) sh.getRange(me, 1, 1, 8).setValues([row])
+  else sh.appendRow(row)
+  const others = []
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== email || String(data[i][1]) === dev) continue
+    const at = Number(data[i][6]) || 0
+    if (now - at > PRESENCE_TTL) continue
+    let track = null
+    try { track = JSON.parse(String(data[i][5] || 'null')) } catch (e) {}
+    others.push({ device: String(data[i][1]), name: String(data[i][2]), app: String(data[i][3]), playing: !!Number(data[i][4]), track: track, at: at })
+  }
+  return { ok: true, others: others, cmds: deliver }
 }

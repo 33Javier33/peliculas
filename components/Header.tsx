@@ -2,6 +2,7 @@
 
 import ShareAppButton from '@/components/ShareAppButton'
 import AccountButton from '@/components/AccountButton'
+import DevicesPill from '@/components/DevicesPill'
 import { useAppFlavor } from '@/lib/app-flavor'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -241,6 +242,7 @@ export default function Header() {
               <Settings className="w-5 h-5" />
             </Link>
             {/* Cuenta (respaldo de la biblioteca): en todas las pantallas, también en el computador */}
+            <DevicesPill />
             <AccountButton />
             <button
               onClick={() => setIsMobileSearchOpen(true)}

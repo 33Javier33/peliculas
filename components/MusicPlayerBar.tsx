@@ -1394,13 +1394,19 @@ export default function MusicPlayerBar() {
 
   // Segundo exacto y duración de lo que suena (la letra karaoke los lee varias veces por segundo)
   useEffect(() => {
-    const w = window as unknown as { __cpnTime?: () => { t: number; d: number; paused: boolean } }
+    const w = window as unknown as { __cpnTime?: () => { t: number; d: number; paused: boolean }; __cpnSeek?: (sec: number) => void }
+    // Ir a un segundo (al pasar la música de otro dispositivo)
+    w.__cpnSeek = (sec: number) => {
+      const el = playerRef.current as unknown as HTMLMediaElement | null
+      if (el && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(Math.max(0, sec), el.duration - 0.5)
+    }
     w.__cpnTime = () => {
       const el = playerRef.current as unknown as HTMLMediaElement | null
       return { t: el?.currentTime ?? 0, d: el && isFinite(el.duration) ? el.duration : 0, paused: !el || el.paused }
     }
     return () => {
       delete w.__cpnTime
+      delete w.__cpnSeek
     }
   }, [])
 
