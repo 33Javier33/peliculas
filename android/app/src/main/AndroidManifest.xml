@@ -45,6 +45,17 @@
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="cl.carlospnauto.app.CastOptionsProvider" />
 
+        <!-- Play del widget: pantalla invisible que despierta la app y la hace sonar al instante -->
+        <activity
+            android:name=".PlayActivity"
+            android:exported="false"
+            android:theme="@style/Theme.CPN.Invisible"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

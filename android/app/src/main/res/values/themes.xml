@@ -6,4 +6,13 @@
         <item name="android:windowLightStatusBar">false</item>
     </style>
     <color name="obsidian">#0B0C10</color>
+    <!-- Pantalla invisible del play del widget (sin fondo ni animación) -->
+    <style name="Theme.CPN.Invisible" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowNoDisplay">false</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
 </resources>

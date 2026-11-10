@@ -100,20 +100,23 @@ class PlayerWidget : AppWidgetProvider() {
             if (live) {
                 // App abierta: los botones controlan la música sin abrirla
                 v.setOnClickPendingIntent(R.id.widget_prev, service(c, PlaybackService.ACTION_PREV))
-                v.setOnClickPendingIntent(R.id.widget_play, service(c, if (playing) PlaybackService.ACTION_PAUSE else PlaybackService.ACTION_PLAY))
+                // Play pasa por una pantalla invisible: despierta la app aunque lleve horas en pausa
+                v.setOnClickPendingIntent(R.id.widget_play, if (playing) service(c, PlaybackService.ACTION_PAUSE) else playIntent(c))
                 v.setOnClickPendingIntent(R.id.widget_next, service(c, PlaybackService.ACTION_NEXT))
                 v.setOnClickPendingIntent(R.id.widget_like, service(c, PlaybackService.ACTION_LIKE))
             } else {
                 listOf(R.id.widget_prev, R.id.widget_next, R.id.widget_like).forEach { v.setOnClickPendingIntent(it, open) }
-                // App cerrada: play abre la app, que empieza a sonar sola y vuelve al fondo
-                val play = PendingIntent.getActivity(
-                    c, 101, MainActivity.widgetPlayIntent(c),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                )
-                v.setOnClickPendingIntent(R.id.widget_play, play)
+                // App cerrada: play la despierta, suena sola y vuelve al fondo
+                v.setOnClickPendingIntent(R.id.widget_play, playIntent(c))
             }
             return v
         }
+
+        private fun playIntent(c: Context): PendingIntent = PendingIntent.getActivity(
+            c, 101,
+            Intent(c, PlayActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         private fun service(c: Context, action: String): PendingIntent {
             val i = Intent(c, PlaybackService::class.java).setAction(action)

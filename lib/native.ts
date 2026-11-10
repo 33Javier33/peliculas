@@ -11,6 +11,8 @@ interface CPNNativeBridge {
   takeWidgetPlay?(): boolean
   /** APK 1.0.51+: la app vuelve al fondo */
   toBackground?(): void
+  /** El audio de verdad está avanzando (APK con el play nuevo del widget) */
+  sounding?(): void
   /** APK 1.0.51+: detener una descarga al teléfono */
   cancelStore?(req: string): void
   /** APK 1.0.21+: menú Compartir de Android */

@@ -634,6 +634,7 @@ export default function MusicPlayerBar() {
     let lastSave = 0
     const id = setInterval(() => {
       if (!videoOwnsRef.current || isSeekingRef.current) return
+      if (useMusicStore.getState().isPlaying) markSounding(inlineTimeRef.current)
       const el = playerRef.current as unknown as HTMLMediaElement | null
       const d = el && isFinite(el.duration) && el.duration > 0 ? el.duration : useMusicStore.getState().duration
       if (!d) return
@@ -1194,7 +1195,16 @@ export default function MusicPlayerBar() {
       if (n?.takeWidgetPlay?.()) {
         resumeTriedRef.current = true
         setIsPlaying(true)
-        setTimeout(() => n.toBackground?.(), 2500)
+        // La app vuelve al fondo apenas suena de verdad (no antes: escondida no podría empezar).
+        // Si no sonó en 8 s no se la manda al fondo (si la abres tú, te quedas en ella).
+        const t0 = Date.now()
+        const iv = setInterval(() => {
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          if (el && !el.paused && el.currentTime > 0 && el.readyState >= 3 && soundSeenRef.current > t0) {
+            clearInterval(iv)
+            setTimeout(() => n.toBackground?.(), 300)
+          } else if (Date.now() - t0 > 8000) clearInterval(iv)
+        }, 150)
         return
       }
     }
@@ -1409,11 +1419,26 @@ export default function MusicPlayerBar() {
   }, [played, isSeeking])
 
   const lastPlayedSaveRef = useRef(0)
+  // Última vez que el audio de verdad avanzó (se le avisa al teléfono, 1 vez por segundo)
+  const soundSeenRef = useRef(0)
+  const soundTimeRef = useRef(-1)
+  const soundToldRef = useRef(0)
+  const markSounding = useCallback((t: number) => {
+    if (t === soundTimeRef.current) return
+    soundTimeRef.current = t
+    const now = Date.now()
+    soundSeenRef.current = now
+    if (now - soundToldRef.current > 1000) {
+      soundToldRef.current = now
+      getNative()?.sounding?.()
+    }
+  }, [])
   const startAppliedRef = useRef<string | null>(null)
   // react-player v3: onTimeUpdate receives a React.SyntheticEvent<HTMLMediaElement>
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
+      if (!el.paused && !el.muted) markSounding(el.currentTime)
       const st = useMusicStore.getState()
       const cur = st.queue[st.currentIndex]
       // Ya suena: la tarjeta tocada deja de mostrar "cargando"
@@ -1436,7 +1461,7 @@ export default function MusicPlayerBar() {
         setReconnecting(false)
       }
     },
-    [isSeeking, setPlayed]
+    [isSeeking, setPlayed, markSounding]
   )
 
   const handleDurationChange = useCallback(

@@ -46,8 +46,15 @@ class NativeBridge(private val context: Context) {
             if (o.has("position")) putExtra("position", o.optDouble("position", -1.0))
             if (o.has("duration")) putExtra("duration", o.optDouble("duration", 0.0))
         }
-        if (o.optBoolean("visible", true)) ContextCompat.startForegroundService(context, intent)
-        else context.startService(intent)
+        // Android 12+ puede no dejar iniciar el servicio desde atrás: entonces se le avisa al que ya corre
+        if (o.optBoolean("visible", true)) runCatching { ContextCompat.startForegroundService(context, intent) }.onFailure { runCatching { context.startService(intent) } }
+        else runCatching { context.startService(intent) }
+    }
+
+    /** El audio de la página de verdad está avanzando (para saber si el play funcionó) */
+    @JavascriptInterface
+    fun sounding() {
+        MainActivity.lastSoundAt = System.currentTimeMillis()
     }
 
     @JavascriptInterface

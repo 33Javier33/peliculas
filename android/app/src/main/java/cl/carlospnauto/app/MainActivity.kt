@@ -236,7 +236,7 @@ class MainActivity : AppCompatActivity() {
 
         // Play del widget con la app cerrada: la página empieza a sonar sola al cargar y la app se va
         // al fondo (window.CPNNative.takeWidgetPlay / toBackground)
-        if (intent?.action == ACTION_WIDGET_PLAY) widgetPlay = true
+        if (intent?.action == ACTION_WIDGET_PLAY || intent?.action == ACTION_FRONT_PLAY) widgetPlay = true
         else requestStartupPermissions()
         val start = sharedUrl(intent) ?: intent?.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: (BuildConfig.WEB_URL + BuildConfig.START_PATH)
         if (savedInstanceState != null && sharedUrl(intent) == null) web.restoreState(savedInstanceState) else web.loadUrl(start)
@@ -253,12 +253,45 @@ class MainActivity : AppCompatActivity() {
         web.reload()
     }
 
+    /** La app vuelve al fondo apenas suena de verdad (si a los 10 s no suena, se queda a la vista) */
+    private fun backWhenSounding(since: Long, n: Int = 0) {
+        main.postDelayed({
+            if (soundingSince(since)) moveTaskToBack(true) else if (n < 40) backWhenSounding(since, n + 1)
+        }, 250)
+    }
+
+    /**
+     * La página no logra sonar: si la app se ve, se recarga y suena. Escondida, Android no deja
+     * empezar el audio de una página recién cargada, así que primero se intenta traer la app un
+     * momento; si el teléfono no lo permite, se recarga igual y suena apenas se abra la app.
+     */
+    fun recover() {
+        if (shown) return reloadToPlay()
+        runCatching { startActivity(frontPlayIntent(this)) }
+        main.postDelayed({ if (!shown) reloadToPlay() }, 1200)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Play del widget con la app ya cargada: suena y la app vuelve al fondo
         if (intent.action == ACTION_WIDGET_PLAY) {
-            play(this)
-            main.postDelayed({ moveTaskToBack(true) }, 1500)
+            val since = System.currentTimeMillis()
+            play(this, fromScreen = true)
+            backWhenSounding(since)
+            return
+        }
+        // La página no lograba sonar escondida: ahora que se ve suena (si no, se recarga) y la app
+        // vuelve al fondo apenas suena
+        if (intent.action == ACTION_FRONT_PLAY) {
+            val since = System.currentTimeMillis()
+            play(this, fromScreen = true)
+            main.postDelayed({
+                if (!soundingSince(since)) {
+                    reloadingAt = 0L
+                    reloadToPlay()
+                }
+            }, 2500)
+            backWhenSounding(since)
             return
         }
         val url = sharedUrl(intent) ?: intent.data?.takeIf { it.host == Uri.parse(BuildConfig.WEB_URL).host }?.toString() ?: return
@@ -327,13 +360,17 @@ class MainActivity : AppCompatActivity() {
 
     // Ventanita abierta y se bloquea la pantalla (o se cierra la ventanita): el video ya no se ve,
     // así que la web pasa al audio (sigue sonando). Al volver a verse, otra vez al video.
+    private var shown = false
+
     override fun onStop() {
         super.onStop()
+        shown = false
         if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(false)", null)
     }
 
     override fun onStart() {
         super.onStart()
+        shown = true
         if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(true)", null)
     }
 
@@ -410,6 +447,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val ACTION_WIDGET_PLAY = "cl.carlospnauto.app.WIDGET_PLAY"
+        const val ACTION_FRONT_PLAY = "cl.carlospnauto.app.FRONT_PLAY"
         @Volatile private var widgetPlay = false
 
         /** ¿La app se abrió con el play del widget? (una sola vez) */
@@ -427,12 +465,19 @@ class MainActivity : AppCompatActivity() {
         /** Última vez que la página avisó que está sonando (mediaState con playing) */
         @Volatile var lastPlayingAt = 0L
 
+        /** Última vez que el audio de la página de verdad avanzó (no solo «quiere sonar») */
+        @Volatile var lastSoundAt = 0L
+
+        /** ¿Sonó de verdad después de este momento? (páginas antiguas: lo que dicen que suena) */
+        fun soundingSince(t: Long): Boolean = if (lastSoundAt > 0) lastSoundAt >= t else lastPlayingAt >= t
+
         /**
-         * Play desde la notificación, el widget o los audífonos. Si la página no responde (el
-         * teléfono la congeló o cerró tras un rato sin usarlo) o a los 6 s no está sonando, se
-         * recarga la página y suena sola al cargar (antes había que entrar a la app).
+         * Play desde la notificación, el widget o los audífonos, aunque haga horas que no suena.
+         * La página suena al instante; si no responde o a los 6 s no suena de verdad (el teléfono la
+         * cerró, o la dirección del audio venció y no se pudo recuperar), se recupera sola.
+         * [fromScreen]: lo pidió una pantalla de la app (widget): la recuperación la hace esa pantalla.
          */
-        fun play(c: android.content.Context) {
+        fun play(c: android.content.Context, fromScreen: Boolean = false) {
             val a = current?.get()
             if (a == null) {
                 runCatching { c.startActivity(widgetPlayIntent(c)) }
@@ -441,11 +486,15 @@ class MainActivity : AppCompatActivity() {
             val asked = System.currentTimeMillis()
             main.post {
                 a.web.evaluateJavascript("window.__cpnNativeAction ? (window.__cpnNativeAction('play'), 'ok') : 'none'") { r ->
-                    if (r?.contains("ok") != true) a.reloadToPlay()
+                    if (r?.contains("ok") != true && !fromScreen) a.recover()
                 }
             }
-            main.postDelayed({ if (lastPlayingAt < asked && current?.get() === a) a.reloadToPlay() }, 6000)
+            if (!fromScreen) main.postDelayed({ if (!soundingSince(asked) && current?.get() === a) a.recover() }, 6000)
         }
+
+        /** Trae la app adelante para que la página suene (y vuelva sola al fondo) */
+        fun frontPlayIntent(c: android.content.Context): Intent =
+            Intent(c, MainActivity::class.java).setAction(ACTION_FRONT_PLAY).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
 
         /** La app vuelve al fondo (la música sigue) */
         fun toBackground() {

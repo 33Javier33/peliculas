@@ -49,7 +49,12 @@ class PlaybackService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.channel_name), NotificationManager.IMPORTANCE_LOW))
         session = MediaSessionCompat(this, "CPN").apply {
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() = MainActivity.play(this@PlaybackService)
+                override fun onPlay() {
+                    playing = true
+                    positionAt = android.os.SystemClock.elapsedRealtime()
+                    update()
+                    MainActivity.play(this@PlaybackService)
+                }
                 override fun onPause() = MainActivity.sendAction("pause")
                 override fun onSkipToNext() = MainActivity.sendAction("next")
                 override fun onSkipToPrevious() = MainActivity.sendAction("prev")
@@ -72,7 +77,12 @@ class PlaybackService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             // Con respaldo: si la página no responde o no suena, se recupera sola (ver MainActivity.play)
-            ACTION_PLAY -> MainActivity.play(this)
+            ACTION_PLAY -> {
+                // El botón cambia al instante y el teléfono no se duerme mientras arranca
+                playing = true
+                positionAt = android.os.SystemClock.elapsedRealtime()
+                MainActivity.play(this)
+            }
             ACTION_PAUSE -> MainActivity.sendAction("pause")
             ACTION_NEXT -> MainActivity.sendAction("next")
             ACTION_PREV -> MainActivity.sendAction("prev")
@@ -122,6 +132,16 @@ class PlaybackService : Service() {
     }
 
     private fun action(icon: Int, label: String, act: String): NotificationCompat.Action {
+        // Android 12 o anterior: el play de la notificación pasa por la pantalla invisible (despierta
+        // la app aunque lleve horas en pausa). En Android 13+ los botones van por la sesión de medios.
+        if (act == ACTION_PLAY && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            val pi = PendingIntent.getActivity(
+                this, 101,
+                Intent(this, PlayActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            return NotificationCompat.Action(icon, label, pi)
+        }
         val pi = PendingIntent.getService(
             this, act.hashCode(), Intent(this, PlaybackService::class.java).setAction(act),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
