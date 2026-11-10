@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, PlayCircle, Loader2, MonitorPlay } from 'lucide-react'
+import Link from 'next/link'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import HelpTip from '@/components/HelpTip'
@@ -11,6 +12,7 @@ import { decodeEntities } from '@/lib/youtube-music'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 import { cachedJson } from '@/lib/client-cache'
+import { artistVideoRows, searchVideos, useMyArtists, type V, toV } from '@/lib/music-videos-data'
 import { useMusicStore } from '@/store/musicStore'
 import { useFollowStore } from '@/store/followStore'
 import { songArtist } from '@/lib/library-radio'
@@ -30,35 +32,6 @@ const GENRES = [
   { id: 'electronica', label: 'Electrónica', q: 'electronic music official video' },
   { id: 'ingles', label: 'En inglés', q: 'official music video' },
 ]
-
-type V = { id: string; title: string; channel: string }
-
-const toV = (it: YouTubeSearchItem): V => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) })
-
-/** Videos de una búsqueda (guardados 12 h: no se gasta la cuota de YouTube en cada visita) */
-async function searchVideos(q: string): Promise<V[]> {
-  const d = await cachedJson<{ items?: YouTubeSearchItem[] }>(`/api/youtube/search?lang=todo&q=${encodeURIComponent(q)}`, 12 * 3600_000, (x) => !!x?.items?.length)
-  return (d?.items ?? []).filter((it) => it.id?.videoId).map(toV)
-}
-
-/** Tus artistas: los que sigues y los que más tienes en la biblioteca */
-function useMyArtists(): string[] {
-  const saved = useMusicStore((s) => s.saved)
-  const savedAlbums = useMusicStore((s) => s.savedAlbums)
-  const follows = useFollowStore((s) => s.artists)
-  return useMemo(() => {
-    const count = new Map<string, { name: string; n: number }>()
-    const add = (name: string, n: number) => {
-      const k = name?.trim().toLowerCase()
-      if (!k || k === 'various artists' || k === 'varios artistas') return
-      count.set(k, { name: name.trim(), n: (count.get(k)?.n ?? 0) + n })
-    }
-    follows.forEach((a) => add(a.name, 5))
-    savedAlbums.forEach((a) => add(a.artist, 3))
-    saved.forEach((t) => add(songArtist(t), 1))
-    return Array.from(count.values()).sort((a, b) => b.n - a.n).map((a) => a.name)
-  }, [saved, savedAlbums, follows])
-}
 
 export default function MusicVideosClient() {
   // Opción elegida en «Explorar»: un artista tuyo, uno parecido o (sin biblioteca) un género
@@ -85,30 +58,15 @@ export default function MusicVideosClient() {
   useEffect(() => {
     if (!mounted || !seeds) return setRows([])
     let cancelled = false
-    const names = seeds.split('|')
-    ;(async () => {
-      const out: { title: string; sub: string; items: V[] }[] = []
-      const own = await searchVideos(`${names.join('|')} video oficial`).catch(() => [] as V[])
-      if (own.length) out.push({ title: 'De tus artistas', sub: names.slice(0, 3).join(', '), items: own })
-      if (!cancelled) setRows([...out])
-      // Parecidos a tus dos artistas principales (sin repetir los tuyos)
-      const known = new Set(mine.map((n) => n.toLowerCase()))
-      const rel = await Promise.all(
-        names.slice(0, 2).map((n) => cachedJson<{ artists?: CatalogArtist[] }>(`/api/catalog/related?name=${encodeURIComponent(n)}`, 86400_000).then((d) => d?.artists ?? []).catch(() => [] as CatalogArtist[]))
-      )
-      const allSimilar = Array.from(new Set(rel.flat().map((a) => a.name).filter((n) => !known.has(n.toLowerCase()))))
-      if (!cancelled) setSimilarNames(allSimilar.slice(0, 10))
-      const similar = allSimilar.slice(0, 4)
-      if (similar.length) {
-        const vids = await searchVideos(`${similar.join('|')} video oficial`).catch(() => [] as V[])
-        if (vids.length) out.push({ title: 'Artistas parecidos', sub: similar.slice(0, 3).join(', '), items: vids })
-      }
-      if (!cancelled) setRows(out)
-    })()
+    artistVideoRows(seeds.split('|'), mine, (r, similar) => {
+      if (cancelled) return
+      setRows(r)
+      setSimilarNames(similar)
+    })
     return () => {
       cancelled = true
     }
-  }, [seeds, mounted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seeds, mounted]) // eslint-disable-line react-hooks/exhaustive-deps // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const s = readSession<{ genre: string; submitted: string }>('music-videos')
@@ -174,6 +132,12 @@ export default function MusicVideosClient() {
           <MonitorPlay className="w-7 h-7 text-violet-300" /> Videos musicales
           <HelpTip title="Videos musicales" text="Videos oficiales de música. Al terminar uno sigue otro solo. Puedes mandarlos a la TV, bajar su audio (sin video) o, al bloquear el teléfono, seguir escuchándolos." />
         </h1>
+        <Link
+          href="/music/feed"
+          className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500/20 via-violet-500/25 to-pink-500/25 border border-violet-400/35 text-white hover:border-violet-300/60"
+        >
+          <MonitorPlay className="w-4 h-4 text-violet-200" /> Videos para ti: a pantalla completa, de tus artistas y parecidos
+        </Link>
         <form
           onSubmit={(e) => {
             e.preventDefault()
