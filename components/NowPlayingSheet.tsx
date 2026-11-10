@@ -247,17 +247,23 @@ export default function NowPlayingSheet({
         </div>
       )}
 
+      {/* Cerrar: flotante, siempre a la vista aunque se baje hasta los comentarios */}
+      <div className="absolute inset-x-0 top-0 z-20 pointer-events-none">
+        <div className="max-w-md mx-auto px-5 pt-[max(env(safe-area-inset-top),12px)] py-2">
+          <button
+            onClick={onClose}
+            className="pointer-events-auto w-11 h-11 rounded-full bg-surface-2/85 backdrop-blur-md border border-white/10 shadow-[0_6px_20px_rgba(0,0,0,0.45)] flex items-center justify-center text-slate-100"
+            aria-label="Cerrar reproductor"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
       <div className="relative h-full overflow-y-auto">
         <div className="max-w-md mx-auto min-h-full flex flex-col px-5 pt-[max(env(safe-area-inset-top),12px)] pb-[max(env(safe-area-inset-bottom),20px)]">
-          {/* Barra superior */}
+          {/* Barra superior (el botón de cerrar flota encima, en este lugar) */}
           <div className="flex items-center justify-between py-2">
-            <button
-              onClick={onClose}
-              className="w-11 h-11 rounded-full bg-surface-2/70 border border-white/8 flex items-center justify-center text-slate-200"
-              aria-label="Cerrar reproductor"
-            >
-              <ChevronDown className="w-5 h-5" />
-            </button>
+            <span className="w-11 h-11 shrink-0" aria-hidden />
             <div className="text-center min-w-0 px-3">
               <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.12em] font-display">
                 Reproduciendo de

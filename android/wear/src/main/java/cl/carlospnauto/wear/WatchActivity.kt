@@ -119,7 +119,8 @@ private fun App() {
     val nav = rememberSwipeDismissableNavController()
     val toNow = { nav.popBackStack("now", false); Unit }
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
-        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }, onQueue = { nav.navigate("queue") }) }
+        composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }, onQueue = { nav.navigate("queue") }, onVideo = { nav.navigate("video") }) }
+        composable("video") { VideoScreen(close = { nav.popBackStack() }) }
         composable("queue") { QueueScreen(played = toNow) }
         composable("volume") { VolumeScreen() }
         composable("home") { HomeScreen(nav = { nav.navigate(it) }, played = toNow) }
@@ -133,7 +134,7 @@ private fun App() {
 }
 
 @Composable
-private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Unit) {
+private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Unit, onVideo: () -> Unit) {
     val ctx = LocalContext.current
     val now by PhoneLink.now.collectAsState()
     val link by PhoneLink.link.collectAsState()
@@ -200,12 +201,13 @@ private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () ->
                         Round(R.drawable.ic_next, "Siguiente", 40) { send("next") }
                     }
                     Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Round(if (now.liked) R.drawable.ic_heart_filled else R.drawable.ic_heart, "Me gusta", 32) {
                             PhoneLink.optimistic { it.copy(liked = !it.liked) }
                             send("like")
                         }
                         Round(R.drawable.ic_queue, "Lista en reproducción", 32) { onQueue() }
+                        Round(R.drawable.ic_video, "Ver el video", 32) { onVideo() }
                         Round(R.drawable.ic_volume, "Volumen", 32) { onVolume() }
                         Round(R.drawable.ic_library, "Biblioteca", 32) { onBrowse() }
                     }
@@ -416,11 +418,13 @@ private fun SearchScreen(played: () -> Unit) {
         ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item { ListHeader { Text(search?.first ?: "Buscar", maxLines = 1, overflow = TextOverflow.Ellipsis) } }
             when {
-                results == null -> item { Text("Buscando en Internet Archive…", color = Grey, textAlign = TextAlign.Center) }
+                results == null -> item { Text("Buscando en YouTube e Internet Archive…", color = Grey, textAlign = TextAlign.Center) }
                 results.isEmpty() -> item { Text("Sin resultados. Prueba con otro nombre.", color = Grey, textAlign = TextAlign.Center) }
                 else -> items(results) { r ->
-                    Entry(title = r.title, sub = r.sub.ifBlank { null }, img = "https://archive.org/services/img/${r.id}") {
-                        PhoneLink.play(ctx, "archive", r.id)
+                    // Primero canciones de YouTube (id «yt:…»), al final discos de Internet Archive
+                    val yt = r.id.startsWith("yt:")
+                    Entry(title = r.title, sub = r.sub.ifBlank { null }, img = r.img.ifBlank { "https://archive.org/services/img/${r.id}" }) {
+                        if (yt) PhoneLink.play(ctx, "yt", r.id.removePrefix("yt:")) else PhoneLink.play(ctx, "archive", r.id)
                         played()
                     }
                 }

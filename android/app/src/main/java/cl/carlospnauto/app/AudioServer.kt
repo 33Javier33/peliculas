@@ -216,6 +216,16 @@ object AudioServer {
         return r
     }
 
+    /**
+     * Video para el reloj: la dirección directa de YouTube (con la cabecera que pide), y la del
+     * teléfono en el Wi-Fi de la casa por si el reloj no puede entrar directo.
+     */
+    fun videoForWatch(id: String): Triple<String, String, String> {
+        val r = resolveVideo(id, fresh = false)
+        val lan = castBase()?.let { "$it/v/$id" } ?: ""
+        return Triple(r.url, r.userAgent, lan)
+    }
+
     // ===== Servidor para la TV =====
     // La TV (Chromecast) no puede entrar al servidor interno del teléfono (127.0.0.1): este otro
     // escucha en la red de la casa, solo con una clave al azar en la dirección (/c/CLAVE/…).

@@ -76,6 +76,9 @@ dependencies {
     // Buscar dictando o con el teclado del reloj
     implementation("androidx.wear:wear-input:1.1.0")
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    // Ver el video de lo que suena en el reloj
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
     // Evento en curso en la esfera ("Sonando"): al tocarlo abre esta app
     implementation("androidx.wear:wear-ongoing:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")

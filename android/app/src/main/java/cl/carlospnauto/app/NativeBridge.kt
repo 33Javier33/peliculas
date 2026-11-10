@@ -51,6 +51,19 @@ class NativeBridge(private val context: Context) {
         else runCatching { context.startService(intent) }
     }
 
+    /** Reloj: ver el video de lo que suena. Se busca su dirección y se le manda al reloj */
+    @JavascriptInterface
+    fun wearVideo(id: String, at: Double, title: String) {
+        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id)) return
+        kotlin.concurrent.thread {
+            val o = JSONObject().put("id", id).put("at", if (at.isFinite()) at else 0.0).put("title", title.take(80))
+            runCatching { AudioServer.videoForWatch(id) }
+                .onSuccess { (url, ua, lan) -> o.put("url", url).put("ua", ua).put("lan", lan) }
+                .onFailure { o.put("error", "No se pudo preparar el video") }
+            WearSync.send(context, "/cpn/video", o.toString())
+        }
+    }
+
     /** El audio de la página de verdad está avanzando (para saber si el play funcionó) */
     @JavascriptInterface
     fun sounding() {

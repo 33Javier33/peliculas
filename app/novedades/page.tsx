@@ -24,6 +24,9 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Reloj: el buscador encuentra primero canciones de YouTube y al final discos de Internet Archive',
+      'Reloj: nuevo botón «Ver el video» para ver en el reloj el video de lo que suena (el teléfono se pausa; al cerrarlo la canción sigue desde ese segundo). Gasta más batería del reloj (actualiza la app del reloj)',
+      'Reproductor grande: el botón para cerrarlo queda flotando arriba, a la vista aunque bajes hasta los comentarios',
       'Me gusta y comentarios: en el reproductor y en los videos ves los me gusta, vistas y comentarios destacados de YouTube y los fans del artista en Deezer (solo para mostrar), y puedes dar 👍 y comentar en la app con tu nombre público: lo ven todos los usuarios',
       'Reproductor grande más compacto: TV, compartir, ver el video, cola, descargar y ecualizador quedan como íconos en una sola fila (verde cuando están activos)',
       'Botones de play y pausa nuevos en toda la app: de contorno, con los colores del logo (cian, violeta y fucsia)',

@@ -47,6 +47,13 @@ data class Library(
 
 enum class Link { Searching, NoPhone, AppClosed, Ok }
 
+/** Video de lo que suena, para verlo en el reloj */
+sealed class WatchVideo {
+    object Loading : WatchVideo()
+    data class Ready(val id: String, val url: String, val ua: String, val lan: String, val at: Double, val title: String) : WatchVideo()
+    data class Failed(val message: String) : WatchVideo()
+}
+
 /**
  * Conexión con la app del teléfono (Wearable Data Layer): manda órdenes ("/cpn/cmd") y recibe lo
  * que suena ("/cpn/state"), la biblioteca ("/cpn/library") y si la app está cerrada ("/cpn/closed").
@@ -67,6 +74,21 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     fun searchArchive(c: Context, q: String) {
         _search.value = q to null
         cmd(c, "search") { put("q", q) }
+    }
+
+    private val _video = MutableStateFlow<WatchVideo?>(null)
+    val video: StateFlow<WatchVideo?> = _video
+
+    /** Pide al teléfono el video de lo que suena (el teléfono se pausa) */
+    fun requestVideo(c: Context) {
+        _video.value = WatchVideo.Loading
+        cmd(c, "video")
+    }
+
+    /** Se cerró el video: la canción sigue en el teléfono desde ese segundo */
+    fun endVideo(c: Context, id: String, atSec: Double) {
+        _video.value = null
+        cmd(c, "videoend") { put("id", id); put("at", atSec) }
     }
 
     /** Canciones de un artista, disco, playlist o mezcla (se piden al abrirlos) */
@@ -226,6 +248,12 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 val o = runCatching { JSONObject(text) }.getOrNull() ?: return
                 _link.value = Link.Ok
                 _volume.value = o.optInt("v") to o.optInt("max", 15).coerceAtLeast(1)
+            }
+            "/cpn/video" -> {
+                val o = runCatching { JSONObject(text) }.getOrNull() ?: return
+                _link.value = Link.Ok
+                _video.value = if (o.has("error") || o.optString("url").isBlank()) WatchVideo.Failed(o.optString("error").ifBlank { "No se pudo preparar el video" })
+                else WatchVideo.Ready(o.optString("id"), o.optString("url"), o.optString("ua"), o.optString("lan"), o.optDouble("at", 0.0), o.optString("title"))
             }
             "/cpn/played" -> {
                 _busy.value = false
