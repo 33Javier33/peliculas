@@ -16,7 +16,8 @@ const items = [
 // PulsoMusic: solo música, videos musicales, radios y biblioteca
 const musicItems = [
   { href: '/music', label: 'Música', Icon: Music2, active: 'text-violet-400' },
-  { href: '/music/videos', label: 'Videos', Icon: MonitorPlay, active: 'text-violet-400' },
+  // Videos: la sección a pantalla completa (vertical); la búsqueda y los géneros están dentro
+  { href: '/music/feed', label: 'Videos', Icon: MonitorPlay, active: 'text-violet-400' },
   { href: '/radio', label: 'Radios', Icon: Radio, active: 'text-violet-400' },
   { href: '/music/library', label: 'Biblioteca', Icon: Library, active: 'text-violet-400' },
 ]
@@ -25,6 +26,7 @@ function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname.startsWith('/movie') || pathname === '/search' || pathname === '/peliculas'
   if (href === '/music') return pathname === '/music' || pathname.startsWith('/play') || pathname.startsWith('/music/album') || pathname.startsWith('/music/artist')
   if (href === '/radio') return pathname.startsWith('/radio') || pathname.startsWith('/tv')
+  if (href === '/music/feed') return pathname.startsWith('/music/feed') || pathname.startsWith('/music/videos')
   return pathname.startsWith(href)
 }
 

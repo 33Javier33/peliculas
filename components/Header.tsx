@@ -40,7 +40,7 @@ export default function Header() {
   const sectionLabel =
     pathname === '/music/library'
       ? 'Biblioteca'
-      : pathname === '/music/videos'
+      : pathname === '/music/videos' || pathname === '/music/feed'
         ? 'Videos'
       : { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
   const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
@@ -299,9 +299,9 @@ export default function Header() {
             </Link>
             {musicApp && (
               <Link
-                href="/music/videos"
-                title="Videos musicales"
-                aria-label="Videos musicales"
+                href="/music/feed"
+                title="Videos para ti"
+                aria-label="Videos para ti"
                 className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
               >
                 <MonitorPlay className="w-4 h-4" />

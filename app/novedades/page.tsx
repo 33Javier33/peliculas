@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Videos para ti: ahora está en la barra de menú (Videos). El video empieza con sonido, pasa solo al siguiente al terminar, y a los 6 segundos del que se ve ya queda cargado el siguiente (en la app también se prepara su audio)',
       'Videos para ti (PulsoMusic y PulsoMedia): pantalla completa y en vertical, como YouTube Music, con videos de tus artistas y de los parecidos. Desliza para el siguiente; toca para pausar; ♥ para guardar, «audio» para escuchar solo la canción y compartir. Se entra desde Videos',
       'Dispositivos de tu cuenta: con sesión iniciada, PulsoMedia, PulsoMusic y el navegador muestran dónde suena la música (arriba, «Suena en …»). Con «Escuchar aquí» la pasas al dispositivo que quieras y se pausa en el otro; también puedes pausar, siguiente o anterior allá. Tarda unos segundos en reflejarse',
       'Reloj: el buscador encuentra primero canciones de YouTube y al final discos de Internet Archive',
