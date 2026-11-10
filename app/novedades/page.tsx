@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Me gusta y comentarios: en el reproductor y en los videos ves los me gusta, vistas y comentarios destacados de YouTube y los fans del artista en Deezer (solo para mostrar), y puedes dar 👍 y comentar en la app con tu nombre público: lo ven todos los usuarios',
       'Reproductor grande más compacto: TV, compartir, ver el video, cola, descargar y ecualizador quedan como íconos en una sola fila (verde cuando están activos)',
       'Botones de play y pausa nuevos en toda la app: de contorno, con los colores del logo (cian, violeta y fucsia)',
       'Barra de abajo más simple, como YouTube Music: carátula, canción, botón de TV, reproducir y siguiente (lo demás está en el reproductor grande). Deslízala hacia abajo para cerrarla',

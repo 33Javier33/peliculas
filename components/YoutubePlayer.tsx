@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle } from 'lucide-react'
+import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
@@ -114,6 +115,8 @@ export default function YoutubePlayer({
   // Transmitir a la TV: YouTube no deja enviar sus videos desde otra web; se abre en la app de
   // YouTube (que sí transmite) en el mismo segundo, o se usa la fuente alternativa con Chromecast
   const [castOpen, setCastOpen] = useState(false)
+  // Me gusta y comentarios (de la app y de YouTube)
+  const [socialOpen, setSocialOpen] = useState(false)
   const altVideoRef = useRef<HTMLVideoElement>(null)
   // Transmitir desde la app: se abre YouTube en la TV (Chromecast / Google TV) y se le indica el video
   const [tvStatus, setTvStatus] = useState<'' | 'connecting' | 'playing' | 'error' | 'unsupported'>('')
@@ -641,7 +644,31 @@ export default function YoutubePlayer({
             </>
           )}
         </div>
+        <button
+          onClick={() => setSocialOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
+        >
+          <MessageCircle className="w-4 h-4" /> Me gusta y comentarios
+        </button>
       </div>
+      {socialOpen && (
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setSocialOpen(false)}>
+          <div
+            className="w-full sm:max-w-lg max-h-[80vh] overflow-y-auto overscroll-contain bg-surface-1 border border-white/10 rounded-t-3xl sm:rounded-3xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Me gusta y comentarios"
+          >
+            <div className="flex items-center justify-between px-2 pb-2">
+              <p className="text-white font-bold text-sm truncate">{title}</p>
+              <button onClick={() => setSocialOpen(false)} className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400" aria-label="Cerrar">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <SocialPanel item={videoId} ytId={videoId} className="border-0 bg-transparent p-2" />
+          </div>
+        </div>
+      )}
       {castOpen && (
         <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setCastOpen(false)}>
           <div

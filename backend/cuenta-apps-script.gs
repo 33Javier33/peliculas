@@ -62,19 +62,30 @@ const sesiones = () => sheet('Sesiones', ['token', 'email', 'creado', 'ultimoUso
 const datos = () => sheet('Datos', ['email', 'parte', 'contenido', 'actualizado'])
 // Comunidad: playlists que cada usuario decide compartir (con su nombre público, nunca el correo)
 const comunidad = () => sheet('Comunidad', ['id', 'email', 'alias', 'clave', 'nombre', 'genero', 'tipo', 'canciones', 'actualizado'])
+// Me gusta y comentarios de canciones y videos (los ven todos; se muestra el nombre público, nunca el correo)
+const meGusta = () => sheet('MeGusta', ['item', 'email', 'fecha'])
+const comentarios = () => sheet('Comentarios', ['id', 'item', 'email', 'alias', 'texto', 'fecha'])
 
 function instalar() {
-  usuarios(); codigos(); sesiones(); datos(); comunidad(); salt()
+  usuarios(); codigos(); sesiones(); datos(); comunidad(); meGusta(); comentarios(); salt()
   Logger.log('Listo: hojas creadas en "' + ss().getName() + '". Ahora implementa como aplicación web.')
 }
 
 // ══════════════ HTTP ══════════════
 function doPost(e) {
+  // Leer me gusta y comentarios no espera a nadie (es lo que más se pide)
+  try {
+    const peek = JSON.parse(e.postData.contents)
+    if (peek && peek.action === 'social') return out(social(peek))
+  } catch (err) {}
   const lock = LockService.getScriptLock()
   try {
     lock.waitLock(20000)
     const body = JSON.parse(e.postData.contents)
     const a = body.action
+    if (a === 'like') return out(like(body))
+    if (a === 'comment') return out(comment(body))
+    if (a === 'uncomment') return out(uncomment(body))
     if (a === 'requestCode') return out(requestCode(body))
     if (a === 'verifyCode') return out(verifyCode(body))
     if (a === 'load') return out(load(body))
@@ -316,4 +327,97 @@ function community(body) {
     })
   }
   return { ok: true, playlists: list }
+}
+
+// ══════════════ Me gusta y comentarios ══════════════
+// item: id de la canción o video (el de YouTube, o el de archive.org / enlace). Hasta 120 letras.
+const MAX_COMMENT = 500
+
+function itemId(v) {
+  return String(v || '').replace(/[^\w:./?=&%-]/g, '').slice(0, 120)
+}
+
+// Filas (número) cuya columna `col` (1 = primera) es exactamente `value`: rápido con TextFinder
+function rowsWith(sh, col, value) {
+  if (!value || sh.getLastRow() < 2) return []
+  return sh
+    .getRange(2, col, sh.getLastRow() - 1, 1)
+    .createTextFinder(value)
+    .matchEntireCell(true)
+    .findAll()
+    .map(function (c) { return c.getRow() })
+}
+
+// social: cuántos me gusta tiene, si es tuyo, y los comentarios (los más nuevos primero)
+function social(body) {
+  const item = itemId(body.item)
+  if (!item) return { ok: false, error: 'item' }
+  const email = body.token ? sessionEmail(body.token) : null
+  const lg = meGusta()
+  const likeRows = rowsWith(lg, 1, item)
+  let liked = false
+  if (email) for (let i = 0; i < likeRows.length; i++) if (String(lg.getRange(likeRows[i], 2).getValue()) === email) { liked = true; break }
+  const cm = comentarios()
+  const list = rowsWith(cm, 2, item)
+    .map(function (r) {
+      const v = cm.getRange(r, 1, 1, 6).getValues()[0]
+      return { id: String(v[0]), alias: String(v[3]), text: String(v[4]), at: Number(v[5]) || 0, mine: !!email && String(v[2]) === email }
+    })
+    .sort(function (a, b) { return b.at - a.at })
+    .slice(0, 100)
+  return { ok: true, likes: likeRows.length, liked: liked, comments: list, count: list.length }
+}
+
+// like: { token, item, on } → pone o quita tu me gusta
+function like(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const item = itemId(body.item)
+  if (!item) return { ok: false, error: 'item' }
+  const sh = meGusta()
+  const rows = rowsWith(sh, 1, item)
+  let mineRow = 0
+  for (let i = 0; i < rows.length; i++) if (String(sh.getRange(rows[i], 2).getValue()) === email) { mineRow = rows[i]; break }
+  let count = rows.length
+  if (body.on && !mineRow) {
+    sh.appendRow([item, email, Date.now()])
+    count++
+  } else if (!body.on && mineRow) {
+    sh.deleteRow(mineRow)
+    count--
+  }
+  return { ok: true, likes: Math.max(0, count), liked: !!body.on }
+}
+
+// comment: { token, item, alias, text } → agrega un comentario (máx. 500 letras; uno cada 10 s)
+function comment(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const item = itemId(body.item)
+  const alias = clean(body.alias, 40)
+  const text = String(body.text || '').replace(/[<>]/g, '').replace(/[ \t]+/g, ' ').trim().slice(0, MAX_COMMENT)
+  if (!item || !text) return { ok: false, error: 'Escribe tu comentario' }
+  if (!alias) return { ok: false, error: 'Falta tu nombre público' }
+  const sh = comentarios()
+  const last = sh.getLastRow()
+  if (last >= 2) {
+    const from = Math.max(2, last - 30)
+    const recent = sh.getRange(from, 3, last - from + 1, 4).getValues()
+    const now = Date.now()
+    for (let i = 0; i < recent.length; i++) if (String(recent[i][0]) === email && now - Number(recent[i][3]) < 10000) return { ok: false, error: 'Espera unos segundos para comentar de nuevo' }
+  }
+  const id = Utilities.getUuid().slice(0, 12)
+  const at = Date.now()
+  sh.appendRow([id, item, email, alias, text, at])
+  return { ok: true, comment: { id: id, alias: alias, text: text, at: at, mine: true } }
+}
+
+// uncomment: { token, id } → borra un comentario tuyo
+function uncomment(body) {
+  const email = sessionEmail(body.token)
+  if (!email) return { ok: false, error: 'session' }
+  const sh = comentarios()
+  const rows = rowsWith(sh, 1, String(body.id || ''))
+  for (let i = rows.length - 1; i >= 0; i--) if (String(sh.getRange(rows[i], 3).getValue()) === email) sh.deleteRow(rows[i])
+  return { ok: true }
 }

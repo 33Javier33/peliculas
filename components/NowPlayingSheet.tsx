@@ -13,6 +13,8 @@ import TrackMenu from '@/components/TrackMenu'
 import LyricsSheet from '@/components/LyricsSheet'
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import SongDownloadButton from '@/components/SongDownloadButton'
+import SocialPanel from '@/components/SocialPanel'
+import { ytIdOf } from '@/lib/pip'
 import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
 import {
@@ -556,6 +558,9 @@ export default function NowPlayingSheet({
               </IconAction>
             )}
           </div>
+
+          {/* Me gusta y comentarios: los de la app (todos los ven) y, para mostrar, los de YouTube y Deezer */}
+          {!isLive && <SocialPanel item={ytIdOf(video) || video.id} ytId={ytIdOf(video) || undefined} artist={artist} className="mt-6" />}
 
           {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
           {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" />}
