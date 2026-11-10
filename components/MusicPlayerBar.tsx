@@ -28,6 +28,8 @@ import {
   Share2,
   ChevronsDownUp,
   TvMinimalPlay,
+  Cast,
+  MonitorSmartphone,
 } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
@@ -55,7 +57,7 @@ import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equa
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
-import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind } from '@/lib/native-cast'
+import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring } from '@/lib/native-cast'
 import { useCastStore } from '@/components/CastButton'
 import InlineVideo from '@/components/InlineVideo'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -2060,9 +2062,29 @@ export default function MusicPlayerBar() {
     if (v.streamUrl) nativeCast({ ...base, url: v.streamUrl, live: true })
     else if (v.audioUrl && !/^\/api\/stream\?id=/.test(v.audioUrl)) nativeCast({ ...base, url: v.audioUrl })
     else if (yt) nativeCast({ ...base, yt, video: !!v.isVideo })
-    else return
-    st.setIsPlaying(false)
+    // (el teléfono sigue sonando hasta que la TV se conecta: si se cancela, no se corta la música)
   }, [])
+  // Elegir dónde transmitir: Chromecast / Google TV (la TV reproduce sola) o duplicar la pantalla
+  const [canCast, setCanCast] = useState(false)
+  useEffect(() => setCanCast(nativeCastAvailable() || canOpenMirroring()), [])
+  const [tvPicker, setTvPicker] = useState(false)
+  const [tvNotice, setTvNotice] = useState<string | null>(null)
+  const tvState = useCastStore((s) => s.tvState)
+  const tvAskedRef = useRef(0)
+  useEffect(() => {
+    if (tvState !== 'error' || Date.now() - tvAskedRef.current > 120000) return
+    setTvNotice('No se pudo transmitir: revisa que la TV esté encendida y en el mismo Wi-Fi')
+    const t = setTimeout(() => setTvNotice(null), 5000)
+    return () => clearTimeout(t)
+  }, [tvState])
+  const castToTv = useCallback(() => {
+    setTvPicker(false)
+    tvAskedRef.current = Date.now()
+    castedIdRef.current = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.id ?? null
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    const live = !!useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl
+    castTrack(el && isFinite(el.currentTime) && !live ? el.currentTime : 0)
+  }, [castTrack])
   // En la TV: al cambiar de canción, la TV pone la nueva; al terminar en la TV, sigue la cola
   const castedIdRef = useRef<string | null>(null)
   useEffect(() => {
@@ -2101,6 +2123,7 @@ export default function MusicPlayerBar() {
     }
   }
   const queueSwipe = useSwipeDown(closeQueue)
+  const barSwipeRef = useRef<{ x: number; y: number } | null>(null)
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -2262,14 +2285,7 @@ export default function MusicPlayerBar() {
           setInline(null)
           setVideoModal({ id: cur.id, title: v?.title ?? '', channelTitle: v?.channelTitle ?? '', startTime: inlineTimeRef.current })
         }}
-        onCast={
-          nativeCastAvailable() && currentVideo
-            ? () => {
-                castedIdRef.current = currentId ?? null
-                castTrack(isLive ? 0 : localPlayed * localDuration)
-              }
-            : undefined
-        }
+        onCast={canCast && currentVideo ? () => setTvPicker(true) : undefined}
         castDevice={castingMusic ? castDevice : null}
         onCastStop={() => {
           nativeCastStop()
@@ -2303,6 +2319,61 @@ export default function MusicPlayerBar() {
         onSeek={seekFraction}
       />
 
+      {/* ===== Elegir la TV ===== */}
+      {tvPicker && (
+        <div className="fixed inset-0 z-[140] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Transmitir a la TV">
+          <button className="absolute inset-0 bg-black/60" onClick={() => setTvPicker(false)} aria-label="Cancelar" />
+          <div className="relative w-full max-w-sm rounded-t-3xl sm:rounded-2xl bg-surface-1 border border-white/10 p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+            <p className="text-white font-bold px-1">Transmitir a la TV</p>
+            <p className="text-slate-500 text-xs px-1 mt-0.5 mb-3 truncate">{currentVideo?.title}</p>
+            {castingMusic ? (
+              <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 px-4 py-3">
+                <Cast className="w-5 h-5 text-emerald-300 shrink-0" />
+                <span className="min-w-0 flex-1 text-emerald-200 text-sm font-semibold truncate">Sonando en {castDevice}</span>
+                <button
+                  onClick={() => {
+                    setTvPicker(false)
+                    nativeCastStop()
+                    setIsPlaying(true)
+                  }}
+                  className="shrink-0 text-xs font-bold text-white bg-white/10 rounded-full px-3 py-1.5"
+                >
+                  Detener
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {nativeCastAvailable() && (
+                  <button onClick={castToTv} className="flex items-center gap-3 rounded-2xl bg-surface-2/70 border border-white/8 hover:border-violet-400/40 px-4 py-3 text-left">
+                    <Cast className="w-5 h-5 text-violet-300 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-white text-sm font-semibold">Chromecast o Google TV</span>
+                      <span className="block text-slate-500 text-xs">La TV reproduce sola; el teléfono queda libre</span>
+                    </span>
+                  </button>
+                )}
+                {canOpenMirroring() && (
+                  <button
+                    onClick={() => {
+                      setTvPicker(false)
+                      openMirroring()
+                    }}
+                    className="flex items-center gap-3 rounded-2xl bg-surface-2/70 border border-white/8 hover:border-violet-400/40 px-4 py-3 text-left"
+                  >
+                    <MonitorSmartphone className="w-5 h-5 text-sky-300 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-white text-sm font-semibold">Otro televisor</span>
+                      <span className="block text-slate-500 text-xs">Smart TV sin Chromecast: duplicar la pantalla (Smart View, Transmitir)</span>
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+            <button onClick={() => setTvPicker(false)} className="mt-2 w-full py-2.5 text-slate-400 text-sm">Cancelar</button>
+          </div>
+        </div>
+      )}
+
       {/* ===== PLAYER BAR ===== */}
       <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col">
         {/* Ventana flotante con el video (sobre la app; al cerrarla la música sigue) */}
@@ -2331,10 +2402,10 @@ export default function MusicPlayerBar() {
             />
           </div>
         )}
-        {(skipNotice || needsTap) && !isQueueOpen && (
+        {(skipNotice || needsTap || tvNotice) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
             <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
-              {needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`}
+              {tvNotice ?? (needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`)}
             </p>
           </div>
         )}
@@ -2465,7 +2536,21 @@ export default function MusicPlayerBar() {
           />
         </div>
 
-        <div className="relative bg-surface-1/[0.98] sm:bg-surface-1/90 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center">
+        <div
+          onTouchStart={(e) => {
+            barSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+          }}
+          onTouchEnd={(e) => {
+            // Teléfono, como YouTube Music: deslizar la barra hacia abajo la cierra
+            const st = barSwipeRef.current
+            barSwipeRef.current = null
+            if (!st || isExpanded || floating || window.innerWidth >= 640) return
+            const t = e.changedTouches[0]
+            const dy = t.clientY - st.y
+            if (dy > 45 && Math.abs(t.clientX - st.x) < dy * 0.6) dismiss()
+          }}
+          className="relative bg-surface-1/[0.98] sm:bg-surface-1/90 sm:backdrop-blur-xl sm:backdrop-saturate-[1.8] shadow-rim border-t border-white/10 flex flex-wrap items-center"
+        >
 
           {/* Video — VISIBLE para que YouTube permita el audio. Se puede ampliar o poner a pantalla completa. */}
           <div
@@ -2573,9 +2658,20 @@ export default function MusicPlayerBar() {
 
             <div className="flex flex-col items-center gap-0.5 shrink-0 sm:mx-auto">
               <div className="flex items-center gap-1 sm:gap-3">
+                {/* Móvil, como YouTube Music: transmitir, reproducir y siguiente (el resto, en el reproductor grande) */}
+                {canCast && (
+                  <button
+                    onClick={() => (castingMusic ? openFull() : setTvPicker(true))}
+                    className={`sm:hidden p-2 transition-colors ${castingMusic ? 'text-emerald-300' : 'text-slate-300 hover:text-white'}`}
+                    title={castingMusic ? `En ${castDevice}` : 'Transmitir a la TV'}
+                    aria-label={castingMusic ? `Sonando en ${castDevice}` : 'Transmitir a la TV'}
+                  >
+                    <Cast className="w-5 h-5" />
+                  </button>
+                )}
                 <button
                   onClick={playPrev}
-                  className="p-2 text-slate-400 hover:text-white transition-colors"
+                  className="hidden sm:inline-flex p-2 text-slate-400 hover:text-white transition-colors"
                   title="Anterior"
                   aria-label="Anterior"
                 >
@@ -2626,7 +2722,7 @@ export default function MusicPlayerBar() {
           </div>
 
           {/* Acciones — en móvil ocupan una segunda fila completa */}
-          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-1 sm:gap-2 px-2 sm:px-5 pb-1 sm:pb-0 shrink-0 border-t border-white/5 sm:border-0">
+          <div className="hidden sm:flex w-auto items-center justify-end gap-2 px-5 shrink-0">
             <span className="sm:hidden max-[359px]:hidden pl-1 text-[11px] text-slate-500 font-mono tabular-nums whitespace-nowrap">
               {isLive ? (
                 <span className="inline-flex items-center gap-1 font-sans font-bold text-emerald-400 uppercase tracking-wider">

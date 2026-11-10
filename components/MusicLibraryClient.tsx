@@ -69,7 +69,6 @@ type SortOrder = 'recent' | 'title' | 'artist'
 
 export default function MusicLibraryClient() {
   const brand = brandName(useAppFlavor())
-  const shuffleSaved = useShuffleOn('library-saved')
   const shuffleFilter = useShuffleOn('library-filter')
   const shuffleGenre = useShuffleOn('library-genre')
   const { liked, play, addToQueue, removeLiked, queue, currentIndex, isVisible, isPlaying } = useMusicStore(
@@ -128,10 +127,6 @@ export default function MusicLibraryClient() {
     // Solo descargada: se borra del teléfono
     const key = Object.values(downloadedItems).find((i) => i.track.id === id)?.key
     if (key) useOfflineStore.getState().removeKeys([key])
-  }
-  const playSaved = (index: number) => {
-    const list = [...saved].sort((a, b) => b.savedAt - a.savedAt)
-    if (list.length) play(list, index)
   }
   const [mounted, setMounted] = useState(false)
   // Vista Lista o Mosaico: la misma en todas las secciones
@@ -466,7 +461,7 @@ export default function MusicLibraryClient() {
                 <Library className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="flex items-center gap-2 text-3xl sm:text-4xl font-black text-white leading-tight">Mi biblioteca <HelpTip title="Tu biblioteca" text="Todo lo que guardas con ♥: canciones (Me gusta), álbumes, playlists y discos. El buscador de aquí busca primero en tu biblioteca y luego en Internet Archive, música libre y YouTube. Arriba a la derecha, el ícono de persona respalda todo en tu cuenta." /></h1>
+                <h1 className="flex items-center gap-2 text-3xl sm:text-4xl font-black text-white leading-tight">Mi biblioteca <HelpTip title="Tu biblioteca" text="Todo lo que guardas con ♥: canciones (Me gusta), álbumes, playlists y discos. La lupa de arriba busca primero en tu biblioteca y luego en internet. Los botones de arriba muestran cada parte. El ícono de persona respalda todo en tu cuenta." /></h1>
                 <p className="text-slate-500 text-sm mt-0.5">
                   {saved.length} {saved.length === 1 ? 'canción guardada' : 'canciones guardadas'}
                 </p>
@@ -474,30 +469,6 @@ export default function MusicLibraryClient() {
             </div>
           </div>
 
-          {saved.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => playSaved(0)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all hover:scale-105 shadow-lg shadow-violet-900/30"
-              >
-                <Play className="w-4 h-4 fill-white" /> Reproducir todo
-              </button>
-              <button
-                onClick={() => {
-                  // Aleatorio de verdad: se activa el modo y empieza por una al azar
-                  if (!useMusicStore.getState().shuffle) useMusicStore.getState().toggleShuffle()
-                  const idx = Math.floor(Math.random() * saved.length)
-                  playSaved(idx)
-                  markShuffle('library-saved')
-                }}
-                aria-pressed={shuffleSaved}
-                className={`inline-flex items-center gap-2 bg-surface-1 hover:bg-surface-2 text-white font-semibold px-4 py-2.5 rounded-full text-sm border border-white/10 hover:border-violet-500/40 transition-all ${shuffleSaved ? SHUFFLE_ON : ''}`}
-                title="Aleatorio"
-              >
-                <Shuffle className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Barra de arriba (se desliza de lado): cada botón muestra una parte de la biblioteca */}
@@ -535,8 +506,10 @@ export default function MusicLibraryClient() {
         ) : sec === 'mine' ? (
           <>
         {/* Buscador de toda tu biblioteca: artistas, álbumes, canciones y playlists */}
-        {saved.length > 0 && (
+        {/* Lo buscado con la lupa de arriba (aquí mismo, sin salir de la Biblioteca) */}
+        {saved.length > 0 && !!headerQuery && (
         <LibrarySearch
+          key={headerQuery}
           query={headerQuery}
           songs={saved}
           artists={artists}
