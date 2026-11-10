@@ -37,7 +37,7 @@ export default function TrackTiles({
             <div className="relative aspect-square bg-surface-2">
               {t.thumbnail && <Image src={t.thumbnail} alt="" fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />}
               <TrackStateOverlay id={t.id} />
-              <span className="absolute right-2 bottom-2 w-9 h-9 rounded-full bg-violet-500 flex items-center justify-center">
+              <span className="absolute right-2 bottom-2 w-9 h-9 rounded-full cpn-play bg-violet-500 flex items-center justify-center">
                 <Play className="w-4 h-4 text-white fill-white ml-0.5" />
               </span>
               {t.duration && <span className="absolute left-2 bottom-2 text-[10px] font-mono text-white/90 bg-black/60 px-1.5 py-0.5 rounded">{t.duration}</span>}

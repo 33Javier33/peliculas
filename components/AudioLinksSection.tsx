@@ -302,7 +302,7 @@ function AlbumRow({
           </span>
           <ChevronDown className={`shrink-0 w-4 h-4 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        <button onClick={() => onPlay(0)} className="shrink-0 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label={`Reproducir ${album.title}`}>
+        <button onClick={() => onPlay(0)} className="shrink-0 w-10 h-10 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center" aria-label={`Reproducir ${album.title}`}>
           <Play className="w-4 h-4 fill-white" />
         </button>
       </div>
@@ -420,7 +420,7 @@ function AlbumCard({
             e.stopPropagation()
             onPlay()
           }}
-          className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full bg-violet-500 shadow-glow flex items-center justify-center text-white"
+          className="absolute bottom-1.5 right-1.5 w-9 h-9 rounded-full cpn-play bg-violet-500 shadow-glow flex items-center justify-center text-white"
           aria-label={`Escuchar ${album.title}`}
         >
           <Play className="w-4 h-4 fill-white ml-0.5" />

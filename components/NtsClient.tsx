@@ -131,7 +131,7 @@ function LiveCard({ c }: { c: NtsChannel }) {
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={toggle}
-            className="shrink-0 w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-xl active:scale-95 transition-transform"
+            className="shrink-0 w-14 h-14 rounded-full cpn-play bg-white text-black flex items-center justify-center shadow-xl active:scale-95 transition-transform"
             aria-label={playing ? `Pausar NTS ${c.id}` : `Escuchar NTS ${c.id}`}
           >
             {playing ? <Pause className="w-6 h-6 fill-black" /> : <Play className="w-6 h-6 fill-black ml-0.5" />}

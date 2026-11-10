@@ -2680,7 +2680,7 @@ export default function MusicPlayerBar() {
 
                 <button
                   onClick={togglePlay}
-                  className="w-10 h-10 sm:w-9 sm:h-9 bg-violet-500 hover:bg-violet-400 rounded-full flex items-center justify-center transition-all hover:scale-105 shadow-glow"
+                  className="w-10 h-10 sm:w-9 sm:h-9 bg-violet-500 hover:bg-violet-400 rounded-full cpn-play flex items-center justify-center transition-all hover:scale-105 shadow-glow"
                   title={isPlaying ? 'Pausar' : 'Reproducir'}
                   aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
                 >

@@ -125,7 +125,7 @@ function Card({ r, busy, saved, onPlay, onAdd }: { r: Result; busy: string | nul
         <button
           onClick={onPlay}
           disabled={!!busy || !!noAudio}
-          className="absolute bottom-1.5 right-1.5 w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-lg"
+          className="absolute bottom-1.5 right-1.5 w-10 h-10 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center shadow-lg"
           aria-label={`Escuchar ${r.title}`}
         >
           {busy === `play:${r.id}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}

@@ -80,7 +80,7 @@ export default function MusicCard({ video, allVideos, index, view = 'grid' }: Mu
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <div className="bg-white rounded-full p-3 shadow-2xl shadow-violet-900/40 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+          <div className="bg-white rounded-full cpn-play p-3 shadow-2xl shadow-violet-900/40 transform scale-75 group-hover:scale-100 transition-transform duration-300">
             <Play className="w-5 h-5 text-black fill-black ml-0.5" />
           </div>
         </div>

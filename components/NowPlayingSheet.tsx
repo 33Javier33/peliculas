@@ -451,7 +451,7 @@ export default function NowPlayingSheet({
             </button>
             <button
               onClick={togglePlay}
-              className="w-20 h-20 rounded-full bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.55)] transition-colors"
+              className="w-20 h-20 rounded-full cpn-play bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.55)] transition-colors"
               aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
               {isAudioLoading && isPlaying ? (

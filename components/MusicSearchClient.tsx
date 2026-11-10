@@ -507,7 +507,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                             <p className="text-white font-bold font-display text-base leading-tight line-clamp-2">{video.title}</p>
                             <p className="text-slate-300 text-xs truncate mt-1">{video.channelTitle}</p>
                           </div>
-                          <span className="absolute right-3 bottom-3 w-10 h-10 rounded-full bg-violet-500 shadow-glow flex items-center justify-center">
+                          <span className="absolute right-3 bottom-3 w-10 h-10 rounded-full cpn-play bg-violet-500 shadow-glow flex items-center justify-center">
                             <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                           </span>
                         </button>

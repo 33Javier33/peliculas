@@ -203,7 +203,7 @@ export default function CommunityClient() {
                       <p className="text-white font-bold font-display text-lg leading-tight">{m.label}</p>
                       <p className="text-white/70 text-[11px]">{m.count} canciones de la comunidad</p>
                       <div className="mt-2 flex gap-1.5">
-                        <button onClick={() => run(`mix-${m.genre}`, `mix=${m.genre}`, 'shuffle')} className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center" aria-label={`Escuchar la mezcla ${m.label}`}>
+                        <button onClick={() => run(`mix-${m.genre}`, `mix=${m.genre}`, 'shuffle')} className="w-9 h-9 rounded-full cpn-play bg-white text-black flex items-center justify-center" aria-label={`Escuchar la mezcla ${m.label}`}>
                           {icon(`mix-${m.genre}`, 'shuffle', <Play className="w-4 h-4 fill-black ml-0.5" />)}
                         </button>
                         <button onClick={() => run(`mix-${m.genre}`, `mix=${m.genre}`, 'save')} className="w-9 h-9 rounded-full bg-black/40 border border-white/20 text-white flex items-center justify-center" aria-label={`Guardar la mezcla ${m.label}`}>
@@ -242,7 +242,7 @@ export default function CommunityClient() {
                         de {p.alias} · {p.count} canciones{p.kind === 'mix' ? ' · mezcla' : ''}
                       </span>
                     </span>
-                    <button onClick={() => run(p.id, `id=${p.id}`, 'play')} className="w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center shrink-0" aria-label={`Escuchar ${p.name}`}>
+                    <button onClick={() => run(p.id, `id=${p.id}`, 'play')} className="w-9 h-9 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center shrink-0" aria-label={`Escuchar ${p.name}`}>
                       {icon(p.id, 'play', <Play className="w-4 h-4 fill-white ml-0.5" />)}
                     </button>
                     <button onClick={() => run(p.id, `id=${p.id}`, 'shuffle')} className="w-9 h-9 rounded-full border border-white/10 text-slate-200 flex items-center justify-center shrink-0" aria-label={`${p.name} en aleatorio`}>

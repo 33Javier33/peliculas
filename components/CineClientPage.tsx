@@ -477,7 +477,7 @@ export default function CineClientPage({
                           <div className="relative aspect-video rounded-lg overflow-hidden bg-surface-2">
                             <Image src={v.thumbnail} alt={v.title} fill sizes="224px" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                             <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-                              <span className="w-9 h-9 rounded-full bg-violet-500/90 flex items-center justify-center">
+                              <span className="w-9 h-9 rounded-full cpn-play bg-violet-500/90 flex items-center justify-center">
                                 <Play className="w-4 h-4 text-white fill-white ml-0.5" />
                               </span>
                             </span>

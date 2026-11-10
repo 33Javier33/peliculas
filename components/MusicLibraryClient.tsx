@@ -342,7 +342,7 @@ export default function MusicLibraryClient() {
         e.preventDefault()
         playAll(list)
       }}
-      className={`shrink-0 w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center ${overlay ? 'shadow-lg' : ''}`}
+      className={`shrink-0 w-9 h-9 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center ${overlay ? 'shadow-lg' : ''}`}
       aria-label={`Reproducir ${label}`}
       title={`Reproducir ${label} completo`}
     >

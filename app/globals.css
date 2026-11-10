@@ -169,3 +169,29 @@ html[data-app='music'] .cpn-brand-media { display: none; }
   0% { transform: translateY(14px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
+
+/* ===== Play y pausa de la app: de contorno (triángulo y barras finas, puntas redondeadas) ===== */
+svg.lucide-play,
+svg.lucide-pause {
+  fill: none !important;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* Botón redondo de play/pausa con los colores del logo (cian → violeta → fucsia) */
+.cpn-play {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(139, 92, 246, 0.35), rgba(18, 14, 30, 0.96) 70%) padding-box,
+    linear-gradient(135deg, #22d3ee 0%, #8b5cf6 50%, #ec4899 100%) border-box !important;
+  border: 2px solid transparent !important;
+  color: #fff !important;
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.3), 0 0 10px rgba(34, 211, 238, 0.22) !important;
+}
+.cpn-play:hover {
+  box-shadow: 0 0 18px rgba(236, 72, 153, 0.45), 0 0 14px rgba(34, 211, 238, 0.35) !important;
+}
+.cpn-play svg {
+  color: #fff !important;
+  stroke: #fff !important;
+  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.55));
+}

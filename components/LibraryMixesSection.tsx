@@ -209,7 +209,7 @@ function MixCover({ sourceKey, onClick, label, children }: { sourceKey: string; 
       aria-label={label}
     >
       {children}
-      <span className={`absolute right-2.5 bottom-2.5 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
+      <span className={`absolute right-2.5 bottom-2.5 w-10 h-10 rounded-full cpn-play flex items-center justify-center shadow-lg ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
         {state ? <Bars moving={state === 'playing'} /> : <Play className="w-4 h-4 fill-black ml-0.5" />}
       </span>
       {state && (
@@ -237,7 +237,7 @@ function LikedCard({ tracks, onPlay }: { tracks: MusicVideo[]; onPlay: () => voi
           {tracks.length} {tracks.length === 1 ? 'canción' : 'canciones'} con ♥{state ? (state === 'playing' ? ' · sonando' : ' · en pausa') : ''}
         </span>
       </span>
-      <span className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
+      <span className={`w-11 h-11 rounded-full cpn-play flex items-center justify-center shrink-0 ${state ? 'bg-emerald-500 text-white' : 'bg-white text-black'}`}>
         {state ? <Bars moving={state === 'playing'} /> : <Play className="w-5 h-5 fill-black ml-0.5" />}
       </span>
     </button>

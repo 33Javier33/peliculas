@@ -123,7 +123,7 @@ export default function QuickAccessGrid() {
           {/* Reproducir ahí mismo */}
           <button
             onClick={() => playTile(t)}
-            className="shrink-0 mr-1.5 w-9 h-9 rounded-full bg-violet-500 text-white flex items-center justify-center shadow-md active:scale-95"
+            className="shrink-0 mr-1.5 w-9 h-9 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center shadow-md active:scale-95"
             aria-label={`Reproducir ${t.title}`}
           >
             {busy === t.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white ml-0.5" />}

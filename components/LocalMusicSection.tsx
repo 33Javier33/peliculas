@@ -62,7 +62,7 @@ export default function LocalMusicSection() {
         <div className="flex items-center gap-2">
           {!!tracks?.length && (
             <>
-              <button onClick={() => playAll(0)} className="w-10 h-10 rounded-full bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir todo">
+              <button onClick={() => playAll(0)} className="w-10 h-10 rounded-full cpn-play bg-violet-500 text-white flex items-center justify-center" aria-label="Reproducir todo">
                 <Play className="w-4 h-4 fill-white" />
               </button>
               <button onClick={() => (playAll(0, true), markShuffle('local'))} aria-pressed={shuffleOn} className={`w-10 h-10 rounded-full bg-surface-2 border border-white/10 text-white flex items-center justify-center ${shuffleOn ? SHUFFLE_ON : ''}`} aria-label="Aleatorio">

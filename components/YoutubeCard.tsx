@@ -61,7 +61,7 @@ export default function YoutubeCard({
         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors duration-300" />
 
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="bg-violet-600 rounded-full p-4 shadow-2xl shadow-violet-900/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
+          <div className="bg-violet-600 rounded-full cpn-play p-4 shadow-2xl shadow-violet-900/60 transform scale-75 group-hover:scale-100 transition-transform duration-300">
             <Play className="w-6 h-6 text-white fill-white" />
           </div>
         </div>
