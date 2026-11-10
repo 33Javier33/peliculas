@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Reproductor grande más compacto: TV, compartir, ver el video, cola, descargar y ecualizador quedan como íconos en una sola fila (verde cuando están activos)',
       'Botones de play y pausa nuevos en toda la app: de contorno, con los colores del logo (cian, violeta y fucsia)',
       'Barra de abajo más simple, como YouTube Music: carátula, canción, botón de TV, reproducir y siguiente (lo demás está en el reproductor grande). Deslízala hacia abajo para cerrarla',
       'Transmitir a la TV: eliges «Chromecast o Google TV» u «Otro televisor» (duplicar pantalla); la música del teléfono sigue hasta que la TV se conecta y, si algo falla, se avisa en pantalla (actualiza la app)',

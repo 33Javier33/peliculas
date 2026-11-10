@@ -12,7 +12,7 @@ import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 // Descargar la canción que suena (para escucharla sin internet). Queda en "Descargadas", junto
 // a su disco si es de uno guardado o en "Canciones sueltas"
-export default function SongDownloadButton({ video, className = '' }: { video: MusicVideo; className?: string }) {
+export default function SongDownloadButton({ video, className = '', compact = false }: { video: MusicVideo; className?: string; compact?: boolean }) {
   // Canción de YouTube: se convierte a audio (sin video) y se guarda como «Convertidas de YouTube»
   const ytId = !video.audioUrl && !video.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(video.id) ? video.id : ''
   const key = video.audioUrl ?? (ytId ? `/api/stream?id=${ytId}` : '')
@@ -27,7 +27,11 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
   const [confirm, setConfirm] = useState(false)
   const [note, setNote] = useState('')
 
-  const base = `relative overflow-hidden flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${className}`
+  // compact: solo el ícono, redondo (reproductor grande); el texto queda en title / aria-label
+  const base = compact
+    ? `relative overflow-hidden w-12 h-12 rounded-full flex items-center justify-center border ${className}`
+    : `relative overflow-hidden flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${className}`
+  const t = (text: string) => (compact ? null : <> {text}</>)
 
   if (!canDownload(video) && !ytId)
     return (
@@ -35,8 +39,9 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
         onClick={() => setNote('Las canciones de YouTube no se pueden descargar. Sí los discos de archive.org y los MP3.')}
         className={`${base} bg-surface-1/80 border-white/8 text-slate-500`}
         title="Las canciones de YouTube no se pueden descargar"
+        aria-label="Descargar (no disponible)"
       >
-        <Download className="w-4 h-4" /> {note ? 'YouTube no se descarga' : 'Descargar'}
+        <Download className={compact ? 'w-5 h-5' : 'w-4 h-4'} />{t(note ? 'YouTube no se descarga' : 'Descargar')}
         {note && <span className="sr-only">{note}</span>}
       </button>
     )
@@ -49,12 +54,22 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
           setConfirm(false)
         }}
         className={`${base} bg-red-500/20 border-red-400/40 text-red-300`}
+        title="Toca otra vez para quitar la descarga"
+        aria-label="¿Quitar descarga?"
       >
-        <Trash2 className="w-4 h-4" /> ¿Quitar descarga?
+        <Trash2 className={compact ? 'w-5 h-5' : 'w-4 h-4'} />{t('¿Quitar descarga?')}
       </button>
     ) : (
-      <button onClick={() => setConfirm(true)} className={`${base} bg-emerald-500/10 border-emerald-400/40 text-emerald-300`}>
-        <CheckCircle2 className="w-4 h-4" /> Descargada · {formatSize(item.size)}
+      <button
+        onClick={() => {
+          setConfirm(true)
+          if (compact) setTimeout(() => setConfirm(false), 4000)
+        }}
+        className={`${base} bg-emerald-500/10 border-emerald-400/40 text-emerald-300`}
+        title={`Descargada · ${formatSize(item.size)}`}
+        aria-label={`Descargada · ${formatSize(item.size)}`}
+      >
+        <CheckCircle2 className={compact ? 'w-5 h-5' : 'w-4 h-4'} />{t(`Descargada · ${formatSize(item.size)}`)}
       </button>
     )
 
@@ -62,9 +77,9 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
     return (
       <button onClick={() => useOfflineStore.getState().cancel(group.id)} className={`${base} bg-violet-500/10 border-violet-400/40 text-violet-100`} aria-label="Cancelar descarga">
         <ProgressFill value={mine && mine.current > 0 ? mine.current : null} />
-        <span className="relative flex items-center gap-2">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          {mine ? `Descargando ${progressText(mine)}` : 'En cola…'}
+        <span className="relative flex items-center gap-2" title={mine ? `Descargando ${progressText(mine)}` : 'En cola…'}>
+          <Loader2 className={`${compact ? 'w-5 h-5' : 'w-4 h-4'} animate-spin`} />
+          {!compact && (mine ? `Descargando ${progressText(mine)}` : 'En cola…')}
         </span>
       </button>
     )
@@ -79,9 +94,10 @@ export default function SongDownloadButton({ video, className = '' }: { video: M
         else useOfflineStore.getState().download(group, [video])
       }}
       className={`${base} bg-surface-1/80 border-white/8 text-slate-200`}
-      title={ytId ? 'Convierte la canción a audio y la guarda sin internet' : undefined}
+      title={ytId ? 'Descargar audio (sin internet)' : 'Descargar'}
+      aria-label={ytId ? 'Descargar audio' : 'Descargar'}
     >
-      <Download className="w-4 h-4" /> {ytId ? 'Descargar audio' : 'Descargar'}
+      <Download className={compact ? 'w-5 h-5' : 'w-4 h-4'} />{t(ytId ? 'Descargar audio' : 'Descargar')}
     </button>
   )
 }

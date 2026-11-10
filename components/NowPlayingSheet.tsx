@@ -35,6 +35,7 @@ import {
   MoreVertical,
   Mic2,
   SlidersHorizontal,
+  Check,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -521,46 +522,38 @@ export default function NowPlayingSheet({
                 Detener
               </button>
             </div>
-          ) : (
-            onCast && (
-              <button onClick={onCast} className="mt-6 w-full flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display">
-                <Cast className="w-4 h-4" /> Escuchar en la TV
-              </button>
-            )
-          )}
+          ) : null}
 
-          {/* Acciones */}
-          <div className={`grid ${isLive ? 'grid-cols-1 mt-6' : 'grid-cols-2 mt-3'} gap-3`}>
-            <button
-              onClick={handleShare}
-              className={`${isLive ? 'hidden' : 'flex'} items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display`}
-            >
-              <Share2 className="w-4 h-4" /> {copied ? 'Enlace copiado' : 'Compartir'}
-            </button>
-            {onWatchVideo && (
-              <button
-                onClick={onWatchVideo}
-                className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
-              >
-                <MonitorPlay className="w-4 h-4" /> Ver el video
-              </button>
+          {/* Acciones: solo íconos, en una fila (el nombre aparece al mantener o en el lector de pantalla) */}
+          <div className={`${castDevice ? 'mt-4' : 'mt-6'} flex items-center justify-between gap-2`}>
+            {onCast && (
+              <IconAction label={castDevice ? `Sonando en ${castDevice}` : 'Escuchar en la TV'} onClick={onCast} active={!!castDevice}>
+                <Cast className="w-5 h-5" />
+              </IconAction>
             )}
-            <button
-              onClick={onOpenQueue}
-              className="flex items-center justify-center gap-2 bg-surface-1/80 border border-white/8 rounded-2xl py-3 text-slate-200 text-sm font-semibold font-display"
-            >
-              <ListMusic className="w-4 h-4" /> Cola ({queue.length})
-            </button>
-            {!isLive && <SongDownloadButton video={video} />}
             {!isLive && (
-              <button
-                onClick={() => useEqStore.getState().setOpen(true)}
-                className={`flex items-center justify-center gap-2 border rounded-2xl py-3 text-sm font-semibold font-display ${
-                  eqOn ? 'bg-emerald-500 border-emerald-300 text-white shadow-[0_0_16px_rgba(16,185,129,0.45)]' : 'bg-surface-1/80 border-white/8 text-slate-200'
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4" /> Ecualizador{eqOn ? ' · activo' : ''}
-              </button>
+              <IconAction label={copied ? 'Enlace copiado' : 'Compartir'} onClick={handleShare} active={copied}>
+                {copied ? <Check className="w-5 h-5" /> : <Share2 className="w-5 h-5" />}
+              </IconAction>
+            )}
+            {onWatchVideo && (
+              <IconAction label="Ver el video" onClick={onWatchVideo}>
+                <MonitorPlay className="w-5 h-5" />
+              </IconAction>
+            )}
+            <IconAction label={`Cola (${queue.length})`} onClick={onOpenQueue}>
+              <ListMusic className="w-5 h-5" />
+              {queue.length > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                  {queue.length > 999 ? '999+' : queue.length}
+                </span>
+              )}
+            </IconAction>
+            {!isLive && <SongDownloadButton video={video} compact />}
+            {!isLive && (
+              <IconAction label={eqOn ? 'Ecualizador · activo' : 'Ecualizador'} onClick={() => useEqStore.getState().setOpen(true)} active={eqOn}>
+                <SlidersHorizontal className="w-5 h-5" />
+              </IconAction>
             )}
           </div>
 
@@ -573,5 +566,21 @@ export default function NowPlayingSheet({
         <TrackMenu video={video} artist={artist} title={songTitle} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
       )}
     </div>
+  )
+}
+
+/** Botón redondo de solo ícono del reproductor grande (verde cuando está activo) */
+function IconAction({ label, onClick, active = false, children }: { label: string; onClick?: () => void; active?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`relative w-12 h-12 rounded-full flex items-center justify-center border transition-colors ${
+        active ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-300' : 'bg-surface-1/80 border-white/8 text-slate-200 hover:text-white hover:border-violet-400/40'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
