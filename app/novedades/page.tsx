@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Los videos se quedan en la página al abrirlos: ya no pasan solos a la barra de abajo al cerrarlos. La ventana flotante solo se abre si la pides con su botón',
       'En el teléfono, «Ventana flotante» hace una miniatura del video que se mueve por la pantalla y sigue abierta al navegar. El sonido pasa al reproductor de abajo (sigue con la pantalla bloqueada) y el video se mantiene sincronizado. Tocar la miniatura la vuelve a grande',
       'Botón «Descargar audio» junto a «Me gusta» en los videos de PulsoMusic y de PulsoTube',
       'Ventana flotante del video: ahora es una ventana aparte del navegador que sigue abierta aunque navegues por la página o vuelvas atrás. Ya no da error de YouTube (153). Se cierra con su X, al poner otro video, con «Volver a la página» o al cerrar el navegador',

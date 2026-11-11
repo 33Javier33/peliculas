@@ -248,11 +248,7 @@ export default function MusicVideosClient() {
             setOpen(null)
           }}
           onTrackChange={() => setOpen(null)}
-          onClose={(t) => {
-            // Sigue en la ventana chica del reproductor desde el mismo segundo
-            continueInMiniPlayer({ id: open.id, title: open.title, channelTitle: open.channel }, t)
-            setOpen(null)
-          }}
+          onClose={() => setOpen(null)}
         />
       )}
     </div>

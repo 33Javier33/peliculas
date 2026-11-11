@@ -507,7 +507,7 @@ export default function YoutubePlayer({
               <Heart className={`w-5 h-5 ${liked ? 'fill-violet-300' : ''}`} />
             </button>
           )}
-          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} compact />
+          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} />
           <button
             onClick={() => setCastOpen(true)}
             className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}

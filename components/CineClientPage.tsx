@@ -305,14 +305,8 @@ export default function CineClientPage({
     player ? isoSecs(videoDetails[player.videoId]?.contentDetails?.duration) : 0
   )
 
-  // Al salir del video en grande, sigue en la ventana chica del reproductor (no se corta)
-  const closePlayer = useCallback(
-    (t?: number) => {
-      if (player) continueInMiniPlayer({ id: player.videoId, title: player.title, channelTitle: player.channelTitle }, t)
-      setPlayer(null)
-    },
-    [player]
-  )
+  // Cerrar el video: se cierra (la ventana flotante solo si la pide el usuario)
+  const closePlayer = useCallback(() => setPlayer(null), [])
 
   return (
     <>
