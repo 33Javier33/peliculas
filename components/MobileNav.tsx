@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, TvMinimalPlay, Music2, Library, Radio, MonitorPlay } from 'lucide-react'
+import { Home, TvMinimalPlay, Music2, Library, Radio, MonitorPlay, Clapperboard } from 'lucide-react'
 import { useAppFlavor } from '@/lib/app-flavor'
 
 const items = [
   { href: '/', label: 'Inicio', Icon: Home, active: 'text-violet-400' },
-  { href: '/cine', label: 'Videos', Icon: TvMinimalPlay, active: 'text-violet-400' },
+  { href: '/peliculas', label: 'Películas', Icon: Clapperboard, active: 'text-violet-400' },
+  { href: '/tube', label: 'PulsoTube', Icon: MonitorPlay, active: 'text-violet-400' },
   { href: '/music', label: 'Música', Icon: Music2, active: 'text-violet-400' },
   { href: '/radio', label: 'En vivo', Icon: Radio, active: 'text-violet-400' },
-  { href: '/music/library', label: 'Biblioteca', Icon: Library, active: 'text-violet-400' },
 ]
 
 // PulsoMusic: solo música, videos musicales, radios y biblioteca
@@ -26,6 +26,8 @@ function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname.startsWith('/movie') || pathname === '/search' || pathname === '/peliculas'
   if (href === '/music') return pathname === '/music' || pathname.startsWith('/play') || pathname.startsWith('/music/album') || pathname.startsWith('/music/artist')
   if (href === '/radio') return pathname.startsWith('/radio') || pathname.startsWith('/tv')
+  if (href === '/peliculas') return pathname.startsWith('/peliculas') || pathname.startsWith('/cine') || pathname.startsWith('/movie')
+  if (href === '/tube') return pathname.startsWith('/tube') || pathname.startsWith('/play')
   if (href === '/music/feed') return pathname.startsWith('/music/feed') || pathname.startsWith('/music/videos')
   return pathname.startsWith(href)
 }

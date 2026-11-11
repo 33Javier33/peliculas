@@ -1,11 +1,16 @@
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import FreeMoviesClient from '@/components/FreeMoviesClient'
+import MoviesHub from '@/components/MoviesHub'
 
 export const metadata: Metadata = {
-  title: 'Películas gratis',
-  description: 'Películas completas, gratis y legales: cine en español y clásicos de dominio público (Internet Archive y Wikimedia Commons) y Pluto TV a la carta.',
+  title: 'Películas',
+  description: 'Películas completas, gratis y legales (dominio público, Pluto TV) y CineLatino: películas completas en español en YouTube.',
 }
 
-export default function FreeMoviesPage() {
-  return <FreeMoviesClient />
+export default function MoviesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MoviesHub />
+    </Suspense>
+  )
 }

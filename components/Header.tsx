@@ -276,15 +276,22 @@ export default function Header() {
               <span className="hidden xl:inline">Inicio</span>
             </Link>}
             {!musicApp && <Link
-              href="/cine"
-              title="CineLatino"
-              aria-label="CineLatino"
+              href="/peliculas"
+              title="Películas"
+              aria-label="Películas"
               className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z" />
-              </svg>
-              <span className="hidden xl:inline">CineLatino</span>
+              <Clapperboard className="w-4 h-4" />
+              <span className="hidden xl:inline">Películas</span>
+            </Link>}
+            {!musicApp && <Link
+              href="/tube"
+              title="PulsoTube"
+              aria-label="PulsoTube"
+              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+            >
+              <MonitorPlay className="w-4 h-4" />
+              <span className="hidden xl:inline">PulsoTube</span>
             </Link>}
             <Link
               href="/music"
@@ -317,15 +324,6 @@ export default function Header() {
               <Radio className="w-4 h-4" />
               <span className="hidden xl:inline">En vivo</span>
             </Link>
-            {!musicApp && <Link
-              href="/peliculas"
-              title="Películas gratis"
-              aria-label="Películas gratis"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
-            >
-              <Clapperboard className="w-4 h-4" />
-              <span className="hidden xl:inline">Películas gratis</span>
-            </Link>}
           </div>
         </div>
       </div>
