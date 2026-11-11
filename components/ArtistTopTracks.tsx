@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Play, Loader2 } from 'lucide-react'
+import { Play, Loader2, Shuffle } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import { cachedJson } from '@/lib/client-cache'
 
@@ -31,15 +31,27 @@ export default function ArtistTopTracks({ name }: { name: string }) {
     )
   if (!tracks.length) return null
 
-  const play = (i: number) => {
+  const play = (i: number, shuffle = false) => {
     const list = tracks.map((t) => ({ id: t.id, title: t.title, channelTitle: t.channel, thumbnail: t.thumbnail, publishedAt: '', description: '' }))
-    useMusicStore.getState().play(list as never, i)
-    useMusicStore.getState().setIsPlaying(true)
+    const st = useMusicStore.getState()
+    if (st.shuffle !== shuffle) st.toggleShuffle()
+    st.play(list as never, i)
+    st.setIsPlaying(true)
   }
 
   return (
     <section className="mt-10">
-      <h2 className="mb-3 text-lg font-bold text-white font-display">Los más escuchados</h2>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <h2 className="text-[22px] font-bold leading-7 text-white">Los más escuchados</h2>
+        <div className="ml-auto flex gap-2">
+          <button onClick={() => play(0)} className="inline-flex items-center gap-2 rounded-full bg-violet-300 px-5 py-2 text-sm font-bold text-violet-950 hover:bg-violet-200">
+            <Play className="h-4 w-4 fill-violet-950" /> Reproducir
+          </button>
+          <button onClick={() => play(Math.floor(Math.random() * tracks.length), true)} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">
+            <Shuffle className="h-4 w-4" /> Aleatorio
+          </button>
+        </div>
+      </div>
       <ol className="flex flex-col">
         {tracks.map((t, i) => (
           <li key={t.id}>
@@ -53,7 +65,7 @@ export default function ArtistTopTracks({ name }: { name: string }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{t.title}</p>
-                <p className="truncate text-xs text-slate-500">{compact(t.views)} reproducciones</p>
+                <p className="truncate text-xs text-slate-500">{t.views ? `${compact(t.views)} reproducciones` : t.channel}</p>
               </div>
             </button>
           </li>

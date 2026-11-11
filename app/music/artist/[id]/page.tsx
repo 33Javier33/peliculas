@@ -111,6 +111,8 @@ export default async function ArtistPage({ params }: Props) {
           <MusicInfoPanel artist={{ id: artist.id, name: artist.name, picture: artist.picture, fans: artist.fans, albums: albums.length }} />
         </div>
 
+        <ArtistTopTracks name={artist.name} />
+
         {SECTIONS.map(({ type, title }) => {
           const list = albums.filter((a) => (a.type || 'album') === type)
           if (list.length === 0) return null
@@ -122,7 +124,6 @@ export default async function ArtistPage({ params }: Props) {
           )
         })}
 
-        <ArtistTopTracks name={artist.name} />
         <ArtistVideos name={artist.name} />
 
         <SimilarArtists id={artist.id} />
