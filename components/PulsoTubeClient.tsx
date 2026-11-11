@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Search, MonitorPlay, Loader2, X } from 'lucide-react'
-import YoutubePlayer from '@/components/YoutubePlayer'
+import TubePlayer from '@/components/TubePlayer'
 import { cachedJson } from '@/lib/client-cache'
 import { readSession, writeSession } from '@/lib/session-cache'
 import { useTubeStore } from '@/store/tubeStore'
@@ -163,13 +163,6 @@ export default function PulsoTubeClient() {
     }
   }, [pastedId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const next = () => {
-    if (!playing) return
-    const i = list.findIndex((v) => v.id === playing.id)
-    const n = list[i + 1]
-    if (n) play(n)
-    else setPlaying(null)
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-10">
@@ -196,7 +189,13 @@ export default function PulsoTubeClient() {
         )}
       </div>
 
-      {pastedId && <p className="mt-4 text-sm text-slate-400">Enlace de YouTube detectado: abriendo el video…</p>}
+      {pastedId && !playing && <p className="mt-4 text-sm text-slate-400">Enlace de YouTube detectado: abriendo el video…</p>}
+
+      {playing && (
+        <div className="mt-6">
+          <TubePlayer key={playing.id} video={playing} upNext={list.filter((v) => v.id !== playing.id)} onPick={play} onClose={() => setPlaying(null)} />
+        </div>
+      )}
 
       {q.trim() && !pastedId ? (
         <>
@@ -220,17 +219,6 @@ export default function PulsoTubeClient() {
         </>
       )}
 
-      {playing && (
-        <YoutubePlayer
-          key={playing.id}
-          videoId={playing.id}
-          title={playing.title}
-          channelTitle={playing.channel}
-          onClose={() => setPlaying(null)}
-          onNext={next}
-          upNext={list[list.findIndex((v) => v.id === playing.id) + 1]?.title}
-        />
-      )}
     </div>
   )
 }

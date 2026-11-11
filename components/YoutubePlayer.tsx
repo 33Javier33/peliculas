@@ -427,8 +427,7 @@ export default function YoutubePlayer({
   const [floating, setFloating] = useState(false)
   const [canFloat, setCanFloat] = useState(false)
   useEffect(() => {
-    const dpip = (window as unknown as { documentPictureInPicture?: unknown }).documentPictureInPicture
-    setCanFloat(!!dpip || !!document.pictureInPictureEnabled)
+    setCanFloat(true)
     setFloating(floatingId() === videoId)
   }, [videoId])
   const floatVideo = async () => {
@@ -437,11 +436,9 @@ export default function YoutubePlayer({
         await altVideoRef.current.requestPictureInPicture()
         return
       }
-      const ok = await openFloat({
+      const ok = openFloat({
         videoId,
-        title,
         start: timeRef.current || 0,
-        origin,
         onClosed: (sec) => {
           // Volvió: el video sigue en la página, en el mismo segundo (si la página sigue aquí)
           timeRef.current = sec

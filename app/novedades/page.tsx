@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Ventana flotante del video: ahora es una ventana aparte del navegador que sigue abierta aunque navegues por la página o vuelvas atrás. Ya no da error de YouTube (153). Se cierra con su X, al poner otro video, con «Volver a la página» o al cerrar el navegador',
+      'PulsoTube tiene su propio reproductor: video grande, barra de avance, retroceder y adelantar 10 s, silencio, pantalla completa, ventana flotante, me gusta, ver después y lo que sigue. Si YouTube no deja verlo, usa otra fuente',
       'Ventana flotante: ya no se cierra al cerrar el video de la página ni al navegar; se cierra con su X, al poner otro video flotante, con «Traer de vuelta» o al cerrar el navegador',
       'Buscar en PulsoTube: al volver atrás la búsqueda y sus resultados siguen; se borra al buscar otra cosa o al salir de la app',
       'Ventana flotante de video: en el reproductor, «Ventana flotante» saca el video a una ventana sobre el escritorio (Chrome o Edge; el video sigue desde el mismo segundo). En los videos alternativos funciona en cualquier navegador',

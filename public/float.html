@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Video flotante · PulsoMedia</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,-apple-system,sans-serif;color:#fff}
+  #f{position:fixed;inset:0;width:100%;height:100%;border:0}
+  #bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;padding:14px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .2s}
+  body:hover #bar,#bar:focus-within,body.touch #bar{opacity:1}
+  button{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:999px;padding:7px 12px;font:600 12px system-ui,sans-serif;cursor:pointer}
+  button:hover{background:rgba(139,92,246,.7)}
+  #start{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;background:rgba(0,0,0,.6);font:600 15px system-ui,sans-serif;border:0;border-radius:0;cursor:pointer;padding:0}
+  #start span{width:56px;height:56px;border-radius:50%;background:rgba(139,92,246,.9);display:flex;align-items:center;justify-content:center;font-size:22px}
+  #msg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;text-align:center;background:#0b0c10;font:14px system-ui,sans-serif;color:#cbd5e1}
+</style>
+</head>
+<body>
+<iframe id="f" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe>
+<div id="bar">
+  <button id="b10" title="Atrasar 10 segundos">−10 s</button>
+  <button id="play">Pausar</button>
+  <button id="p10" title="Adelantar 10 segundos">+10 s</button>
+  <button id="ytlink" title="Abrir en YouTube">YouTube</button>
+  <button id="back" title="Volver a la página donde estabas">Volver a la página</button>
+  <button id="x" title="Cerrar la ventana">Cerrar</button>
+</div>
+<button id="start" aria-label="Reproducir"><span>▶</span>Tocar para reproducir</button>
+<div id="msg">No se pudo cargar este video en la ventana flotante.</div>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var v = (q.get('v') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 11);
+  var t = Math.max(0, Math.floor(Number(q.get('t')) || 0));
+  var time = t, playing = false, started = false;
+  var f = document.getElementById('f'), startBtn = document.getElementById('start'), playBtn = document.getElementById('play');
+  if (!/^[A-Za-z0-9_-]{11}$/.test(v)) { document.getElementById('msg').style.display = 'flex'; startBtn.style.display = 'none'; return; }
+  var bc = 'BroadcastChannel' in window ? new BroadcastChannel('cpn-float') : null;
+  f.src = 'https://www.youtube-nocookie.com/embed/' + v + '?enablejsapi=1&autoplay=0&playsinline=1&rel=0&modestbranding=1&hl=es&origin=' +
+    encodeURIComponent(location.origin) + (t > 1 ? '&start=' + t : '');
+  function cmd(func, args) {
+    if (f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: func, args: args || [] }), '*');
+  }
+  function listen() { if (f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); }
+  f.addEventListener('load', function () { listen(); setTimeout(listen, 800); setTimeout(listen, 2500); });
+  window.addEventListener('message', function (e) {
+    if (e.source !== f.contentWindow) return;
+    var d; try { d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { return; }
+    if (d && d.event === 'onError') { document.getElementById('msg').style.display = 'flex'; startBtn.style.display = 'none'; return; }
+    var info = d && d.info;
+    if (!info || typeof info !== 'object') return;
+    if (typeof info.currentTime === 'number') time = info.currentTime;
+    if (typeof info.playerState === 'number') {
+      playing = info.playerState === 1;
+      playBtn.textContent = playing ? 'Pausar' : 'Reproducir';
+      if (playing) { started = true; startBtn.style.display = 'none'; }
+    }
+  });
+  startBtn.addEventListener('click', function () { document.body.classList.add('touch'); cmd('playVideo'); cmd('unMute'); });
+  playBtn.addEventListener('click', function () { cmd(playing ? 'pauseVideo' : 'playVideo'); });
+  document.getElementById('b10').addEventListener('click', function () { cmd('seekTo', [Math.max(0, time - 10), true]); });
+  document.getElementById('p10').addEventListener('click', function () { cmd('seekTo', [time + 10, true]); });
+  document.getElementById('ytlink').addEventListener('click', function () { window.open('https://www.youtube.com/watch?v=' + v, '_blank', 'noopener'); });
+  document.getElementById('back').addEventListener('click', function () {
+    if (bc) bc.postMessage({ type: 'back', vid: v, t: time });
+    window.close();
+  });
+  document.getElementById('x').addEventListener('click', function () { window.close(); });
+  if (bc) {
+    bc.onmessage = function (e) {
+      var d = e.data || {};
+      if (d.vid !== v) return;
+      if (d.type === 'cmd') { if (d.func === 'close') window.close(); else cmd(d.func, d.args); }
+    };
+    setInterval(function () { bc.postMessage({ type: 'state', vid: v, t: time, playing: playing }); }, 1000);
+  }
+  window.addEventListener('pagehide', function () { if (bc) bc.postMessage({ type: 'closed', vid: v, t: time }); });
+})();
+</script>
+</body>
+</html>
