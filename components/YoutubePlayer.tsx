@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
+import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2 } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast } from '@/components/CastButton'
@@ -421,61 +422,43 @@ export default function YoutubePlayer({
   const iconBtn = 'p-2 rounded-lg transition-all duration-200'
 
   // Ventana flotante: el video sale del navegador y queda sobre el escritorio (Chrome o Edge para
-  // videos de YouTube; cualquier navegador para el video alternativo en MP4)
+  // videos de YouTube; cualquier navegador para el video alternativo en MP4). La ventana vive aparte
+  // del reproductor: cerrar este video no la cierra.
   const [floating, setFloating] = useState(false)
   const [canFloat, setCanFloat] = useState(false)
-  const pipRef = useRef<Window | null>(null)
-  const pipTimeRef = useRef(0)
   useEffect(() => {
     const dpip = (window as unknown as { documentPictureInPicture?: unknown }).documentPictureInPicture
     setCanFloat(!!dpip || !!document.pictureInPictureEnabled)
-  }, [])
+    setFloating(floatingId() === videoId)
+  }, [videoId])
   const floatVideo = async () => {
     try {
       if (mode === 'alt' && altVideoRef.current) {
         await altVideoRef.current.requestPictureInPicture()
         return
       }
-      const dpip = (window as unknown as { documentPictureInPicture?: { requestWindow: (o: { width: number; height: number }) => Promise<Window> } }).documentPictureInPicture
-      if (!dpip) return
-      const t = Math.floor(timeRef.current || 0)
-      const pw = await dpip.requestWindow({ width: 480, height: 290 })
-      pw.document.title = title
-      pw.document.body.style.margin = '0'
-      pw.document.body.style.background = '#000'
-      const f = pw.document.createElement('iframe')
-      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&hl=es${t > 1 ? `&start=${t}` : ''}&origin=${encodeURIComponent(origin)}`
-      f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'
-      f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0'
-      pw.document.body.appendChild(f)
-      // Lo que va diciendo el video flotante (para volver al mismo segundo)
-      pw.addEventListener('message', (e: MessageEvent) => {
-        if (e.source !== f.contentWindow) return
-        try {
-          const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
-          if (typeof d?.info?.currentTime === 'number') pipTimeRef.current = d.info.currentTime
-        } catch {}
+      const ok = await openFloat({
+        videoId,
+        title,
+        start: timeRef.current || 0,
+        origin,
+        onClosed: (sec) => {
+          // Volvió: el video sigue en la página, en el mismo segundo (si la página sigue aquí)
+          timeRef.current = sec
+          setFloating(false)
+          const w = iframeRef.current?.contentWindow
+          w?.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }), '*')
+          w?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*')
+        },
       })
-      pipTimeRef.current = t
-      pipRef.current = pw
+      if (!ok) return
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
       setFloating(true)
-      // Al cerrar la ventana flotante, el video vuelve a la página en el mismo segundo
-      pw.addEventListener('pagehide', () => {
-        pipRef.current = null
-        timeRef.current = pipTimeRef.current
-        setFloating(false)
-        const w = iframeRef.current?.contentWindow
-        w?.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pipTimeRef.current, true] }), '*')
-        w?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*')
-      })
     } catch {
       setFloating(false)
     }
   }
-  const backHere = () => {
-    pipRef.current?.close()
-  }
+  const backHere = () => closeFloat()
 
   return (
     <div

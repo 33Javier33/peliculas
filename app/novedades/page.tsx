@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Ventana flotante: ya no se cierra al cerrar el video de la página ni al navegar; se cierra con su X, al poner otro video flotante, con «Traer de vuelta» o al cerrar el navegador',
+      'Buscar en PulsoTube: al volver atrás la búsqueda y sus resultados siguen; se borra al buscar otra cosa o al salir de la app',
       'Ventana flotante de video: en el reproductor, «Ventana flotante» saca el video a una ventana sobre el escritorio (Chrome o Edge; el video sigue desde el mismo segundo). En los videos alternativos funciona en cualquier navegador',
       'Películas en un solo lugar: Gratis y CineLatino son pestañas de «Películas» (el menú ya no tiene dos botones)',
       'PulsoTube (nueva sección de videos): el buscador filtra mientras escribes; si pegas un enlace de YouTube abre ese video; recomienda lo que miraste, te gustó o escuchaste (no tendencias), y guarda lo que miras',

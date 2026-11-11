@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Search, MonitorPlay, Loader2, X } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import { cachedJson } from '@/lib/client-cache'
+import { readSession, writeSession } from '@/lib/session-cache'
 import { useTubeStore } from '@/store/tubeStore'
 import { useVideoStore } from '@/store/videoStore'
 import { useMusicStore } from '@/store/musicStore'
@@ -58,6 +59,21 @@ export default function PulsoTubeClient() {
   const [recs, setRecs] = useState<V[] | null>(null)
   const [playing, setPlaying] = useState<V | null>(null)
   const taste = useTaste()
+  // Un enlace guardado no vuelve a abrir el video al regresar
+  const openedRef = useRef('')
+  // La búsqueda se conserva al volver atrás (solo cambia al buscar otra cosa o al salir de la app)
+  useEffect(() => {
+    const saved = readSession<{ q: string; results: V[] | null }>('pulsotube')
+    if (saved?.q) {
+      if (ytIdFromText(saved.q)) openedRef.current = ytIdFromText(saved.q) ?? ''
+      setQ(saved.q)
+      setResults(saved.results)
+      setDebounced(saved.q)
+    }
+  }, [])
+  useEffect(() => {
+    writeSession('pulsotube', { q, results })
+  }, [q, results])
   const addWatched = useTubeStore((s) => s.addWatched)
   const pastedId = ytIdFromText(q)
 
@@ -132,7 +148,6 @@ export default function PulsoTubeClient() {
   }
 
   // Enlace de YouTube pegado: se abre ese video
-  const openedRef = useRef('')
   useEffect(() => {
     if (!pastedId || openedRef.current === pastedId) return
     openedRef.current = pastedId
