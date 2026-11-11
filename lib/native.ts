@@ -49,11 +49,25 @@ export function reportMediaState(state: {
   duration?: number
   /** ¿Está en Me gusta? (botón ♥ de la notificación y del widget) */
   liked?: boolean
+  /** Id del video (para que otros dispositivos de la cuenta lo puedan poner) */
+  id?: string
 }) {
   const n = getNative()
   if (!n) return
   try {
     n.mediaState(JSON.stringify(state))
+  } catch {}
+}
+
+interface CPNNativePresence {
+  presenceAccount?(json: string): void
+}
+
+/** Cuenta para que el teléfono avise lo que suena también en segundo plano (token vacío = sin sesión) */
+export function reportAccount(json: string) {
+  const n = getNative() as (CPNNativeBridge & CPNNativePresence) | null
+  try {
+    n?.presenceAccount?.(json)
   } catch {}
 }
 

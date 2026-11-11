@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import { callAccount } from '@/lib/account-sync'
 import { useAccountStore } from '@/store/accountStore'
 import { useMusicStore } from '@/store/musicStore'
-import { isNativeApp } from '@/lib/native'
+import { isNativeApp, reportAccount } from '@/lib/native'
 import { isMusicApp, appBrand } from '@/lib/app-flavor'
 import type { MusicVideo } from '@/lib/youtube-music'
 
@@ -152,4 +152,15 @@ export async function takeFrom(device: Device) {
   const { pos, dur, ...track } = device.track as Track & { pos: number; dur: number }
   takeHere(track, pos ?? 0, dur ?? 0)
   await presenceNow({ to: device.device, type: 'pause' })
+}
+
+/** Le da al teléfono la cuenta (y este dispositivo), para que avise lo que suena en segundo plano */
+export function syncNativeAccount() {
+  const token = useAccountStore.getState().token
+  reportAccount(JSON.stringify({ token: token ?? '', device: deviceId(), name: deviceName(), app: isMusicApp() ? 'music' : 'media' }))
+}
+
+/** Lo que el teléfono le pide a este dispositivo (lo llama la app nativa al recibir órdenes) */
+if (typeof window !== 'undefined') {
+  ;(window as unknown as { __cpnDeviceCmd?: (c: Cmd) => void }).__cpnDeviceCmd = (c) => apply(c)
 }

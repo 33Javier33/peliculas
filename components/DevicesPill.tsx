@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom'
 import { Smartphone, Laptop, Play, Pause, SkipBack, SkipForward, ArrowRightLeft, X } from 'lucide-react'
 import { useAccountStore } from '@/store/accountStore'
 import { useMusicStore } from '@/store/musicStore'
-import { useDevicesStore, presenceNow, localState, sendTo, takeFrom, deviceName, type Device, type CmdType } from '@/lib/devices'
+import { useDevicesStore, presenceNow, localState, sendTo, takeFrom, deviceName, syncNativeAccount, type Device, type CmdType } from '@/lib/devices'
+import Image from 'next/image'
 
 // Dispositivos de la cuenta: con sesión, el encabezado muestra dónde suena la música (PulsoMedia,
 // PulsoMusic o el navegador) y un panel para pasarla de uno a otro o mandarle órdenes.
@@ -20,6 +21,8 @@ export default function DevicesPill() {
   // Al empezar, pausar o cambiar de canción se avisa de inmediato (no se espera al siguiente aviso)
   const trackId = useMusicStore((s) => s.queue[s.currentIndex]?.id ?? '')
   useEffect(() => {
+    // La app del teléfono también avisa en segundo plano: se le da la cuenta
+    syncNativeAccount()
     if (token) presenceNow()
   }, [token, playingHere, trackId])
 
@@ -32,7 +35,7 @@ export default function DevicesPill() {
       if (!alive) return
       if (document.visibilityState === 'visible' || localState().playing) await presenceNow()
       const busy = localState().playing || useDevicesStore.getState().others.some((o) => o.playing || o.track)
-      if (alive) t = setTimeout(tick, busy ? 8000 : 30000)
+      if (alive) t = setTimeout(tick, busy ? 8000 : 15000)
     }
     tick()
     return () => {
@@ -68,6 +71,8 @@ export default function DevicesPill() {
       >
         <ArrowRightLeft className="w-5 h-5" />
       </button>
+      {/* Barra «Suena en …» (como Spotify): se ve en cualquier pantalla mientras suena en otro dispositivo */}
+      {createPortal(<NowElsewhere />, document.body)}
       {/* En la raíz de la página: el encabezado tiene su propio nivel y taparía el panel */}
       {open && createPortal(<DevicesPanel onClose={() => setOpen(false)} playingHere={playingHere} />, document.body)}
     </>
@@ -172,6 +177,46 @@ function DevicesPanel({ onClose, playingHere }: { onClose: () => void; playingHe
         </div>
         {sent && <p className="mt-3 text-xs text-emerald-300">{sent}</p>}
       </div>
+    </div>
+  )
+}
+
+/** Lo que suena en otro dispositivo de la cuenta, con sus controles y «Escuchar aquí» */
+function NowElsewhere() {
+  const others = useDevicesStore((s) => s.others)
+  const playingHere = useMusicStore((s) => s.isPlaying)
+  const [busy, setBusy] = useState(false)
+  const d = others.find((o) => o.playing)
+  if (!d || !d.track || playingHere) return null
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true)
+    await fn()
+    setBusy(false)
+  }
+  return (
+    <div className="fixed inset-x-0 bottom-14 sm:bottom-0 z-[81] border-t border-emerald-400/30 bg-surface-1/[0.98] sm:backdrop-blur-xl px-3 py-2 flex items-center gap-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
+      <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-surface-2 shrink-0">
+        {d.track.thumbnail?.startsWith('http') && <Image src={d.track.thumbnail} alt="" fill sizes="44px" className="object-cover" unoptimized />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-emerald-300 text-[11px] font-semibold truncate flex items-center gap-1">
+          <Smartphone className="w-3 h-3 shrink-0" /> Suena en {d.name}
+        </p>
+        <p className="text-white text-sm font-semibold truncate">{d.track.title}</p>
+        <p className="text-slate-400 text-xs truncate">{d.track.channelTitle}</p>
+      </div>
+      <button onClick={() => run(() => sendTo(d, 'pause'))} disabled={busy} className="p-2 text-white" aria-label="Pausar en ese dispositivo">
+        <Pause className="w-5 h-5" />
+      </button>
+      <button onClick={() => run(() => sendTo(d, 'next'))} disabled={busy} className="p-2 text-slate-200" aria-label="Siguiente en ese dispositivo">
+        <SkipForward className="w-5 h-5" />
+      </button>
+      <button onClick={() => run(() => takeFrom(d))} disabled={busy} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-violet-500 text-white disabled:opacity-50">
+        <ArrowRightLeft className="w-3.5 h-3.5" /> Escuchar aquí
+      </button>
+      <button onClick={() => run(() => takeFrom(d))} disabled={busy} className="sm:hidden p-2 text-violet-300" aria-label="Escuchar aquí">
+        <ArrowRightLeft className="w-5 h-5" />
+      </button>
     </div>
   )
 }

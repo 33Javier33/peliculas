@@ -32,6 +32,7 @@ class PlaybackService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var title = ""
+    private var trackId = ""
     private var artist = ""
     private var artworkUrl = ""
     private var artwork: Bitmap? = null
@@ -96,6 +97,7 @@ class PlaybackService : Service() {
                     return START_NOT_STICKY
                 }
                 title = intent.getStringExtra("title") ?: ""
+                trackId = intent.getStringExtra("id") ?: ""
                 artist = intent.getStringExtra("artist") ?: ""
                 playing = intent.getBooleanExtra("playing", false)
                 liked = intent.getBooleanExtra("liked", false)
@@ -210,6 +212,10 @@ class PlaybackService : Service() {
         PlayerWidget.show(this, title, artist, playing, liked, artwork)
         // Reloj: lo que suena y su carátula
         WearSync.art(this, artworkUrl, artwork)
+        // Lo que suena, para la cuenta (PulsoMedia y el navegador lo ven aunque la app esté en segundo plano)
+        Presence.update(this, playing, if (trackId.isNotEmpty()) org.json.JSONObject()
+            .put("id", trackId).put("title", title).put("channelTitle", artist).put("thumbnail", artworkUrl)
+            .put("pos", if (positionMs >= 0) positionMs / 1000.0 else 0.0).put("dur", durationMs / 1000.0) else null)
         WearSync.state(
             this,
             org.json.JSONObject()
@@ -249,12 +255,14 @@ class PlaybackService : Service() {
     }
 
     private fun stopEverything() {
+        Presence.stop()
         releaseLocks()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     override fun onDestroy() {
+        Presence.stop()
         releaseLocks()
         // Sin música: el widget vuelve a abrir la app al tocarlo
         PlayerWidget.idle(this)

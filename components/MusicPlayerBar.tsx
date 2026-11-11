@@ -1984,6 +1984,7 @@ export default function MusicPlayerBar() {
         position: isLive ? undefined : time?.t,
         duration: isLive ? undefined : time?.d,
         liked: isCurrentSaved,
+        id: currentVideo?.id ?? '',
       })
     }
     send()

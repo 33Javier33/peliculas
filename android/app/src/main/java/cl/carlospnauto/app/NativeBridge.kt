@@ -43,12 +43,20 @@ class NativeBridge(private val context: Context) {
             putExtra("playing", o.optBoolean("playing"))
             putExtra("visible", o.optBoolean("visible", true))
             putExtra("liked", o.optBoolean("liked"))
+            putExtra("id", o.optString("id"))
             if (o.has("position")) putExtra("position", o.optDouble("position", -1.0))
             if (o.has("duration")) putExtra("duration", o.optDouble("duration", 0.0))
         }
         // Android 12+ puede no dejar iniciar el servicio desde atrás: entonces se le avisa al que ya corre
         if (o.optBoolean("visible", true)) runCatching { ContextCompat.startForegroundService(context, intent) }.onFailure { runCatching { context.startService(intent) } }
         else runCatching { context.startService(intent) }
+    }
+
+    /** La cuenta de la web (token): para que el teléfono avise lo que suena también en segundo plano */
+    @JavascriptInterface
+    fun presenceAccount(json: String) {
+        val o = runCatching { JSONObject(json) }.getOrNull() ?: return
+        Presence.saveAccount(context, o)
     }
 
     /** Reloj: ver el video de lo que suena. Se busca su dirección y se le manda al reloj */
