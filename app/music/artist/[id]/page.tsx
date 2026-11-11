@@ -1,3 +1,4 @@
+import ArtistTopTracks from '@/components/ArtistTopTracks'
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -121,6 +122,7 @@ export default async function ArtistPage({ params }: Props) {
           )
         })}
 
+        <ArtistTopTracks name={artist.name} />
         <ArtistVideos name={artist.name} />
 
         <SimilarArtists id={artist.id} />
