@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Películas en un solo lugar: Gratis y CineLatino son pestañas de «Películas» (el menú ya no tiene dos botones)',
+      'PulsoTube (nueva sección de videos): el buscador filtra mientras escribes; si pegas un enlace de YouTube abre ese video; recomienda lo que miraste, te gustó o escuchaste (no tendencias), y guarda lo que miras',
       'Si abres el video de una canción a mitad y no carga, al volver a «Canción» sigue desde ese mismo segundo (antes volvía al principio)',
       'Videos para ti y Videos: cambian en cada visita (otros artistas de tus favoritos, otra búsqueda y otro orden) en lugar de salir siempre igual',
       'Dispositivos: lo que suena en PulsoMusic (teléfono) aparece al momento en PulsoMedia y en el navegador, con su título, aunque la app del teléfono esté en segundo plano. Una barra «Suena en …» (como Spotify) permite pausar, pasar a la siguiente o «Escuchar aquí». Requiere actualizar la app del teléfono',
