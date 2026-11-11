@@ -18,6 +18,7 @@ import ArchiveSearchSection from '@/components/ArchiveSearchSection'
 import { useShallow } from 'zustand/react/shallow'
 import { TrackStateOverlay } from '@/components/TrackState'
 import LocalMusicSection from '@/components/LocalMusicSection'
+import LibraryVideos from '@/components/LibraryVideos'
 import DownloadsSection from '@/components/DownloadsSection'
 import LibraryMixesSection from '@/components/LibraryMixesSection'
 import { NtsLibraryCard } from '@/components/NtsClient'
@@ -48,6 +49,7 @@ import {
   ChevronRight,
   Download,
   Smartphone,
+  MonitorPlay,
   Radio,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
@@ -63,8 +65,8 @@ import { useSearchSuggestions } from '@/components/SearchSuggestions'
 
 type Tab = 'all' | 'artists' | 'albums' | 'playlists'
 /** Parte de la biblioteca que se ve (barra de botones de arriba) */
-type Sec = 'mine' | 'downloads' | 'phone' | 'nts' | 'archive' | 'free' | 'links'
-const SECS: Sec[] = ['mine', 'downloads', 'phone', 'nts', 'archive', 'free', 'links']
+type Sec = 'mine' | 'videos' | 'downloads' | 'phone' | 'nts' | 'archive' | 'free' | 'links'
+const SECS: Sec[] = ['mine', 'videos', 'downloads', 'phone', 'nts', 'archive', 'free', 'links']
 type SortOrder = 'recent' | 'title' | 'artist'
 
 export default function MusicLibraryClient() {
@@ -479,6 +481,7 @@ export default function MusicLibraryClient() {
               <TabButton active={sec === 'mine' && tab === 'artists'} onClick={() => pick('mine', 'artists')} icon={<User className="w-4 h-4" />} label={`Artistas (${artists.length})`} />
               <TabButton active={sec === 'mine' && tab === 'albums'} onClick={() => pick('mine', 'albums')} icon={<Disc3 className="w-4 h-4" />} label={`Álbumes (${albums.length})`} />
               <TabButton active={sec === 'mine' && tab === 'playlists'} onClick={() => pick('mine', 'playlists')} icon={<ListMusic className="w-4 h-4" />} label={`Playlists (${playlists.length})`} />
+              <TabButton active={sec === 'videos'} onClick={() => pick('videos')} icon={<MonitorPlay className="w-4 h-4" />} label="Videos" />
               <TabButton active={sec === 'downloads'} onClick={() => pick('downloads')} icon={<Download className="w-4 h-4" />} label="Descargas" />
               <TabButton active={sec === 'phone'} onClick={() => pick('phone')} icon={<Smartphone className="w-4 h-4" />} label="En este teléfono" />
               <TabButton active={sec === 'nts'} onClick={() => pick('nts')} icon={<Radio className="w-4 h-4" />} label="Radios NTS" />
@@ -548,6 +551,7 @@ export default function MusicLibraryClient() {
             {sec === 'archive' && <ArchiveSearchSection />}
             {sec === 'free' && <ArchiveSearchSection variant="free" />}
             {sec === 'links' && <AudioLinksSection />}
+            {sec === 'videos' && <LibraryVideos />}
           </div>
         )}
 
