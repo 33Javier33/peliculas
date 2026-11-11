@@ -565,20 +565,31 @@ export default function MusicPlayerBar() {
   const inlineCtlRef = useRef<((func: 'playVideo' | 'pauseVideo' | 'seekTo', at?: number) => void) | null>(null)
   // El video agrandado viene del reproductor: al cerrarlo vuelve ahí (al video); «Canción», a la canción
   const expandedFromInlineRef = useRef(false)
+  // Segundo de la canción cuando se abrió el video (si el video no carga, no avanza y no hay otro)
+  const inlineOpenedAtRef = useRef(0)
   const showInline = useCallback(() => {
     const st = useMusicStore.getState()
     const id = ytIdOf(st.queue[st.currentIndex])
     if (!id) return
     const el = playerRef.current as unknown as HTMLMediaElement | null
-    setInline({ id, start: el && isFinite(el.currentTime) ? el.currentTime : 0 })
+    const start = el && isFinite(el.currentTime) ? el.currentTime : 0
+    inlineOpenedAtRef.current = start
+    setInline({ id, start })
   }, [])
   /** Del video a la canción, desde el mismo segundo (sin salir del reproductor) */
   const backToSong = useCallback((t?: number) => {
-    const at = typeof t === 'number' ? t : inlineTimeRef.current
+    // Si el video nunca avanzó (no cargó), vuelve al segundo en que se abrió
+    const at = typeof t === 'number' && t > 0 ? t : inlineTimeRef.current > 0 ? inlineTimeRef.current : inlineOpenedAtRef.current
     const wasPlaying = useMusicStore.getState().isPlaying
     videoOwnsRef.current = false
     const el = playerRef.current as unknown as HTMLMediaElement | null
-    if (el && at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at + 0.1, el.duration - 1)
+    if (el && at > 0) {
+      const go = () => {
+        if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at + 0.1, el.duration - 1)
+      }
+      if (el.readyState >= 1) go()
+      else el.addEventListener('loadedmetadata', go, { once: true })
+    }
     if (!el || !wasPlaying || !inlineRef.current) {
       setInline(null)
       return
@@ -678,6 +689,7 @@ export default function MusicPlayerBar() {
     const startTime = el && isFinite(el.currentTime) ? el.currentTime : 0
     const id = ytIdOf(v)
     if (!id) return
+    openedAtRef.current = startTime
     setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
   }, [])
   // La ventana de video sigue a la canción que suena: si tiene video, se muestra el suyo (desde
@@ -691,11 +703,19 @@ export default function MusicPlayerBar() {
     const startTime = typeof at === 'number' ? at : el && isFinite(el.currentTime) ? el.currentTime + 0.8 : 0
     setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
   }, [])
+  // Segundo de la canción cuando se abrió el video (si el video no carga, no hay otro segundo)
+  const openedAtRef = useRef(0)
   const closeVideo = useCallback((t?: number) => {
     setVideoModal(null)
     const el = playerRef.current as unknown as HTMLMediaElement | null
-    if (el && typeof t === 'number' && t > 0 && isFinite(el.duration) && el.duration > 0) {
-      el.currentTime = Math.min(t, el.duration - 1)
+    // Vuelve al segundo que tenía la canción; si el video nunca avanzó, al de cuando se abrió
+    const at = typeof t === 'number' && t > 0 ? t : openedAtRef.current
+    if (el && at > 0) {
+      const go = () => {
+        if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+      }
+      if (el.readyState >= 1) go()
+      else el.addEventListener('loadedmetadata', go, { once: true })
     }
     useMusicStore.getState().setIsPlaying(true)
   }, [])
@@ -2242,7 +2262,7 @@ export default function MusicPlayerBar() {
             if (expandedFromInlineRef.current) {
               expandedFromInlineRef.current = false
               setVideoModal(null)
-              setInline({ id: videoModal.id, start: t ?? 0 })
+              setInline({ id: videoModal.id, start: t && t > 0 ? t : openedAtRef.current })
               return
             }
             closeVideo(t)

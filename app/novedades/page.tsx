@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Si abres el video de una canción a mitad y no carga, al volver a «Canción» sigue desde ese mismo segundo (antes volvía al principio)',
       'Videos para ti y Videos: cambian en cada visita (otros artistas de tus favoritos, otra búsqueda y otro orden) en lugar de salir siempre igual',
       'Dispositivos: lo que suena en PulsoMusic (teléfono) aparece al momento en PulsoMedia y en el navegador, con su título, aunque la app del teléfono esté en segundo plano. Una barra «Suena en …» (como Spotify) permite pausar, pasar a la siguiente o «Escuchar aquí». Requiere actualizar la app del teléfono',
       'Videos para ti: ahora está en la barra de menú (Videos). El video empieza con sonido, pasa solo al siguiente al terminar, y a los 6 segundos del que se ve ya queda cargado el siguiente (en la app también se prepara su audio)',
