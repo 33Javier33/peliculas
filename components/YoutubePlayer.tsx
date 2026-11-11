@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2 } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
@@ -420,6 +420,63 @@ export default function YoutubePlayer({
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const iconBtn = 'p-2 rounded-lg transition-all duration-200'
 
+  // Ventana flotante: el video sale del navegador y queda sobre el escritorio (Chrome o Edge para
+  // videos de YouTube; cualquier navegador para el video alternativo en MP4)
+  const [floating, setFloating] = useState(false)
+  const [canFloat, setCanFloat] = useState(false)
+  const pipRef = useRef<Window | null>(null)
+  const pipTimeRef = useRef(0)
+  useEffect(() => {
+    const dpip = (window as unknown as { documentPictureInPicture?: unknown }).documentPictureInPicture
+    setCanFloat(!!dpip || !!document.pictureInPictureEnabled)
+  }, [])
+  const floatVideo = async () => {
+    try {
+      if (mode === 'alt' && altVideoRef.current) {
+        await altVideoRef.current.requestPictureInPicture()
+        return
+      }
+      const dpip = (window as unknown as { documentPictureInPicture?: { requestWindow: (o: { width: number; height: number }) => Promise<Window> } }).documentPictureInPicture
+      if (!dpip) return
+      const t = Math.floor(timeRef.current || 0)
+      const pw = await dpip.requestWindow({ width: 480, height: 290 })
+      pw.document.title = title
+      pw.document.body.style.margin = '0'
+      pw.document.body.style.background = '#000'
+      const f = pw.document.createElement('iframe')
+      f.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&hl=es${t > 1 ? `&start=${t}` : ''}&origin=${encodeURIComponent(origin)}`
+      f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'
+      f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0'
+      pw.document.body.appendChild(f)
+      // Lo que va diciendo el video flotante (para volver al mismo segundo)
+      pw.addEventListener('message', (e: MessageEvent) => {
+        if (e.source !== f.contentWindow) return
+        try {
+          const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+          if (typeof d?.info?.currentTime === 'number') pipTimeRef.current = d.info.currentTime
+        } catch {}
+      })
+      pipTimeRef.current = t
+      pipRef.current = pw
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
+      setFloating(true)
+      // Al cerrar la ventana flotante, el video vuelve a la página en el mismo segundo
+      pw.addEventListener('pagehide', () => {
+        pipRef.current = null
+        timeRef.current = pipTimeRef.current
+        setFloating(false)
+        const w = iframeRef.current?.contentWindow
+        w?.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [pipTimeRef.current, true] }), '*')
+        w?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*')
+      })
+    } catch {
+      setFloating(false)
+    }
+  }
+  const backHere = () => {
+    pipRef.current?.close()
+  }
+
   return (
     <div
       className="fixed inset-0 z-[100] flex flex-col bg-black/95 backdrop-blur-sm"
@@ -523,6 +580,13 @@ export default function YoutubePlayer({
             className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
           >
+            {floating && (
+              <div className="absolute inset-0 z-30 bg-black/85 flex flex-col items-center justify-center gap-3 p-4 text-center">
+                <PictureInPicture2 className="w-8 h-8 text-violet-300" />
+                <p className="text-white text-sm font-semibold">El video sigue en la ventana flotante</p>
+                <button onClick={backHere} className="px-5 py-2.5 rounded-full bg-violet-500 text-white text-sm font-bold">Traer de vuelta aquí</button>
+              </div>
+            )}
             {ended && onNext && (
               <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center gap-3 p-4 text-center">
                 <p className="text-slate-300 text-sm">Terminó{upNext ? <>. Sigue: <b className="text-white">{upNext}</b></> : ''}</p>
@@ -589,6 +653,15 @@ export default function YoutubePlayer({
 
         {/* Cambiar de fuente a mano (si queda en negro, sin sonido, etc.) */}
         <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+          {canFloat && (
+            <button
+              onClick={floating ? backHere : floatVideo}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
+              title="Ventana flotante: el video queda sobre el escritorio"
+            >
+              <PictureInPicture2 className="w-4 h-4" /> {floating ? 'Traer de vuelta' : 'Ventana flotante'}
+            </button>
+          )}
           <div className="relative">
             <button
               onClick={() => setQualityOpen((v) => !v)}

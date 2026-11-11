@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Ventana flotante de video: en el reproductor, «Ventana flotante» saca el video a una ventana sobre el escritorio (Chrome o Edge; el video sigue desde el mismo segundo). En los videos alternativos funciona en cualquier navegador',
       'Películas en un solo lugar: Gratis y CineLatino son pestañas de «Películas» (el menú ya no tiene dos botones)',
       'PulsoTube (nueva sección de videos): el buscador filtra mientras escribes; si pegas un enlace de YouTube abre ese video; recomienda lo que miraste, te gustó o escuchaste (no tendencias), y guarda lo que miras',
       'Si abres el video de una canción a mitad y no carga, al volver a «Canción» sigue desde ese mismo segundo (antes volvía al principio)',
