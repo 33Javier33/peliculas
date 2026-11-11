@@ -43,13 +43,45 @@ export function useMyArtists(): string[] {
 
 export type Row = { title: string; sub: string; items: V[] }
 
+/** Une las filas en una lista, alternando (una de tus artistas, una de parecidos…) */
+export function interleave(rows: Row[]): V[] {
+  const lists = rows.map((r) => r.items)
+  const out: V[] = []
+  const seen = new Set<string>()
+  for (let i = 0; lists.some((l) => i < l.length); i++)
+    for (const l of lists) if (i < l.length && !seen.has(l[i].id)) (seen.add(l[i].id), out.push(l[i]))
+  return out
+}
+
 /**
  * Filas de videos: «De tus artistas» y «Artistas parecidos» (los parecidos de tus dos principales,
  * sin repetir los tuyos). `emit` se llama al tener cada parte.
  */
+/** Mezcla al azar (cada visita sale distinto) */
+export function shuffled<T>(list: T[]): T[] {
+  const a = [...list]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+// Cómo se pide a YouTube: cambia la frase para que no siempre salga lo mismo
+const SUFFIXES = ['video oficial', 'music video', 'videoclip oficial', 'video oficial en vivo', 'official video']
+
+/**
+ * Artistas para esta visita: de tus favoritos (los más escuchados primero), 4 al azar entre los
+ * primeros 10, para que la sección cambie cada vez.
+ */
+export function pickArtists(mine: string[], n = 4): string[] {
+  return shuffled(mine.slice(0, 10)).slice(0, n)
+}
+
 export async function artistVideoRows(names: string[], mine: string[], emit: (rows: Row[], similar: string[]) => void) {
   const out: Row[] = []
-  const own = await searchVideos(`${names.join('|')} video oficial`).catch(() => [] as V[])
+  const suffix = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)]
+  const own = shuffled(await searchVideos(`${names.join('|')} ${suffix}`).catch(() => [] as V[]))
   if (own.length) out.push({ title: 'De tus artistas', sub: names.slice(0, 3).join(', '), items: own })
   emit([...out], [])
   const known = new Set(mine.map((n) => n.toLowerCase()))
@@ -59,7 +91,7 @@ export async function artistVideoRows(names: string[], mine: string[], emit: (ro
   const similar = Array.from(new Set(rel.flat().map((a) => a.name).filter((n) => !known.has(n.toLowerCase())))).slice(0, 10)
   const pick = similar.slice(0, 4)
   if (pick.length) {
-    const vids = await searchVideos(`${pick.join('|')} video oficial`).catch(() => [] as V[])
+    const vids = shuffled(await searchVideos(`${pick.join('|')} ${suffix}`).catch(() => [] as V[]))
     if (vids.length) out.push({ title: 'Artistas parecidos', sub: pick.slice(0, 3).join(', '), items: vids })
   }
   emit(out, similar)

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Heart, Share2, Headphones, Loader2, ExternalLink } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
-import { useMyArtists, artistVideoRows, videoOf, type V } from '@/lib/music-videos-data'
+import { useMyArtists, artistVideoRows, pickArtists, interleave, videoOf, type V, type Row } from '@/lib/music-videos-data'
 import { withAppParam } from '@/lib/app-flavor'
 import { getNative } from '@/lib/native'
 
@@ -34,15 +34,14 @@ export default function MusicFeedClient() {
     useMusicStore.getState().setIsPlaying(false)
   }, [])
 
+  // Cada visita elige otros artistas y otra búsqueda: la sección no sale siempre igual
   useEffect(() => {
     if (!mine.length) return setLoading(false)
     let alive = true
-    artistVideoRows(mine.slice(0, 4), mine, (rows) => {
+    const names = pickArtists(mine)
+    artistVideoRows(names, mine, (rows: Row[]) => {
       if (!alive) return
-      const list: V[] = []
-      const ids = new Set<string>()
-      for (const r of rows) for (const v of r.items) if (!ids.has(v.id)) (ids.add(v.id), list.push(v))
-      setVideos(list.slice(0, 60))
+      setVideos(interleave(rows).slice(0, 60))
       setLoading(false)
     })
     return () => {

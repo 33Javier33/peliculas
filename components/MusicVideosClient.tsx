@@ -12,7 +12,7 @@ import { decodeEntities } from '@/lib/youtube-music'
 import { readSession, writeSession } from '@/lib/session-cache'
 import type { YouTubeSearchItem } from '@/lib/youtube'
 import { cachedJson } from '@/lib/client-cache'
-import { artistVideoRows, searchVideos, useMyArtists, type V, toV } from '@/lib/music-videos-data'
+import { artistVideoRows, pickArtists, searchVideos, useMyArtists, type V, toV } from '@/lib/music-videos-data'
 import { useMusicStore } from '@/store/musicStore'
 import { useFollowStore } from '@/store/followStore'
 import { songArtist } from '@/lib/library-radio'
@@ -58,7 +58,7 @@ export default function MusicVideosClient() {
   useEffect(() => {
     if (!mounted || !seeds) return setRows([])
     let cancelled = false
-    artistVideoRows(seeds.split('|'), mine, (r, similar) => {
+    artistVideoRows(pickArtists(mine), mine, (r, similar) => {
       if (cancelled) return
       setRows(r)
       setSimilarNames(similar)

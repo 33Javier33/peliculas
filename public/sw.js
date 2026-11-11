@@ -1,7 +1,7 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y usarla sin conexión: guarda las pantallas principales y sus
 // archivos, así la app abre sin internet (la biblioteca y las canciones descargadas).
-const CACHE = 'cpn-cache-v217'
+const CACHE = 'cpn-cache-v218'
 // Carátulas: caché aparte que NO se borra con las actualizaciones (se ven sin internet)
 const IMG_CACHE = 'cpn-img-v1'
 const IMG_MAX = 2000
