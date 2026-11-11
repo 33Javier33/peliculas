@@ -9,6 +9,7 @@ import { useMyArtists, artistVideoRows, pickArtists, interleave, videoOf, type V
 import { withAppParam } from '@/lib/app-flavor'
 import { getNative } from '@/lib/native'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
+import { playAudioAt } from '@/store/miniStore'
 
 // Videos para ti, en la barra de menú: a pantalla completa y en vertical (como YouTube Music), con los
 // videos de tus artistas y de los parecidos. El que se ve suena; al terminar pasa solo al siguiente.
@@ -34,6 +35,36 @@ export default function MusicFeedClient() {
   // Hasta qué video está permitido cargar (el siguiente se habilita a los 6 s del que se ve)
   const [preloaded, setPreloaded] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  // Lo que se ve ahora (para pasar su audio a segundo plano)
+  const activeRef = useRef(0)
+  activeRef.current = active
+  const live = useRef<{ v: V | null; t: number; playing: boolean; handed: boolean }>({ v: null, t: 0, playing: false, handed: false })
+  // Al salir de la app (pantalla bloqueada, otra app) el sonido pasa al reproductor de abajo,
+  // que sí sigue en segundo plano. Al volver, el video retoma en el mismo segundo.
+  useEffect(() => {
+    const onVis = () => {
+      const L = live.current
+      const frames = Array.from(document.querySelectorAll<HTMLIFrameElement>('.snap-y section iframe'))
+      if (document.visibilityState === 'hidden') {
+        if (!L.v || !L.playing) return
+        frames.forEach((f) => f.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*'))
+        L.handed = true
+        playAudioAt(L.v, L.t)
+        return
+      }
+      if (!L.handed || !L.v) return
+      L.handed = false
+      const w = window as unknown as { __cpnTime?: () => { t: number; d: number } }
+      const a = w.__cpnTime?.()
+      const t = a && a.d ? a.t : L.t
+      useMusicStore.getState().setIsPlaying(false)
+      const f = frames[activeRef.current]
+      f?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [t, true] }), '*')
+      f?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*')
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   // Al abrir el feed se pausa la música del reproductor (no pueden sonar dos cosas)
   useEffect(() => {
@@ -111,6 +142,12 @@ export default function MusicFeedClient() {
             // Se monta el que se ve y el siguiente cuando ya se llegó a los 6 s
             mounted={i === active || (i === active + 1 && preloaded >= i)}
             onAt={(t) => onAt(i, t)}
+            onInfo={(t, p) => {
+              if (i !== activeRef.current) return
+              live.current.v = v
+              if (t != null) live.current.t = t
+              if (p != null) live.current.playing = p
+            }}
             onEnded={() => goTo(i + 1)}
             onSong={() => {
               useMusicStore.getState().play([videoOf(v)], 0)
@@ -129,6 +166,7 @@ function FeedItem({
   isActive,
   mounted,
   onAt,
+  onInfo,
   onEnded,
   onSong,
 }: {
@@ -136,6 +174,7 @@ function FeedItem({
   isActive: boolean
   mounted: boolean
   onAt: (t: number) => void
+  onInfo: (t: number | null, playing: boolean | null) => void
   onEnded: () => void
   onSong: () => void
 }) {
@@ -149,8 +188,8 @@ function FeedItem({
   const toggleSaved = useMusicStore((s) => s.toggleSaved)
   const [shareNote, setShareNote] = useState('')
   // Callbacks al día sin reconectar el mensaje de YouTube
-  const cb = useRef({ onAt, onEnded, isActive })
-  cb.current = { onAt, onEnded, isActive }
+  const cb = useRef({ onAt, onEnded, isActive, onInfo })
+  cb.current = { onAt, onEnded, isActive, onInfo }
 
   const post = (func: string, args: unknown[] = []) => frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
 
@@ -159,6 +198,7 @@ function FeedItem({
   const playing = useRef(false)
   useEffect(() => {
     if (!isActive || !loaded) return
+    ;(getNative() as unknown as { prefetch?: (id: string) => void } | null)?.prefetch?.(v.id)
     playing.current = false
     setPaused(false)
     let tries = 0
@@ -188,6 +228,7 @@ function FeedItem({
       if (d.event !== 'infoDelivery' || typeof d.info !== 'object' || !d.info) return
       const { playerState, currentTime } = d.info
       if (!cb.current.isActive) return
+      cb.current.onInfo(typeof currentTime === 'number' ? currentTime : null, typeof playerState === 'number' ? playerState === 1 : null)
       if (typeof currentTime === 'number') cb.current.onAt(currentTime)
       if (playerState === 1) playing.current = true
       if (playerState === 2) setPaused(true)

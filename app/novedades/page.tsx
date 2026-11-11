@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Videos para ti (PulsoMusic): al bloquear el teléfono o salir a otra app, el sonido sigue en el reproductor de abajo; al volver, el video retoma en el mismo segundo. El video visible se prepara en la app para que su audio suene con la pantalla bloqueada',
       'Videos para ti (PulsoMusic): dar ♥ ya no hace pasar al siguiente video, y el botón «Descargar audio» está dentro de cada video',
       'PulsoTube: al abrir un video, la canción que sonaba abajo se pausa y la miniatura anterior se cierra, para que no suenen dos a la vez',
       'Miniatura del video más fluida: el video se corrige en silencio sin saltos bruscos, se pausa al bloquear el teléfono y al volver va al mismo segundo del audio',

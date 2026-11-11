@@ -24,8 +24,8 @@ export const useMiniStore = create<MiniState>()((set) => ({
 /** ¿Pantalla de teléfono? (la miniatura es para el teléfono; en computador es la ventana del navegador) */
 export const isPhoneScreen = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
 
-/** Abre la miniatura: el sonido sigue en el reproductor de abajo, desde el mismo segundo */
-export function openMini(v: V, start: number) {
+/** Suena el audio del video en el reproductor de abajo, desde un segundo (sigue con la pantalla bloqueada) */
+export function playAudioAt(v: V, start: number) {
   const music = useMusicStore.getState()
   const track = { id: v.id, title: v.title, channelTitle: v.channel, thumbnail: `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, publishedAt: '', description: '' }
   music.play([track as never], 0)
@@ -40,5 +40,10 @@ export function openMini(v: V, start: number) {
       if (start > 1) w.__cpnSeek?.(start)
     }
   }, 250)
+}
+
+/** Abre la miniatura: el sonido sigue en el reproductor de abajo, desde el mismo segundo */
+export function openMini(v: V, start: number) {
+  playAudioAt(v, start)
   useMiniStore.getState().open(v, start)
 }
