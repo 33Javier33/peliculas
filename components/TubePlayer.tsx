@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle } from 'lucide-react'
 import { useVideoStore } from '@/store/videoStore'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
+import { isPhoneScreen, openMini } from '@/store/miniStore'
+import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { withAppParam } from '@/lib/app-flavor'
 import type { V } from '@/lib/music-videos-data'
 
@@ -21,7 +23,7 @@ const fmt = (s: number) => {
 }
 const YT_ORIGIN = /^https:\/\/(www\.)?youtube(-nocookie)?\.com$/
 
-export default function TubePlayer({ video, upNext, onPick, onClose }: { video: V; upNext: V[]; onPick: (v: V) => void; onClose?: () => void }) {
+export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0 }: { video: V; upNext: V[]; onPick: (v: V) => void; onClose?: () => void; startAt?: number }) {
   const box = useRef<HTMLDivElement>(null)
   const frame = useRef<HTMLIFrameElement>(null)
   const media = useRef<HTMLVideoElement>(null)
@@ -48,12 +50,12 @@ export default function TubePlayer({ video, upNext, onPick, onClose }: { video: 
     setAltUrl(null)
     setStatus('loading')
     setPlaying(false)
-    setTime(0)
+    setTime(startAt)
     setDur(0)
     setEnded(false)
-    timeRef.current = 0
+    timeRef.current = startAt
     setFloating(floatingId() === video.id)
-  }, [video.id])
+  }, [video.id, startAt])
 
   const ytCmd = useCallback((func: string, args: unknown[] = []) => {
     frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
@@ -144,6 +146,12 @@ export default function TubePlayer({ video, upNext, onPick, onClose }: { video: 
 
   // Ventana flotante: el video sale a una ventana aparte y vuelve aquí en el mismo segundo
   const float = () => {
+    // En el teléfono: miniatura movible; el sonido pasa al reproductor de abajo y esta página se cierra
+    if (mode !== 'alt' && isPhoneScreen()) {
+      openMini(video, timeRef.current || 0)
+      onClose?.()
+      return
+    }
     if (mode === 'alt' && media.current) {
       media.current.requestPictureInPicture?.().catch(() => setNote('El navegador no permite la ventana flotante aquí'))
       return
@@ -177,8 +185,8 @@ export default function TubePlayer({ video, upNext, onPick, onClose }: { video: 
   }
 
   const src = useMemo(
-    () => `https://www.youtube-nocookie.com/embed/${video.id}?enablejsapi=1&autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&hl=es&origin=${encodeURIComponent(origin)}`,
-    [video.id, origin]
+    () => `https://www.youtube-nocookie.com/embed/${video.id}?enablejsapi=1&autoplay=1&playsinline=1&controls=0&rel=0&modestbranding=1&hl=es${startAt > 1 ? `&start=${Math.floor(startAt)}` : ''}&origin=${encodeURIComponent(origin)}`,
+    [video.id, origin, startAt]
   )
 
   const progress = dur > 0 ? (time / dur) * 100 : 0
@@ -270,6 +278,7 @@ export default function TubePlayer({ video, upNext, onPick, onClose }: { video: 
         <div className="mt-3 flex flex-wrap gap-2">
           <Action active={isLiked} onClick={() => toggle('liked', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id), duration: undefined })} icon={<Heart className={`h-4 w-4 ${isLiked ? 'fill-violet-300 text-violet-300' : ''}`} />} label={isLiked ? 'Me gusta' : 'Me gusta'} />
           <Action active={isLater} onClick={() => toggle('watchLater', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id) })} icon={<Clock3 className="h-4 w-4" />} label={isLater ? 'Guardado para después' : 'Ver después'} />
+          <VideoAudioDownload id={video.id} title={video.title} channelTitle={video.channel} className="!h-auto !rounded-full !border !border-white/10 !bg-surface-2/70 !px-4 !py-2 !text-sm !text-slate-200" />
           <Action onClick={share} icon={<Share2 className="h-4 w-4" />} label="Compartir" />
           <Action onClick={float} icon={<PictureInPicture2 className="h-4 w-4" />} label="Ventana flotante" />
           <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">

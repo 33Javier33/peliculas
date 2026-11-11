@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
+import { isPhoneScreen, openMini } from '@/store/miniStore'
 import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2 } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast } from '@/components/CastButton'
@@ -432,6 +433,12 @@ export default function YoutubePlayer({
   }, [videoId])
   const floatVideo = async () => {
     try {
+      // En el teléfono: miniatura que se mueve por la pantalla (el sonido pasa al reproductor de abajo)
+      if (mode !== 'alt' && isPhoneScreen()) {
+        openMini({ id: videoId, title, channel: channelTitle }, timeRef.current || 0)
+        onClose(timeRef.current || undefined)
+        return
+      }
       if (mode === 'alt' && altVideoRef.current) {
         await altVideoRef.current.requestPictureInPicture()
         return
@@ -500,6 +507,7 @@ export default function YoutubePlayer({
               <Heart className={`w-5 h-5 ${liked ? 'fill-violet-300' : ''}`} />
             </button>
           )}
+          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} compact />
           <button
             onClick={() => setCastOpen(true)}
             className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}

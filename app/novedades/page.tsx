@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'En el teléfono, «Ventana flotante» hace una miniatura del video que se mueve por la pantalla y sigue abierta al navegar. El sonido pasa al reproductor de abajo (sigue con la pantalla bloqueada) y el video se mantiene sincronizado. Tocar la miniatura la vuelve a grande',
+      'Botón «Descargar audio» junto a «Me gusta» en los videos de PulsoMusic y de PulsoTube',
       'Ventana flotante del video: ahora es una ventana aparte del navegador que sigue abierta aunque navegues por la página o vuelvas atrás. Ya no da error de YouTube (153). Se cierra con su X, al poner otro video, con «Volver a la página» o al cerrar el navegador',
       'PulsoTube tiene su propio reproductor: video grande, barra de avance, retroceder y adelantar 10 s, silencio, pantalla completa, ventana flotante, me gusta, ver después y lo que sigue. Si YouTube no deja verlo, usa otra fuente',
       'Ventana flotante: ya no se cierra al cerrar el video de la página ni al navegar; se cierra con su X, al poner otro video flotante, con «Traer de vuelta» o al cerrar el navegador',

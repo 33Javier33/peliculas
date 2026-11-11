@@ -7,6 +7,7 @@ import './globals.css'
 import Image from 'next/image'
 import Header from '@/components/Header'
 import MobileNav from '@/components/MobileNav'
+import MiniVideo from '@/components/MiniVideo'
 import SafeBoundary from '@/components/SafeBoundary'
 import NativeLinkBridge from '@/components/NativeLinkBridge'
 import NavigationMemory from '@/components/NavigationMemory'
@@ -216,6 +217,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </SafeBoundary>
         <SafeBoundary name="MobileNav">
           <MobileNav />
+        </SafeBoundary>
+        <SafeBoundary name="MiniVideo">
+          <MiniVideo />
         </SafeBoundary>
         <Suspense fallback={null}>
           <NavigationMemory />

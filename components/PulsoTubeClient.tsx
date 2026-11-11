@@ -58,10 +58,22 @@ export default function PulsoTubeClient() {
   const [searching, setSearching] = useState(false)
   const [recs, setRecs] = useState<V[] | null>(null)
   const [playing, setPlaying] = useState<V | null>(null)
+  const [startAt, setStartAt] = useState(0)
   const taste = useTaste()
   // Un enlace guardado no vuelve a abrir el video al regresar
   const openedRef = useRef('')
   // La búsqueda se conserva al volver atrás (solo cambia al buscar otra cosa o al salir de la app)
+  // Volver al video grande desde la miniatura: ?play=ID&t=SEG (sigue en el mismo segundo)
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const id = sp.get('play')
+    if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return
+    setStartAt(Number(sp.get('t')) || 0)
+    cachedJson<{ title?: string; channelTitle?: string }>(`/api/yt-info?id=${id}`, 24 * 3600_000, (d) => !!d?.title)
+      .then((d) => setPlaying({ id, title: d?.title ? decodeEntities(d.title) : 'Video', channel: d?.channelTitle ? decodeEntities(d.channelTitle) : '' }))
+      .catch(() => setPlaying({ id, title: 'Video', channel: '' }))
+    window.history.replaceState(null, '', '/tube')
+  }, [])
   useEffect(() => {
     const saved = readSession<{ q: string; results: V[] | null }>('pulsotube')
     if (saved?.q) {
@@ -193,7 +205,7 @@ export default function PulsoTubeClient() {
 
       {playing && (
         <div className="mt-6">
-          <TubePlayer key={playing.id} video={playing} upNext={list.filter((v) => v.id !== playing.id)} onPick={play} onClose={() => setPlaying(null)} />
+          <TubePlayer key={playing.id} video={playing} startAt={startAt} upNext={list.filter((v) => v.id !== playing.id)} onPick={(v) => (setStartAt(0), play(v))} onClose={() => setPlaying(null)} />
         </div>
       )}
 
