@@ -8,6 +8,7 @@ import { useMusicStore } from '@/store/musicStore'
 import { useMyArtists, artistVideoRows, pickArtists, interleave, videoOf, type V, type Row } from '@/lib/music-videos-data'
 import { withAppParam } from '@/lib/app-flavor'
 import { getNative } from '@/lib/native'
+import VideoAudioDownload from '@/components/VideoAudioDownload'
 
 // Videos para ti, en la barra de menú: a pantalla completa y en vertical (como YouTube Music), con los
 // videos de tus artistas y de los parecidos. El que se ve suena; al terminar pasa solo al siguiente.
@@ -22,6 +23,11 @@ const canSound = () => typeof navigator !== 'undefined' && !!(navigator as Navig
 export default function MusicFeedClient() {
   const router = useRouter()
   const mine = useMyArtists()
+  // Los artistas se toman una vez por visita: dar ♥ no rehace la lista (ni salta al siguiente video)
+  const [seed, setSeed] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (!seed && mine.length) setSeed(mine)
+  }, [mine, seed])
   const [videos, setVideos] = useState<V[]>([])
   const [loading, setLoading] = useState(true)
   const [active, setActive] = useState(0)
@@ -36,10 +42,11 @@ export default function MusicFeedClient() {
 
   // Cada visita elige otros artistas y otra búsqueda: la sección no sale siempre igual
   useEffect(() => {
-    if (!mine.length) return setLoading(false)
+    if (!seed) return
+    if (!seed.length) return setLoading(false)
     let alive = true
-    const names = pickArtists(mine)
-    artistVideoRows(names, mine, (rows: Row[]) => {
+    const names = pickArtists(seed)
+    artistVideoRows(names, seed, (rows: Row[]) => {
       if (!alive) return
       setVideos(interleave(rows).slice(0, 60))
       setLoading(false)
@@ -47,7 +54,7 @@ export default function MusicFeedClient() {
     return () => {
       alive = false
     }
-  }, [mine.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const goTo = useCallback((i: number) => {
     const el = boxRef.current
@@ -272,6 +279,7 @@ function FeedItem({
         <Action label={saved ? 'Quitar de tu biblioteca' : 'Guardar en tu biblioteca'} onClick={() => toggleSaved(videoOf(v))} active={saved}>
           <Heart className={`w-6 h-6 ${saved ? 'fill-violet-300 text-violet-300' : ''}`} />
         </Action>
+        <VideoAudioDownload id={v.id} title={v.title} channelTitle={v.channel} compact className="!h-12 !w-12 !bg-black/45" />
         <Action label="Escuchar solo el audio" onClick={onSong}>
           <Headphones className="w-6 h-6" />
         </Action>

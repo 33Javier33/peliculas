@@ -5,7 +5,8 @@ import Image from 'next/image'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle } from 'lucide-react'
 import { useVideoStore } from '@/store/videoStore'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
-import { isPhoneScreen, openMini } from '@/store/miniStore'
+import { isPhoneScreen, openMini, useMiniStore } from '@/store/miniStore'
+import { useMusicStore } from '@/store/musicStore'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { withAppParam } from '@/lib/app-flavor'
 import type { V } from '@/lib/music-videos-data'
@@ -43,6 +44,12 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
   const isLater = useVideoStore((s) => s.watchLater.some((v) => v.id === video.id))
   const toggle = useVideoStore((s) => s.toggle)
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+  // Un video nuevo tiene el sonido: la canción de abajo se pausa y la miniatura anterior se cierra
+  useEffect(() => {
+    useMusicStore.getState().setIsPlaying(false)
+    if (useMiniStore.getState().video) useMiniStore.getState().close()
+  }, [video.id])
 
   // Cada video nuevo arranca de cero
   useEffect(() => {

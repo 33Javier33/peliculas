@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Videos para ti (PulsoMusic): dar ♥ ya no hace pasar al siguiente video, y el botón «Descargar audio» está dentro de cada video',
+      'PulsoTube: al abrir un video, la canción que sonaba abajo se pausa y la miniatura anterior se cierra, para que no suenen dos a la vez',
       'Miniatura del video más fluida: el video se corrige en silencio sin saltos bruscos, se pausa al bloquear el teléfono y al volver va al mismo segundo del audio',
       'Los videos se quedan en la página al abrirlos: ya no pasan solos a la barra de abajo al cerrarlos. La ventana flotante solo se abre si la pides con su botón',
       'En el teléfono, «Ventana flotante» hace una miniatura del video que se mueve por la pantalla y sigue abierta al navegar. El sonido pasa al reproductor de abajo (sigue con la pantalla bloqueada) y el video se mantiene sincronizado. Tocar la miniatura la vuelve a grande',
