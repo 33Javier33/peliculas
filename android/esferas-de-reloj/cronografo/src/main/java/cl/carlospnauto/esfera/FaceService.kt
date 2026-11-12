@@ -61,7 +61,8 @@ class FaceService : WatchFaceService() {
         }
         val types = listOf(ComplicationType.SHORT_TEXT, ComplicationType.RANGED_VALUE, ComplicationType.SMALL_IMAGE)
         val defaults = mapOf(
-            TOP to DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_HEART_RATE, ComplicationType.SHORT_TEXT),
+            // El ritmo cardíaco lo da Samsung Health o Google (se elige en Personalizar); por defecto, la batería
+            TOP to DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_WATCH_BATTERY, ComplicationType.SHORT_TEXT),
             // El clima no es un dato del sistema: se elige en Personalizar (el del reloj o el de Samsung/Google)
             LEFT to DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_SUNRISE_SUNSET, ComplicationType.SHORT_TEXT),
             BOTTOM to DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT),
