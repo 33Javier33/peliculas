@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { isPhoneScreen, openMini } from '@/store/miniStore'
-import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2, ChevronDown, Play, Pause, RotateCcw, RotateCw, Maximize } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2, ChevronDown, Play, Pause, RotateCcw, RotateCw, Maximize, MoreVertical } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast, useCastStore } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
@@ -14,6 +14,8 @@ import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativ
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { useVideoStore } from '@/store/videoStore'
 import { tvTakeVideo } from '@/lib/video-handoff'
+import VideoMenu from '@/components/VideoMenu'
+import { useRouter } from 'next/navigation'
 
 interface YoutubePlayerProps {
   videoId: string
@@ -105,6 +107,7 @@ export default function YoutubePlayer({
   }
   const onNextRef = useRef(onNext)
   onNextRef.current = onNext
+  const router = useRouter()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [mode, setMode] = useState<'youtube' | 'alt'>('youtube')
   const [ytReady, setYtReady] = useState(false)
@@ -113,6 +116,7 @@ export default function YoutubePlayer({
   const [pos, setPos] = useState(0)
   const [len, setLen] = useState(0)
   const [altPlaying, setAltPlaying] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
   // ¿Este video se ve en la TV? (video suelto enviado desde aquí, o la canción que suena en la TV)
   const tvDevice = useCastStore((st) => st.device)
@@ -829,9 +833,11 @@ export default function YoutubePlayer({
               </>
             )}
             <Opt href={`https://www.youtube.com/watch?v=${videoId}`} label="Abrir YouTube" icon={<ExternalLink className="w-5 h-5" />} />
+            <Opt onClick={() => setMenuOpen(true)} label="Más" icon={<MoreVertical className="w-5 h-5" />} />
           </div>
         </div>
         </div>
+        {menuOpen && <VideoMenu video={{ id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '' }} channelTitle={channelTitle} title={title} onClose={() => setMenuOpen(false)} onNavigate={(href) => router.push(href)} />}
         {upcoming.length > 0 && (
           <div className="w-full max-w-6xl px-1 pb-6">
             <p className="text-white font-bold text-sm mb-2">A continuación</p>
