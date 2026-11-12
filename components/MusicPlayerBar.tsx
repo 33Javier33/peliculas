@@ -2040,6 +2040,8 @@ export default function MusicPlayerBar() {
         setTimeout(() => {
           const el = playerRef.current as unknown as HTMLMediaElement | null
           if (!useMusicStore.getState().isPlaying || !el) return
+          // Música en la TV: el teléfono no vuelve a sonar por la notificación
+          if (castKind() === 'music' && useCastStore.getState().device) return
           if (!el.paused && el.currentTime > t0 + 0.5) return
           if (!useAudioRef.current) {
             // Sonaba por YouTube (que no suena con la app en segundo plano): se pasa al audio propio
@@ -2089,6 +2091,9 @@ export default function MusicPlayerBar() {
     const st = useMusicStore.getState()
     const v = st.queue[st.currentIndex]
     if (!v) return
+    // El teléfono se calla al empezar a transmitir (el sonido sale solo por la TV)
+    document.querySelectorAll('audio,video').forEach((a) => (a as HTMLMediaElement).pause())
+    inlineCtlRef.current?.('pauseVideo')
     const yt = ytIdOf(v)
     const base = { title: v.title.replace(/^.+?\s[-–—]\s/, ''), subtitle: v.channelTitle, image: v.thumbnail, position, kind: 'music' as const }
     if (v.streamUrl) nativeCast({ ...base, url: v.streamUrl, live: true })
@@ -2133,6 +2138,14 @@ export default function MusicPlayerBar() {
     const ended = () => castingMusicRef.current && useMusicStore.getState().playNext()
     window.addEventListener('cpn-cast-ended', ended)
     return () => window.removeEventListener('cpn-cast-ended', ended)
+  }, [])
+  // Con la música en la TV el teléfono no suena: cualquier audio o video que intente empezar aquí se pausa
+  useEffect(() => {
+    const stopLocal = (e: Event) => {
+      if (castKind() === 'music' && useCastStore.getState().device) (e.target as HTMLMediaElement).pause?.()
+    }
+    document.addEventListener('play', stopLocal, true)
+    return () => document.removeEventListener('play', stopLocal, true)
   }, [])
   // Con la música en la TV el teléfono no suena: el play y la pausa van a la TV, solo si los pide el
   // usuario (lo que reporta la TV ya no vuelve a mandar una orden: así no se alterna solo)
