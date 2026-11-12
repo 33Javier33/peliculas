@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'retro',
+    name: 'Retro LCD',
+    file: 'Esfera-Retro.apk',
+    description:
+      'Reloj digital retro de los 80: pantalla de cristal líquido con dígitos de segmentos y sus «8» apagados, letras de puntos, marco octogonal y botones rotulados. Pantalla clásica gris, invertida (6 colores) o con luz azul; frente a color o blanco y negro; marco de colores u oculto. Pasos, temperatura (batería °C/°F o clima), batería y ritmo cardíaco. 4 esquinas y un ícono arriba como accesos (PulsoMedia, PulsoMusic…).',
+    features: ['Digital', 'Retro LCD', '3 pantallas', 'Pasos', 'Temperatura', 'Ritmo cardíaco', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-12',
+  },
+  {
     id: 'info',
     name: 'Info',
     file: 'Esfera-Info.apk',

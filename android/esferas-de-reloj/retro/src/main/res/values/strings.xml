@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Retro LCD</string>
+    <string name="face_name">Retro LCD</string>
+    <string name="editor_title">Personalizar Retro LCD</string>
+    <string name="done">Listo</string>
+</resources>
