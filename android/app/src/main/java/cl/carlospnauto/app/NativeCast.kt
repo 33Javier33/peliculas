@@ -63,6 +63,15 @@ object NativeCast {
 
     private fun connected(session: CastSession) {
         report("connected", session.castDevice?.friendlyName)
+        // Al volver a la app (o si se reinició): se sigue escuchando a la TV (tiempo y estado)
+        session.remoteMediaClient?.let { c ->
+            watch(c, session.castDevice?.friendlyName)
+            if (pending == null) when (c.playerState) {
+                MediaStatus.PLAYER_STATE_PLAYING -> report("playing", session.castDevice?.friendlyName)
+                MediaStatus.PLAYER_STATE_PAUSED -> report("paused", session.castDevice?.friendlyName)
+                else -> {}
+            }
+        }
         pending?.let {
             pending = null
             load(session, it)

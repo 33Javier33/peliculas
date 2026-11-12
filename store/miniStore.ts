@@ -1,4 +1,5 @@
 'use client'
+import { castingNow } from '@/lib/native-cast'
 
 import { create } from 'zustand'
 import { useMusicStore } from '@/store/musicStore'
@@ -44,6 +45,8 @@ export function playAudioAt(v: V, start: number) {
 
 /** Abre la miniatura: el sonido sigue en el reproductor de abajo, desde el mismo segundo */
 export function openMini(v: V, start: number) {
+  // Con la TV mostrando algo, el teléfono no reproduce otra ventana
+  if (castingNow()) return
   playAudioAt(v, start)
   useMiniStore.getState().open(v, start)
 }

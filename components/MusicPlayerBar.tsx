@@ -2155,6 +2155,18 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     if (!castingMusic) castedIdRef.current = null
   }, [castingMusic])
+  // Un video de otra sección pasa a la TV como parte de la música (o cambia canción ↔ video)
+  useEffect(() => {
+    const take = (e: Event) => {
+      const d = (e as CustomEvent<{ video: boolean; pos: number; reload: boolean }>).detail
+      const st = useMusicStore.getState()
+      castedIdRef.current = st.queue[st.currentIndex]?.id ?? null
+      castAsVideoRef.current = d.video
+      if (d.reload) castTrack(d.pos, d.video)
+    }
+    window.addEventListener('cpn-tv-take', take)
+    return () => window.removeEventListener('cpn-tv-take', take)
+  }, [castTrack])
   useEffect(() => {
     const ended = () => castingMusicRef.current && useMusicStore.getState().playNext()
     window.addEventListener('cpn-cast-ended', ended)
@@ -2163,7 +2175,7 @@ export default function MusicPlayerBar() {
   // Con la música en la TV el teléfono no suena: cualquier audio o video que intente empezar aquí se pausa
   useEffect(() => {
     const stopLocal = (e: Event) => {
-      if (castKind() === 'music' && useCastStore.getState().device) (e.target as HTMLMediaElement).pause?.()
+      if (castKind() !== null && useCastStore.getState().device) (e.target as HTMLMediaElement).pause?.()
     }
     document.addEventListener('play', stopLocal, true)
     return () => document.removeEventListener('play', stopLocal, true)
@@ -2322,6 +2334,7 @@ export default function MusicPlayerBar() {
           onPick={(v) => {
             // Elegir otro tema de la cola: suena con su video
             const st = useMusicStore.getState()
+            if (st.queue[st.currentIndex]?.id === v.id) return
             const i = st.queue.findIndex((t, k) => k > st.currentIndex && t.id === v.id)
             const at = i >= 0 ? i : st.queue.findIndex((t) => t.id === v.id)
             if (at < 0) return

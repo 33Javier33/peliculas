@@ -34,6 +34,20 @@ export const nativeCastAvailable = () => !!n()?.castMedia
 
 let kind: 'music' | 'video' | null = null
 export const castKind = () => kind
+// Se recuerda qué se manda a la TV (si la página se recarga o se vuelve a la app, sigue sabiendo
+// que la TV está mostrando la música / el video)
+const KEY = 'cpn-cast-kind'
+const save = () => {
+  try {
+    if (kind) localStorage.setItem(KEY, JSON.stringify({ kind, yt: castYt, at: Date.now() }))
+    else localStorage.removeItem(KEY)
+  } catch {}
+}
+/** Lo que está en la TV pasa a ser parte de la música (cola, barra, canción/video): un solo reproductor */
+export const adoptMusic = () => {
+  kind = 'music'
+  save()
+}
 
 /** Lo que dice la TV: si reproduce, en qué segundo va y cuánto dura (la barra del teléfono lo muestra) */
 export const tvSync = { playing: null as boolean | null, pos: 0, dur: 0 }
@@ -47,6 +61,7 @@ export function nativeCast(m: NativeCastMedia) {
   if (!b?.castMedia) return false
   kind = m.kind
   castYt = m.yt ?? null
+  save()
   const abs = (u?: string) => (u && u.startsWith('/') ? `${window.location.origin}${u}` : u)
   useCastStore.getState().setTvState('loading')
   b.castMedia(JSON.stringify({ ...m, url: abs(m.url), image: abs(m.image) }))
@@ -56,6 +71,7 @@ export function nativeCast(m: NativeCastMedia) {
 export const nativeCastStop = () => {
   kind = null
   castYt = null
+  save()
   n()?.castStop?.()
 }
 export const nativeCastControl = (a: 'play' | 'pause' | `seek:${number}`) => n()?.castControl?.(a)
@@ -75,17 +91,31 @@ export const canOpenMirroring = () => !!n()?.openMirroring
 
 // Estado que manda la app: conectando, cargando, sonando, terminó, error, desconectada
 if (typeof window !== 'undefined') {
+  try {
+    const o = JSON.parse(localStorage.getItem(KEY) || 'null') as { kind?: 'music' | 'video'; yt?: string | null; at?: number } | null
+    if (o?.kind && Date.now() - (o.at ?? 0) < 12 * 60 * 60 * 1000) {
+      kind = o.kind
+      castYt = o.yt ?? null
+    }
+  } catch {}
   ;(window as unknown as { __cpnCast?: (o: { state: string; device?: string; pos?: number; dur?: number }) => void }).__cpnCast = (o) => {
     const st = useCastStore.getState()
     if (o.state === 'idle' || o.state === 'unsupported') {
       kind = null
       castYt = null
+      save()
       st.setDevice(null)
       if (o.state === 'unsupported') st.setTvState('error')
       window.dispatchEvent(new Event('cpn-cast-stopped'))
       return
     }
     if (o.device) st.setDevice(o.device)
+    // Página recién abierta con la TV ya sonando: si el tiempo avanza, la TV está reproduciendo
+    if (o.state === 'progress' && tvSync.playing === null && typeof o.pos === 'number' && o.pos > tvSync.pos && tvSync.pos > 0) {
+      tvSync.playing = true
+      if (kind === 'music') useMusicStore.getState().setIsPlaying(true)
+      st.setTvState('playing')
+    }
     if (typeof o.pos === 'number' && isFinite(o.pos)) tvSync.pos = o.pos
     if (typeof o.dur === 'number' && isFinite(o.dur) && o.dur > 0) tvSync.dur = o.dur
     // Solo avisa la posición: no cambia nada más

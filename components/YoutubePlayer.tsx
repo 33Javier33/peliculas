@@ -12,6 +12,7 @@ import { isNativeApp, nativePrefetch } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
+import { tvTakeVideo } from '@/lib/video-handoff'
 
 interface YoutubePlayerProps {
   videoId: string
@@ -122,14 +123,45 @@ export default function YoutubePlayer({
   const castHereRef = useRef(castHere)
   castHereRef.current = castHere
   const [tvPlaying, setTvPlaying] = useState(true)
-  // Al abrir un video mientras la TV muestra otro video: también va a la TV (el teléfono no suena)
-  const castOnOpenRef = useRef(!!useCastStore.getState().device && castKind() === 'video')
+  // Al abrir un video con la TV conectada: el video va a la TV (el teléfono no suena) y queda en
+  // la música (barra, canción/video y el próximo de la lista, todo junto)
+  const castOnOpenRef = useRef(!!useCastStore.getState().device && castKind() !== null)
+  const listRef = useRef(list)
+  listRef.current = list
+  const tvTake = (video: boolean, position: number, reload: boolean) =>
+    tvTakeVideo(listRef.current ?? [], { id: videoId, title, channel: channelTitle }, position, { video, reload })
   useEffect(() => {
     if (!castOnOpenRef.current || !nativeCastAvailable()) return
-    if (castYtId() === videoId) return
-    nativeCast({ yt: videoId, video: true, title, subtitle: channelTitle, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, position: 0, kind: 'video' })
+    const st = useMusicStore.getState()
+    if (castKind() === 'music' && st.queue[st.currentIndex]?.id === videoId) return
+    if (castKind() === 'video' && castYtId() === videoId) return
+    tvTake(true, startTime ?? 0, true)
     setTvTick((n) => n + 1)
   }, [videoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Video enviado a la TV recién conectada: al empezar pasa a ser parte de la música (sin recargar)
+  const adoptPendingRef = useRef(false)
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const st = (e as CustomEvent<string>).detail
+      if (!adoptPendingRef.current || castKind() !== 'video' || castYtId() !== videoId) return
+      if (st !== 'loading' && st !== 'playing') return
+      adoptPendingRef.current = false
+      tvTake(true, tvSync.pos || timeRef.current, false)
+    }
+    window.addEventListener('cpn-cast-state', onState)
+    return () => window.removeEventListener('cpn-cast-state', onState)
+  }, [videoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // La TV pasó al próximo tema de la cola: esta ventana sigue con ese video
+  const wasCastHereRef = useRef(false)
+  useEffect(() => {
+    if (castHere) {
+      wasCastHereRef.current = true
+      return
+    }
+    if (!wasCastHereRef.current || !tvDevice || castKind() !== 'music' || !currentSongId) return
+    const hit = listRef.current?.find((x) => x.id === currentSongId)
+    if (hit && onPick) onPick(hit)
+  }, [castHere, currentSongId, tvDevice, onPick])
   // La línea de tiempo sigue a la TV; al terminar en la TV sigue el próximo video de la lista
   useEffect(() => {
     const iv = window.setInterval(() => {
@@ -183,7 +215,12 @@ export default function YoutubePlayer({
     setTvError('')
     // App de Android: la TV se elige en la lista de la app y reproduce el video sola
     if (nativeCastAvailable()) {
-      nativeCast({ yt: videoId, video: true, title, subtitle: channelTitle, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, position: timeRef.current, kind: 'video' })
+      // TV ya conectada: va directo como parte de la música; si no, se elige la TV y al empezar se une
+      if (useCastStore.getState().device) tvTake(true, timeRef.current, true)
+      else {
+        adoptPendingRef.current = true
+        nativeCast({ yt: videoId, video: true, title, subtitle: channelTitle, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, position: timeRef.current, kind: 'video' })
+      }
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
       altVideoRef.current?.pause()
       setCastOpen(false)
@@ -492,6 +529,15 @@ export default function YoutubePlayer({
     const rest = i >= 0 ? [...list.slice(i + 1), ...list.slice(0, i)] : list.filter((v) => v.id !== videoId)
     return rest.slice(0, 20)
   }, [list, onPick, videoId])
+  // Canción: si se ve en la TV, la TV pasa a la canción en el mismo segundo (el teléfono sigue callado)
+  const toSong = () => {
+    if (castHereRef.current) {
+      tvTake(false, tvSync.pos, true)
+      ;(onSong ?? onClose)(tvSync.pos)
+      return
+    }
+    ;(onSong ?? onClose)(timeRef.current)
+  }
   const isPlaying = castHere ? tvPlaying : mode === 'youtube' ? ytPlaying : altPlaying
   const togglePlay = () => {
     if (castHereRef.current) {
@@ -599,7 +645,7 @@ export default function YoutubePlayer({
             </button>
           )}
           <button
-            onClick={() => (canFloat && !floating ? floatVideo() : onClose(timeRef.current))}
+            onClick={() => (canFloat && !floating && !castHere ? floatVideo() : onClose(timeRef.current))}
             className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
             title="Minimizar: el video sigue en una ventana pequeña"
             aria-label="Minimizar"
@@ -617,7 +663,7 @@ export default function YoutubePlayer({
         <div className="w-full max-w-6xl sticky top-0 z-20 bg-black -mt-2 pt-2 sm:-mt-4 sm:pt-4">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
-              <button role="tab" aria-selected={false} onClick={() => (onSong ?? onClose)(timeRef.current)} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
+              <button role="tab" aria-selected={false} onClick={toSong} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
                 <Headphones className="w-4 h-4" /> Canción
               </button>
               <button role="tab" aria-selected className="flex items-center gap-1.5 px-5 py-1.5 rounded-full bg-white text-black text-sm font-bold">
