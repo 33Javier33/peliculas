@@ -89,6 +89,26 @@ object AudioServer {
                 cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
             }
         }
+        // Video de YouTube para la TV: índice DASH (/d/ID.mpd) con la imagen (/cv/ID) y el sonido
+        // (/ca/ID) por separado. YouTube casi ya no da el MP4 con ambos juntos (la TV quedaba cargando)
+        Regex("^/d/([A-Za-z0-9_-]{11})\\.mpd$").find(path)?.let { dm ->
+            return try {
+                val r = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK, "application/dash+xml", castManifest(dm.groupValues[1]))
+                r.addHeader("Cache-Control", "no-store")
+                cors(r)
+            } catch (e: Exception) {
+                Log.w(TAG, "Sin video DASH para ${dm.groupValues[1]}: ${e.message}")
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
+            }
+        }
+        Regex("^/c([va])/([A-Za-z0-9_-]{11})$").find(path)?.let { cm ->
+            return try {
+                stream(cm.groupValues[2], session.headers["range"], retry = true, castPart = cm.groupValues[1])
+            } catch (e: Exception) {
+                Log.w(TAG, "Sin parte ${cm.groupValues[1]} para ${cm.groupValues[2]}: ${e.message}")
+                cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
+            }
+        }
         // Video de YouTube (con su sonido, para la TV): /v/ID
         Regex("^/v/([A-Za-z0-9_-]{11})$").find(path)?.let { vm ->
             return try {
@@ -222,6 +242,83 @@ object AudioServer {
         val r = Resolved(url, best.format?.mimeType ?: "video/mp4", ua, System.currentTimeMillis())
         vcache[id] = r
         return r
+    }
+
+    // ===== Video para la TV en DASH =====
+    // La imagen sola (H.264, hasta 1080p) y el sonido M4A, con los datos que la TV necesita para
+    // pedir cada parte (dónde están el comienzo y el índice de cada archivo).
+    private class CastPart(val r: Resolved, val codec: String, val bitrate: Int, val initS: Int, val initE: Int, val idxS: Int, val idxE: Int, val w: Int, val h: Int, val fps: Int)
+    private class CastDash(val video: CastPart, val audio: CastPart, val duration: Long, val at: Long)
+    private val dcache = ConcurrentHashMap<String, CastDash>()
+
+    private fun resolveCast(id: String, fresh: Boolean): CastDash {
+        val hit = dcache[id]
+        if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
+        val lock = locks.getOrPut("d:$id") { Any() }
+        synchronized(lock) {
+            dcache[id]?.let { if (!fresh || System.currentTimeMillis() - it.at < 20_000) if (System.currentTimeMillis() - it.at < 3 * 60 * 60 * 1000) return it }
+            val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+            val loc: Localization? = null
+            fun ua(url: String) = if (YoutubeParsingHelper.isVisionOsStreamingUrl(url)) YoutubeParsingHelper.getVisionOsUserAgent(loc) else OkDownloader.USER_AGENT
+            fun height(v: org.schabi.newpipe.extractor.stream.VideoStream) = v.height.takeIf { it > 0 } ?: (v.resolution.filter { it.isDigit() }.take(4).toIntOrNull() ?: 0)
+            val vids = info.videoOnlyStreams.filter {
+                it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.MPEG_4 &&
+                    (it.codec ?: "").startsWith("avc1") && it.initEnd > 0 && it.indexEnd > 0
+            }
+            // Hasta 1080p y 30 cuadros (lo que todo Chromecast reproduce fluido); si no hay, lo que haya
+            val v = vids.filter { height(it) in 1..1080 && it.fps <= 30 }.maxByOrNull { height(it) }
+                ?: vids.filter { height(it) in 1..1080 }.maxByOrNull { height(it) * 1000 - it.fps }
+                ?: vids.minByOrNull { height(it) }
+                ?: throw IllegalStateException("YouTube no entregó imagen para la TV")
+            val auds = info.audioStreams.filter {
+                it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.M4A && it.initEnd > 0 && it.indexEnd > 0
+            }
+            // El idioma original si el video tiene varios doblajes
+            val a = auds.filter { it.audioTrackType == null || it.audioTrackType == org.schabi.newpipe.extractor.stream.AudioTrackType.ORIGINAL }
+                .ifEmpty { auds }.maxByOrNull { quality(it) }
+                ?: throw IllegalStateException("YouTube no entregó sonido para la TV")
+            val now = System.currentTimeMillis()
+            val d = CastDash(
+                CastPart(Resolved(v.content, "video/mp4", ua(v.content), now), v.codec ?: "avc1.4d401f", v.bitrate.takeIf { it > 0 } ?: 2_000_000,
+                    v.initStart, v.initEnd, v.indexStart, v.indexEnd, v.width, height(v), v.fps),
+                CastPart(Resolved(a.content, "audio/mp4", ua(a.content), now), a.codec ?: "mp4a.40.2", a.bitrate.takeIf { it > 0 } ?: 128_000,
+                    a.initStart, a.initEnd, a.indexStart, a.indexEnd, 0, 0, 0),
+                info.duration, now,
+            )
+            Log.i(TAG, "TV $id: video itag ${v.itag} ${height(v)}p ${v.codec}, audio itag ${a.itag}")
+            dcache[id] = d
+            if (dcache.size > 30) dcache.entries.minByOrNull { it.value.at }?.let { dcache.remove(it.key) }
+            return d
+        }
+    }
+
+    /** Índice DASH para la TV: las partes van por el teléfono (misma clave en la dirección) */
+    private fun castManifest(id: String): String {
+        val d = resolveCast(id, fresh = false)
+        val base = castBase() ?: throw IllegalStateException("sin Wi-Fi")
+        fun esc(s: String) = s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;")
+        val v = d.video
+        val a = d.audio
+        val dur = if (d.duration > 0) "mediaPresentationDuration=\"PT${d.duration}S\" " else ""
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static" ${dur}minBufferTime="PT2S">
+<Period>
+<AdaptationSet id="0" contentType="video" mimeType="video/mp4" subsegmentAlignment="true" subsegmentStartsWithSAP="1">
+<Representation id="v" codecs="${esc(v.codec)}" bandwidth="${v.bitrate}"${if (v.w > 0) " width=\"${v.w}\"" else ""}${if (v.h > 0) " height=\"${v.h}\"" else ""}${if (v.fps > 0) " frameRate=\"${v.fps}\"" else ""}>
+<BaseURL>${esc("$base/cv/$id")}</BaseURL>
+<SegmentBase indexRange="${v.idxS}-${v.idxE}"><Initialization range="${v.initS}-${v.initE}"/></SegmentBase>
+</Representation>
+</AdaptationSet>
+<AdaptationSet id="1" contentType="audio" mimeType="audio/mp4" lang="und" subsegmentAlignment="true" subsegmentStartsWithSAP="1">
+<Representation id="a" codecs="${esc(a.codec)}" bandwidth="${a.bitrate}" audioSamplingRate="44100">
+<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+<BaseURL>${esc("$base/ca/$id")}</BaseURL>
+<SegmentBase indexRange="${a.idxS}-${a.idxE}"><Initialization range="${a.initS}-${a.initE}"/></SegmentBase>
+</Representation>
+</AdaptationSet>
+</Period>
+</MPD>
+"""
     }
 
     // ===== Video para el reloj =====
@@ -418,16 +515,17 @@ object AudioServer {
         return out.toByteArray()
     }
 
-    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false, video: Boolean = false, watch: Boolean = false): NanoHTTPD.Response {
+    private fun stream(id: String, rangeHeader: String?, retry: Boolean, background: Boolean = false, video: Boolean = false, watch: Boolean = false, castPart: String = ""): NanoHTTPD.Response {
         // Rango pedido por el reproductor (o desde el inicio), en tramos
         val start = Regex("bytes=(\\d+)-(\\d*)").find(rangeHeader ?: "")?.groupValues?.get(1)?.toLongOrNull() ?: 0L
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
-        val head = if (video || watch) null else heads[id]
+        val head = if (video || watch || castPart.isNotEmpty()) null else heads[id]
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
-        val r = if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
+        val r = if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }
+            else if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
             else if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
@@ -444,14 +542,14 @@ object AudioServer {
         } catch (e: java.io.IOException) {
             conn.disconnect()
             if (!retry) throw e
-            if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
+            if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
             Thread.sleep(1500)
-            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch)
+            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch, castPart = castPart)
         }
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
-            if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
-            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch)
+            if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
+            return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch, castPart = castPart)
         }
         if (code != 200 && code != 206) {
             conn.disconnect()

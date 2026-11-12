@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle } from 'lucide-react'
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle, Cast } from 'lucide-react'
 import { useVideoStore } from '@/store/videoStore'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { isPhoneScreen, openMini, useMiniStore } from '@/store/miniStore'
 import { useMusicStore } from '@/store/musicStore'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { withAppParam } from '@/lib/app-flavor'
+import { nativeCast, nativeCastAvailable } from '@/lib/native-cast'
 import type { V } from '@/lib/music-videos-data'
 
 // Reproductor de PulsoTube: video grande, barra de controles propia, acciones y lo que sigue.
@@ -151,6 +152,20 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
     else el.requestFullscreen?.().catch(() => {})
   }
 
+  // Ver en la TV: en las apps la TV recibe el video (imagen y sonido) desde el mismo segundo;
+  // en el navegador se abre en YouTube, que tiene su propio botón para la TV
+  const toTv = () => {
+    const t = timeRef.current || 0
+    if (nativeCastAvailable()) {
+      nativeCast({ yt: video.id, video: true, title: video.title, subtitle: video.channel, image: thumb(video.id), position: t, kind: 'video' })
+      ytCmd('pauseVideo')
+      media.current?.pause()
+      setNote('Enviando a la TV…')
+      return
+    }
+    window.open(`https://www.youtube.com/watch?v=${video.id}&t=${Math.floor(t)}s`, '_blank', 'noopener')
+  }
+
   // Ventana flotante: el video sale a una ventana aparte y vuelve aquí en el mismo segundo
   const float = () => {
     // En el teléfono: miniatura movible; el sonido pasa al reproductor de abajo y esta página se cierra
@@ -287,6 +302,7 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
           <Action active={isLater} onClick={() => toggle('watchLater', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id) })} icon={<Clock3 className="h-4 w-4" />} label={isLater ? 'Guardado para después' : 'Ver después'} />
           <VideoAudioDownload id={video.id} title={video.title} channelTitle={video.channel} className="!h-auto !rounded-full !border !border-white/10 !bg-surface-2/70 !px-4 !py-2 !text-sm !text-slate-200" />
           <Action onClick={share} icon={<Share2 className="h-4 w-4" />} label="Compartir" />
+          <Action onClick={toTv} icon={<Cast className="h-4 w-4" />} label="Ver en la TV" />
           <Action onClick={float} icon={<PictureInPicture2 className="h-4 w-4" />} label="Ventana flotante" />
           <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">
             <ExternalLink className="h-4 w-4" /> YouTube

@@ -2108,16 +2108,18 @@ export default function MusicPlayerBar() {
     // (el teléfono sigue sonando hasta que la TV se conecta: si se cancela, no se corta la música)
   }, [])
   const tvState = useCastStore((s) => s.tvState)
-  // Si el video no empieza en la TV en 20 s, la TV sigue con la música (no se queda cargando)
+  // Si el video no empieza en la TV en 30 s (o la TV avisa error), la TV sigue con la música (no se
+  // queda cargando)
   useEffect(() => {
-    if (!castingMusic || tvState !== 'loading' || !castAsVideoRef.current) return
+    if (!castingMusic || (tvState !== 'loading' && tvState !== 'error') || !castAsVideoRef.current) return
     const id = window.setTimeout(() => {
-      if (useCastStore.getState().tvState !== 'loading' || !castAsVideoRef.current) return
+      const st = useCastStore.getState().tvState
+      if ((st !== 'loading' && st !== 'error') || !castAsVideoRef.current) return
       castAsVideoRef.current = false
       castTrack(tvSyncPos(), false)
       setTvNotice('El video no llegó a la TV: sigue la música')
       window.setTimeout(() => setTvNotice(null), 6000)
-    }, 20000)
+    }, tvState === 'error' ? 300 : 30000)
     return () => window.clearTimeout(id)
   }, [castingMusic, tvState, castTrack])
 

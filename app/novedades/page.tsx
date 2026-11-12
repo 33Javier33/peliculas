@@ -24,6 +24,9 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Videos a la TV (apps PulsoMedia y PulsoMusic): ahora la TV recibe el video completo, con imagen y sonido, en videos musicales, PulsoTube y películas de YouTube. Antes se quedaba cargando porque YouTube ya casi no entrega el archivo con ambos juntos',
+      'Reproductor de video ordenado: todas las opciones van arriba en una sola fila (Me gusta, Ver después, Descargar, Ver en la TV, Ventana flotante, Calidad, Comentarios). Se quitó el ícono de descarga repetido',
+      'PulsoTube: nuevo botón «Ver en la TV»',
       'Transmitir video a la TV: si el video no empieza en la TV en 20 segundos, sigue la música y el teléfono avisa, en vez de quedarse cargando',
       'Transmitir a la TV: al cambiar a Video mientras se transmite, el video llega a la TV; al volver a conectar, se manda como video si estabas en video; la barra arranca desde cero con cada tema',
       'Transmitir música a la TV: el teléfono se calla por completo (ni la notificación ni otros caminos lo hacen sonar); solo suena la TV',

@@ -144,7 +144,7 @@ object NativeCast {
             o.has("yt") -> (AudioServer.castBase() ?: run {
                 tell("El teléfono debe estar conectado al Wi-Fi para transmitir")
                 return report("error")
-            }) + (if (o.optBoolean("video")) "/v/" else "/yt/") + o.getString("yt")
+            }) + (if (o.optBoolean("video")) "/d/" + o.getString("yt") + ".mpd" else "/yt/" + o.getString("yt"))
             o.optString("url").startsWith("http://127.0.0.1") -> {
                 val base = AudioServer.castBase() ?: run {
                     tell("El teléfono debe estar conectado al Wi-Fi para transmitir")
@@ -166,6 +166,8 @@ object NativeCast {
         }
         val mime = when {
             Regex("m3u8|/api/hls", RegexOption.IGNORE_CASE).containsMatchIn(url) -> "application/x-mpegurl"
+            // Video de YouTube: imagen y sonido por separado (DASH), que la TV junta
+            url.endsWith(".mpd") -> "application/dash+xml"
             video -> "video/mp4"
             else -> o.optString("mime").ifBlank { "audio/mp4" }
         }

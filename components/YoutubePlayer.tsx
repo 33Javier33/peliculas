@@ -46,6 +46,8 @@ interface VideoCandidate {
   quality: number
 }
 
+const CHIP = 'inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white'
+
 // Calidades que se pueden pedir a YouTube (vq). "Máxima" pide la más alta que tenga el video.
 const QUALITIES = [
   { id: 'highres', label: 'Máxima (4K si hay)' },
@@ -483,31 +485,6 @@ export default function YoutubePlayer({
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-2">
-          {/* Descargar solo el audio (videos musicales, conciertos…; no películas) */}
-          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} />
-          {onToggleLater && (
-            <button
-              onClick={onToggleLater}
-              className={`${iconBtn} ${later ? 'text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
-              aria-label={later ? 'Quitar de Ver más tarde' : 'Ver más tarde'}
-              aria-pressed={later}
-              title={later ? 'Quitar de Ver más tarde' : 'Ver más tarde'}
-            >
-              <Clock3 className="w-5 h-5" />
-            </button>
-          )}
-          {onToggleLike && (
-            <button
-              onClick={onToggleLike}
-              className={`${iconBtn} ${liked ? 'text-violet-300' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
-              aria-label={liked ? 'Quitar de Me gusta' : 'Me gusta'}
-              aria-pressed={liked}
-              title={liked ? 'Quitar de Me gusta' : 'Me gusta'}
-            >
-              <Heart className={`w-5 h-5 ${liked ? 'fill-violet-300' : ''}`} />
-            </button>
-          )}
-          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} />
           <button
             onClick={() => setCastOpen(true)}
             className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
@@ -516,15 +493,6 @@ export default function YoutubePlayer({
           >
             <Cast className="w-5 h-5" />
           </button>
-          <a
-            href={`https://www.youtube.com/watch?v=${videoId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10 hidden sm:block`}
-            title="Abrir en YouTube"
-          >
-            <ExternalLink className="w-4 h-4" />
-          </a>
           {onNext && onToggleAutoplay && (
             <button
               onClick={onToggleAutoplay}
@@ -553,6 +521,92 @@ export default function YoutubePlayer({
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 gap-3">
+        {/* Opciones del video, todas juntas arriba (una sola descarga) */}
+        <div className="w-full max-w-6xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
+          {onToggleLike && (
+            <button onClick={onToggleLike} aria-pressed={liked} className={`${CHIP} ${liked ? '!text-violet-200 !bg-violet-500/20' : ''}`}>
+              <Heart className={`w-4 h-4 ${liked ? 'fill-violet-300 text-violet-300' : ''}`} /> Me gusta
+            </button>
+          )}
+          {onToggleLater && (
+            <button onClick={onToggleLater} aria-pressed={later} className={`${CHIP} ${later ? '!text-emerald-300' : ''}`}>
+              <Clock3 className="w-4 h-4" /> {later ? 'Guardado' : 'Ver después'}
+            </button>
+          )}
+          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} className="!h-auto !w-auto !rounded-full !border !border-white/10 !bg-surface-2/80 !px-3.5 !py-2 !text-sm !text-slate-200" />
+          <button onClick={() => setCastOpen(true)} className={CHIP}>
+            <Cast className="w-4 h-4" /> Ver en la TV
+          </button>
+          {canFloat && (
+            <button
+              onClick={floating ? backHere : floatVideo}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
+              title="Ventana flotante: el video queda sobre el escritorio"
+            >
+              <PictureInPicture2 className="w-4 h-4" /> {floating ? 'Traer de vuelta' : 'Ventana flotante'}
+            </button>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setQualityOpen((v) => !v)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
+              aria-haspopup="menu"
+              aria-expanded={qualityOpen}
+            >
+              <Settings2 className="w-4 h-4" /> Calidad: {QUALITIES.find((q) => q.id === quality)?.label ?? 'Máxima'}
+            </button>
+            {qualityOpen && (
+              <div role="menu" className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-40 w-44 rounded-xl bg-surface-1 border border-white/10 shadow-2xl overflow-hidden">
+                {QUALITIES.map((q) => (
+                  <button
+                    key={q.id}
+                    role="menuitemradio"
+                    aria-checked={q.id === quality}
+                    onClick={() => chooseQuality(q.id)}
+                    className={`w-full text-left px-4 py-2.5 text-sm ${q.id === quality ? 'bg-violet-500/20 text-violet-200 font-semibold' : 'text-slate-200 hover:bg-white/5'}`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {mode === 'youtube' ? (
+            <button
+              onClick={() => switchToAlt(false)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-colors ${
+                ytSlow && !ytReady
+                  ? 'bg-violet-500 text-white shadow-glow'
+                  : 'bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white'
+              }`}
+            >
+              <RefreshCw className="w-4 h-4" /> ¿No carga? Probar otra fuente
+            </button>
+          ) : (
+            <>
+              {altStatus === 'ready' && alt && alt.candidates.length > 1 && (
+                <button
+                  onClick={handleAltError}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
+                >
+                  <RefreshCw className="w-4 h-4" /> Otra fuente ({alt.index + 1}/{alt.candidates.length})
+                </button>
+              )}
+              <button
+                onClick={() => setMode('youtube')}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
+              >
+                <TvMinimalPlay className="w-4 h-4" /> Volver al reproductor de YouTube
+              </button>
+            </>
+          )}
+          <button onClick={() => setSocialOpen(true)} className={CHIP}>
+            <MessageCircle className="w-4 h-4" /> Comentarios
+          </button>
+          <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer" className={CHIP} title="Abrir en YouTube">
+            <ExternalLink className="w-4 h-4" /> YouTube
+          </a>
+        </div>
         <div className="w-full max-w-6xl">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
@@ -639,78 +693,6 @@ export default function YoutubePlayer({
           </div>
         </div>
 
-        {/* Cambiar de fuente a mano (si queda en negro, sin sonido, etc.) */}
-        <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-          {canFloat && (
-            <button
-              onClick={floating ? backHere : floatVideo}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
-              title="Ventana flotante: el video queda sobre el escritorio"
-            >
-              <PictureInPicture2 className="w-4 h-4" /> {floating ? 'Traer de vuelta' : 'Ventana flotante'}
-            </button>
-          )}
-          <div className="relative">
-            <button
-              onClick={() => setQualityOpen((v) => !v)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
-              aria-haspopup="menu"
-              aria-expanded={qualityOpen}
-            >
-              <Settings2 className="w-4 h-4" /> Calidad: {QUALITIES.find((q) => q.id === quality)?.label ?? 'Máxima'}
-            </button>
-            {qualityOpen && (
-              <div role="menu" className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 w-44 rounded-xl bg-surface-1 border border-white/10 shadow-2xl overflow-hidden">
-                {QUALITIES.map((q) => (
-                  <button
-                    key={q.id}
-                    role="menuitemradio"
-                    aria-checked={q.id === quality}
-                    onClick={() => chooseQuality(q.id)}
-                    className={`w-full text-left px-4 py-2.5 text-sm ${q.id === quality ? 'bg-violet-500/20 text-violet-200 font-semibold' : 'text-slate-200 hover:bg-white/5'}`}
-                  >
-                    {q.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {mode === 'youtube' ? (
-            <button
-              onClick={() => switchToAlt(false)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-colors ${
-                ytSlow && !ytReady
-                  ? 'bg-violet-500 text-white shadow-glow'
-                  : 'bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white'
-              }`}
-            >
-              <RefreshCw className="w-4 h-4" /> ¿No carga? Probar otra fuente
-            </button>
-          ) : (
-            <>
-              {altStatus === 'ready' && alt && alt.candidates.length > 1 && (
-                <button
-                  onClick={handleAltError}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
-                >
-                  <RefreshCw className="w-4 h-4" /> Otra fuente ({alt.index + 1}/{alt.candidates.length})
-                </button>
-              )}
-              <button
-                onClick={() => setMode('youtube')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
-              >
-                <TvMinimalPlay className="w-4 h-4" /> Volver al reproductor de YouTube
-              </button>
-            </>
-          )}
-        </div>
-        <button
-          onClick={() => setSocialOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
-        >
-          <MessageCircle className="w-4 h-4" /> Me gusta y comentarios
-        </button>
       </div>
       {socialOpen && (
         <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setSocialOpen(false)}>
