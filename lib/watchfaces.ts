@@ -15,6 +15,24 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'sportpro',
+    name: 'Sport Pro',
+    file: 'Esfera-Sportpro.apk',
+    description:
+      'Digital deportiva con un color para cada parte (hora, minutos, fecha, raya, datos y marcas: 10 colores) y brillo de fondo. Toca la hora o los minutos para abrir PulsoMedia o PulsoMusic, y la batería para ver su consumo.',
+    features: ['Digital', '10 colores por parte', 'PulsoMedia', 'PulsoMusic', 'Ritmo cardíaco', 'Pasos', 'Segundos'],
+    added: '2026-11-12',
+  },
+  {
+    id: 'sport',
+    name: 'Sport',
+    file: 'Esfera-Sport.apk',
+    description:
+      'Digital deportiva con 9 temas de color: día, mes, fecha y año, hora 12/24 h como el teléfono, segundos, batería, ritmo cardíaco y pasos. Toca la hora o los minutos para abrir PulsoMedia o PulsoMusic.',
+    features: ['Digital', '9 temas', 'PulsoMedia', 'PulsoMusic', 'Ritmo cardíaco', 'Pasos', 'Batería'],
+    added: '2026-11-12',
+  },
+  {
     id: 'neon',
     name: 'Neón',
     file: 'Esfera-Neon.apk',

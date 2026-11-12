@@ -24,11 +24,21 @@ enum class Action(val id: String, val label: String) {
     ALARMS("alarms", "Alarmas"),
     TIMER("timer", "Temporizador"),
     SETTINGS("settings", "Ajustes"),
+    BATTERY("battery", "Batería"),
     NONE("none", "Nada"),
 }
 
-/** Lugar de un acceso: x, y desde el centro en fracciones del radio; name para Personalizar */
-data class Spot(val x: Float, val y: Float, val default: Action, val name: String)
+/** Lugar de un acceso: x, y desde el centro en fracciones del radio; name para Personalizar; hit: radio de toque propio */
+data class Spot(val x: Float, val y: Float, val default: Action, val name: String, val hit: Float = 0f)
+
+/** Opción de color (u otra) que se elige en Personalizar: nombre y valor de cada opción */
+data class Choice(val key: String, val name: String, val options: List<Pair<String, Int>>, val default: Int = 0)
+
+object Choices {
+    fun index(c: Context, ch: Choice) = FacePrefs.of(c).getInt("opt_${ch.key}", ch.default).coerceIn(0, ch.options.size - 1)
+    fun value(c: Context, ch: Choice) = ch.options[index(c, ch)].second
+    fun next(c: Context, ch: Choice) = FacePrefs.of(c).edit().putInt("opt_${ch.key}", (index(c, ch) + 1) % ch.options.size).apply()
+}
 
 /** Lo que cada esfera le cuenta a Personalizar */
 interface FaceConfig {
@@ -38,6 +48,10 @@ interface FaceConfig {
     val spots: List<Spot>
     /** ¿Tiene brújula para activar? */
     val compass: Boolean get() = false
+    /** Colores y otras opciones */
+    val choices: List<Choice> get() = emptyList()
+    /** ¿Lee el ritmo cardíaco del sensor? (Personalizar pide el permiso) */
+    val heartRate: Boolean get() = false
 }
 
 object FacePrefs {
@@ -67,7 +81,8 @@ object Shortcuts {
         var bestD = Float.MAX_VALUE
         for ((i, s) in spots.withIndex()) {
             val d = hypot(x - (cx + s.x * r), y - (cy + s.y * r))
-            if (d < r * size && d < bestD) { best = i; bestD = d }
+            val lim = if (s.hit > 0f) s.hit else size
+            if (d < r * lim && d < bestD) { best = i; bestD = d }
         }
         return best
     }
@@ -81,6 +96,7 @@ object Shortcuts {
             Action.ALARMS -> Intent(AlarmClock.ACTION_SHOW_ALARMS)
             Action.TIMER -> Intent(AlarmClock.ACTION_SHOW_TIMERS)
             Action.SETTINGS -> Intent(Settings.ACTION_SETTINGS)
+            Action.BATTERY -> Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
             Action.NONE -> return false
         }
         if (intent == null) {
@@ -146,6 +162,14 @@ object Shortcuts {
                 line.color = tint
                 line.strokeWidth = s * 0.28f
                 canvas.drawCircle(x, y, s * 0.42f, line)
+            }
+            Action.BATTERY -> {
+                line.color = tint
+                line.strokeWidth = s * 0.15f
+                canvas.drawRoundRect(RectF(x - s * 0.4f, y - s * 0.7f, x + s * 0.4f, y + s * 0.85f), s * 0.12f, s * 0.12f, line)
+                fill.color = tint
+                canvas.drawRect(x - s * 0.18f, y - s * 0.95f, x + s * 0.18f, y - s * 0.7f, fill)
+                canvas.drawRect(x - s * 0.22f, y - s * 0.05f, x + s * 0.22f, y + s * 0.65f, fill)
             }
             Action.NONE -> {
                 fill.color = tint

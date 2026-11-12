@@ -25,6 +25,7 @@ const STAGES: Stage[] = [
     color: 'from-cyan-500 to-violet-500',
     items: [
       'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'Esferas Sport (9 temas de color) y Sport Pro (un color para cada parte y brillo de fondo): hora 12/24 h, segundos con una marca roja que recorre el borde, batería, ritmo cardíaco y pasos; la hora y los minutos abren PulsoMedia y PulsoMusic',
       'Dos esferas nuevas en la tienda: HUD (panel de instrumentos con arcos de batería y segundos) y Neón (cuatro arcos de colores). Todas las esferas traen ahora accesos que abren PulsoMedia y PulsoMusic en el reloj (eliges qué abre cada uno en Personalizar) y la marca Carlos P. Nauto Interactive',
       'Tienda de esferas para el reloj (Ajustes → Tienda de esferas): en lista o mosaico, cada una con su descarga. Dos nuevas: Cronógrafo (taquímetro, fibra de carbono, ritmo cardíaco, clima y pasos) y Digital (hora grande, fecha, batería y pasos)',
       'Nueva esfera de reloj Explorer (en App para el reloj): mapa topográfico, brújula en el bisel que apunta al norte (tocándolo), altitud, fecha y un dato a elegir como el clima',

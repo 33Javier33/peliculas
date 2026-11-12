@@ -1,5 +1,8 @@
 package cl.carlospnauto.esfera.comun
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -7,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.lifecycleScope
 import androidx.wear.watchface.editor.EditorSession
 import kotlinx.coroutines.launch
@@ -44,6 +48,38 @@ abstract class BaseEditorActivity : ComponentActivity() {
                 p.edit().putBoolean(FacePrefs.COMPASS, !p.getBoolean(FacePrefs.COMPASS, false)).apply()
                 label()
             }
+            column.addView(b)
+        }
+
+        if (config.choices.isNotEmpty()) {
+            title("Colores (toca para cambiar)")
+            for (ch in config.choices) {
+                val b = Button(this)
+                fun label() {
+                    val (name, color) = ch.options[Choices.index(this, ch)]
+                    b.text = "${ch.name}: $name"
+                    // El botón muestra el color elegido (si se ve sobre fondo oscuro)
+                    if (Color.alpha(color) == 255 && color != Color.BLACK) b.setTextColor(color)
+                }
+                label()
+                b.setOnClickListener {
+                    Choices.next(this, ch)
+                    label()
+                }
+                column.addView(b)
+            }
+        }
+
+        if (config.heartRate) {
+            val b = Button(this)
+            fun label() {
+                val ok = checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
+                b.text = if (ok) "Ritmo cardíaco: permitido" else "Permitir ritmo cardíaco"
+                b.isEnabled = !ok
+            }
+            label()
+            val ask = registerForActivityResult(ActivityResultContracts.RequestPermission()) { label() }
+            b.setOnClickListener { ask.launch(Manifest.permission.BODY_SENSORS) }
             column.addView(b)
         }
 
