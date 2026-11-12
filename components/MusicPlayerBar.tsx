@@ -57,7 +57,7 @@ import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equa
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
-import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring } from '@/lib/native-cast'
+import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring, tvSync, castPosition } from '@/lib/native-cast'
 import { useCastStore } from '@/components/CastButton'
 import InlineVideo from '@/components/InlineVideo'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -1387,6 +1387,11 @@ export default function MusicPlayerBar() {
   useEffect(() => {
     const el = playerRef.current
     if (!useAudio || !el || !audioUrl) return
+    // Música en la TV: el teléfono no suena (el sonido está en la TV)
+    if (castKind() === 'music' && useCastStore.getState().device) {
+      if (!el.paused) el.pause()
+      return
+    }
     // Suena el video del reproductor: play y pausa van al video (la canción sigue en pausa)
     if (videoOwnsRef.current) {
       if (!el.paused) el.pause()
@@ -2129,12 +2134,27 @@ export default function MusicPlayerBar() {
     window.addEventListener('cpn-cast-ended', ended)
     return () => window.removeEventListener('cpn-cast-ended', ended)
   }, [])
-  // Con la música en la TV el teléfono no suena: «reproducir» le dice a la TV que siga
+  // Con la música en la TV el teléfono no suena: el play y la pausa van a la TV, solo si los pide el
+  // usuario (lo que reporta la TV ya no vuelve a mandar una orden: así no se alterna solo)
   useEffect(() => {
-    if (!castingMusic || !isPlaying) return
-    setIsPlaying(false)
-    nativeCastControl('play')
-  }, [castingMusic, isPlaying, setIsPlaying])
+    if (!castingMusic || tvSync.playing === isPlaying) return
+    tvSync.playing = isPlaying
+    nativeCastControl(isPlaying ? 'play' : 'pause')
+  }, [castingMusic, isPlaying])
+  // Con la música en la TV la barra avanza con la posición de la TV (segundos y barra)
+  useEffect(() => {
+    if (!castingMusic) return
+    const iv = window.setInterval(() => {
+      const { t, d } = castPosition()
+      if (d > 0) {
+        setPlayed(t / d)
+        setLocalPlayed(t / d)
+        setDuration(d)
+        setLocalDuration(d)
+      }
+    }, 500)
+    return () => window.clearInterval(iv)
+  }, [castingMusic, setPlayed, setDuration])
 
   // ¿La canción tiene video de YouTube? (no radios, archivos ni canciones aún sin buscar)
   // Como en Spotify: canción o video. También las convertidas a audio o descargadas (su video sigue en YouTube)

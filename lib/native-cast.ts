@@ -3,6 +3,7 @@
 // en una lista de la app y la TV reproduce sola el video, la canción o la radio.
 import { getNative } from '@/lib/native'
 import { useCastStore } from '@/components/CastButton'
+import { useMusicStore } from '@/store/musicStore'
 
 type N = {
   castMedia?: (json: string) => void
@@ -34,6 +35,11 @@ export const nativeCastAvailable = () => !!n()?.castMedia
 let kind: 'music' | 'video' | null = null
 export const castKind = () => kind
 
+/** Lo que dice la TV: si reproduce, en qué segundo va y cuánto dura (la barra del teléfono lo muestra) */
+export const tvSync = { playing: null as boolean | null, pos: 0, dur: 0 }
+/** Segundo y duración de lo que suena en la TV (estimado entre avisos) */
+export const castPosition = () => ({ t: tvSync.pos, d: tvSync.dur })
+
 export function nativeCast(m: NativeCastMedia) {
   const b = n()
   if (!b?.castMedia) return false
@@ -60,7 +66,7 @@ export const canOpenMirroring = () => !!n()?.openMirroring
 
 // Estado que manda la app: conectando, cargando, sonando, terminó, error, desconectada
 if (typeof window !== 'undefined') {
-  ;(window as unknown as { __cpnCast?: (o: { state: string; device?: string }) => void }).__cpnCast = (o) => {
+  ;(window as unknown as { __cpnCast?: (o: { state: string; device?: string; pos?: number; dur?: number }) => void }).__cpnCast = (o) => {
     const st = useCastStore.getState()
     if (o.state === 'idle' || o.state === 'unsupported') {
       kind = null
@@ -70,6 +76,20 @@ if (typeof window !== 'undefined') {
       return
     }
     if (o.device) st.setDevice(o.device)
+    if (typeof o.pos === 'number' && isFinite(o.pos)) tvSync.pos = o.pos
+    if (typeof o.dur === 'number' && isFinite(o.dur) && o.dur > 0) tvSync.dur = o.dur
+    // Solo avisa la posición: no cambia nada más
+    if (o.state === 'progress') return
+    // Música: lo que haga la TV es lo que se ve en el teléfono (sin que el teléfono suene)
+    if (kind === 'music') {
+      if (o.state === 'playing' || o.state === 'paused') {
+        tvSync.playing = o.state === 'playing'
+        useMusicStore.getState().setIsPlaying(tvSync.playing)
+      } else if (o.state === 'connecting' || o.state === 'loading' || o.state === 'connected') {
+        tvSync.playing = false
+        useMusicStore.getState().setIsPlaying(false)
+      }
+    }
     if (o.state === 'connecting' || o.state === 'loading' || o.state === 'connected') st.setTvState('loading')
     else if (o.state === 'playing' || o.state === 'paused') st.setTvState('playing')
     else if (o.state === 'error') st.setTvState('error')

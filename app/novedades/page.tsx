@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Transmitir a la TV: el teléfono ya no suena ni alterna play y pausa solo; la barra de abajo avanza con los segundos de lo que se ve en la TV',
       'Página del artista: «Los más escuchados» ahora va arriba, con botón Reproducir y Aleatorio (6 a 10 temas con más reproducciones en YouTube); si YouTube no responde, muestra videos del artista',
       'Página del artista: nueva sección «Los más escuchados» con sus 10 temas con más reproducciones, para tocarlos desde ahí',
       'Biblioteca → Videos: aparecen los videos con me gusta y los guardados para después, como video. Se abren en el reproductor de video y se quitan con su ✕',

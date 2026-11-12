@@ -36,9 +36,12 @@ object NativeCast {
     private var pending: JSONObject? = null
     private var client: RemoteMediaClient? = null
 
-    private fun report(state: String, device: String? = null) {
+    private fun report(state: String, device: String? = null, pos: Double? = null, dur: Double? = null) {
         val o = JSONObject().put("state", state)
         if (device != null) o.put("device", device)
+        // Segundo en que va y duración en la TV (la barra del teléfono avanza con eso)
+        if (pos != null) o.put("pos", pos)
+        if (dur != null && dur > 0) o.put("dur", dur)
         MainActivity.toWeb("window.__cpnCast && window.__cpnCast(${o})")
     }
 
@@ -200,11 +203,18 @@ object NativeCast {
         }
     }
 
+    // Cada segundo: en qué segundo va lo que suena en la TV
+    private val progress = RemoteMediaClient.ProgressListener { p, d ->
+        report("progress", ctx?.sessionManager?.currentCastSession?.castDevice?.friendlyName, p / 1000.0, d / 1000.0)
+    }
+
     private fun watch(c: RemoteMediaClient, device: String?) {
         if (client === c) return
         client?.unregisterCallback(callback)
+        client?.removeProgressListener(progress)
         client = c
         c.registerCallback(callback)
+        c.addProgressListener(progress, 1000)
     }
 
     fun control(action: String) {
