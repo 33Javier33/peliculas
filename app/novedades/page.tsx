@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Video en la TV: al minimizar el reproductor o tocar la barra (también en la sección Videos) se abre la ventana de videos con lo que va en la TV, su tiempo y los que siguen en la cola; la ventana avanza sola con la TV',
+      'Video en el teléfono: al minimizar el reproductor el video sigue en la ventana flotante (ya no se corta a la canción)',
       'Un solo reproductor con la TV: el video que mandas a la TV desde Videos pasa a la música (barra abajo con su tiempo, Canción/Video y los que siguen). Canción ↔ Video cambia lo que muestra la TV, el teléfono no suena y nunca hay dos videos a la vez',
       'Con la TV conectada, abrir otro video lo manda a la TV; al minimizar vuelves a la sección (sin ventana en el teléfono) y al abrir de nuevo el reproductor muestra que se está viendo en la TV y cuánto lleva',
       'Al salir y volver a la app, sigue mostrando que estás transmitiendo y el tiempo de la TV',

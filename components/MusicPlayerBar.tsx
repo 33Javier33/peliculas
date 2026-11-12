@@ -1905,9 +1905,23 @@ export default function MusicPlayerBar() {
     if (!id) return setInline(null)
     setInline({ id, start: 0, place: inlineRef.current.place })
   }, [currentId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Al minimizar el reproductor con el video puesto: el video no se pierde. Si se ve en la TV, se
+  // abre la ventana de videos (lo que va en la TV, su tiempo y los que siguen en la cola); si se ve
+  // en el teléfono, sigue en la ventana flotante sobre la app
+  const wasFullOpenRef = useRef(false)
   useEffect(() => {
-    if (!isFullOpen && inlineRef.current && inlineRef.current.place !== 'float') backToSong()
-  }, [isFullOpen, backToSong])
+    const was = wasFullOpenRef.current
+    wasFullOpenRef.current = isFullOpen
+    if (isFullOpen || !was) return
+    const st = useMusicStore.getState()
+    const v = st.queue[st.currentIndex]
+    const id = ytIdOf(v)
+    if (castingMusicRef.current && castAsVideoRef.current && v && id) {
+      setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime: tvSyncPos() })
+      return
+    }
+    if (inlineRef.current && inlineRef.current.place !== 'float') moveInline('float')
+  }, [isFullOpen]) // eslint-disable-line react-hooks/exhaustive-deps
   // Se abre el reproductor grande con la ventana flotante puesta: el video pasa al reproductor
   useEffect(() => {
     if (isFullOpen && inlineRef.current?.place === 'float') moveInline('sheet')
@@ -1978,6 +1992,18 @@ export default function MusicPlayerBar() {
   // Video a la vista: ventana chica flotante sobre la barra (salvo ampliado o achicado a la barra)
   const floating = !useAudio && !isExpanded && !videoHidden && !isLive && asVideo
   useEffect(() => setVideoHidden(false), [currentId])
+  // Ventana de videos abierta mientras la TV avanza por la cola: muestra el tema que va en la TV
+  useEffect(() => {
+    if (!castingMusicRef.current) return
+    setVideoModal((m) => {
+      if (!m) return m
+      const st = useMusicStore.getState()
+      const v = st.queue[st.currentIndex]
+      const id = ytIdOf(v)
+      if (!v || !id || id === m.id) return m
+      return { id, title: v.title, channelTitle: v.channelTitle, startTime: 0 }
+    })
+  }, [currentId])
   const [shareNotice, setShareNotice] = useState(false)
   const shareCurrent = useCallback(async () => {
     const v = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]
@@ -2217,6 +2243,18 @@ export default function MusicPlayerBar() {
   }
   const queueSwipe = useSwipeDown(closeQueue)
   const barSwipeRef = useRef<{ x: number; y: number } | null>(null)
+  // Tocar la barra con un video en la TV: se abre la ventana de videos (lo que va en la TV, su
+  // tiempo y los que siguen); con canción, el reproductor grande
+  const openFromBar = () => {
+    const st = useMusicStore.getState()
+    const v = st.queue[st.currentIndex]
+    const id = ytIdOf(v)
+    if (castingMusicRef.current && castAsVideoRef.current && v && id) {
+      setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime: tvSyncPos() })
+      return
+    }
+    openFull()
+  }
   // Los temas que siguen en la cola (se muestran bajo el video)
   const queueForVideo = useMusicStore((st) => st.queue)
   const indexForVideo = useMusicStore((st) => st.currentIndex)
@@ -2708,7 +2746,7 @@ export default function MusicPlayerBar() {
                 )}
                 <div
                   className="absolute inset-0 bg-black/30 flex items-center justify-center cursor-pointer"
-                  onClick={openFull}
+                  onClick={openFromBar}
                 >
                   {isAudioLoading ? (
                     <Loader2 className="w-5 h-5 text-white animate-spin" />
@@ -2736,7 +2774,7 @@ export default function MusicPlayerBar() {
                 <ReactPlayer {...playerProps} />
                 {/* Música: si solo se pudo con YouTube, igual se muestra la portada (no el video) */}
                 {!asVideo && (
-                  <div className="absolute inset-0 cursor-pointer" onClick={openFull}>
+                  <div className="absolute inset-0 cursor-pointer" onClick={openFromBar}>
                     {currentVideo.thumbnail && <Image src={currentVideo.thumbnail} alt="" fill sizes="142px" className="object-cover" />}
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                       <Headphones className="w-5 h-5 text-white/90 drop-shadow" />
@@ -2751,7 +2789,7 @@ export default function MusicPlayerBar() {
           <div className="flex-1 flex items-center px-3 sm:px-5 py-1.5 sm:py-2 gap-2 sm:gap-5 min-w-0">
             <button
               type="button"
-              onClick={openFull}
+              onClick={openFromBar}
               className="min-w-0 flex-1 sm:max-w-xs text-left"
               aria-label="Abrir reproductor"
             >
@@ -2774,7 +2812,7 @@ export default function MusicPlayerBar() {
                 {/* Móvil, como YouTube Music: transmitir, reproducir y siguiente (el resto, en el reproductor grande) */}
                 {canCast && (
                   <button
-                    onClick={() => (castingMusic ? openFull() : setTvPicker(true))}
+                    onClick={() => (castingMusic ? openFromBar() : setTvPicker(true))}
                     className={`sm:hidden p-2 transition-colors ${castingMusic ? 'text-emerald-300' : 'text-slate-300 hover:text-white'}`}
                     title={castingMusic ? `En ${castDevice}` : 'Transmitir a la TV'}
                     aria-label={castingMusic ? `Sonando en ${castDevice}` : 'Transmitir a la TV'}
