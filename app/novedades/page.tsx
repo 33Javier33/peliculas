@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Transmitir a la TV: al cambiar a Video mientras se transmite, el video llega a la TV; al volver a conectar, se manda como video si estabas en video; la barra arranca desde cero con cada tema',
       'Transmitir música a la TV: el teléfono se calla por completo (ni la notificación ni otros caminos lo hacen sonar); solo suena la TV',
       'Transmitir a la TV: el teléfono ya no suena ni alterna play y pausa solo; la barra de abajo avanza con los segundos de lo que se ve en la TV',
       'Página del artista: «Los más escuchados» ahora va arriba, con botón Reproducir y Aleatorio (6 a 10 temas con más reproducciones en YouTube); si YouTube no responde, muestra videos del artista',

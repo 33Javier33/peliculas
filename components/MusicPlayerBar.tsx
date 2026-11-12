@@ -57,7 +57,7 @@ import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equa
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
-import { nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring, tvSync, castPosition } from '@/lib/native-cast'
+import { tvSyncPos, nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring, tvSync, castPosition } from '@/lib/native-cast'
 import { useCastStore } from '@/components/CastButton'
 import InlineVideo from '@/components/InlineVideo'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
@@ -2087,10 +2087,16 @@ export default function MusicPlayerBar() {
   const castingMusic = !!castDevice && castKind() === 'music'
   const castingMusicRef = useRef(false)
   castingMusicRef.current = castingMusic
-  const castTrack = useCallback((position = 0) => {
+  // Qué se manda a la TV: audio (canción) o video; se recuerda para los cambios de canción
+  const castAsVideoRef = useRef(false)
+  const castTrack = useCallback((position = 0, asVideo = castAsVideoRef.current) => {
     const st = useMusicStore.getState()
     const v = st.queue[st.currentIndex]
     if (!v) return
+    castAsVideoRef.current = asVideo
+    // La barra empieza de cero con el tema nuevo (no con la posición del anterior)
+    tvSync.pos = 0
+    tvSync.dur = 0
     // El teléfono se calla al empezar a transmitir (el sonido sale solo por la TV)
     document.querySelectorAll('audio,video').forEach((a) => (a as HTMLMediaElement).pause())
     inlineCtlRef.current?.('pauseVideo')
@@ -2098,7 +2104,7 @@ export default function MusicPlayerBar() {
     const base = { title: v.title.replace(/^.+?\s[-–—]\s/, ''), subtitle: v.channelTitle, image: v.thumbnail, position, kind: 'music' as const }
     if (v.streamUrl) nativeCast({ ...base, url: v.streamUrl, live: true })
     else if (v.audioUrl && !/^\/api\/stream\?id=/.test(v.audioUrl)) nativeCast({ ...base, url: v.audioUrl })
-    else if (yt) nativeCast({ ...base, yt, video: !!v.isVideo })
+    else if (yt) nativeCast({ ...base, yt, video: asVideo || !!v.isVideo })
     // (el teléfono sigue sonando hasta que la TV se conecta: si se cancela, no se corta la música)
   }, [])
   // Elegir dónde transmitir: Chromecast / Google TV (la TV reproduce sola) o duplicar la pantalla
@@ -2120,7 +2126,7 @@ export default function MusicPlayerBar() {
     castedIdRef.current = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.id ?? null
     const el = playerRef.current as unknown as HTMLMediaElement | null
     const live = !!useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl
-    castTrack(el && isFinite(el.currentTime) && !live ? el.currentTime : 0)
+    castTrack(el && isFinite(el.currentTime) && !live ? el.currentTime : 0, asVideo && !useAudio)
   }, [castTrack])
   // En la TV: al cambiar de canción, la TV pone la nueva; al terminar en la TV, sigue la cola
   const castedIdRef = useRef<string | null>(null)
@@ -2129,7 +2135,7 @@ export default function MusicPlayerBar() {
     if (castedIdRef.current === null) castedIdRef.current = currentId
     if (castedIdRef.current === currentId) return
     castedIdRef.current = currentId
-    castTrack(0)
+    castTrack(0, castAsVideoRef.current)
   }, [castingMusic, currentId, castTrack])
   useEffect(() => {
     if (!castingMusic) castedIdRef.current = null
@@ -2319,7 +2325,7 @@ export default function MusicPlayerBar() {
           queueFromFullRef.current = true
           if (!useMusicStore.getState().isQueueOpen) toggleQueue()
         }}
-        onWatchVideo={canWatchVideo ? showInline : undefined}
+        onWatchVideo={canWatchVideo ? (castingMusic ? () => castTrack(tvSyncPos(), true) : showInline) : undefined}
         inline={isFullOpen && inline?.place !== 'float' ? inline : null}
         onInlineFloat={() => {
           // A la ventana flotante: se cierra el reproductor y el video sigue flotando sobre la app
@@ -2357,6 +2363,8 @@ export default function MusicPlayerBar() {
           // siguen también van como canción) y, si se veía el video, sigue solo el audio desde el
           // mismo segundo. Para ver un video: «Video».
           if (getAlwaysVideo()) setAlwaysVideo(false)
+          // Transmitiendo: «Canción» manda solo el audio a la TV
+          if (castingMusic) return castTrack(tvSyncPos(), false)
           if (inlineRef.current) return backToSong()
           if (!(asVideo && !useAudio)) return
           const st = useMusicStore.getState()

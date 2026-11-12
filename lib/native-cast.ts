@@ -39,6 +39,8 @@ export const castKind = () => kind
 export const tvSync = { playing: null as boolean | null, pos: 0, dur: 0 }
 /** Segundo y duración de lo que suena en la TV (estimado entre avisos) */
 export const castPosition = () => ({ t: tvSync.pos, d: tvSync.dur })
+/** Segundo en que va lo que suena en la TV */
+export const tvSyncPos = () => tvSync.pos
 
 export function nativeCast(m: NativeCastMedia) {
   const b = n()
