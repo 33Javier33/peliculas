@@ -165,6 +165,13 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun askAudioPermission() = MainActivity.askAudioPermission()
 
+    /** App del reloj: { used: se conectó alguna vez, v: su versión ("" si es anterior a informarla) } */
+    @JavascriptInterface
+    fun wearInfo(): String = JSONObject()
+        .put("used", WearSync.hasWatchApp(context))
+        .put("v", WearSync.watchVersion(context))
+        .toString()
+
     /** Respuesta para el reloj (biblioteca, confirmaciones) */
     @JavascriptInterface
     fun wearReply(path: String, json: String) {

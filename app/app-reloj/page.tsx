@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import LatestApkVersion from '@/components/LatestApkVersion'
+import WatchVersionStatus from '@/components/WatchVersionStatus'
 import { Watch, Download, Smartphone, Wifi, Music2 } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -43,9 +43,7 @@ export default function WatchAppPage() {
         >
           <Download className="w-5 h-5" /> Descargar la app del reloj
         </a>
-        <p className="mt-2 text-center text-slate-500 text-xs">
-          <LatestApkVersion /> · En el reloj, la versión instalada aparece al final de la pantalla de inicio (Biblioteca).
-        </p>
+        <WatchVersionStatus flavor="media" />
         {/* Cada app tiene su reloj: el de PulsoMusic solo funciona con PulsoMusic en el teléfono */}
         <div id="pulsomusic" className="mt-4 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30 p-4 scroll-mt-24">
           <p className="text-white font-semibold text-sm">¿Usas PulsoMusic en el teléfono?</p>
@@ -56,6 +54,7 @@ export default function WatchAppPage() {
           >
             <Download className="w-5 h-5" /> Descargar el reloj de PulsoMusic
           </a>
+          <WatchVersionStatus flavor="music" />
         </div>
 
         <h2 className="mt-10 text-lg font-bold text-white font-display">Cómo instalarla</h2>

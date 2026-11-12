@@ -24,6 +24,8 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-cyan-500 to-violet-500',
     items: [
+      'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'App para el reloj: muestra la versión disponible de cada reloj (PulsoMedia y PulsoMusic) y si el tuyo está al día o desactualizado',
       'Ventana de videos: el video, línea de tiempo, controles y botones quedan fijos; solo se desliza «A continuación»',
       'Video en la TV: la ventana se abre al minimizar o tocar la barra de música con casting activo; TV avanza solo con los siguientes videos',
       'Un reproductor unificado: video en TV, barra con canción/video en el teléfono, ambos sincronizados y sin sonido duplicado',

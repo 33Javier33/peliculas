@@ -173,7 +173,10 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
         scope.launch { send(app, json) }
     }
 
-    fun hello(c: Context) = cmd(c, "hello")
+    /** Avisa que la app del reloj está abierta y con qué versión (el teléfono la muestra al actualizar) */
+    fun hello(c: Context) = cmd(c, "hello") {
+        runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull()?.let { put("v", it) }
+    }
 
     fun browse(c: Context) = cmd(c, "browse")
 

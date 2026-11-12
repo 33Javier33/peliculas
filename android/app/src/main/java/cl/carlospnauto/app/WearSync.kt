@@ -22,6 +22,9 @@ object WearSync {
     /** ¿Se usó alguna vez la app del reloj? (la recuerda el teléfono) */
     fun hasWatchApp(c: Context) = c.getSharedPreferences("wear", Context.MODE_PRIVATE).getBoolean("app", false)
 
+    /** Versión de la app del reloj la última vez que se conectó ("" si no la mandó: reloj antiguo) */
+    fun watchVersion(c: Context) = c.getSharedPreferences("wear", Context.MODE_PRIVATE).getString("ver", "") ?: ""
+
     fun watching() = System.currentTimeMillis() - helloAt < 3 * 60 * 1000
 
     fun send(c: Context, path: String, json: String) = send(c, path, json.toByteArray())
@@ -127,7 +130,11 @@ object WearSync {
         when (val a = o.optString("a")) {
             "hello" -> {
                 helloAt = System.currentTimeMillis()
-                if (!hasWatchApp(c)) c.getSharedPreferences("wear", Context.MODE_PRIVATE).edit().putBoolean("app", true).apply()
+                // Versión del reloj (los relojes anteriores a esto no la mandan: queda vacía)
+                c.getSharedPreferences("wear", Context.MODE_PRIVATE).edit()
+                    .putBoolean("app", true)
+                    .putString("ver", o.optString("v"))
+                    .apply()
                 // Que el reloj tenga ya su ícono de «Sonando» (lo que suena ahora)
                 lastNow = ""
                 runCatching { state(c, lastState) }

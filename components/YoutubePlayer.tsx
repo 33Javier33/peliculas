@@ -792,7 +792,7 @@ export default function YoutubePlayer({
             <span>{fmt(pos)}</span>
             <span>{len ? fmt(len) : '--:--'}</span>
           </div>
-          <div className="mt-2 flex items-center justify-center gap-3 sm:gap-6">
+          <div className="mt-2 flex items-center justify-center gap-2 sm:gap-6">
             <button onClick={() => setCastOpen(true)} className={`w-11 h-11 rounded-full flex items-center justify-center hover:bg-white/10 ${castHere ? 'text-violet-300' : 'text-slate-200'}`} aria-label="Ver en la TV" title="Ver en la TV">
               <Cast className="w-6 h-6" />
             </button>
@@ -807,6 +807,9 @@ export default function YoutubePlayer({
             </button>
             <button onClick={() => onNext?.()} disabled={!onNext} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10 disabled:opacity-30" aria-label="Siguiente video" title={upNext ? `Siguiente: ${upNext}` : 'Siguiente'}>
               <SkipForward className="w-6 h-6" />
+            </button>
+            <button onClick={() => setMenuOpen(true)} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10" aria-label="Más opciones" title="Más opciones">
+              <MoreVertical className="w-6 h-6" />
             </button>
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:justify-center">
@@ -833,7 +836,6 @@ export default function YoutubePlayer({
               </>
             )}
             <Opt href={`https://www.youtube.com/watch?v=${videoId}`} label="Abrir YouTube" icon={<ExternalLink className="w-5 h-5" />} />
-            <Opt onClick={() => setMenuOpen(true)} label="Más" icon={<MoreVertical className="w-5 h-5" />} />
           </div>
         </div>
         </div>
