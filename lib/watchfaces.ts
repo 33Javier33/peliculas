@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'info',
+    name: 'Info',
+    file: 'Esfera-Info.apk',
+    description:
+      'Toda la información de un vistazo: fecha, próximo evento, fase lunar, día del año, semana, hora con segundos y zona horaria, batería, ritmo cardíaco, pasos con distancia y clima. 8 colores y pantalla siempre activa mínima (solo la hora) o completa.',
+    features: ['Digital', 'Fase lunar', 'Eventos', 'Clima', 'Ritmo cardíaco', 'Pasos y km', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-12',
+  },
+  {
     id: 'sportpro',
     name: 'Sport Pro',
     file: 'Esfera-Sportpro.apk',

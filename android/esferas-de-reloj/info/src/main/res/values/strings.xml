@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Info</string>
+    <string name="face_name">Info</string>
+    <string name="editor_title">Personalizar Info</string>
+    <string name="done">Listo</string>
+</resources>
