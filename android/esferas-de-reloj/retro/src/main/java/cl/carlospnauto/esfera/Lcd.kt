@@ -38,7 +38,7 @@ object Lcd {
 
     private fun segments(mask: Int, w: Float, h: Float, t: Float) {
         path.reset()
-        val g = t * 0.14f
+        val g = t * 0.06f
         val l = t / 2
         if (mask and 1 != 0) hSeg(l + g, w - l - g, l, t)
         if (mask and 64 != 0) hSeg(l + g, w - l - g, h / 2, t)
@@ -51,7 +51,7 @@ object Lcd {
 
     /** Un dígito inclinado (x, y = arriba a la izquierda). ghost: color de los segmentos apagados (0 = sin) */
     fun digit(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
-        val t = w * 0.21f
+        val t = w * 0.30f
         canvas.save()
         canvas.translate(x, y + h)
         canvas.skew(-0.1f, 0f)
@@ -132,7 +132,7 @@ object Lcd {
     /** Texto en puntos (x, y = arriba a la izquierda; p = paso entre puntos). Sin tildes. */
     fun dots(canvas: Canvas, s: String, x: Float, y: Float, p: Float, on: Int, ghost: Int) {
         val clean = Normalizer.normalize(s.uppercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
-        val d = p * 0.82f
+        val d = p * 0.9f
         for ((i, ch) in clean.withIndex()) {
             val rows = FONT[ch]
             val ox = x + i * p * 6

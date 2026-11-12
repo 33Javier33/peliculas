@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.CornerPathEffect
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
@@ -152,6 +153,7 @@ class RetroRenderer(
     var lastBounds = Rect()
         private set
 
+    private var corners: CornerPathEffect? = null
     private var tempAt = 0L
     private var batteryTemp = Float.NaN
 
@@ -182,16 +184,24 @@ class RetroRenderer(
         return batteryTemp
     }
 
-    private fun octagon(l: Float, t: Float, r: Float, b: Float, c: Float) {
+    /**
+     * Marco con lados curvos (como el bisel de los relojes digitales retro): arriba apenas arqueado,
+     * costados abombados, abajo siguiendo la curva de la esfera y esquinas en diagonal suavizadas.
+     */
+    private fun framePath(cx: Float, cy: Float, r: Float) {
+        val w = r * 0.78f
+        val top = cy - r * 0.64f
+        val bot = cy + r * 0.66f
+        val c = r * 0.14f
         path.reset()
-        path.moveTo(l + c, t)
-        path.lineTo(r - c, t)
-        path.lineTo(r, t + c)
-        path.lineTo(r, b - c)
-        path.lineTo(r - c, b)
-        path.lineTo(l + c, b)
-        path.lineTo(l, b - c)
-        path.lineTo(l, t + c)
+        path.moveTo(cx - w + c, top)
+        path.quadTo(cx, top - r * 0.035f, cx + w - c, top)
+        path.lineTo(cx + w, top + c)
+        path.quadTo(cx + w + r * 0.05f, cy, cx + w, bot - c * 1.4f)
+        path.lineTo(cx + w - c * 1.2f, bot - c * 0.25f)
+        path.quadTo(cx, bot + r * 0.07f, cx - w + c * 1.2f, bot - c * 0.25f)
+        path.lineTo(cx - w, bot - c * 1.4f)
+        path.quadTo(cx - w - r * 0.05f, cy, cx - w, top + c)
         path.close()
     }
 
@@ -220,15 +230,13 @@ class RetroRenderer(
 
         // Marco octogonal
         val frame = Choices.value(context, FRAME)
-        val fl = cx - r * 0.78f
-        val ft = cy - r * 0.64f
-        val fr = cx + r * 0.78f
-        val fb = cy + r * 0.64f
         if (Color.alpha(frame) > 0) {
-            octagon(fl, ft, fr, fb, r * 0.13f)
+            framePath(cx, cy, r)
             stroke.color = if (ambient) Color.DKGRAY else frame
-            stroke.strokeWidth = r * 0.012f
+            stroke.strokeWidth = r * 0.014f
+            stroke.pathEffect = corners ?: CornerPathEffect(r * 0.06f).also { corners = it }
             canvas.drawPath(path, stroke)
+            stroke.pathEffect = null
         }
 
         // Acceso de arriba con su ícono (PulsoMedia por defecto)
@@ -262,7 +270,7 @@ class RetroRenderer(
 
         // Pantalla de cristal líquido
         val mode = if (ambient) 1 else Choices.value(context, SCREEN)
-        val lcd = RectF(cx - r * 0.60f, cy - r * 0.39f, cx + r * 0.60f, cy + r * 0.33f)
+        val lcd = RectF(cx - r * 0.61f, cy - r * 0.39f, cx + r * 0.61f, cy + r * 0.335f)
         val on: Int
         val ghost: Int
         when (mode) {
@@ -283,7 +291,7 @@ class RetroRenderer(
                 ghost = if (ambient) 0 else Color.argb(26, Color.red(on), Color.green(on), Color.blue(on))
             }
         }
-        canvas.drawRoundRect(lcd, r * 0.035f, r * 0.035f, fill)
+        canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)
         fill.shader = null
 
         // Íconos de la pantalla: nivel (barritas), «memo» y campana apagados
@@ -316,10 +324,10 @@ class RetroRenderer(
         // Fila 3: hora grande, segundos chicos e indicador P / 24
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
-        val dw = r * 0.135f
-        val dh = r * 0.24f
+        val dw = r * 0.14f
+        val dh = r * 0.25f
         val y3 = cy + r * 0.035f
-        val x0 = cx - r * 0.42f
+        val x0 = cx - r * 0.44f
         Lcd.digit(canvas, h[0], x0, y3, dw, dh, on, ghost)
         Lcd.digit(canvas, h[1], x0 + dw * 1.2f, y3, dw, dh, on, ghost)
         Lcd.colon(canvas, x0 + dw * 2.42f, y3, dh, r * 0.018f, on)
