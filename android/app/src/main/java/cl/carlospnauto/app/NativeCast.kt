@@ -224,6 +224,10 @@ object NativeCast {
         when (action) {
             "play" -> c.play()
             "pause" -> c.pause()
+            // Mover la línea de tiempo de la TV desde el teléfono: "seek:SEGUNDOS"
+            else -> action.removePrefix("seek:").takeIf { action.startsWith("seek:") }?.toDoubleOrNull()?.let { sec ->
+                c.seek(com.google.android.gms.cast.MediaSeekOptions.Builder().setPosition((sec * 1000).toLong().coerceAtLeast(0)).build())
+            }
         }
     }
 

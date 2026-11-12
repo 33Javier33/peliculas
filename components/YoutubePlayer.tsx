@@ -1,16 +1,16 @@
 'use client'
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { isPhoneScreen, openMini } from '@/store/miniStore'
-import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2, Play, Pause, RotateCcw, RotateCw, Maximize } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2, ChevronDown, Play, Pause, RotateCcw, RotateCw, Maximize } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
-import CastButton, { loadCast } from '@/components/CastButton'
+import CastButton, { loadCast, useCastStore } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
 import { isNativeApp, nativePrefetch } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
-import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring } from '@/lib/native-cast'
+import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 
 interface YoutubePlayerProps {
@@ -39,6 +39,10 @@ interface YoutubePlayerProps {
   onToggleAutoplay?: () => void
   /** Con el teléfono bloqueado la música pasó a otra canción: al volver no se retoma este video */
   onTrackChange?: () => void
+  /** Lista de videos (para mostrar «A continuación» bajo el video) */
+  list?: { id: string; title: string; channel?: string }[]
+  /** Elegir otro video de la lista */
+  onPick?: (v: { id: string; title: string; channel?: string }) => void
 }
 
 interface VideoCandidate {
@@ -82,6 +86,8 @@ export default function YoutubePlayer({
   autoNext = true,
   onToggleAutoplay,
   onTrackChange,
+  list,
+  onPick,
 }: YoutubePlayerProps) {
   const onTrackChangeRef = useRef(onTrackChange)
   onTrackChangeRef.current = onTrackChange
@@ -106,6 +112,46 @@ export default function YoutubePlayer({
   const [len, setLen] = useState(0)
   const [altPlaying, setAltPlaying] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
+  // ¿Este video se ve en la TV? (video suelto enviado desde aquí, o la canción que suena en la TV)
+  const tvDevice = useCastStore((st) => st.device)
+  const currentSongId = useMusicStore((st) => st.queue[st.currentIndex]?.id)
+  const [tvTick, setTvTick] = useState(0)
+  const castHere =
+    !!tvDevice && ((castKind() === 'video' && castYtId() === videoId) || (castKind() === 'music' && currentSongId === videoId))
+  void tvTick
+  const castHereRef = useRef(castHere)
+  castHereRef.current = castHere
+  const [tvPlaying, setTvPlaying] = useState(true)
+  // Al abrir un video mientras la TV muestra otro video: también va a la TV (el teléfono no suena)
+  const castOnOpenRef = useRef(!!useCastStore.getState().device && castKind() === 'video')
+  useEffect(() => {
+    if (!castOnOpenRef.current || !nativeCastAvailable()) return
+    if (castYtId() === videoId) return
+    nativeCast({ yt: videoId, video: true, title, subtitle: channelTitle, image: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, position: 0, kind: 'video' })
+    setTvTick((n) => n + 1)
+  }, [videoId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // La línea de tiempo sigue a la TV; al terminar en la TV sigue el próximo video de la lista
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      setTvTick((n) => n + 1)
+      if (!castHereRef.current) return
+      setPos(tvSync.pos)
+      if (tvSync.dur > 0) setLen(tvSync.dur)
+      if (tvSync.playing !== null) setTvPlaying(tvSync.playing)
+    }, 1000)
+    const onEnded = () => {
+      if (castKind() === 'video' && castYtId() === videoId) onNextRef.current?.()
+    }
+    window.addEventListener('cpn-cast-ended', onEnded)
+    return () => {
+      window.clearInterval(iv)
+      window.removeEventListener('cpn-cast-ended', onEnded)
+    }
+  }, [videoId])
+  useEffect(() => {
+    // Ya se ve en la TV: el video de aquí queda en pausa
+    if (castHere) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*')
+  }, [castHere])
   useEffect(() => {
     setPos(startTime ?? 0)
     setLen(0)
@@ -249,6 +295,8 @@ export default function YoutubePlayer({
     const command = (func: string, args: unknown[] = []) =>
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
     const onVis = () => {
+      // Se está viendo en la TV: al bloquear o salir no se cambia nada
+      if (castHereRef.current) return
       const st = useMusicStore.getState()
       if (appHidden()) {
         const alt = altVideoRef.current
@@ -437,8 +485,20 @@ export default function YoutubePlayer({
   // Reproductor propio (los controles de YouTube van ocultos): tiempo, play/pausa, saltos
   const sendYt = (func: string, args: unknown[] = []) =>
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
-  const isPlaying = mode === 'youtube' ? ytPlaying : altPlaying
+  // Los que siguen en la lista (para echar un vistazo bajo el video)
+  const upcoming = useMemo(() => {
+    if (!list?.length || !onPick) return []
+    const i = list.findIndex((v) => v.id === videoId)
+    const rest = i >= 0 ? [...list.slice(i + 1), ...list.slice(0, i)] : list.filter((v) => v.id !== videoId)
+    return rest.slice(0, 20)
+  }, [list, onPick, videoId])
+  const isPlaying = castHere ? tvPlaying : mode === 'youtube' ? ytPlaying : altPlaying
   const togglePlay = () => {
+    if (castHereRef.current) {
+      nativeCastControl(tvPlaying ? 'pause' : 'play')
+      setTvPlaying(!tvPlaying)
+      return
+    }
     if (mode === 'youtube') {
       sendYt(ytPlaying ? 'pauseVideo' : 'playVideo')
       setYtPlaying(!ytPlaying)
@@ -452,6 +512,11 @@ export default function YoutubePlayer({
   const seek = (t: number) => {
     timeRef.current = t
     setPos(t)
+    if (castHereRef.current) {
+      tvSync.pos = t
+      nativeCastControl(`seek:${t}`)
+      return
+    }
     if (mode === 'youtube') sendYt('seekTo', [t, true])
     else if (altVideoRef.current) altVideoRef.current.currentTime = t
   }
@@ -523,14 +588,6 @@ export default function YoutubePlayer({
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-2">
-          <button
-            onClick={() => setCastOpen(true)}
-            className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
-            aria-label="Ver en la TV"
-            title="Ver en la TV"
-          >
-            <Cast className="w-5 h-5" />
-          </button>
           {onNext && onToggleAutoplay && (
             <button
               onClick={onToggleAutoplay}
@@ -541,25 +598,23 @@ export default function YoutubePlayer({
               Auto {autoNext ? 'sí' : 'no'}
             </button>
           )}
-          {onNext && (
-            <button
-              onClick={onNext}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/10 text-white text-xs font-semibold hover:bg-white/20 max-w-[11rem]"
-              title={upNext ? `Siguiente: ${upNext}` : 'Siguiente video'}
-              aria-label="Siguiente video"
-            >
-              <SkipForward className="w-4 h-4 shrink-0" />
-              <span className="truncate hidden sm:inline">{upNext ? upNext : 'Siguiente'}</span>
-            </button>
-          )}
+          <button
+            onClick={() => (canFloat && !floating ? floatVideo() : onClose(timeRef.current))}
+            className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
+            title="Minimizar: el video sigue en una ventana pequeña"
+            aria-label="Minimizar"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
           <button onClick={() => onClose(timeRef.current)} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
             <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 min-h-0 gap-3 overflow-y-auto">
-        <div className="w-full max-w-6xl">
+      <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-4 min-h-0 gap-3 overflow-y-auto">
+        {/* El video queda fijo arriba mientras se recorre la lista de abajo */}
+        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black -mt-2 pt-2 sm:-mt-4 sm:pt-4">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button role="tab" aria-selected={false} onClick={() => (onSong ?? onClose)(timeRef.current)} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
@@ -575,6 +630,13 @@ export default function YoutubePlayer({
             className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
           >
+            {castHere && (
+              <div className="absolute inset-0 z-30 bg-black/90 flex flex-col items-center justify-center gap-2 p-4 text-center">
+                <Cast className="w-8 h-8 text-violet-300" />
+                <p className="text-white text-sm font-semibold">Se está viendo en {tvDevice}</p>
+                <p className="text-slate-400 text-xs">Usa los controles de abajo para manejar la TV</p>
+              </div>
+            )}
             {floating && (
               <div className="absolute inset-0 z-30 bg-black/85 flex flex-col items-center justify-center gap-3 p-4 text-center">
                 <PictureInPicture2 className="w-8 h-8 text-violet-300" />
@@ -594,7 +656,7 @@ export default function YoutubePlayer({
               <iframe
                 ref={iframeRef}
                 key={`${videoId}-${quality}`}
-                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&controls=0&fs=0&iv_load_policy=3&enablejsapi=1${
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${castOnOpenRef.current ? 0 : 1}&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&controls=0&fs=0&iv_load_policy=3&enablejsapi=1${
                   quality !== 'auto' ? `&vq=${quality}` : ''
                 }${startAt ? `&start=${startAt}` : ''}${startMuted ? '&mute=1' : ''}&origin=${encodeURIComponent(origin)}`}
                 title={title}
@@ -667,7 +729,10 @@ export default function YoutubePlayer({
             <span>{fmt(pos)}</span>
             <span>{len ? fmt(len) : '--:--'}</span>
           </div>
-          <div className="mt-2 flex items-center justify-center gap-5 sm:gap-7">
+          <div className="mt-2 flex items-center justify-center gap-3 sm:gap-6">
+            <button onClick={() => setCastOpen(true)} className={`w-11 h-11 rounded-full flex items-center justify-center hover:bg-white/10 ${castHere ? 'text-violet-300' : 'text-slate-200'}`} aria-label="Ver en la TV" title="Ver en la TV">
+              <Cast className="w-6 h-6" />
+            </button>
             <button onClick={() => seek(Math.max(0, pos - 10))} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10" aria-label="Atrás 10 segundos">
               <RotateCcw className="w-6 h-6" />
             </button>
@@ -676,6 +741,9 @@ export default function YoutubePlayer({
             </button>
             <button onClick={() => seek(len ? Math.min(len - 1, pos + 10) : pos + 10)} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10" aria-label="Adelantar 10 segundos">
               <RotateCw className="w-6 h-6" />
+            </button>
+            <button onClick={() => onNext?.()} disabled={!onNext} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10 disabled:opacity-30" aria-label="Siguiente video" title={upNext ? `Siguiente: ${upNext}` : 'Siguiente'}>
+              <SkipForward className="w-6 h-6" />
             </button>
           </div>
           <div className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:justify-center">
@@ -687,7 +755,6 @@ export default function YoutubePlayer({
               <VideoAudioDownload compact id={videoId} title={title} channelTitle={channelTitle} className="!w-12 !h-12 !rounded-2xl !bg-surface-2/80 !border !border-white/10 !backdrop-blur-0" />
               <span className="text-[11px] text-slate-300 leading-tight text-center">Descargar</span>
             </div>
-            <Opt onClick={() => setCastOpen(true)} label="Ver en la TV" icon={<Cast className="w-5 h-5" />} />
             {canFloat && <Opt onClick={floating ? backHere : floatVideo} active={floating} label={floating ? 'Traer aquí' : 'Flotante'} icon={<PictureInPicture2 className="w-5 h-5" />} />}
             <Opt onClick={fullscreen} label="Pantalla completa" icon={<Maximize className="w-5 h-5" />} />
             <Opt onClick={() => setQualityOpen(true)} label={QUALITIES.find((q) => q.id === quality)?.label.split(' ')[0] ?? 'Calidad'} icon={<Settings2 className="w-5 h-5" />} />
@@ -705,6 +772,23 @@ export default function YoutubePlayer({
             <Opt href={`https://www.youtube.com/watch?v=${videoId}`} label="Abrir YouTube" icon={<ExternalLink className="w-5 h-5" />} />
           </div>
         </div>
+        {upcoming.length > 0 && (
+          <div className="w-full max-w-6xl px-1 pb-6">
+            <p className="text-white font-bold text-sm mb-2">A continuación</p>
+            <div className="flex flex-col gap-1">
+              {upcoming.map((v) => (
+                <button key={v.id} onClick={() => onPick?.(v)} className="flex items-center gap-3 text-left rounded-xl p-1.5 hover:bg-white/5 active:bg-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-32 aspect-video rounded-lg object-cover shrink-0 bg-surface-2" />
+                  <span className="min-w-0">
+                    <span className="block text-white text-sm font-semibold leading-snug line-clamp-2">{v.title}</span>
+                    {v.channel && <span className="block text-slate-500 text-xs truncate mt-0.5">{v.channel}</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
       {qualityOpen && (

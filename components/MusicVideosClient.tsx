@@ -241,6 +241,11 @@ export default function MusicVideosClient() {
           channelTitle={open.channel}
           onNext={next ? advance : undefined}
           upNext={next?.title}
+          list={openList.length ? openList : items ?? []}
+          onPick={(v) => {
+            const hit = (openList.length ? openList : items ?? []).find((x) => x.id === v.id)
+            if (hit) setOpen(hit)
+          }}
           autoNext
           songToggle
           onSong={(t) => {

@@ -24,6 +24,9 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Reproductor de video: el video queda fijo arriba mientras bajas a ver «A continuación» (los videos que siguen); tocas uno y cambia. Botón para minimizar a la ventana flotante',
+      'Controles del video juntos: TV, atrás 10 s, reproducir, adelantar 10 s y siguiente video',
+      'Video en la TV: la línea de tiempo del teléfono sigue a la TV (también se puede mover y pausar desde ahí) y al terminar sigue solo con el próximo video de la lista; si abres otro video, también va a la TV',
       'Videos musicales con reproductor propio: bajo el video va la barra de tiempo, los botones atrás 10 s / reproducir / adelantar 10 s y una fila ordenada de opciones del mismo tamaño (Me gusta, Ver después, Descargar, Ver en la TV, Flotante, Pantalla completa, Calidad, Comentarios, Otra fuente)',
       'Videos a la TV (apps PulsoMedia y PulsoMusic): ahora la TV recibe el video completo, con imagen y sonido, en videos musicales, PulsoTube y películas de YouTube. Antes se quedaba cargando porque YouTube ya casi no entrega el archivo con ambos juntos',
       'Reproductor de video ordenado: todas las opciones van arriba en una sola fila (Me gusta, Ver después, Descargar, Ver en la TV, Ventana flotante, Calidad, Comentarios). Se quitó el ícono de descarga repetido',

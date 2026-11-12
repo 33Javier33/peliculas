@@ -62,7 +62,7 @@ export default function ArtistVideos({ name }: { name: string }) {
           )
         })}
       </div>
-      {open && <YoutubePlayer key={open.id} onNext={next ? advance : undefined} autoNext={isMusic || autoplay} onTrackChange={() => setOpen(null)} songToggle={isMusic} onSong={(t) => { continueAsSong({ id: open.id, title: open.title, channelTitle: open.channel }, t); setOpen(null) }} onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={() => setOpen(null)} />}
+      {open && <YoutubePlayer key={open.id} list={list} onPick={(v) => { const hit = list.find((x) => x.id === v.id); if (hit) setOpen(hit) }} onNext={next ? advance : undefined} autoNext={isMusic || autoplay} onTrackChange={() => setOpen(null)} songToggle={isMusic} onSong={(t) => { continueAsSong({ id: open.id, title: open.title, channelTitle: open.channel }, t); setOpen(null) }} onToggleAutoplay={isMusic ? undefined : () => setAutoplay(!autoplay)} upNext={next?.title} videoId={open.id} title={open.title} channelTitle={open.channel} onClose={() => setOpen(null)} />}
     </section>
   )
 }

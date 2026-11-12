@@ -46,6 +46,7 @@ export function nativeCast(m: NativeCastMedia) {
   const b = n()
   if (!b?.castMedia) return false
   kind = m.kind
+  castYt = m.yt ?? null
   const abs = (u?: string) => (u && u.startsWith('/') ? `${window.location.origin}${u}` : u)
   useCastStore.getState().setTvState('loading')
   b.castMedia(JSON.stringify({ ...m, url: abs(m.url), image: abs(m.image) }))
@@ -54,9 +55,15 @@ export function nativeCast(m: NativeCastMedia) {
 
 export const nativeCastStop = () => {
   kind = null
+  castYt = null
   n()?.castStop?.()
 }
-export const nativeCastControl = (a: 'play' | 'pause') => n()?.castControl?.(a)
+export const nativeCastControl = (a: 'play' | 'pause' | `seek:${number}`) => n()?.castControl?.(a)
+/** Video de YouTube que está en la TV (para seguir con el próximo y mostrar su tiempo) */
+let castYt: string | null = null
+export const castYtId = () => castYt
+/** ¿La TV muestra este video (o la música que suena, si es kind música)? */
+export const castingNow = () => !!useCastStore.getState().device && kind !== null
 /** TV sin Chromecast: abre «Transmitir / Smart View / Duplicar pantalla» del teléfono */
 export const openMirroring = () => {
   const b = n()
@@ -72,6 +79,7 @@ if (typeof window !== 'undefined') {
     const st = useCastStore.getState()
     if (o.state === 'idle' || o.state === 'unsupported') {
       kind = null
+      castYt = null
       st.setDevice(null)
       if (o.state === 'unsupported') st.setTvState('error')
       window.dispatchEvent(new Event('cpn-cast-stopped'))
@@ -83,6 +91,7 @@ if (typeof window !== 'undefined') {
     // Solo avisa la posición: no cambia nada más
     if (o.state === 'progress') return
     // Música: lo que haga la TV es lo que se ve en el teléfono (sin que el teléfono suene)
+    if (o.state === 'playing' || o.state === 'paused') tvSync.playing = o.state === 'playing'
     if (kind === 'music') {
       if (o.state === 'playing' || o.state === 'paused') {
         tvSync.playing = o.state === 'playing'

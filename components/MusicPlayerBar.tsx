@@ -2205,6 +2205,13 @@ export default function MusicPlayerBar() {
   }
   const queueSwipe = useSwipeDown(closeQueue)
   const barSwipeRef = useRef<{ x: number; y: number } | null>(null)
+  // Los temas que siguen en la cola (se muestran bajo el video)
+  const queueForVideo = useMusicStore((st) => st.queue)
+  const indexForVideo = useMusicStore((st) => st.currentIndex)
+  const upNextVideos = useMemo(
+    () => queueForVideo.slice(indexForVideo, indexForVideo + 21).map((t) => ({ id: t.id, title: t.title, channel: t.channelTitle })),
+    [queueForVideo, indexForVideo]
+  )
   if (!isBarShown) return null
 
   const progressPercent = isLive ? 100 : localPlayed * 100
@@ -2311,6 +2318,16 @@ export default function MusicPlayerBar() {
           title={videoModal.title}
           channelTitle={videoModal.channelTitle}
           startTime={videoModal.startTime}
+          list={upNextVideos}
+          onPick={(v) => {
+            // Elegir otro tema de la cola: suena con su video
+            const st = useMusicStore.getState()
+            const i = st.queue.findIndex((t, k) => k > st.currentIndex && t.id === v.id)
+            const at = i >= 0 ? i : st.queue.findIndex((t) => t.id === v.id)
+            if (at < 0) return
+            st.playIndex(at)
+            followVideo(0)
+          }}
           onClose={(t) => {
             // Agrandado desde el reproductor: al cerrar vuelve al video en el reproductor
             if (expandedFromInlineRef.current) {
