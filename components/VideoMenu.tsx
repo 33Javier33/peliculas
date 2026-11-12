@@ -129,7 +129,7 @@ export default function VideoMenu({
             <span className="block text-slate-400 text-xs truncate">Todos los álbumes{info ? ` de ${info.artist.name}` : ''}</span>
           </span>
         </button>
-        <button className={item} onClick={() => go(`/videos?search=${encodeURIComponent(channelTitle)}`)}>
+        <button className={item} onClick={() => go(`/music/videos?q=${encodeURIComponent(channelTitle)}`)}>
           <Play className="w-5 h-5 text-violet-300" />
           <span className="min-w-0">
             <span className="block font-semibold">Más videos del artista</span>
