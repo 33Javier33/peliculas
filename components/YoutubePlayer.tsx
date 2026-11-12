@@ -539,6 +539,11 @@ export default function YoutubePlayer({
     }
     ;(onSong ?? onClose)(timeRef.current)
   }
+  // Cerrar el reproductor y reanudar la música si fue pausada
+  const handleClose = (t: number) => {
+    ;(onSong ?? onClose)(t)
+    if (!songToggleRef.current) setTimeout(() => useMusicStore.getState().setIsPlaying(true), 100)
+  }
   // Me gusta y Ver después: si la sección no los maneja, se guardan en la Biblioteca (Videos)
   const storeLiked = useVideoStore((st) => st.liked.some((v) => v.id === videoId))
   const storeLater = useVideoStore((st) => st.watchLater.some((v) => v.id === videoId))
@@ -654,14 +659,14 @@ export default function YoutubePlayer({
             </button>
           )}
           <button
-            onClick={() => (canFloat && !floating && !castHere ? floatVideo() : onClose(timeRef.current))}
+            onClick={() => (canFloat && !floating && !castHere ? floatVideo() : handleClose(timeRef.current))}
             className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`}
             title="Minimizar: el video sigue en una ventana pequeña"
             aria-label="Minimizar"
           >
             <ChevronDown className="w-5 h-5" />
           </button>
-          <button onClick={() => onClose(timeRef.current)} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
+          <button onClick={() => handleClose(timeRef.current)} className={`${iconBtn} text-slate-400 hover:text-white hover:bg-white/10`} title="Cerrar (Esc)" aria-label="Cerrar">
             <X className="w-5 h-5" />
           </button>
         </div>

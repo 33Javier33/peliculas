@@ -25,6 +25,7 @@ import AccountSheet from '@/components/AccountSheet'
 import OfflineBanner from '@/components/OfflineBanner'
 import OfflineManager from '@/components/OfflineManager'
 import MusicAppGuard from '@/components/MusicAppGuard'
+import HealthMonitor from '@/components/HealthMonitor'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
 
@@ -169,6 +170,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </SafeBoundary>
         <SafeBoundary name="OfflineBanner">
           <OfflineBanner />
+        </SafeBoundary>
+        <SafeBoundary name="HealthMonitor">
+          <HealthMonitor />
         </SafeBoundary>
         <MusicAppGuard />
         <SafeBoundary name="OfflineManager">
