@@ -2107,12 +2107,25 @@ export default function MusicPlayerBar() {
     else if (yt) nativeCast({ ...base, yt, video: asVideo || !!v.isVideo })
     // (el teléfono sigue sonando hasta que la TV se conecta: si se cancela, no se corta la música)
   }, [])
+  const tvState = useCastStore((s) => s.tvState)
+  // Si el video no empieza en la TV en 20 s, la TV sigue con la música (no se queda cargando)
+  useEffect(() => {
+    if (!castingMusic || tvState !== 'loading' || !castAsVideoRef.current) return
+    const id = window.setTimeout(() => {
+      if (useCastStore.getState().tvState !== 'loading' || !castAsVideoRef.current) return
+      castAsVideoRef.current = false
+      castTrack(tvSyncPos(), false)
+      setTvNotice('El video no llegó a la TV: sigue la música')
+      window.setTimeout(() => setTvNotice(null), 6000)
+    }, 20000)
+    return () => window.clearTimeout(id)
+  }, [castingMusic, tvState, castTrack])
+
   // Elegir dónde transmitir: Chromecast / Google TV (la TV reproduce sola) o duplicar la pantalla
   const [canCast, setCanCast] = useState(false)
   useEffect(() => setCanCast(nativeCastAvailable() || canOpenMirroring()), [])
   const [tvPicker, setTvPicker] = useState(false)
   const [tvNotice, setTvNotice] = useState<string | null>(null)
-  const tvState = useCastStore((s) => s.tvState)
   const tvAskedRef = useRef(0)
   useEffect(() => {
     if (tvState !== 'error' || Date.now() - tvAskedRef.current > 120000) return
