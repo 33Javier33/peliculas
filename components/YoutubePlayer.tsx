@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { isPhoneScreen, openMini } from '@/store/miniStore'
-import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2 } from 'lucide-react'
+import { Headphones, MonitorPlay, X, ExternalLink, TvMinimalPlay, Heart, Clock3, RefreshCw, Loader2, AlertCircle, Settings2, Cast, MonitorSmartphone, SkipForward, MessageCircle, PictureInPicture2, Play, Pause, RotateCcw, RotateCw, Maximize } from 'lucide-react'
 import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
@@ -45,8 +45,6 @@ interface VideoCandidate {
   url: string
   quality: number
 }
-
-const CHIP = 'inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white'
 
 // Calidades que se pueden pedir a YouTube (vq). "Máxima" pide la más alta que tenga el video.
 const QUALITIES = [
@@ -104,6 +102,14 @@ export default function YoutubePlayer({
   const [ytReady, setYtReady] = useState(false)
   const [ytPlaying, setYtPlaying] = useState(false)
   const [ytSlow, setYtSlow] = useState(false)
+  const [pos, setPos] = useState(0)
+  const [len, setLen] = useState(0)
+  const [altPlaying, setAltPlaying] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    setPos(startTime ?? 0)
+    setLen(0)
+  }, [videoId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [autoSwitched, setAutoSwitched] = useState(false)
   const [alt, setAlt] = useState<{ candidates: VideoCandidate[]; index: number } | null>(null)
   const [altStatus, setAltStatus] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -354,8 +360,12 @@ export default function YoutubePlayer({
         return
       }
       if (data.event === 'onReady' || data.event === 'initialDelivery' || data.event === 'infoDelivery') setYtReady(true)
-      const info = data.info as { currentTime?: number; playerState?: number } | undefined
-      if (typeof info?.currentTime === 'number') timeRef.current = info.currentTime
+      const info = data.info as { currentTime?: number; playerState?: number; duration?: number } | undefined
+      if (typeof info?.currentTime === 'number') {
+        timeRef.current = info.currentTime
+        setPos(info.currentTime)
+      }
+      if (typeof info?.duration === 'number' && info.duration > 0) setLen(info.duration)
       // 1 = reproduciendo (para la ventana flotante de la app de Android)
       if (typeof info?.playerState === 'number') {
         if (info.playerState === 1 || ytPlayingRef.current) lastPlayingAtRef.current = Date.now()
@@ -423,6 +433,34 @@ export default function YoutubePlayer({
 
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const iconBtn = 'p-2 rounded-lg transition-all duration-200'
+
+  // Reproductor propio (los controles de YouTube van ocultos): tiempo, play/pausa, saltos
+  const sendYt = (func: string, args: unknown[] = []) =>
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+  const isPlaying = mode === 'youtube' ? ytPlaying : altPlaying
+  const togglePlay = () => {
+    if (mode === 'youtube') {
+      sendYt(ytPlaying ? 'pauseVideo' : 'playVideo')
+      setYtPlaying(!ytPlaying)
+    } else {
+      const v = altVideoRef.current
+      if (!v) return
+      if (v.paused) v.play().catch(() => {})
+      else v.pause()
+    }
+  }
+  const seek = (t: number) => {
+    timeRef.current = t
+    setPos(t)
+    if (mode === 'youtube') sendYt('seekTo', [t, true])
+    else if (altVideoRef.current) altVideoRef.current.currentTime = t
+  }
+  const fullscreen = () => {
+    const el = boxRef.current
+    if (!el) return
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    else el.requestFullscreen?.().catch(() => {})
+  }
 
   // Ventana flotante: el video sale del navegador y queda sobre el escritorio (Chrome o Edge para
   // videos de YouTube; cualquier navegador para el video alternativo en MP4). La ventana vive aparte
@@ -520,93 +558,7 @@ export default function YoutubePlayer({
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 min-h-0 gap-3">
-        {/* Opciones del video, todas juntas arriba (una sola descarga) */}
-        <div className="w-full max-w-6xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-          {onToggleLike && (
-            <button onClick={onToggleLike} aria-pressed={liked} className={`${CHIP} ${liked ? '!text-violet-200 !bg-violet-500/20' : ''}`}>
-              <Heart className={`w-4 h-4 ${liked ? 'fill-violet-300 text-violet-300' : ''}`} /> Me gusta
-            </button>
-          )}
-          {onToggleLater && (
-            <button onClick={onToggleLater} aria-pressed={later} className={`${CHIP} ${later ? '!text-emerald-300' : ''}`}>
-              <Clock3 className="w-4 h-4" /> {later ? 'Guardado' : 'Ver después'}
-            </button>
-          )}
-          <VideoAudioDownload id={videoId} title={title} channelTitle={channelTitle} className="!h-auto !w-auto !rounded-full !border !border-white/10 !bg-surface-2/80 !px-3.5 !py-2 !text-sm !text-slate-200" />
-          <button onClick={() => setCastOpen(true)} className={CHIP}>
-            <Cast className="w-4 h-4" /> Ver en la TV
-          </button>
-          {canFloat && (
-            <button
-              onClick={floating ? backHere : floatVideo}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
-              title="Ventana flotante: el video queda sobre el escritorio"
-            >
-              <PictureInPicture2 className="w-4 h-4" /> {floating ? 'Traer de vuelta' : 'Ventana flotante'}
-            </button>
-          )}
-          <div className="relative">
-            <button
-              onClick={() => setQualityOpen((v) => !v)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-200 hover:text-white"
-              aria-haspopup="menu"
-              aria-expanded={qualityOpen}
-            >
-              <Settings2 className="w-4 h-4" /> Calidad: {QUALITIES.find((q) => q.id === quality)?.label ?? 'Máxima'}
-            </button>
-            {qualityOpen && (
-              <div role="menu" className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-40 w-44 rounded-xl bg-surface-1 border border-white/10 shadow-2xl overflow-hidden">
-                {QUALITIES.map((q) => (
-                  <button
-                    key={q.id}
-                    role="menuitemradio"
-                    aria-checked={q.id === quality}
-                    onClick={() => chooseQuality(q.id)}
-                    className={`w-full text-left px-4 py-2.5 text-sm ${q.id === quality ? 'bg-violet-500/20 text-violet-200 font-semibold' : 'text-slate-200 hover:bg-white/5'}`}
-                  >
-                    {q.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {mode === 'youtube' ? (
-            <button
-              onClick={() => switchToAlt(false)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition-colors ${
-                ytSlow && !ytReady
-                  ? 'bg-violet-500 text-white shadow-glow'
-                  : 'bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white'
-              }`}
-            >
-              <RefreshCw className="w-4 h-4" /> ¿No carga? Probar otra fuente
-            </button>
-          ) : (
-            <>
-              {altStatus === 'ready' && alt && alt.candidates.length > 1 && (
-                <button
-                  onClick={handleAltError}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
-                >
-                  <RefreshCw className="w-4 h-4" /> Otra fuente ({alt.index + 1}/{alt.candidates.length})
-                </button>
-              )}
-              <button
-                onClick={() => setMode('youtube')}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full font-semibold bg-surface-2/80 border border-white/10 text-slate-300 hover:text-white"
-              >
-                <TvMinimalPlay className="w-4 h-4" /> Volver al reproductor de YouTube
-              </button>
-            </>
-          )}
-          <button onClick={() => setSocialOpen(true)} className={CHIP}>
-            <MessageCircle className="w-4 h-4" /> Comentarios
-          </button>
-          <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer" className={CHIP} title="Abrir en YouTube">
-            <ExternalLink className="w-4 h-4" /> YouTube
-          </a>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 min-h-0 gap-3 overflow-y-auto">
         <div className="w-full max-w-6xl">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
@@ -619,6 +571,7 @@ export default function YoutubePlayer({
             </div>
           )}
           <div
+            ref={boxRef}
             className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
           >
@@ -641,7 +594,7 @@ export default function YoutubePlayer({
               <iframe
                 ref={iframeRef}
                 key={`${videoId}-${quality}`}
-                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&enablejsapi=1${
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&color=white&hl=es&cc_lang_pref=es&playsinline=1&controls=0&fs=0&iv_load_policy=3&enablejsapi=1${
                   quality !== 'auto' ? `&vq=${quality}` : ''
                 }${startAt ? `&start=${startAt}` : ''}${startMuted ? '&mute=1' : ''}&origin=${encodeURIComponent(origin)}`}
                 title={title}
@@ -661,10 +614,14 @@ export default function YoutubePlayer({
                 }}
                 onTimeUpdate={(e) => {
                   timeRef.current = e.currentTarget.currentTime
+                  setPos(e.currentTarget.currentTime)
                   if (!e.currentTarget.paused) lastPlayingAtRef.current = Date.now()
                 }}
+                onDurationChange={(e) => setLen(e.currentTarget.duration || 0)}
+                onPlay={() => setAltPlaying(true)}
+                onPause={() => setAltPlaying(false)}
+                onClick={togglePlay}
                 src={alt.candidates[alt.index].url}
-                controls
                 autoPlay
                 playsInline
                 onError={handleAltError}
@@ -693,7 +650,81 @@ export default function YoutubePlayer({
           </div>
         </div>
 
+        {/* Reproductor: tiempo, controles y opciones ordenadas */}
+        <div className="w-full max-w-6xl px-1">
+          <input
+            type="range"
+            min={0}
+            max={len || 0}
+            step={0.5}
+            value={Math.min(pos, len || 0)}
+            onChange={(e) => seek(Number(e.target.value))}
+            disabled={!len}
+            aria-label="Avance del video"
+            className="w-full h-1.5 accent-violet-400 cursor-pointer"
+          />
+          <div className="flex items-center justify-between text-[11px] text-slate-400 tabular-nums -mt-0.5">
+            <span>{fmt(pos)}</span>
+            <span>{len ? fmt(len) : '--:--'}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-center gap-5 sm:gap-7">
+            <button onClick={() => seek(Math.max(0, pos - 10))} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10" aria-label="Atrás 10 segundos">
+              <RotateCcw className="w-6 h-6" />
+            </button>
+            <button onClick={togglePlay} className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center shadow-lg active:scale-95 transition-transform" aria-label={isPlaying ? 'Pausar' : 'Reproducir'}>
+              {isPlaying ? <Pause className="w-7 h-7 fill-black" /> : <Play className="w-7 h-7 fill-black ml-1" />}
+            </button>
+            <button onClick={() => seek(len ? Math.min(len - 1, pos + 10) : pos + 10)} className="w-11 h-11 rounded-full flex items-center justify-center text-slate-200 hover:bg-white/10" aria-label="Adelantar 10 segundos">
+              <RotateCw className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:justify-center">
+            {onToggleLike && (
+              <Opt onClick={onToggleLike} active={liked} label="Me gusta" icon={<Heart className={`w-5 h-5 ${liked ? 'fill-violet-300 text-violet-300' : ''}`} />} />
+            )}
+            {onToggleLater && <Opt onClick={onToggleLater} active={later} label={later ? 'Guardado' : 'Ver después'} icon={<Clock3 className="w-5 h-5" />} />}
+            <div className="shrink-0 w-[4.5rem] flex flex-col items-center gap-1">
+              <VideoAudioDownload compact id={videoId} title={title} channelTitle={channelTitle} className="!w-12 !h-12 !rounded-2xl !bg-surface-2/80 !border !border-white/10 !backdrop-blur-0" />
+              <span className="text-[11px] text-slate-300 leading-tight text-center">Descargar</span>
+            </div>
+            <Opt onClick={() => setCastOpen(true)} label="Ver en la TV" icon={<Cast className="w-5 h-5" />} />
+            {canFloat && <Opt onClick={floating ? backHere : floatVideo} active={floating} label={floating ? 'Traer aquí' : 'Flotante'} icon={<PictureInPicture2 className="w-5 h-5" />} />}
+            <Opt onClick={fullscreen} label="Pantalla completa" icon={<Maximize className="w-5 h-5" />} />
+            <Opt onClick={() => setQualityOpen(true)} label={QUALITIES.find((q) => q.id === quality)?.label.split(' ')[0] ?? 'Calidad'} icon={<Settings2 className="w-5 h-5" />} />
+            <Opt onClick={() => setSocialOpen(true)} label="Comentarios" icon={<MessageCircle className="w-5 h-5" />} />
+            {mode === 'youtube' ? (
+              <Opt onClick={() => switchToAlt(false)} active={ytSlow && !ytReady} label="Otra fuente" icon={<RefreshCw className="w-5 h-5" />} />
+            ) : (
+              <>
+                {altStatus === 'ready' && alt && alt.candidates.length > 1 && (
+                  <Opt onClick={handleAltError} label={`Fuente ${alt.index + 1}/${alt.candidates.length}`} icon={<RefreshCw className="w-5 h-5" />} />
+                )}
+                <Opt onClick={() => setMode('youtube')} label="YouTube" icon={<TvMinimalPlay className="w-5 h-5" />} />
+              </>
+            )}
+            <Opt href={`https://www.youtube.com/watch?v=${videoId}`} label="Abrir YouTube" icon={<ExternalLink className="w-5 h-5" />} />
+          </div>
+        </div>
+
       </div>
+      {qualityOpen && (
+        <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setQualityOpen(false)}>
+          <div className="w-full sm:max-w-xs bg-surface-1 border border-white/10 rounded-t-3xl sm:rounded-3xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()} role="menu" aria-label="Calidad">
+            <p className="text-white font-bold text-sm px-3 py-2">Calidad</p>
+            {QUALITIES.map((q) => (
+              <button
+                key={q.id}
+                role="menuitemradio"
+                aria-checked={q.id === quality}
+                onClick={() => chooseQuality(q.id)}
+                className={`w-full text-left px-4 py-3 rounded-xl text-sm ${q.id === quality ? 'bg-violet-500/20 text-violet-200 font-semibold' : 'text-slate-200 hover:bg-white/5'}`}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {socialOpen && (
         <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60" onClick={() => setSocialOpen(false)}>
           <div
@@ -797,5 +828,36 @@ export default function YoutubePlayer({
         </div>
       )}
     </div>
+  )
+}
+
+function fmt(t: number) {
+  if (!isFinite(t) || t < 0) t = 0
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const sec = Math.floor(t % 60)
+  return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(sec).padStart(2, '0')}`
+}
+
+/** Botón de opción del reproductor: ícono en un cuadro y su nombre debajo (todos del mismo tamaño) */
+function Opt({ icon, label, onClick, href, active = false }: { icon: React.ReactNode; label: string; onClick?: () => void; href?: string; active?: boolean }) {
+  const box = `w-12 h-12 rounded-2xl flex items-center justify-center border transition-colors ${active ? 'bg-violet-500/25 border-violet-400/40 text-violet-200' : 'bg-surface-2/80 border-white/10 text-slate-200 group-hover:text-white'}`
+  const inner = (
+    <>
+      <span className={box}>{icon}</span>
+      <span className="text-[11px] text-slate-300 leading-tight text-center line-clamp-2">{label}</span>
+    </>
+  )
+  const cls = 'group shrink-0 w-[4.5rem] flex flex-col items-center gap-1'
+  if (href)
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+        {inner}
+      </a>
+    )
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className={cls}>
+      {inner}
+    </button>
   )
 }

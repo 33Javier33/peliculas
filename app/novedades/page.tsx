@@ -24,6 +24,7 @@ const STAGES: Stage[] = [
     Icon: Clapperboard,
     color: 'from-violet-500 to-cyan-500',
     items: [
+      'Videos musicales con reproductor propio: bajo el video va la barra de tiempo, los botones atrás 10 s / reproducir / adelantar 10 s y una fila ordenada de opciones del mismo tamaño (Me gusta, Ver después, Descargar, Ver en la TV, Flotante, Pantalla completa, Calidad, Comentarios, Otra fuente)',
       'Videos a la TV (apps PulsoMedia y PulsoMusic): ahora la TV recibe el video completo, con imagen y sonido, en videos musicales, PulsoTube y películas de YouTube. Antes se quedaba cargando porque YouTube ya casi no entrega el archivo con ambos juntos',
       'Reproductor de video ordenado: todas las opciones van arriba en una sola fila (Me gusta, Ver después, Descargar, Ver en la TV, Ventana flotante, Calidad, Comentarios). Se quitó el ícono de descarga repetido',
       'PulsoTube: nuevo botón «Ver en la TV»',
