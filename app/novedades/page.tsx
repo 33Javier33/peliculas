@@ -25,6 +25,7 @@ const STAGES: Stage[] = [
     color: 'from-cyan-500 to-violet-500',
     items: [
       'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'Tienda de esferas para el reloj (Ajustes → Tienda de esferas): en lista o mosaico, cada una con su descarga. Dos nuevas: Cronógrafo (taquímetro, fibra de carbono, ritmo cardíaco, clima y pasos) y Digital (hora grande, fecha, batería y pasos)',
       'Nueva esfera de reloj Explorer (en App para el reloj): mapa topográfico, brújula en el bisel que apunta al norte (tocándolo), altitud, fecha y un dato a elegir como el clima',
       'App para el reloj: muestra la versión disponible de cada reloj (PulsoMedia y PulsoMusic) y si el tuyo está al día o desactualizado',
       'Ventana de videos: el video, línea de tiempo, controles y botones quedan fijos; solo se desliza «A continuación»',

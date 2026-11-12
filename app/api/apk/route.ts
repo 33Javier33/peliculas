@@ -1,4 +1,5 @@
 import { releaseAssets } from '@/lib/apk-release'
+import { WATCH_FACES, watchFaceById } from '@/lib/watchfaces'
 
 // Descarga del APK. Antes el archivo pasaba por aquí (Vercel), pero Vercel corta las respuestas
 // de sus funciones en 4,5 MB y el APK ya pesa casi 5 MB: llegaba cortado ("archivo dañado").
@@ -14,10 +15,10 @@ export async function GET(request: Request) {
   // ?app=music → PulsoMusic (solo música); si no, PulsoMedia (completa)
   const q = new URL(request.url).searchParams
   const watch = q.get('f') === 'reloj'
-  // ?f=esfera → la esfera de reloj Explorer (sirve con cualquiera de las dos apps)
+  // ?f=esfera&id=cronografo → una esfera de reloj de la tienda (sirven con cualquiera de las dos apps)
   const name =
     q.get('f') === 'esfera'
-      ? 'Esfera-Explorer.apk'
+      ? (watchFaceById(q.get('id') || 'explorer') ?? WATCH_FACES[WATCH_FACES.length - 1]).file
       : q.get('app') === 'music'
         ? watch
           ? 'PulsoMusic-Reloj.apk'

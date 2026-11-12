@@ -260,6 +260,11 @@ export default function SettingsClient() {
               <ChevronRight className="w-4 h-4 text-slate-500" />
             </Row>
           </Link>
+          <Link href="/esferas" className="block">
+            <Row icon={<Watch className="w-4 h-4" />} title="Tienda de esferas" desc="Esferas para tu reloj: descárgalas e instálalas">
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+            </Row>
+          </Link>
           <RepairAppButton />
           <Link href="/novedades" className="block">
             <Row icon={<Info className="w-4 h-4" />} title="Novedades" desc={`Versión ${process.env.NEXT_PUBLIC_APP_VERSION}`}>
