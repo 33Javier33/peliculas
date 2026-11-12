@@ -19,6 +19,23 @@ interface Stage {
 
 const STAGES: Stage[] = [
   {
+    date: '12 nov 2026',
+    title: 'Reproductor de videos refinado y TV sincronizada',
+    Icon: Clapperboard,
+    color: 'from-cyan-500 to-violet-500',
+    items: [
+      'Ventana de videos: el video, línea de tiempo, controles y botones quedan fijos; solo se desliza «A continuación»',
+      'Video en la TV: la ventana se abre al minimizar o tocar la barra de música con casting activo; TV avanza solo con los siguientes videos',
+      'Un reproductor unificado: video en TV, barra con canción/video en el teléfono, ambos sincronizados y sin sonido duplicado',
+      'Página del artista: «Los más escuchados» arriba con sus 10 temas más reproducidos en YouTube (si YouTube no responde, muestra sus videos)',
+      'Biblioteca → Videos: videos con me gusta y guardados para después; se abren en el reproductor y se quitan con ✕',
+      'Videos para ti: el sonido sigue al bloquear el teléfono y retoma desde el mismo segundo al desbloquear',
+      'Minimizar: video en ventana flotante con controles fijos (botón para volver a grande); la música pasa a la barra de abajo',
+      'Transmisión a TV: video va a TV automático desde cualquier sección Videos; TV reproduce solo (sin sonido en el teléfono); minimizar vuelve a la sección',
+      'Al salir y volver a la app: sigue mostrando que estás transmitiendo, con el tiempo sincronizado desde la TV',
+    ],
+  },
+  {
     date: '7 nov 2026',
     title: 'Los videos siguen sonando con el teléfono bloqueado',
     Icon: Clapperboard,
