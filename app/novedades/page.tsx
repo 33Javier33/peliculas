@@ -25,6 +25,7 @@ const STAGES: Stage[] = [
     color: 'from-cyan-500 to-violet-500',
     items: [
       'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'Nueva esfera de reloj Explorer (en App para el reloj): mapa topográfico, brújula en el bisel que apunta al norte (tocándolo), altitud, fecha y un dato a elegir como el clima',
       'App para el reloj: muestra la versión disponible de cada reloj (PulsoMedia y PulsoMusic) y si el tuyo está al día o desactualizado',
       'Ventana de videos: el video, línea de tiempo, controles y botones quedan fijos; solo se desliza «A continuación»',
       'Video en la TV: la ventana se abre al minimizar o tocar la barra de música con casting activo; TV avanza solo con los siguientes videos',

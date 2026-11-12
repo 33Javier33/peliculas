@@ -72,6 +72,8 @@ jobs:
           # PulsoMusic (solo música, radios y videos musicales) y su reloj
           cp android/app/build/outputs/apk/music/release/app-music-release.apk PulsoMusic.apk
           cp android/wear/build/outputs/apk/music/release/wear-music-release.apk PulsoMusic-Reloj.apk
+          # Esfera de reloj Explorer (brújula, altitud y dato a elegir)
+          cp android/esferas-de-reloj/explorer/build/outputs/apk/release/esfera-explorer-release.apk Esfera-Explorer.apk
 
       # Enlaces compartidos (WhatsApp…) que abren la app: Android comprueba que la web y la app son
       # del mismo dueño con la huella de la firma (assetlinks.json; la web lo sirve desde el release)
@@ -120,12 +122,14 @@ jobs:
             Descarga **CarlosPNauto.apk** e instálalo (Android te pedirá permitir "instalar apps desconocidas").
             Reloj (Wear OS): **CarlosPNauto-Reloj.apk** (pasos en la página /app-reloj de la app).
             PulsoMusic (solo música, radios y videos musicales): **PulsoMusic.apk** y su reloj **PulsoMusic-Reloj.apk**.
+            Esfera de reloj Explorer (brújula, altitud, clima): **Esfera-Explorer.apk**.
             Compilación ${{ github.run_number }} · ${{ github.sha }}
           files: |
             CarlosPNauto.apk
             CarlosPNauto-Reloj.apk
             PulsoMusic.apk
             PulsoMusic-Reloj.apk
+            Esfera-Explorer.apk
             version.json
             version-music.json
             assetlinks.json
@@ -139,3 +143,4 @@ jobs:
             CarlosPNauto-Reloj.apk
             PulsoMusic.apk
             PulsoMusic-Reloj.apk
+            Esfera-Explorer.apk

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import WatchVersionStatus from '@/components/WatchVersionStatus'
-import { Watch, Download, Smartphone, Wifi, Music2 } from 'lucide-react'
+import { Watch, Download, Smartphone, Wifi, Music2, Compass } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'App para el reloj (Wear OS)',
@@ -55,6 +55,28 @@ export default function WatchAppPage() {
             <Download className="w-5 h-5" /> Descargar el reloj de PulsoMusic
           </a>
           <WatchVersionStatus flavor="music" />
+        </div>
+
+        {/* Esfera de reloj: funciona sola, con cualquiera de las dos apps */}
+        <div id="esfera" className="mt-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 p-4 scroll-mt-24">
+          <p className="flex items-center gap-2 text-white font-semibold text-sm">
+            <Compass className="w-4 h-4 text-amber-300" /> Esfera Explorer (nueva)
+          </p>
+          <p className="text-slate-400 text-xs mt-1">
+            Esfera para TicWatch y Galaxy Watch 4 Classic: mapa topográfico, altitud (barómetro), fecha y un círculo con el dato que
+            elijas (clima, batería, pasos…). <b>Brújula:</b> toca el bisel (el anillo de N, NE, E…) y gira para que la N apunte al
+            norte; tócalo otra vez para dejarlo fijo. Archivo <b>Esfera-Explorer.apk</b>, se instala con los mismos pasos de abajo.
+          </p>
+          <a
+            href="/api/apk?f=esfera"
+            className="mt-3 flex items-center justify-center gap-2 w-full rounded-full bg-amber-500 text-black font-bold py-3 text-sm active:scale-[0.97] transition-transform"
+          >
+            <Download className="w-5 h-5" /> Descargar la esfera Explorer
+          </a>
+          <p className="text-slate-500 text-xs mt-2">
+            Para ponerla: mantén presionada la esfera actual del reloj → desliza hasta <b>Explorer</b> (o «Añadir esfera»). Para elegir el
+            dato del círculo derecho o la brújula: mantenla presionada → <b>Personalizar</b> (engranaje).
+          </p>
         </div>
 
         <h2 className="mt-10 text-lg font-bold text-white font-display">Cómo instalarla</h2>

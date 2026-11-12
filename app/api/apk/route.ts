@@ -14,7 +14,17 @@ export async function GET(request: Request) {
   // ?app=music → PulsoMusic (solo música); si no, PulsoMedia (completa)
   const q = new URL(request.url).searchParams
   const watch = q.get('f') === 'reloj'
-  const name = q.get('app') === 'music' ? (watch ? 'PulsoMusic-Reloj.apk' : 'PulsoMusic.apk') : watch ? 'CarlosPNauto-Reloj.apk' : 'CarlosPNauto.apk'
+  // ?f=esfera → la esfera de reloj Explorer (sirve con cualquiera de las dos apps)
+  const name =
+    q.get('f') === 'esfera'
+      ? 'Esfera-Explorer.apk'
+      : q.get('app') === 'music'
+        ? watch
+          ? 'PulsoMusic-Reloj.apk'
+          : 'PulsoMusic.apk'
+        : watch
+          ? 'CarlosPNauto-Reloj.apk'
+          : 'CarlosPNauto.apk'
   let target = ''
   try {
     const { assets } = await releaseAssets()

@@ -16,3 +16,6 @@ dependencyResolutionManagement {
 rootProject.name = "CarlosPNauto"
 include(":app")
 include(":wear")
+// Esferas de reloj (Wear OS)
+include(":esfera-explorer")
+project(":esfera-explorer").projectDir = file("esferas-de-reloj/explorer")

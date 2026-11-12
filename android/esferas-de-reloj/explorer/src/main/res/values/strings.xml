@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Explorer</string>
+    <string name="face_name">Explorer</string>
+    <string name="editor_title">Personalizar Explorer</string>
+    <string name="compass_on">Brújula al norte: Sí</string>
+    <string name="compass_off">Brújula al norte: No</string>
+    <string name="pick_data">Dato del círculo derecho</string>
+    <string name="done">Listo</string>
+    <string name="editor_hint">También puedes tocar el bisel de la esfera para activar o apagar la brújula.</string>
+</resources>
