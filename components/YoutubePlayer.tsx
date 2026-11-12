@@ -12,6 +12,7 @@ import { isNativeApp, nativePrefetch } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
+import { useVideoStore } from '@/store/videoStore'
 import { tvTakeVideo } from '@/lib/video-handoff'
 
 interface YoutubePlayerProps {
@@ -538,6 +539,14 @@ export default function YoutubePlayer({
     }
     ;(onSong ?? onClose)(timeRef.current)
   }
+  // Me gusta y Ver después: si la sección no los maneja, se guardan en la Biblioteca (Videos)
+  const storeLiked = useVideoStore((st) => st.liked.some((v) => v.id === videoId))
+  const storeLater = useVideoStore((st) => st.watchLater.some((v) => v.id === videoId))
+  const savedVideo = { id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` }
+  const isLikedNow = onToggleLike ? !!liked : storeLiked
+  const isLaterNow = onToggleLater ? !!later : storeLater
+  const likeNow = () => (onToggleLike ? onToggleLike() : useVideoStore.getState().toggle('liked', savedVideo))
+  const laterNow = () => (onToggleLater ? onToggleLater() : useVideoStore.getState().toggle('watchLater', savedVideo))
   const isPlaying = castHere ? tvPlaying : mode === 'youtube' ? ytPlaying : altPlaying
   const togglePlay = () => {
     if (castHereRef.current) {
@@ -660,7 +669,7 @@ export default function YoutubePlayer({
 
       <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-4 min-h-0 gap-3 overflow-y-auto">
         {/* El video queda fijo arriba mientras se recorre la lista de abajo */}
-        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black -mt-2 pt-2 sm:-mt-4 sm:pt-4">
+        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black -mt-2 pt-2 sm:-mt-4 sm:pt-4 border-b border-white/5">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button role="tab" aria-selected={false} onClick={toSong} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
@@ -756,10 +765,9 @@ export default function YoutubePlayer({
               </div>
             )}
           </div>
-        </div>
 
-        {/* Reproductor: tiempo, controles y opciones ordenadas */}
-        <div className="w-full max-w-6xl px-1">
+        {/* Reproductor: tiempo, controles y opciones ordenadas (fijos junto al video) */}
+        <div className="w-full px-1 pt-2 pb-2">
           <input
             type="range"
             min={0}
@@ -792,11 +800,11 @@ export default function YoutubePlayer({
               <SkipForward className="w-6 h-6" />
             </button>
           </div>
-          <div className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:justify-center">
-            {onToggleLike && (
-              <Opt onClick={onToggleLike} active={liked} label="Me gusta" icon={<Heart className={`w-5 h-5 ${liked ? 'fill-violet-300 text-violet-300' : ''}`} />} />
+          <div className="mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 sm:justify-center">
+            {(
+              <Opt onClick={likeNow} active={isLikedNow} label="Me gusta" icon={<Heart className={`w-5 h-5 ${isLikedNow ? 'fill-violet-300 text-violet-300' : ''}`} />} />
             )}
-            {onToggleLater && <Opt onClick={onToggleLater} active={later} label={later ? 'Guardado' : 'Ver después'} icon={<Clock3 className="w-5 h-5" />} />}
+            {<Opt onClick={laterNow} active={isLaterNow} label={isLaterNow ? 'Guardado' : 'Ver después'} icon={<Clock3 className="w-5 h-5" />} />}
             <div className="shrink-0 w-[4.5rem] flex flex-col items-center gap-1">
               <VideoAudioDownload compact id={videoId} title={title} channelTitle={channelTitle} className="!w-12 !h-12 !rounded-2xl !bg-surface-2/80 !border !border-white/10 !backdrop-blur-0" />
               <span className="text-[11px] text-slate-300 leading-tight text-center">Descargar</span>
@@ -817,6 +825,7 @@ export default function YoutubePlayer({
             )}
             <Opt href={`https://www.youtube.com/watch?v=${videoId}`} label="Abrir YouTube" icon={<ExternalLink className="w-5 h-5" />} />
           </div>
+        </div>
         </div>
         {upcoming.length > 0 && (
           <div className="w-full max-w-6xl px-1 pb-6">
