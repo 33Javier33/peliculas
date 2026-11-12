@@ -15,6 +15,13 @@ import android.graphics.Typeface
 import android.os.BatteryManager
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasComplicationFactory
+import androidx.wear.watchface.TapEvent
+import androidx.wear.watchface.TapType
+import cl.carlospnauto.esfera.comun.Action
+import cl.carlospnauto.esfera.comun.Brand
+import cl.carlospnauto.esfera.comun.FaceConfig
+import cl.carlospnauto.esfera.comun.Shortcuts
+import cl.carlospnauto.esfera.comun.Spot
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlot
 import androidx.wear.watchface.ComplicationSlotsManager
@@ -41,8 +48,14 @@ private const val TOP = 101
 private const val LEFT = 102
 private const val BOTTOM = 103
 
-/** Círculos de datos (los muestra Personalizar) */
-val SLOTS = listOf(TOP to "Círculo de arriba", LEFT to "Círculo izquierdo", BOTTOM to "Círculo de abajo")
+/** Círculos de datos y accesos a PulsoMedia y PulsoMusic (los cambia Personalizar) */
+object Config : FaceConfig {
+    override val slots = listOf(TOP to "Círculo de arriba", LEFT to "Círculo izquierdo", BOTTOM to "Círculo de abajo")
+    override val spots = listOf(
+        Spot(0.29f, -0.29f, Action.MEDIA, "Acceso de arriba"),
+        Spot(0.29f, 0.29f, Action.MUSIC, "Acceso de abajo"),
+    )
+}
 
 private val ORANGE = Color.rgb(255, 122, 26)
 private val BEIGE = Color.rgb(216, 210, 191)
@@ -96,10 +109,16 @@ class FaceService : WatchFaceService() {
         watchState: WatchState,
         complicationSlotsManager: ComplicationSlotsManager,
         currentUserStyleRepository: CurrentUserStyleRepository,
-    ): WatchFace = WatchFace(
-        WatchFaceType.ANALOG,
-        ChronoRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository),
-    )
+    ): WatchFace {
+        val renderer = ChronoRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository)
+        return WatchFace(WatchFaceType.ANALOG, renderer).setTapListener(object : WatchFace.TapListener {
+            override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
+                if (tapType != TapType.UP || complicationSlot != null) return
+                val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos, 0.09f)
+                if (i >= 0) Shortcuts.open(this@FaceService, i, Config.spots[i])
+            }
+        })
+    }
 }
 
 class ChronoAssets : Renderer.SharedAssets {
@@ -127,9 +146,12 @@ class ChronoRenderer(
     private var carbon: BitmapShader? = null
     private var carbonFor = 0f
     private val battery = context.getSystemService(BatteryManager::class.java)
+    var lastBounds = Rect()
+        private set
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: ChronoAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
         val r = min(bounds.width(), bounds.height()) / 2f
@@ -146,6 +168,20 @@ class ChronoRenderer(
         for ((_, slot) in complications.complicationSlots) {
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
+        // Accesos (PulsoMedia, PulsoMusic…) con su aro, y la marca sobre la fecha
+        for (spot in Config.spots) {
+            val x = cx + spot.x * r
+            val y = cy + spot.y * r
+            fill.color = Color.BLACK
+            canvas.drawCircle(x, y, r * 0.072f, fill)
+            stroke.color = if (ambient) Color.GRAY else ORANGE
+            stroke.strokeWidth = r * 0.008f
+            canvas.drawCircle(x, y, r * 0.072f, stroke)
+        }
+        Shortcuts.drawAll(canvas, context, Config.spots, cx, cy, r, r * 0.06f, ORANGE, ambient)
+        val brandColor = if (ambient) Color.GRAY else BEIGE
+        Brand.draw(canvas, cx + r * 0.385f, cy - r * 0.135f, r * 0.042f, brandColor, "CARLOS P. NAUTO")
+        Brand.draw(canvas, cx + r * 0.385f, cy - r * 0.088f, r * 0.036f, brandColor, "INTERACTIVE")
         drawHands(canvas, cx, cy, r, zonedDateTime, ambient)
     }
 

@@ -16,6 +16,8 @@ dependencyResolutionManagement {
 rootProject.name = "CarlosPNauto"
 include(":app")
 include(":wear")
+// Esferas de reloj: lo común (accesos a PulsoMedia/PulsoMusic, marca, personalizar)
+include(":esferas-comun")
 // Esferas de reloj (Wear OS): cada carpeta de esferas-de-reloj es una esfera (un APK)
 file("esferas-de-reloj").listFiles()
     ?.filter { File(it, "build.gradle.kts").exists() }

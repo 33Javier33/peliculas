@@ -11,6 +11,13 @@ import android.os.BatteryManager
 import android.text.format.DateFormat
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasComplicationFactory
+import androidx.wear.watchface.TapEvent
+import androidx.wear.watchface.TapType
+import cl.carlospnauto.esfera.comun.Action
+import cl.carlospnauto.esfera.comun.Brand
+import cl.carlospnauto.esfera.comun.FaceConfig
+import cl.carlospnauto.esfera.comun.Shortcuts
+import cl.carlospnauto.esfera.comun.Spot
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.ComplicationSlot
 import androidx.wear.watchface.ComplicationSlotsManager
@@ -35,8 +42,14 @@ import kotlin.math.min
 
 private const val BOTTOM = 101
 
-/** Dato de abajo (los muestra Personalizar): por defecto, los pasos */
-val SLOTS = listOf(BOTTOM to "Dato de abajo")
+/** Dato de abajo (por defecto, los pasos) y accesos a PulsoMedia y PulsoMusic */
+object Config : FaceConfig {
+    override val slots = listOf(BOTTOM to "Dato de abajo")
+    override val spots = listOf(
+        Spot(-0.50f, 0.43f, Action.MEDIA, "Acceso izquierdo"),
+        Spot(0.50f, 0.43f, Action.MUSIC, "Acceso derecho"),
+    )
+}
 
 private val CYAN = Color.rgb(24, 220, 240)
 private val CYAN_DIM = Color.rgb(20, 120, 135)
@@ -73,10 +86,16 @@ class FaceService : WatchFaceService() {
         watchState: WatchState,
         complicationSlotsManager: ComplicationSlotsManager,
         currentUserStyleRepository: CurrentUserStyleRepository,
-    ): WatchFace = WatchFace(
-        WatchFaceType.DIGITAL,
-        DigitalRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository),
-    )
+    ): WatchFace {
+        val renderer = DigitalRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository)
+        return WatchFace(WatchFaceType.DIGITAL, renderer).setTapListener(object : WatchFace.TapListener {
+            override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
+                if (tapType != TapType.UP || complicationSlot != null) return
+                val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
+                if (i >= 0) Shortcuts.open(this@FaceService, i, Config.spots[i])
+            }
+        })
+    }
 }
 
 class DigitalAssets : Renderer.SharedAssets {
@@ -104,9 +123,12 @@ class DigitalRenderer(
         typeface = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
     }
     private val battery = context.getSystemService(BatteryManager::class.java)
+    var lastBounds = Rect()
+        private set
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: DigitalAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
         val r = min(bounds.width(), bounds.height()) / 2f
@@ -197,6 +219,10 @@ class DigitalRenderer(
         for ((_, slot) in complications.complicationSlots) {
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
+
+        // Accesos (PulsoMedia, PulsoMusic…) y la marca
+        Shortcuts.drawAll(canvas, context, Config.spots, cx, cy, r, r * 0.075f, accent, ambient)
+        Brand.draw(canvas, cx, cy - r * 0.56f, r * 0.042f, if (ambient) Color.GRAY else Color.rgb(150, 160, 165))
     }
 
     override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: DigitalAssets) {

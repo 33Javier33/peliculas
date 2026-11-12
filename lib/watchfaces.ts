@@ -15,27 +15,45 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'neon',
+    name: 'Neón',
+    file: 'Esfera-Neon.apk',
+    description:
+      'Cuatro arcos de neón con 8 accesos que eliges tú (PulsoMedia, PulsoMusic, alarmas, temporizador, ajustes), hora cian con borde rosa, fecha con año, batería y dos datos.',
+    features: ['Digital', '8 accesos', 'PulsoMedia', 'PulsoMusic', 'Batería', 'Pasos'],
+    added: '2026-11-12',
+  },
+  {
+    id: 'hud',
+    name: 'HUD',
+    file: 'Esfera-Hud.apk',
+    description:
+      'Panel de instrumentos: hora grande con brillo, arco de batería, arco de segundos, tres datos y 6 accesos en el bisel (PulsoMedia, PulsoMusic, alarmas…).',
+    features: ['Digital', '6 accesos', 'PulsoMedia', 'PulsoMusic', 'Batería', 'Segundos'],
+    added: '2026-11-12',
+  },
+  {
     id: 'digital',
     name: 'Digital',
     file: 'Esfera-Digital.apk',
-    description: 'Hora grande y limpia, fecha en cian, batería y pasos. Fácil de leer de un vistazo.',
-    features: ['Digital', 'Batería', 'Pasos', '12 / 24 h'],
+    description: 'Hora grande y limpia, fecha en cian, batería, pasos y accesos a PulsoMedia y PulsoMusic. Fácil de leer de un vistazo.',
+    features: ['Digital', 'PulsoMedia', 'PulsoMusic', 'Batería', 'Pasos'],
     added: '2026-11-12',
   },
   {
     id: 'cronografo',
     name: 'Cronógrafo',
     file: 'Esfera-Cronografo.apk',
-    description: 'Deportiva con bisel taquímetro y fibra de carbono: ritmo cardíaco, clima y pasos en tres círculos, día, fecha y batería.',
-    features: ['Analógica', 'Ritmo cardíaco', 'Clima', 'Pasos', 'Fecha'],
+    description: 'Deportiva con bisel taquímetro y fibra de carbono: ritmo cardíaco, clima y pasos en tres círculos, día, fecha, batería y accesos a PulsoMedia y PulsoMusic.',
+    features: ['Analógica', 'PulsoMedia', 'PulsoMusic', 'Ritmo cardíaco', 'Clima', 'Pasos'],
     added: '2026-11-12',
   },
   {
     id: 'explorer',
     name: 'Explorer',
     file: 'Esfera-Explorer.apk',
-    description: 'Mapa topográfico con brújula en el bisel (tócalo y la N apunta al norte), altitud y un dato a elegir como el clima.',
-    features: ['Analógica', 'Brújula', 'Altitud', 'Clima', 'Fecha'],
+    description: 'Mapa topográfico con brújula en el bisel (tócalo y la N apunta al norte), altitud, un dato a elegir como el clima y accesos a PulsoMedia y PulsoMusic.',
+    features: ['Analógica', 'Brújula', 'PulsoMedia', 'PulsoMusic', 'Altitud', 'Clima'],
     added: '2026-11-12',
   },
 ]

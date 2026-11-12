@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Para abrir las apps del reloj desde los accesos de la esfera -->
+    <queries>
+        <package android:name="cl.carlospnauto.app" />
+        <package android:name="cl.carlospnauto.music" />
+        <intent>
+            <action android:name="android.intent.action.SHOW_ALARMS" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SHOW_TIMERS" />
+        </intent>
+    </queries>
+</manifest>

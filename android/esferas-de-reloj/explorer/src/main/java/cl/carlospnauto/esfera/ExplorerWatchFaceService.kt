@@ -21,6 +21,10 @@ import androidx.wear.watchface.complications.rendering.CanvasComplicationDrawabl
 import androidx.wear.watchface.complications.rendering.ComplicationDrawable
 import androidx.wear.watchface.complications.rendering.ComplicationStyle
 import androidx.wear.watchface.style.CurrentUserStyleRepository
+import cl.carlospnauto.esfera.comun.Action
+import cl.carlospnauto.esfera.comun.FaceConfig
+import cl.carlospnauto.esfera.comun.Shortcuts
+import cl.carlospnauto.esfera.comun.Spot
 
 /** Preferencias de la esfera (las comparten la esfera y la pantalla de personalizar) */
 object Prefs {
@@ -33,6 +37,16 @@ object Prefs {
 
 /** Círculo derecho: un dato a elegir (clima, batería, pasos…). Por defecto, la batería */
 const val RIGHT_SLOT_ID = 100
+
+/** Lo que cambia Personalizar: brújula, dato del círculo derecho y accesos a PulsoMedia y PulsoMusic */
+object Config : FaceConfig {
+    override val slots = listOf(RIGHT_SLOT_ID to "Dato del círculo derecho")
+    override val spots = listOf(
+        Spot(-0.42f, 0.42f, Action.MEDIA, "Acceso izquierdo"),
+        Spot(0.42f, 0.42f, Action.MUSIC, "Acceso derecho"),
+    )
+    override val compass = true
+}
 
 class ExplorerWatchFaceService : WatchFaceService() {
 
@@ -73,7 +87,11 @@ class ExplorerWatchFaceService : WatchFaceService() {
         val renderer = ExplorerRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository)
         return WatchFace(WatchFaceType.ANALOG, renderer).setTapListener(object : WatchFace.TapListener {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
-                if (tapType == TapType.UP && complicationSlot == null && renderer.isOnBezel(tapEvent.xPos, tapEvent.yPos)) {
+                if (tapType != TapType.UP || complicationSlot != null) return
+                val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos, 0.10f)
+                if (i >= 0) {
+                    Shortcuts.open(this@ExplorerWatchFaceService, i, Config.spots[i])
+                } else if (renderer.isOnBezel(tapEvent.xPos, tapEvent.yPos)) {
                     Prefs.setCompass(this@ExplorerWatchFaceService, !Prefs.compass(this@ExplorerWatchFaceService))
                 }
             }

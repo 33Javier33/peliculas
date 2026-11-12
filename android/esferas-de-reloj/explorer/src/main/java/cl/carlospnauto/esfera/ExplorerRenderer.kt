@@ -19,6 +19,8 @@ import androidx.wear.watchface.Renderer
 import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.style.CurrentUserStyleRepository
 import androidx.wear.watchface.CanvasType
+import cl.carlospnauto.esfera.comun.Brand
+import cl.carlospnauto.esfera.comun.Shortcuts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -112,7 +114,8 @@ class ExplorerRenderer(
 
     private var topo: Bitmap? = null
     private var dialShader: RadialGradient? = null
-    private var lastBounds = Rect()
+    var lastBounds = Rect()
+        private set
 
     /** ¿El toque fue en el bisel (el anillo de la brújula)? */
     fun isOnBezel(x: Int, y: Int): Boolean {
@@ -151,6 +154,19 @@ class ExplorerRenderer(
         for ((_, slot) in complications.complicationSlots) {
             if (slot.enabled) slot.render(canvas, zonedDateTime, renderParameters)
         }
+        // Accesos (PulsoMedia, PulsoMusic…) con su aro
+        for (spot in Config.spots) {
+            val x = cx + spot.x * r
+            val y = cy + spot.y * r
+            if (!ambient) {
+                fill.color = Color.rgb(23, 25, 20)
+                canvas.drawCircle(x, y, r * 0.078f, fill)
+            }
+            stroke.color = if (ambient) Color.GRAY else oliveDark
+            stroke.strokeWidth = r * 0.01f
+            canvas.drawCircle(x, y, r * 0.078f, stroke)
+        }
+        Shortcuts.drawAll(canvas, context, Config.spots, cx, cy, r, r * 0.065f, copper, ambient)
         drawHands(canvas, cx, cy, r, zonedDateTime, ambient)
     }
 
@@ -282,6 +298,7 @@ class ExplorerRenderer(
         text.letterSpacing = 0.06f
         canvas.drawText("EXPLORER", cx, cy - r * 0.36f, text)
         text.letterSpacing = 0f
+        Brand.draw(canvas, cx, cy - r * 0.31f, r * 0.036f, oliveDark)
         if (compassOn) {
             text.textSize = r * 0.05f
             text.color = copper
@@ -290,7 +307,7 @@ class ExplorerRenderer(
                 az == null -> "BRÚJULA…"
                 else -> "${az.toInt()}° ${dir(az)}"
             }
-            canvas.drawText(label, cx, cy - r * 0.27f, text)
+            canvas.drawText(label, cx, cy - r * 0.245f, text)
         }
     }
 

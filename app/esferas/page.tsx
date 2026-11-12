@@ -15,6 +15,7 @@ export default function WatchFacesPage() {
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white font-display">
           <Watch className="w-7 h-7 text-violet-300" /> Tienda de esferas
         </h1>
+        <p className="text-[11px] tracking-[0.2em] text-slate-500 font-semibold mt-1">CARLOS P. NAUTO INTERACTIVE</p>
         <p className="text-slate-400 text-sm mt-2 mb-6">
           Esferas para tu reloj con Wear OS 3 o más nuevo: TicWatch, Galaxy Watch 4 (también el Classic), 5, 6 y 7, Pixel Watch y otros.
         </p>

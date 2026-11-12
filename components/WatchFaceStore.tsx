@@ -128,7 +128,12 @@ export default function WatchFaceStore() {
           <b className="text-white">Para ponerla:</b> mantén presionada la esfera actual del reloj y desliza hasta la nueva (o «Añadir
           esfera»). Para elegir los datos de sus círculos (clima, ritmo cardíaco, pasos…): mantenla presionada → <b>Personalizar</b>.
         </p>
-        <p>Funcionan solas en el reloj: no necesitan PulsoMedia ni PulsoMusic en el teléfono.</p>
+        <p>
+          <b className="text-white">Accesos a PulsoMedia y PulsoMusic:</b> todas las esferas traen íconos que, al tocarlos, abren la app
+          del reloj de PulsoMedia o de PulsoMusic (instálalas desde <Link href="/app-reloj" className="text-violet-300 underline">App para el reloj</Link>).
+          En Personalizar eliges qué abre cada ícono: PulsoMedia, PulsoMusic, alarmas, temporizador, ajustes o nada.
+        </p>
+        <p>La hora, la fecha y la batería funcionan solas en el reloj, sin el teléfono.</p>
       </div>
     </div>
   )
