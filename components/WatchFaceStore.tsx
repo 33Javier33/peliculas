@@ -11,7 +11,7 @@ const KEY = 'cpn-esferas-vista'
 
 const isNew = (f: WatchFace) => Date.now() - new Date(f.added).getTime() < 14 * 86400000
 
-function DownloadLink({ f, compact = false }: { f: WatchFace; compact?: boolean }) {
+export function DownloadLink({ f, compact = false }: { f: WatchFace; compact?: boolean }) {
   return (
     <a
       href={`/api/apk?f=esfera&id=${f.id}`}
@@ -87,15 +87,20 @@ export default function WatchFaceStore() {
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           {WATCH_FACES.map((f) => (
             <div key={f.id} className="rounded-2xl bg-surface-1 border border-white/8 p-3 flex flex-col items-center text-center">
-              <div className="relative">
+              <Link href={`/esferas/${f.id}`} className="relative block active:scale-[0.97] transition-transform" aria-label={`Ver la esfera ${f.name}`}>
                 <Preview f={f} size="w-full max-w-[9rem] aspect-square" />
                 {isNew(f) && <span className="absolute -top-1 -right-1 rounded-full bg-amber-400 text-black text-[10px] font-bold px-2 py-0.5">Nueva</span>}
-              </div>
-              <p className="mt-2 text-white font-semibold text-sm">{f.name}</p>
+              </Link>
+              <Link href={`/esferas/${f.id}`} className="mt-2 text-white font-semibold text-sm">
+                {f.name}
+              </Link>
               <p className="text-slate-500 text-[11px] leading-tight mt-0.5 line-clamp-2">{f.features.join(' · ')}</p>
               <div className="mt-3 w-full space-y-2">
                 <InstallOnWatchButton file={f.file} />
                 <DownloadLink f={f} />
+                <Link href={`/esferas/${f.id}`} className="block text-violet-300 text-xs font-semibold">
+                  Ver detalles
+                </Link>
               </div>
             </div>
           ))}
@@ -104,17 +109,21 @@ export default function WatchFaceStore() {
         <ul className="mt-4 space-y-3">
           {WATCH_FACES.map((f) => (
             <li key={f.id} className="rounded-2xl bg-surface-1 border border-white/8 p-3 flex gap-3">
-              <Preview f={f} size="w-20 h-20 shrink-0" />
+              <Link href={`/esferas/${f.id}`} className="shrink-0 active:scale-[0.97] transition-transform" aria-label={`Ver la esfera ${f.name}`}>
+                <Preview f={f} size="w-20 h-20" />
+              </Link>
               <div className="min-w-0 flex-1">
-                <p className="text-white font-semibold text-sm flex items-center gap-2">
+                <Link href={`/esferas/${f.id}`} className="text-white font-semibold text-sm flex items-center gap-2">
                   {f.name}
                   {isNew(f) && <span className="rounded-full bg-amber-400 text-black text-[10px] font-bold px-2 py-0.5">Nueva</span>}
-                </p>
+                </Link>
                 <p className="text-slate-400 text-xs mt-1">{f.description}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <InstallOnWatchButton file={f.file} compact />
                   <DownloadLink f={f} compact />
-                  <span className="text-slate-500 text-[11px]">{f.file}</span>
+                  <Link href={`/esferas/${f.id}`} className="text-violet-300 text-xs font-semibold">
+                    Ver detalles
+                  </Link>
                 </div>
               </div>
             </li>

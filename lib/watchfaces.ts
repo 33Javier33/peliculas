@@ -150,3 +150,93 @@ export const WATCH_FACES: WatchFace[] = [
 ]
 
 export const watchFaceById = (id: string) => WATCH_FACES.find((f) => f.id === id)
+
+/** Página de cada esfera: imágenes (public/esferas/<id>/1.webp…), descripción completa y qué se personaliza */
+export interface WatchFaceDetail {
+  gallery: number
+  long: string
+  customize: string[]
+}
+
+const COMMON = [
+  'Accesos que abren PulsoMedia, PulsoMusic, alarmas, temporizador, ajustes o batería (eliges cuál en cada lugar)',
+  'Datos de los círculos o recuadros (clima, ritmo cardíaco, pasos, eventos…)',
+]
+
+export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
+  explorer: {
+    gallery: 3,
+    long: 'Una esfera analógica de aventura sobre un mapa topográfico. El bisel es una brújula: tócalo y gira para que la N apunte al norte. Muestra la altitud con el barómetro del reloj, la fecha y un círculo con el dato que elijas (por ejemplo el clima).',
+    customize: ['Brújula al norte (sí / no)', 'Segundero suave o por segundos', ...COMMON],
+  },
+  cronografo: {
+    gallery: 2,
+    long: 'Cronógrafo deportivo con bisel taquímetro, fondo de fibra de carbono y agujas naranjas con luminiscente. Tres círculos de datos (ritmo cardíaco, clima y pasos), día, fecha y batería.',
+    customize: ['Segundero suave o por segundos', ...COMMON],
+  },
+  digital: {
+    gallery: 2,
+    long: 'Digital limpia que usa toda la pantalla: hora grande, fecha, y abajo batería y pasos lado a lado. Un anillo de segundos corre suave por el borde y se completa cada minuto.',
+    customize: ['8 colores', 'Anillo de segundos: suave, por segundos o apagado', 'Marcas del borde: suaves, clásicas, puntos o ninguna', ...COMMON],
+  },
+  hud: {
+    gallery: 2,
+    long: 'Panel de instrumentos con hora grande y brillo cian. El arco cian muestra la batería y el naranja los segundos. Tres círculos de datos y 6 accesos en el bisel.',
+    customize: ['Segundero suave o por segundos', ...COMMON],
+  },
+  neon: {
+    gallery: 2,
+    long: 'Cuatro arcos de neón (cian, rosa, morado y naranja) con 8 accesos sobre ellos. Hora cian con borde rosa, día, mes y año, batería y dos datos.',
+    customize: COMMON,
+  },
+  sport: {
+    gallery: 2,
+    long: 'Digital deportiva: día; mes, fecha y año; hora en 12/24 h como el teléfono; minutos con su raya; AM/PM y segundos; batería; ritmo cardíaco y pasos. Una marca roja recorre el borde con los segundos. Toca la hora o los minutos para abrir PulsoMedia o PulsoMusic.',
+    customize: ['9 temas de color', 'Segundero suave o por segundos', 'Permiso para leer el ritmo cardíaco del sensor', ...COMMON],
+  },
+  sportpro: {
+    gallery: 3,
+    long: 'Como Sport, pero con un color para cada parte: hora, minutos, número del día, raya, datos y marcas, y un brillo de fondo. La batería tiene forma de reloj.',
+    customize: ['10 colores para cada parte', 'Brillo de fondo (rojo, verde, azul, morado, gris o ninguno)', 'Segundero suave o por segundos', 'Permiso para leer el ritmo cardíaco', ...COMMON],
+  },
+  info: {
+    gallery: 4,
+    long: 'Toda la información de un vistazo: fecha, próximo evento, fase lunar, día del año, semana, hora con segundos y zona horaria, batería con su barra, ritmo cardíaco, pasos con kilómetros y clima. La pantalla siempre activa puede ser mínima (solo la hora) o completa.',
+    customize: ['8 colores principales', 'Color de los minutos y de las marcas', 'Pantalla siempre activa: mínima o completa', 'Segundero suave o por segundos', ...COMMON],
+  },
+  clasica: {
+    gallery: 3,
+    long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos.',
+    customize: ['8 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste)', 'Pantalla siempre activa de bajo consumo o completa', 'Segundero suave o por segundos', ...COMMON],
+  },
+  retro: {
+    gallery: 3,
+    long: 'Reloj digital retro de los 80 con pantalla de cristal líquido: dígitos de segmentos con sus «8» apagados, letras de puntos, marco curvo y botones rotulados. LIGHT ilumina la pantalla 3 segundos; SCH, TEL, ADJUST y MEMO abren lo que elijas.',
+    customize: ['Pantalla clásica gris, invertida o con luz azul', 'Color de los dígitos (invertida)', 'Frente a color o blanco y negro', 'Marco de colores u oculto', 'Temperatura de la batería (°C/°F) o del clima', ...COMMON],
+  },
+  lcdcolor: {
+    gallery: 4,
+    long: 'Pantalla de cristal líquido de colores con hora grande y sus «8» apagados, barra de batería y de segundos, ritmo cardíaco, fecha, pasos y fase lunar. En pantalla siempre activa se vuelve oscura con segmentos claros.',
+    customize: ['12 temas (lila, rosa, fucsia, celeste, menta, ámbar, perla, verde clásico, naranja, rojo, noche, negro)', 'Segundero suave o por segundos', ...COMMON],
+  },
+  lcdpro: {
+    gallery: 4,
+    long: 'Pantalla de cristal líquido completa: amanecer/atardecer, batería, hora, día, fecha y segundos, con celdas de ritmo cardíaco, kilómetros y pasos. Arriba clima, sensación térmica y presión (la mide el reloj); abajo el próximo evento.',
+    customize: ['8 temas claros y oscuros', ...COMMON],
+  },
+  databank: {
+    gallery: 2,
+    long: 'El reloj retro con el frente relleno de color y un halo de luz alrededor. Tiene todo lo de la Retro LCD: luz al tocar LIGHT, botones que abren lo que elijas, temperatura, pasos, batería y ritmo cardíaco.',
+    customize: ['6 colores de frente', '7 halos de luz (o sin halo)', 'Pantalla, dígitos, marco y frente a color o B/N', 'Temperatura de la batería o del clima', ...COMMON],
+  },
+  lcdtotal: {
+    gallery: 2,
+    long: 'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más). Fecha en letras de segmentos con año, ALM, SIG y DST que se encienden de verdad (alarma puesta, conexión y horario de verano), caja de batería con forma de pila, hora grande con segundos y celdas de ritmo cardíaco y pasos.',
+    customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', ...COMMON],
+  },
+  tactica: {
+    gallery: 2,
+    long: 'Estilo militar: caja de fecha sobre rejilla, ALM, SIG y DST reales, hora en panel con dos puntos que parpadean, segundos y AM/PM, panel de batería con pila de 6 barras, arcos de segundos y batería en el borde y cajas de ritmo cardíaco y pasos.',
+    customize: ['7 temas (caqui, desierto, ártico, rojo, verde, blanco, naranja)', 'Dos puntos que parpadean o fijos', 'Segundos visibles u ocultos', 'Segundero suave o por segundos', ...COMMON],
+  },
+}
