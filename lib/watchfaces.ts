@@ -81,9 +81,10 @@ export const WATCH_FACES: WatchFace[] = [
     id: 'digital',
     name: 'Digital',
     file: 'Esfera-Digital.apk',
-    description: 'Hora grande y limpia, fecha en cian, batería, pasos y accesos a PulsoMedia y PulsoMusic. Fácil de leer de un vistazo.',
-    features: ['Digital', 'PulsoMedia', 'PulsoMusic', 'Batería', 'Pasos'],
-    added: '2026-11-12',
+    description:
+      'Hora grande que usa toda la pantalla, fecha, y abajo batería y pasos lado a lado. Un anillo de segundos corre suave por el borde y se completa cada minuto. 8 colores, marcas del borde suaves, clásicas, en puntos o sin marcas, y accesos a PulsoMedia y PulsoMusic.',
+    features: ['Digital', 'Anillo de segundos', '8 colores', 'Batería', 'Pasos', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
   },
   {
     id: 'cronografo',

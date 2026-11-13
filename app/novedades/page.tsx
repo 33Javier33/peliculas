@@ -25,6 +25,7 @@ const STAGES: Stage[] = [
     color: 'from-cyan-500 to-violet-500',
     items: [
       'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'Esfera Digital renovada: usa toda la pantalla, batería y pasos lado a lado sin toparse, anillo de segundos que corre suave por el borde, 8 colores y marcas a elegir. Personalizar de todas las esferas con nuevo menú: vista previa en vivo, tarjetas y listas para elegir',
       'Esfera Clásica: humedad, clima y UV, temperaturas mín./actual/máx., fecha, hora con segundos, evento con fase lunar, hora mundial, ritmo, pasos y batería; 8 temas y pantalla siempre activa de bajo consumo',
       'Esfera Retro LCD: reloj digital de los 80 con pantalla de cristal líquido (clásica, invertida o con luz azul), dígitos de segmentos, marco octogonal, temperatura, pasos, batería, ritmo cardíaco y 5 accesos',
       'Esfera Info: fecha, próximo evento, fase lunar, día del año, semana, hora con segundos y zona horaria, batería, ritmo cardíaco, pasos con distancia y clima; 8 colores y pantalla siempre activa mínima o completa',
