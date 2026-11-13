@@ -265,11 +265,11 @@ class RetroRenderer(
             if (!ambient) {
                 // Sombra suave por fuera para que se vea en relieve
                 stroke.color = Color.argb(120, 0, 0, 0)
-                stroke.strokeWidth = r * 0.03f
+                stroke.strokeWidth = r * 0.045f
                 canvas.drawPath(path, stroke)
             }
-            stroke.color = if (ambient) Color.DKGRAY else frame
-            stroke.strokeWidth = r * 0.011f
+            stroke.color = if (ambient) Color.rgb(90, 90, 90) else frame
+            stroke.strokeWidth = r * 0.02f
             canvas.drawPath(path, stroke)
         }
 
@@ -304,7 +304,8 @@ class RetroRenderer(
 
         // Pantalla de cristal líquido
         val lit = !ambient && System.currentTimeMillis() < lightUntil
-        val mode = if (ambient) 1 else if (lit) 2 else Choices.value(context, SCREEN)
+        // Siempre activa: la pantalla clásica gris, pero tenue (poca luz)
+        val mode = if (ambient) 3 else if (lit) 2 else Choices.value(context, SCREEN)
         val lcd = RectF(cx - r * 0.61f, cy - r * 0.39f, cx + r * 0.61f, cy + r * 0.335f)
         val on: Int
         val ghost: Int
@@ -313,6 +314,11 @@ class RetroRenderer(
                 fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.bottom, Color.rgb(176, 186, 166), Color.rgb(140, 152, 134), Shader.TileMode.CLAMP)
                 on = Color.rgb(22, 34, 40)
                 ghost = Color.argb(28, 22, 34, 40)
+            }
+            3 -> {
+                fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.bottom, Color.rgb(62, 68, 58), Color.rgb(48, 54, 46), Shader.TileMode.CLAMP)
+                on = Color.rgb(8, 12, 14)
+                ghost = Color.argb(18, 8, 12, 14)
             }
             2 -> {
                 fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.bottom, Color.rgb(110, 220, 250), Color.rgb(60, 185, 235), Shader.TileMode.CLAMP)
