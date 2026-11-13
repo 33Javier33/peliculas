@@ -248,6 +248,7 @@ object Lcd {
             bar(q, m + q * 0.5f, c - q * 0.2f, h - q * 1.1f, t)
             bar(w - q, m + q * 0.5f, c + q * 0.2f, h - q * 1.1f, t)
         }
+    }
 
     /** Una letra o número de 14 segmentos (x, y = arriba a la izquierda) */
     fun letter(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
