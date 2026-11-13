@@ -374,8 +374,17 @@ class MainActivity : AppCompatActivity() {
         if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(true)", null)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // La app a la vista y sin ventanita: la página nunca debe quedar con el video estirado a
+        // toda la pantalla (pasaba si Android no avisaba el cierre de la ventanita)
+        pipOn = isInPictureInPictureMode
+        if (!isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(false)", null)
+    }
+
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pipOn = isInPictureInPictureMode
         // La web agranda el video a toda la ventanita (y lo devuelve a su lugar al volver)
         web.evaluateJavascript("window.__cpnPip && window.__cpnPip($isInPictureInPictureMode)", null)
         ViewCompat.requestApplyInsets(root)
@@ -509,6 +518,9 @@ class MainActivity : AppCompatActivity() {
         private val main = Handler(Looper.getMainLooper())
 
         /** La web avisa si hay un video sonando (para la ventana flotante al salir) */
+        /** ¿La app está en la ventana flotante? (la página lo consulta para no quedar estirada) */
+        @Volatile var pipOn = false
+
         fun setVideoActive(active: Boolean) {
             main.post { current?.get()?.updateVideoActive(active) }
         }

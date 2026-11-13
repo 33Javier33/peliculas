@@ -82,6 +82,9 @@ class NativeBridge(private val context: Context) {
     }
 
     @JavascriptInterface
+    fun inPip(): Boolean = MainActivity.pipOn
+
+    @JavascriptInterface
     fun videoState(active: Boolean) = MainActivity.setVideoActive(active)
 
     /** Preparar la siguiente canción (buscar su audio y descargar el comienzo) */
