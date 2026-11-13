@@ -15,6 +15,33 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'tactica',
+    name: 'Táctica',
+    file: 'Esfera-Tactica.apk',
+    description:
+      'Estilo militar: caja de fecha sobre rejilla, indicadores ALM (alarma puesta), SIG (conexión) y DST (horario de verano), hora en panel con dos puntos que parpadean, segundos y AM/PM, medidor de batería en columna, arcos de segundos y de batería en el borde, y cajas de ritmo cardíaco y pasos. 7 temas.',
+    features: ['Digital', '7 temas', 'ALM/SIG/DST', 'Batería', 'Ritmo cardíaco', 'Pasos', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
+  },
+  {
+    id: 'lcdtotal',
+    name: 'LCD Total',
+    file: 'Esfera-Lcdtotal.apk',
+    description:
+      'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más): fecha con año, ALM, SIG y DST que se encienden de verdad, caja de batería, hora con segundos y celdas de ritmo cardíaco y pasos. 8 pantallas (claras y en negativo) y 5 colores de luz.',
+    features: ['Digital', 'LCD', '8 pantallas', 'Luz de fondo', 'ALM/SIG/DST', 'Ritmo cardíaco', 'Pasos', 'PulsoMedia'],
+    added: '2026-11-13',
+  },
+  {
+    id: 'databank',
+    name: 'Data Pulso',
+    file: 'Esfera-Databank.apk',
+    description:
+      'El reloj retro con el frente relleno y un halo de luz alrededor: pantalla de cristal líquido con luz al tocar LIGHT, botones SCH, TEL, ADJUST y MEMO, temperatura, pasos, batería y ritmo. Colores del frente, del halo, del marco y de la pantalla.',
+    features: ['Digital', 'Retro LCD', '6 frentes', '7 halos', 'Pasos', 'Temperatura', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
+  },
+  {
     id: 'lcdpro',
     name: 'LCD Pro',
     file: 'Esfera-Lcdpro.apk',

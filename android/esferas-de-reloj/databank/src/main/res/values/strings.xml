@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Data Pulso</string>
+    <string name="face_name">Data Pulso</string>
+    <string name="editor_title">Personalizar Data Pulso</string>
+    <string name="done">Listo</string>
+</resources>

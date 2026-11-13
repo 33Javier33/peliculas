@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Táctica</string>
+    <string name="face_name">Táctica</string>
+    <string name="editor_title">Personalizar Táctica</string>
+    <string name="done">Listo</string>
+</resources>
