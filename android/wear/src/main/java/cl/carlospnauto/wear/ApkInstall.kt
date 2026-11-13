@@ -99,8 +99,11 @@ class InstallActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var action: TextView
+    private lateinit var action2: TextView
     private var file: File? = null
     private var started = false
+    /** El usuario eligió instalar sin el permiso (en algunos relojes el instalador lo resuelve) */
+    private var anyway = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,8 +127,17 @@ class InstallActivity : Activity() {
             setPadding(30, 22, 30, 22)
             visibility = android.view.View.GONE
         }
+        action2 = TextView(this).apply {
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(Color.rgb(45, 48, 54)); cornerRadius = 60f }
+            setPadding(30, 20, 30, 20)
+            visibility = android.view.View.GONE
+        }
         col.addView(status)
         col.addView(action, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 24 })
+        col.addView(action2, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = 12 })
         setContentView(ScrollView(this).apply { setBackgroundColor(Color.BLACK); addView(col) })
         file = intent.getStringExtra("file")?.let { File(it) }
         handleResult(intent)
@@ -145,6 +157,23 @@ class InstallActivity : Activity() {
         action.text = text
         action.visibility = android.view.View.VISIBLE
         action.setOnClickListener { onClick() }
+        action2.visibility = android.view.View.GONE
+    }
+
+    private fun second(text: String, onClick: () -> Unit) {
+        action2.text = text
+        action2.visibility = android.view.View.VISIBLE
+        action2.setOnClickListener { onClick() }
+    }
+
+    /**
+     * Wear OS (TicWatch y otros) no trae la pantalla «Instalar apps desconocidas»: el permiso se da una
+     * vez con una orden de depuración (Bugjaeger → Shell, o adb).
+     */
+    private fun manual() {
+        status.text = "Este reloj no trae el ajuste para permitirlo. Hazlo una sola vez desde el teléfono, con Bugjaeger (conectado al reloj → pestaña Shell) o con adb desde un computador:\n\nappops set $packageName REQUEST_INSTALL_PACKAGES allow\n\nDespués vuelve a tocar «Instalar en el reloj» en el teléfono."
+        button("Intentar instalar igual") { anyway = true; prepare() }
+        second("Cerrar") { finish() }
     }
 
     private fun prepare() {
@@ -156,11 +185,13 @@ class InstallActivity : Activity() {
         }
         val label = apkLabel(f.name)
         // Android pide permitir que esta app instale otras (una sola vez)
-        if (!packageManager.canRequestPackageInstalls()) {
+        if (!packageManager.canRequestPackageInstalls() && !anyway) {
             status.text = "Para instalar $label, permite que ${applicationInfo.loadLabel(packageManager)} instale apps"
             button("Permitir") {
-                runCatching { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
+                val opened = runCatching { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }.isSuccess
+                if (!opened) manual()
             }
+            second("Instalar igual") { anyway = true; prepare() }
             return
         }
         started = true
@@ -209,8 +240,9 @@ class InstallActivity : Activity() {
 
     private fun fail(msg: String) {
         started = false
+        file?.name?.let { replyToPhone(this, null, it, "error", if (packageManager.canRequestPackageInstalls()) msg else "Falta el permiso para instalar apps en el reloj: mira los pasos en App para el reloj") }
+        if (!packageManager.canRequestPackageInstalls()) return manual()
         status.text = "No se pudo instalar:\n$msg"
         button("Reintentar") { prepare() }
-        file?.name?.let { replyToPhone(this, null, it, "error", msg) }
     }
 }

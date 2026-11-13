@@ -126,7 +126,7 @@ export default function WatchFaceStore() {
         <p>
           <b className="text-white">Instalar en el reloj (desde la app):</b> el teléfono la descarga y se la pasa al reloj; en el reloj
           confirmas la instalación. Necesita la app del reloj de PulsoMedia o PulsoMusic (según la app que uses) ya instalada en el reloj; la
-          primera vez el reloj pide permitir que instale apps.
+          primera vez el reloj pide permitir que instale apps (si tu reloj no trae ese ajuste, mira <Link href="/app-reloj#instalar-desde-app" className="text-violet-300 underline">cómo darlo una vez</Link>).
         </p>
         <p>
           <b className="text-white">Cómo instalar una esfera:</b> igual que la app del reloj (con Wear Installer 2), eligiendo el archivo de

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import WatchVersionStatus from '@/components/WatchVersionStatus'
 import InstallOnWatchButton from '@/components/InstallOnWatchButton'
+import CopyCommand from '@/components/CopyCommand'
 import { Watch, Download, Smartphone, Wifi, Music2, Compass, ChevronRight } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -120,6 +121,24 @@ export default function WatchAppPage() {
               <Music2 className="inline w-4 h-4" /> para elegir qué escuchar. Puedes apagar la depuración después.
             </p>
           </Step>
+        </ol>
+
+        <h2 id="instalar-desde-app" className="mt-10 text-lg font-bold text-white font-display scroll-mt-24">Instalar en el reloj desde la app</h2>
+        <p className="text-slate-400 text-sm mt-1">
+          Con la app del reloj ya instalada, el botón <b>Instalar en el reloj</b> (aquí y en la Tienda de esferas) pasa esferas y
+          actualizaciones sin salir de la app. Wear OS pide permitir que la app del reloj instale apps; muchos relojes (TicWatch y
+          otros) no traen esa pantalla, así que se da <b>una sola vez</b> con esta orden:
+        </p>
+        <ol className="mt-3 space-y-2 text-slate-400 text-sm list-decimal pl-5">
+          <li>Con la depuración inalámbrica del reloj activa (pasos 1, 2 y 4 de arriba), abre <b>Bugjaeger</b> en el teléfono, conéctalo al reloj y entra en la pestaña <b>Shell</b> (o usa adb desde un computador).</li>
+          <li>
+            Escribe la orden de tu app (toca para copiarla):
+            <p className="mt-2 text-xs text-white">PulsoMedia</p>
+            <CopyCommand cmd="appops set cl.carlospnauto.app REQUEST_INSTALL_PACKAGES allow" />
+            <p className="mt-2 text-xs text-white">PulsoMusic</p>
+            <CopyCommand cmd="appops set cl.carlospnauto.music REQUEST_INSTALL_PACKAGES allow" />
+          </li>
+          <li>Listo: vuelve a tocar <b>Instalar en el reloj</b> y confirma en el reloj. No hay que repetirlo.</li>
         </ol>
 
         <div className="mt-10 rounded-2xl bg-surface-1 border border-white/8 p-4 text-sm text-slate-400 space-y-2">
