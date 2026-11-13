@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Clásica</string>
+    <string name="face_name">Clásica</string>
+    <string name="editor_title">Personalizar Clásica</string>
+    <string name="done">Listo</string>
+</resources>

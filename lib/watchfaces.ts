@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'clasica',
+    name: 'Clásica',
+    file: 'Esfera-Clasica.apk',
+    description:
+      'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora grande con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. 8 temas y pantalla siempre activa de bajo consumo.',
+    features: ['Digital', '8 temas', 'Bajo consumo', 'Clima', 'Eventos', 'Hora mundial', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
+  },
+  {
     id: 'retro',
     name: 'Retro LCD',
     file: 'Esfera-Retro.apk',
