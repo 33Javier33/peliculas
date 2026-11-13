@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Download, LayoutGrid, List } from 'lucide-react'
 import { WATCH_FACES, type WatchFace } from '@/lib/watchfaces'
+import InstallOnWatchButton from '@/components/InstallOnWatchButton'
 
 type View = 'grid' | 'list'
 const KEY = 'cpn-esferas-vista'
@@ -92,7 +93,8 @@ export default function WatchFaceStore() {
               </div>
               <p className="mt-2 text-white font-semibold text-sm">{f.name}</p>
               <p className="text-slate-500 text-[11px] leading-tight mt-0.5 line-clamp-2">{f.features.join(' · ')}</p>
-              <div className="mt-3 w-full">
+              <div className="mt-3 w-full space-y-2">
+                <InstallOnWatchButton file={f.file} />
                 <DownloadLink f={f} />
               </div>
             </div>
@@ -110,6 +112,7 @@ export default function WatchFaceStore() {
                 </p>
                 <p className="text-slate-400 text-xs mt-1">{f.description}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <InstallOnWatchButton file={f.file} compact />
                   <DownloadLink f={f} compact />
                   <span className="text-slate-500 text-[11px]">{f.file}</span>
                 </div>
@@ -120,6 +123,11 @@ export default function WatchFaceStore() {
       )}
 
       <div className="mt-6 rounded-2xl bg-surface-1/60 border border-white/8 p-4 text-sm text-slate-400 space-y-2">
+        <p>
+          <b className="text-white">Instalar en el reloj (desde la app):</b> el teléfono la descarga y se la pasa al reloj; en el reloj
+          confirmas la instalación. Necesita la app del reloj de PulsoMedia o PulsoMusic (según la app que uses) ya instalada en el reloj; la
+          primera vez el reloj pide permitir que instale apps.
+        </p>
         <p>
           <b className="text-white">Cómo instalar una esfera:</b> igual que la app del reloj (con Wear Installer 2), eligiendo el archivo de
           la esfera. <Link href="/app-reloj#instalar" className="text-violet-300 underline">Ver los pasos</Link>.

@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Evento en curso "Sonando" en la esfera (abre la app del reloj) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Instalar esferas y actualizaciones que manda el teléfono (Android pide confirmar cada una) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:icon="@mipmap/ic_launcher"
@@ -27,6 +29,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- APK que manda el teléfono («Instalar en el reloj») -->
+        <service android:name=".ApkService" android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/cpn/apk" />
+            </intent-filter>
+        </service>
+        <activity
+            android:name=".InstallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
 
         <!-- Avisos del teléfono aunque la app del reloj esté cerrada (lo que suena) -->
         <service android:name=".NowService" android:exported="true">

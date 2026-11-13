@@ -172,6 +172,9 @@ object WearSync {
 
 class WearService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
-        if (event.path == "/cpn/cmd") WearSync.onCommand(applicationContext, String(event.data))
+        when (event.path) {
+            "/cpn/cmd" -> WearSync.onCommand(applicationContext, String(event.data))
+            "/cpn/apkresult" -> WatchInstall.onResult(String(event.data))
+        }
     }
 }

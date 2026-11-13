@@ -172,6 +172,10 @@ class NativeBridge(private val context: Context) {
         .put("v", WearSync.watchVersion(context))
         .toString()
 
+    /** Instalar en el reloj: descarga el APK (esfera o app del reloj) y lo pasa al reloj; avance en window.__cpnWatchInstall */
+    @JavascriptInterface
+    fun installOnWatch(url: String, name: String) = WatchInstall.start(context, url, name)
+
     /** Respuesta para el reloj (biblioteca, confirmaciones) */
     @JavascriptInterface
     fun wearReply(path: String, json: String) {

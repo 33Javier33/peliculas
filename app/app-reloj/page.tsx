@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import WatchVersionStatus from '@/components/WatchVersionStatus'
+import InstallOnWatchButton from '@/components/InstallOnWatchButton'
 import { Watch, Download, Smartphone, Wifi, Music2, Compass, ChevronRight } from 'lucide-react'
 
 export const metadata: Metadata = {
@@ -43,6 +44,9 @@ export default function WatchAppPage() {
         >
           <Download className="w-5 h-5" /> Descargar la app del reloj
         </a>
+        <div className="mt-2">
+          <InstallOnWatchButton file="CarlosPNauto-Reloj.apk" onlyFlavor="media" />
+        </div>
         <WatchVersionStatus flavor="media" />
         {/* Cada app tiene su reloj: el de PulsoMusic solo funciona con PulsoMusic en el teléfono */}
         <div id="pulsomusic" className="mt-4 rounded-2xl bg-fuchsia-500/10 border border-fuchsia-400/30 p-4 scroll-mt-24">
@@ -54,6 +58,9 @@ export default function WatchAppPage() {
           >
             <Download className="w-5 h-5" /> Descargar el reloj de PulsoMusic
           </a>
+          <div className="mt-2">
+            <InstallOnWatchButton file="PulsoMusic-Reloj.apk" onlyFlavor="music" />
+          </div>
           <WatchVersionStatus flavor="music" />
         </div>
 
@@ -122,7 +129,8 @@ export default function WatchAppPage() {
           </p>
           <p className="flex items-start gap-2">
             <Wifi className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
-            Actualizaciones: se instalan igual (pasos 4 y 5), encima de la anterior.
+            Actualizaciones: con la app del reloj ya instalada, toca <b>Instalar en el reloj</b> (sin depuración ni Wear Installer) y confirma en el
+            reloj. También se pueden instalar igual que la primera vez (pasos 4 y 5), encima de la anterior.
           </p>
           <p className="flex items-start gap-2">
             <Watch className="w-4 h-4 shrink-0 mt-0.5 text-violet-300" />
