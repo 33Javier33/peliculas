@@ -16,42 +16,46 @@ object Lcd {
         '-' to 64, 'P' to 115, 'A' to 119, ' ' to 0,
     )
 
-    private fun hSeg(x0: Float, x1: Float, yc: Float, t: Float) {
-        path.moveTo(x0, yc)
-        path.lineTo(x0 + t / 2, yc - t / 2)
-        path.lineTo(x1 - t / 2, yc - t / 2)
-        path.lineTo(x1, yc)
-        path.lineTo(x1 - t / 2, yc + t / 2)
-        path.lineTo(x0 + t / 2, yc + t / 2)
+    private var inset = 0f
+
+    /** Segmento como polígono (pares x, y); se achica hacia su centro para dejar la línea fina entre segmentos */
+    private fun poly(vararg p: Float) {
+        val n = p.size / 2
+        var sx = 0f
+        var sy = 0f
+        for (i in 0 until n) { sx += p[2 * i]; sy += p[2 * i + 1] }
+        sx /= n
+        sy /= n
+        for (i in 0 until n) {
+            var x = p[2 * i]
+            var y = p[2 * i + 1]
+            val dx = sx - x
+            val dy = sy - y
+            val l = kotlin.math.hypot(dx, dy)
+            if (l > 0f) { x += dx / l * inset; y += dy / l * inset }
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
         path.close()
     }
 
-    private fun vSeg(xc: Float, y0: Float, y1: Float, t: Float) {
-        path.moveTo(xc, y0)
-        path.lineTo(xc + t / 2, y0 + t / 2)
-        path.lineTo(xc + t / 2, y1 - t / 2)
-        path.lineTo(xc, y1)
-        path.lineTo(xc - t / 2, y1 - t / 2)
-        path.lineTo(xc - t / 2, y0 + t / 2)
-        path.close()
-    }
-
+    /** Segmentos clásicos de cristal líquido: gruesos y cortados en diagonal donde se juntan */
     private fun segments(mask: Int, w: Float, h: Float, t: Float) {
         path.reset()
-        val g = t * 0.06f
-        val l = t / 2
-        if (mask and 1 != 0) hSeg(l + g, w - l - g, l, t)
-        if (mask and 64 != 0) hSeg(l + g, w - l - g, h / 2, t)
-        if (mask and 8 != 0) hSeg(l + g, w - l - g, h - l, t)
-        if (mask and 32 != 0) vSeg(l, l + g, h / 2 - g, t)
-        if (mask and 2 != 0) vSeg(w - l, l + g, h / 2 - g, t)
-        if (mask and 16 != 0) vSeg(l, h / 2 + g, h - l - g, t)
-        if (mask and 4 != 0) vSeg(w - l, h / 2 + g, h - l - g, t)
+        inset = t * 0.09f
+        val m = h / 2
+        val q = t / 2
+        if (mask and 1 != 0) poly(0f, 0f, w, 0f, w - t, t, t, t)
+        if (mask and 2 != 0) poly(w, 0f, w, m, w - q, m, w - t, m - q, w - t, t)
+        if (mask and 4 != 0) poly(w, m, w, h, w - t, h - t, w - t, m + q, w - q, m)
+        if (mask and 8 != 0) poly(t, h - t, w - t, h - t, w, h, 0f, h)
+        if (mask and 16 != 0) poly(0f, m, q, m, t, m + q, t, h - t, 0f, h)
+        if (mask and 32 != 0) poly(0f, 0f, t, t, t, m - q, q, m, 0f, m)
+        if (mask and 64 != 0) poly(q, m, t, m - q, w - t, m - q, w - q, m, w - t, m + q, t, m + q)
     }
 
     /** Un dígito inclinado (x, y = arriba a la izquierda). ghost: color de los segmentos apagados (0 = sin) */
     fun digit(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
-        val t = w * 0.30f
+        val t = w * 0.27f
         canvas.save()
         canvas.translate(x, y + h)
         canvas.skew(-0.1f, 0f)

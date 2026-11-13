@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.CornerPathEffect
+import android.graphics.RadialGradient
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
@@ -145,6 +145,7 @@ class RetroRenderer(
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        textScaleX = 1.12f
     }
     private val path = Path()
     private val battery = context.getSystemService(BatteryManager::class.java)
@@ -153,7 +154,6 @@ class RetroRenderer(
     var lastBounds = Rect()
         private set
 
-    private var corners: CornerPathEffect? = null
     private var tempAt = 0L
     private var batteryTemp = Float.NaN
 
@@ -185,23 +185,26 @@ class RetroRenderer(
     }
 
     /**
-     * Marco con lados curvos (como el bisel de los relojes digitales retro): arriba apenas arqueado,
-     * costados abombados, abajo siguiendo la curva de la esfera y esquinas en diagonal suavizadas.
+     * Marco del frente: esquinas amplias y redondeadas, costados apenas abombados y el borde de abajo
+     * curvo, siguiendo la esfera redonda (como el bisel de los relojes digitales retro).
      */
     private fun framePath(cx: Float, cy: Float, r: Float) {
-        val w = r * 0.78f
-        val top = cy - r * 0.64f
-        val bot = cy + r * 0.66f
-        val c = r * 0.14f
+        val l = cx - r * 0.79f
+        val rt = cx + r * 0.79f
+        val top = cy - r * 0.65f
+        val bot = cy + r * 0.64f
+        val k1 = r * 0.22f
+        val k2 = r * 0.26f
         path.reset()
-        path.moveTo(cx - w + c, top)
-        path.quadTo(cx, top - r * 0.035f, cx + w - c, top)
-        path.lineTo(cx + w, top + c)
-        path.quadTo(cx + w + r * 0.05f, cy, cx + w, bot - c * 1.4f)
-        path.lineTo(cx + w - c * 1.2f, bot - c * 0.25f)
-        path.quadTo(cx, bot + r * 0.07f, cx - w + c * 1.2f, bot - c * 0.25f)
-        path.lineTo(cx - w, bot - c * 1.4f)
-        path.quadTo(cx - w - r * 0.05f, cy, cx - w, top + c)
+        path.moveTo(l + k1, top)
+        path.quadTo(cx, top - r * 0.03f, rt - k1, top)
+        path.quadTo(rt, top, rt, top + k1)
+        path.quadTo(rt + r * 0.035f, cy, rt - r * 0.01f, bot - k2)
+        path.quadTo(rt - r * 0.03f, bot + r * 0.02f, rt - k2, bot + r * 0.035f)
+        path.quadTo(cx, bot + r * 0.10f, l + k2, bot + r * 0.035f)
+        path.quadTo(l + r * 0.03f, bot + r * 0.02f, l + r * 0.01f, bot - k2)
+        path.quadTo(l - r * 0.035f, cy, l, top + k1)
+        path.quadTo(l, top, l + k1, top)
         path.close()
     }
 
@@ -227,38 +230,48 @@ class RetroRenderer(
         val sky = if (color) Color.rgb(90, 190, 255) else Color.rgb(220, 220, 220)
         val white = if (ambient) Color.GRAY else Color.rgb(235, 235, 235)
         canvas.drawColor(Color.BLACK)
+        if (!ambient) {
+            // Fondo azul muy oscuro, como la caja del reloj
+            fill.shader = RadialGradient(cx, cy - r * 0.2f, r * 1.1f, Color.rgb(20, 30, 44), Color.rgb(6, 9, 14), Shader.TileMode.CLAMP)
+            canvas.drawCircle(cx, cy, r, fill)
+            fill.shader = null
+        }
 
-        // Marco octogonal
+        // Marco del frente
         val frame = Choices.value(context, FRAME)
         if (Color.alpha(frame) > 0) {
             framePath(cx, cy, r)
+            if (!ambient) {
+                // Sombra suave por fuera para que se vea en relieve
+                stroke.color = Color.argb(120, 0, 0, 0)
+                stroke.strokeWidth = r * 0.03f
+                canvas.drawPath(path, stroke)
+            }
             stroke.color = if (ambient) Color.DKGRAY else frame
-            stroke.strokeWidth = r * 0.014f
-            stroke.pathEffect = corners ?: CornerPathEffect(r * 0.06f).also { corners = it }
+            stroke.strokeWidth = r * 0.011f
             canvas.drawPath(path, stroke)
-            stroke.pathEffect = null
         }
 
-        // Acceso de arriba con su ícono (PulsoMedia por defecto)
+        // Acceso de arriba con su ícono (PulsoMedia por defecto), discreto en gris
         if (!ambient) {
             val top = Config.spots[0]
-            Shortcuts.draw(canvas, context, Shortcuts.get(context, 0, top), cx + top.x * r, cy + top.y * r, r * 0.06f, Color.WHITE, false)
+            Shortcuts.draw(canvas, context, Shortcuts.get(context, 0, top), cx + top.x * r, cy + top.y * r, r * 0.055f, Color.rgb(200, 205, 210), true)
         }
 
         // Rótulos del frente
         if (!ambient) {
             label.textAlign = Paint.Align.LEFT
-            label.textSize = r * 0.085f
+            label.textSize = r * 0.078f
             label.color = Color.WHITE
             canvas.drawText("C.P.NAUTO", cx - r * 0.60f, cy - r * 0.50f, label)
             label.textAlign = Paint.Align.RIGHT
-            label.textSize = r * 0.07f
+            label.textSize = r * 0.062f
             label.color = yellow
             canvas.drawText("DATA PULSO 50", cx + r * 0.60f, cy - r * 0.50f, label)
             label.textAlign = Paint.Align.CENTER
-            label.textSize = r * 0.06f
+            label.textSize = r * 0.055f
             label.color = sky
-            label.letterSpacing = 0.08f
+            label.letterSpacing = 0.1f
             canvas.drawText("WATER RESIST", cx, cy - r * 0.425f, label)
             label.letterSpacing = 0f
             vertical(canvas, "ADJUST", cx - r * 0.70f, cy - r * 0.30f, r * 0.045f, white, 90f)
@@ -291,8 +304,23 @@ class RetroRenderer(
                 ghost = if (ambient) 0 else Color.argb(26, Color.red(on), Color.green(on), Color.blue(on))
             }
         }
+        if (!ambient) {
+            // Borde hundido de la pantalla
+            stroke.color = Color.rgb(4, 6, 9)
+            stroke.strokeWidth = r * 0.03f
+            canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, stroke)
+        }
         canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)
         fill.shader = null
+        if (!ambient) {
+            // Sombra del cristal en la parte de arriba
+            fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.top + lcd.height() * 0.16f, Color.argb(70, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)
+            fill.shader = null
+            stroke.color = Color.argb(40, 255, 255, 255)
+            stroke.strokeWidth = r * 0.004f
+            canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, stroke)
+        }
 
         // Íconos de la pantalla: nivel (barritas), «memo» y campana apagados
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
@@ -366,11 +394,15 @@ class RetroRenderer(
         // Botones de abajo
         val blue = if (color) Color.rgb(30, 70, 190) else Color.rgb(70, 70, 70)
         val navy = if (color) Color.rgb(28, 34, 90) else Color.rgb(45, 45, 45)
-        fill.color = blue
-        canvas.drawRoundRect(RectF(cx - r * 0.66f, cy + r * 0.37f, cx - r * 0.43f, cy + r * 0.45f), r * 0.012f, r * 0.012f, fill)
-        canvas.drawRoundRect(RectF(cx + r * 0.43f, cy + r * 0.37f, cx + r * 0.66f, cy + r * 0.45f), r * 0.012f, r * 0.012f, fill)
-        fill.color = navy
-        canvas.drawRect(cx - r * 0.41f, cy + r * 0.37f, cx + r * 0.41f, cy + r * 0.45f, fill)
+        val by0 = cy + r * 0.37f
+        val by1 = cy + r * 0.45f
+        fun lighter(c: Int, k: Int) = Color.rgb((Color.red(c) + k).coerceAtMost(255), (Color.green(c) + k).coerceAtMost(255), (Color.blue(c) + k).coerceAtMost(255))
+        fill.shader = LinearGradient(0f, by0, 0f, by1, lighter(blue, 60), blue, Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(RectF(cx - r * 0.66f, by0, cx - r * 0.43f, by1), r * 0.014f, r * 0.014f, fill)
+        canvas.drawRoundRect(RectF(cx + r * 0.43f, by0, cx + r * 0.66f, by1), r * 0.014f, r * 0.014f, fill)
+        fill.shader = LinearGradient(0f, by0, 0f, by1, lighter(navy, 40), navy, Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(RectF(cx - r * 0.41f, by0, cx + r * 0.41f, by1), r * 0.008f, r * 0.008f, fill)
+        fill.shader = null
         label.textAlign = Paint.Align.CENTER
         label.textSize = r * 0.05f
         label.color = Color.WHITE
