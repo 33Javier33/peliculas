@@ -42,6 +42,7 @@ import cl.carlospnauto.esfera.comun.Choice
 import cl.carlospnauto.esfera.comun.Choices
 import cl.carlospnauto.esfera.comun.FaceConfig
 import cl.carlospnauto.esfera.comun.HeartRate
+import cl.carlospnauto.esfera.comun.Lcd
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import cl.carlospnauto.esfera.comun.textOf
@@ -87,6 +88,11 @@ object Config : FaceConfig {
         Spot(-0.64f, 0.64f, Action.TIMER, "Esquina abajo izquierda", hit = 0.15f),
         Spot(0.64f, 0.64f, Action.SETTINGS, "Esquina abajo derecha", hit = 0.15f),
         Spot(-0.49f, -0.31f, Action.SETTINGS, "Ícono de la pantalla", hit = 0.08f),
+        // Botones rotulados del frente (LIGHT enciende la luz de la pantalla)
+        Spot(-0.545f, 0.41f, Action.ALARMS, "Botón SCH", hit = 0.08f),
+        Spot(0.545f, 0.41f, Action.MUSIC, "Botón TEL", hit = 0.08f),
+        Spot(-0.70f, -0.30f, Action.SETTINGS, "Botón ADJUST", hit = 0.09f),
+        Spot(0.70f, 0.22f, Action.TIMER, "Botón MEMO", hit = 0.09f),
     )
     override val choices = listOf(SCREEN, DIGITS, FRONT, FRAME, TEMPERATURE)
     override val heartRate = true
@@ -118,6 +124,8 @@ class FaceService : WatchFaceService() {
         return WatchFace(WatchFaceType.DIGITAL, renderer).setTapListener(object : WatchFace.TapListener {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
                 if (tapType != TapType.UP || complicationSlot != null) return
+                // LIGHT: la luz de la pantalla por 3 segundos (como en los relojes de cristal líquido)
+                if (renderer.isLight(tapEvent.xPos, tapEvent.yPos)) return renderer.light()
                 val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
                 if (i >= 0) Shortcuts.open(this@FaceService, i, Config.spots[i])
             }
@@ -155,6 +163,19 @@ class RetroRenderer(
         private set
 
     private var tempAt = 0L
+    private var lightUntil = 0L
+
+    fun isLight(x: Int, y: Int): Boolean {
+        val b = lastBounds
+        if (b.isEmpty) return false
+        val r = min(b.width(), b.height()) / 2f
+        return kotlin.math.hypot(x - (b.exactCenterX() + r * 0.70f), y - (b.exactCenterY() - r * 0.30f)) < r * 0.10f
+    }
+
+    fun light() {
+        lightUntil = System.currentTimeMillis() + 3000
+        invalidate()
+    }
     private var batteryTemp = Float.NaN
 
     init {
@@ -282,7 +303,8 @@ class RetroRenderer(
         }
 
         // Pantalla de cristal líquido
-        val mode = if (ambient) 1 else Choices.value(context, SCREEN)
+        val lit = !ambient && System.currentTimeMillis() < lightUntil
+        val mode = if (ambient) 1 else if (lit) 2 else Choices.value(context, SCREEN)
         val lcd = RectF(cx - r * 0.61f, cy - r * 0.39f, cx + r * 0.61f, cy + r * 0.335f)
         val on: Int
         val ghost: Int
@@ -312,7 +334,22 @@ class RetroRenderer(
         }
         canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)
         fill.shader = null
+        if (lit) {
+            // Luz encendida: brillo que sale del centro de la pantalla
+            fill.shader = RadialGradient(lcd.centerX(), lcd.centerY(), lcd.width() * 0.6f, Color.argb(120, 220, 255, 255), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)
+            fill.shader = null
+        }
         if (!ambient) {
+            // Reflejo del cristal: una franja de luz en diagonal
+            canvas.save()
+            canvas.clipRect(lcd)
+            fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left + lcd.width() * 0.55f, lcd.top + lcd.height() * 0.9f,
+                intArrayOf(Color.TRANSPARENT, Color.argb(38, 255, 255, 255), Color.argb(10, 255, 255, 255), Color.TRANSPARENT),
+                floatArrayOf(0.25f, 0.42f, 0.55f, 0.7f), Shader.TileMode.CLAMP)
+            canvas.drawRect(lcd, fill)
+            fill.shader = null
+            canvas.restore()
             // Sombra del cristal en la parte de arriba
             fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.top + lcd.height() * 0.16f, Color.argb(70, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
             canvas.drawRoundRect(lcd, r * 0.06f, r * 0.06f, fill)

@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -93,7 +94,7 @@ object Config : FaceConfig {
         Spot(0.50f, 0.0f, Action.MUSIC, "Toque en los segundos", hit = 0.22f),
         Spot(0f, 0.79f, Action.BATTERY, "Toque en la batería", hit = 0.11f),
     )
-    override val choices = listOf(THEME, AOD)
+    override val choices = listOf(THEME, AOD, Smooth.CHOICE)
     override val heartRate = true
 }
 
@@ -214,6 +215,7 @@ class ClassicRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: ClassicAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
@@ -374,7 +376,7 @@ class ClassicRenderer(
 
         // Segundos: triángulo rojo que recorre el borde
         canvas.save()
-        canvas.rotate(t.second * 6f, cx, cy)
+        canvas.rotate(Smooth.seconds(context, t) * 6f, cx, cy)
         fill.color = Color.rgb(230, 30, 30)
         path.reset()
         path.moveTo(cx - r * 0.022f, cy - r * 0.975f)

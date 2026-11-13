@@ -142,6 +142,7 @@ class SportRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: SportAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
@@ -169,7 +170,7 @@ class SportRenderer(
         }
         if (!ambient) {
             canvas.save()
-            canvas.rotate(t.second * 6f, cx, cy)
+            canvas.rotate(Smooth.seconds(context, t) * 6f, cx, cy)
             stroke.color = Color.rgb(255, 30, 30)
             stroke.strokeWidth = r * 0.024f
             canvas.drawLine(cx, cy - r * 0.97f, cx, cy - r * 0.88f, stroke)

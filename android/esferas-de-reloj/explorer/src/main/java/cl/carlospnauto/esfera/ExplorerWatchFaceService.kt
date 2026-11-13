@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.Color
 import android.graphics.RectF
 import android.view.SurfaceHolder
@@ -46,6 +47,7 @@ object Config : FaceConfig {
         Spot(0.42f, 0.42f, Action.MUSIC, "Acceso derecho"),
     )
     override val compass = true
+    override val choices = listOf(Smooth.CHOICE)
 }
 
 class ExplorerWatchFaceService : WatchFaceService() {

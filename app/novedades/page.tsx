@@ -25,6 +25,7 @@ const STAGES: Stage[] = [
     color: 'from-cyan-500 to-violet-500',
     items: [
       'Reproductor de video: el botón ⋮ (más opciones) pasa a la fila de controles, junto a «Siguiente»',
+      'Esferas LCD Color (12 temas) y LCD Pro (8 temas, presión, km y eventos). Segundero suave en todas las esferas con segundos (se elige en Personalizar). Retro LCD: reflejo en el cristal, LIGHT ilumina la pantalla y SCH, TEL, ADJUST y MEMO son botones',
       'Instalar en el reloj sin salir de la app: en la tienda de esferas y en App para el reloj, el botón «Instalar en el reloj» descarga y pasa la esfera o la actualización al reloj; solo confirmas allí (necesita la app del reloj ya instalada una vez)',
       'Esfera Digital renovada: usa toda la pantalla, batería y pasos lado a lado sin toparse, anillo de segundos que corre suave por el borde, 8 colores y marcas a elegir. Personalizar de todas las esferas con nuevo menú: vista previa en vivo, tarjetas y listas para elegir',
       'Esfera Clásica: humedad, clima y UV, temperaturas mín./actual/máx., fecha, hora con segundos, evento con fase lunar, hora mundial, ritmo, pasos y batería; 8 temas y pantalla siempre activa de bajo consumo',

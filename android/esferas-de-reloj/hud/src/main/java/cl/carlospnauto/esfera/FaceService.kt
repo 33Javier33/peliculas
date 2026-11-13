@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -73,6 +74,7 @@ object Config : FaceConfig {
         spot(240f, Action.SETTINGS, "Bisel 8 h"),
         spot(120f, Action.MUSIC, "Bisel 4 h"),
     )
+    override val choices = listOf(Smooth.CHOICE)
 }
 
 class FaceService : WatchFaceService() {
@@ -156,7 +158,7 @@ class HudRenderer(
     private fun oval(cx: Float, cy: Float, rad: Float) = RectF(cx - rad, cy - rad, cx + rad, cy + rad)
 
     /** Arco en segmentos: from/to en grados desde las 12; los primeros «lit» encendidos */
-    private fun segments(canvas: Canvas, cx: Float, cy: Float, rad: Float, w: Float, from: Float, to: Float, n: Int, lit: Int, color: Int, ambient: Boolean) {
+    private fun segments(canvas: Canvas, cx: Float, cy: Float, rad: Float, w: Float, from: Float, to: Float, n: Int, lit: Int, color: Int, ambient: Boolean, partial: Float = 0f) {
         val step = (to - from) / n
         val o = oval(cx, cy, rad)
         stroke.strokeWidth = w
@@ -167,12 +169,20 @@ class HudRenderer(
             stroke.color = if (on) color else Color.argb(70, Color.red(color), Color.green(color), Color.blue(color))
             if (on && !ambient) stroke.setShadowLayer(w * 0.6f, 0f, 0f, color) else stroke.clearShadowLayer()
             canvas.drawArc(o, from + i * step - 90f, step * 0.72f, false, stroke)
+            // El segmento que se está llenando (segundero suave)
+            if (i == lit && partial > 0.02f && !ambient) {
+                stroke.color = color
+                stroke.setShadowLayer(w * 0.6f, 0f, 0f, color)
+                canvas.drawArc(o, from + i * step - 90f, step * 0.72f * partial, false, stroke)
+                stroke.clearShadowLayer()
+            }
         }
         stroke.clearShadowLayer()
     }
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: HudAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
@@ -228,7 +238,10 @@ class HudRenderer(
         val pct = (battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1).coerceIn(-1, 100)
         val n = 24
         segments(canvas, cx, cy, r * 0.74f, r * 0.05f, 200f, 340f, n, if (pct < 0) 0 else (pct * n + 50) / 100, CYAN, ambient)
-        if (!ambient) segments(canvas, cx, cy, r * 0.74f, r * 0.05f, 20f, 160f, n, (zonedDateTime.second + 1) * n / 60, ORANGE, false)
+        if (!ambient) {
+            val f = Smooth.seconds(context, zonedDateTime) / 60f * n
+            segments(canvas, cx, cy, r * 0.74f, r * 0.05f, 20f, 160f, n, f.toInt(), ORANGE, false, f - f.toInt())
+        }
         stroke.color = if (ambient) Color.DKGRAY else Color.rgb(30, 60, 75)
         stroke.strokeWidth = r * 0.008f
         canvas.drawCircle(cx, cy, r * 0.69f, stroke)

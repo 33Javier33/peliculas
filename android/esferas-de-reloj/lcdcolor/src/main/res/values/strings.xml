@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera LCD Color</string>
+    <string name="face_name">LCD Color</string>
+    <string name="editor_title">Personalizar LCD Color</string>
+    <string name="done">Listo</string>
+</resources>

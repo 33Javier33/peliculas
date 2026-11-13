@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -82,7 +83,7 @@ class ExplorerRenderer(
     private fun applySensors() {
         sensors.update(compassOn, active)
         // Con la brújula se redibuja seguido (el bisel sigue al reloj); sin ella, una vez por segundo
-        interactiveDrawModeUpdateDelayMillis = if (compassOn && active && sensors.hasCompass) 33L else 1000L
+        interactiveDrawModeUpdateDelayMillis = if (compassOn && active && sensors.hasCompass) 33L else Smooth.delay(context)
     }
 
     override suspend fun createSharedAssets() = ExplorerAssets()
@@ -127,6 +128,7 @@ class ExplorerRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: ExplorerAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = if (compassOn && active && sensors.hasCompass) 33L else Smooth.delay(context)
         if (bounds != lastBounds) {
             lastBounds = Rect(bounds)
             topo = null
@@ -406,7 +408,7 @@ class ExplorerRenderer(
     }
 
     private fun drawHands(canvas: Canvas, cx: Float, cy: Float, r: Float, t: ZonedDateTime, ambient: Boolean) {
-        val sec = t.second
+        val sec = Smooth.seconds(context, t)
         val mins = t.minute + sec / 60f
         val hour = (t.hour % 12) + mins / 60f
         hand(canvas, cx, cy, hour * 30f, r * 0.50f, r * 0.08f, r * 0.10f, ambient, r)

@@ -1,4 +1,4 @@
-package cl.carlospnauto.esfera
+package cl.carlospnauto.esfera.comun
 
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -79,6 +79,36 @@ object Lcd {
         val text = s.padStart(cells, ' ').takeLast(cells)
         for ((i, ch) in text.withIndex()) {
             digit(canvas, ch, right - (cells - i) * (w + gap) + gap, y, w, h, on, ghost)
+        }
+    }
+
+    /**
+     * Número en casillas alineado a la derecha (sobrantes como «8» apagados). Admite «:» y «.» entre
+     * dígitos: van en el espacio entre casillas, como en los relojes de cristal líquido.
+     */
+    fun number(canvas: Canvas, s: String, right: Float, y: Float, w: Float, h: Float, gap: Float, cells: Int, on: Int, ghost: Int) {
+        val chars = StringBuilder()
+        val marks = mutableListOf<Pair<Int, Char>>()
+        for (ch in s) {
+            if (ch == ':' || ch == '.') marks += (chars.length - 1) to ch else chars.append(ch)
+        }
+        val text = chars.toString().takeLast(cells)
+        val pad = cells - text.length
+        val shown = " ".repeat(pad) + text
+        val cellW = w + gap
+        for ((i, ch) in shown.withIndex()) digit(canvas, ch, right - (cells - i) * cellW + gap, y, w, h, on, ghost)
+        for ((after, m) in marks) {
+            val idx = after + pad
+            if (idx < 0 || idx >= cells) continue
+            // Entre las dos casillas; corrido como la inclinación de los dígitos
+            val x = right - (cells - idx - 1) * cellW + gap / 2
+            val d = minOf(w * 0.15f, gap * 0.36f)
+            paint.color = on
+            if (m == '.') canvas.drawRect(x - d, y + h - d * 2, x + d, y + h, paint)
+            else for (k in listOf(0.3f, 0.7f)) {
+                val sx = x + h * 0.1f * (1 - k)
+                canvas.drawRect(sx - d, y + h * k - d, sx + d, y + h * k + d, paint)
+            }
         }
     }
 

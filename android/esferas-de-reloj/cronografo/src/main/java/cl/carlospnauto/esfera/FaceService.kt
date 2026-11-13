@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
@@ -55,6 +56,7 @@ object Config : FaceConfig {
         Spot(0.29f, -0.29f, Action.MEDIA, "Acceso de arriba"),
         Spot(0.29f, 0.29f, Action.MUSIC, "Acceso de abajo"),
     )
+    override val choices = listOf(Smooth.CHOICE)
 }
 
 private val ORANGE = Color.rgb(255, 122, 26)
@@ -151,6 +153,7 @@ class ChronoRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: ChronoAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
@@ -444,13 +447,14 @@ class ChronoRenderer(
     }
 
     private fun drawHands(canvas: Canvas, cx: Float, cy: Float, r: Float, t: ZonedDateTime, ambient: Boolean) {
-        val mins = t.minute + t.second / 60f
+        val sec = Smooth.seconds(context, t)
+        val mins = t.minute + sec / 60f
         val hour = (t.hour % 12) + mins / 60f
         hand(canvas, cx, cy, hour * 30f, r * 0.46f, r * 0.085f, ambient, r)
         hand(canvas, cx, cy, mins * 6f, r * 0.72f, r * 0.065f, ambient, r)
         if (!ambient) {
             canvas.save()
-            canvas.rotate(t.second * 6f, cx, cy)
+            canvas.rotate(sec * 6f, cx, cy)
             stroke.color = ORANGE
             stroke.strokeWidth = r * 0.012f
             canvas.drawLine(cx, cy + r * 0.18f, cx, cy - r * 0.80f, stroke)

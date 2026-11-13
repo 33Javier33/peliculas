@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.content.Context
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -89,7 +90,7 @@ object Config : FaceConfig {
         Spot(0.47f, 0.63f, Action.MUSIC, "Acceso abajo a la derecha", hit = 0.10f),
         Spot(-0.47f, 0.63f, Action.ALARMS, "Acceso abajo a la izquierda", hit = 0.10f),
     )
-    override val choices = listOf(ACCENT, MINUTES, TICKS, AOD)
+    override val choices = listOf(ACCENT, MINUTES, TICKS, AOD, Smooth.CHOICE)
     override val heartRate = true
 }
 
@@ -200,6 +201,7 @@ class InfoRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: InfoAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
@@ -243,7 +245,7 @@ class InfoRenderer(
         if (!ambient) {
             stroke.strokeCap = Paint.Cap.BUTT
             stroke.strokeWidth = r * 0.035f
-            val end = t.second * 6f - 90f
+            val end = Smooth.seconds(context, t) * 6f - 90f
             stroke.shader = null
             for (k in 0 until 6) {
                 stroke.color = Color.argb(255 - k * 40, 230, 20, 20)

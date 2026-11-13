@@ -1,6 +1,7 @@
 package cl.carlospnauto.esfera
 
 import android.graphics.Color
+import cl.carlospnauto.esfera.comun.Smooth
 import android.graphics.RectF
 import android.view.SurfaceHolder
 import androidx.wear.watchface.CanvasComplicationFactory
@@ -76,7 +77,7 @@ private val GLOW = Choice(
 object Config : FaceConfig {
     override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
     override val spots = SPOTS
-    override val choices = listOf(HOUR, MINUTE, DATE, LINE, DATA, TICKS, GLOW)
+    override val choices = listOf(HOUR, MINUTE, DATE, LINE, DATA, TICKS, GLOW, Smooth.CHOICE)
     override val heartRate = true
 }
 

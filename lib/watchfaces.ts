@@ -15,6 +15,24 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'lcdpro',
+    name: 'LCD Pro',
+    file: 'Esfera-Lcdpro.apk',
+    description:
+      'Pantalla de cristal líquido completa: atardecer/amanecer, batería, hora, día, fecha y segundos, con celdas de ritmo cardíaco, kilómetros y pasos. Arriba clima, sensación térmica y presión (la mide el reloj); abajo el próximo evento. 8 temas claros y oscuros.',
+    features: ['Digital', 'LCD', '8 temas', 'Presión', 'Kilómetros', 'Eventos', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
+  },
+  {
+    id: 'lcdcolor',
+    name: 'LCD Color',
+    file: 'Esfera-Lcdcolor.apk',
+    description:
+      'Pantalla de cristal líquido de colores (12 temas: lila, rosa, fucsia, celeste, menta, ámbar…) con hora grande y sus «8» apagados, barra de batería y de segundos, ritmo, fecha, pasos y fase lunar. Accesos APP1, APP2, HORA y uno abajo.',
+    features: ['Digital', 'LCD', '12 temas', 'Ritmo cardíaco', 'Pasos', 'Fase lunar', 'PulsoMedia', 'PulsoMusic'],
+    added: '2026-11-13',
+  },
+  {
     id: 'clasica',
     name: 'Clásica',
     file: 'Esfera-Clasica.apk',
@@ -28,7 +46,7 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Retro LCD',
     file: 'Esfera-Retro.apk',
     description:
-      'Reloj digital retro de los 80: pantalla de cristal líquido con dígitos de segmentos y sus «8» apagados, letras de puntos, marco octogonal y botones rotulados. Pantalla clásica gris, invertida (6 colores) o con luz azul; frente a color o blanco y negro; marco de colores u oculto. Pasos, temperatura (batería °C/°F o clima), batería y ritmo cardíaco. 4 esquinas y un ícono arriba como accesos (PulsoMedia, PulsoMusic…).',
+      'Reloj digital retro de los 80: pantalla de cristal líquido con reflejo y luz (toca LIGHT y se ilumina 3 segundos), dígitos de segmentos con sus «8» apagados, marco curvo y botones SCH, TEL, ADJUST y MEMO que abren lo que elijas. Pantalla clásica, invertida o con luz azul; temperatura, pasos, batería y ritmo.',
     features: ['Digital', 'Retro LCD', '3 pantallas', 'Pasos', 'Temperatura', 'Ritmo cardíaco', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-12',
   },
