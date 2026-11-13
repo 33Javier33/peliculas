@@ -74,10 +74,10 @@ private val SECONDS = Choice("segundos", "Segundos", listOf("Visibles" to 0, "Oc
 object Config : FaceConfig {
     override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
     override val spots = listOf(
-        Spot(-0.42f, 0f, Action.MEDIA, "Toque en la hora", hit = 0.22f),
-        Spot(0.18f, 0f, Action.MUSIC, "Toque en los minutos", hit = 0.20f),
-        Spot(0.735f, -0.03f, Action.BATTERY, "Panel de batería", hit = 0.14f),
-        Spot(0f, -0.52f, Action.ALARMS, "Caja de la fecha", hit = 0.18f),
+        Spot(-0.50f, 0f, Action.MEDIA, "Toque en la hora", hit = 0.24f),
+        Spot(0.11f, 0f, Action.MUSIC, "Toque en los minutos", hit = 0.22f),
+        Spot(0.76f, -0.04f, Action.BATTERY, "Panel de batería", hit = 0.16f),
+        Spot(0f, -0.60f, Action.ALARMS, "Caja de la fecha", hit = 0.22f),
     )
     override val choices = listOf(THEME, COLON, SECONDS, Smooth.CHOICE)
     override val heartRate = true
@@ -89,11 +89,11 @@ class FaceService : WatchFaceService() {
         val factory = CanvasComplicationFactory { watchState, listener -> CanvasComplicationDrawable(ComplicationDrawable(this), watchState, listener) }
         val types = listOf(ComplicationType.SHORT_TEXT, ComplicationType.RANGED_VALUE)
         val slots = listOf(
-            ComplicationSlot.createRoundRectComplicationSlotBuilder(HEART, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.275f, 0.65f, 0.485f, 0.78f))).build(),
+            ComplicationSlot.createRoundRectComplicationSlotBuilder(HEART, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.21f, 0.70f, 0.485f, 0.86f))).build(),
             ComplicationSlot.createRoundRectComplicationSlotBuilder(
                 STEPS, factory, types,
                 DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT),
-                ComplicationSlotBounds(RectF(0.515f, 0.65f, 0.725f, 0.78f)),
+                ComplicationSlotBounds(RectF(0.51f, 0.70f, 0.785f, 0.86f)),
             ).build(),
         )
         return ComplicationSlotsManager(slots, currentUserStyleRepository)
@@ -173,6 +173,18 @@ class TacticRenderer(
         path.close()
     }
 
+    /** Texto que ocupa un ancho dado (se angosta si hace falta, como las letras condensadas de la foto) */
+    private fun fitText(canvas: Canvas, s: String, x: Float, y: Float, size: Float, maxW: Float, color: Int, align: Paint.Align) {
+        text.textAlign = align
+        text.textSize = size
+        text.textScaleX = 1f
+        val w = text.measureText(s)
+        if (w > maxW) text.textScaleX = maxW / w
+        text.color = color
+        canvas.drawText(s, x, y, text)
+        text.textScaleX = 1f
+    }
+
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: TacticAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
         interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
@@ -180,144 +192,152 @@ class TacticRenderer(
         val cx = bounds.exactCenterX()
         val cy = bounds.exactCenterY()
         val r = min(bounds.width(), bounds.height()) / 2f
+        fun X(v: Float) = cx + v * r
+        fun Y(v: Float) = cy + v * r
         val t = zonedDateTime
         val loc = Locale.getDefault()
         val th = THEMES[Choices.index(context, THEME)].second
         val accent = if (ambient) Color.rgb(170, 170, 160) else th.accent
         val second = if (ambient) Color.rgb(110, 110, 104) else th.second
         val line = if (ambient) Color.rgb(60, 60, 56) else th.line
+        val panel = if (ambient) Color.BLACK else th.panel
         canvas.drawColor(Color.BLACK)
-
-        // Anillos del borde
         stroke.strokeCap = Paint.Cap.BUTT
+
+        // Anillos del borde: banda gruesa afuera y piezas adentro
         stroke.color = line
-        stroke.strokeWidth = r * 0.022f
-        canvas.drawCircle(cx, cy, r * 0.94f, stroke)
-        stroke.strokeWidth = r * 0.008f
-        canvas.drawCircle(cx, cy, r * 0.885f, stroke)
+        stroke.strokeWidth = r * 0.06f
+        canvas.drawCircle(cx, cy, r * 0.955f, stroke)
+        stroke.color = Color.rgb(Color.red(line) / 2, Color.green(line) / 2, Color.blue(line) / 2)
+        stroke.strokeWidth = r * 0.012f
+        canvas.drawCircle(cx, cy, r * 0.93f, stroke)
         if (!ambient) {
-            stroke.strokeWidth = r * 0.03f
-            for ((a0, sw) in listOf(-60f to 50f, 10f to 50f, 130f to 40f, 190f to 40f)) canvas.drawArc(oval(cx, cy, r * 0.85f), a0 - 90f, sw, false, stroke)
-            // Segundos: columna de segmentos a la izquierda (se llena en el minuto)
-            val n = 12
+            stroke.strokeWidth = r * 0.028f
+            for ((a0, sw) in listOf(-52f to 46f, 4f to 44f, 128f to 46f, 186f to 46f)) canvas.drawArc(oval(cx, cy, r * 0.875f), a0 - 90f, sw, false, stroke)
+            stroke.strokeWidth = r * 0.012f
+            canvas.drawLine(X(-0.02f), Y(-0.86f), X(-0.02f), Y(-0.93f), stroke)
+            canvas.drawLine(X(-0.02f), Y(0.86f), X(-0.02f), Y(0.93f), stroke)
+
+            // Columna de bloques a la izquierda: los segundos (se encienden de abajo hacia arriba)
+            val n = 11
             val f = Smooth.seconds(context, t) / 60f * n
+            stroke.strokeWidth = r * 0.05f
             for (i in 0 until n) {
-                val start = 200f + i * (140f / n)
-                stroke.color = if (i < f.toInt()) accent else line
-                canvas.drawArc(oval(cx, cy, r * 0.82f), start - 90f + 1.5f, 140f / n - 3f, false, stroke)
+                val start = 245f + (n - 1 - i) * 4.6f
+                stroke.color = if (i < f.toInt()) accent else Color.rgb(Color.red(line) / 2 + 20, Color.green(line) / 2 + 20, Color.blue(line) / 2 + 20)
+                canvas.drawArc(oval(cx, cy, r * 0.84f), start - 90f, 3.4f, false, stroke)
                 if (i == f.toInt()) {
                     stroke.color = accent
-                    canvas.drawArc(oval(cx, cy, r * 0.82f), start - 90f + 1.5f, (140f / n - 3f) * (f - f.toInt()), false, stroke)
+                    canvas.drawArc(oval(cx, cy, r * 0.84f), start - 90f, 3.4f * (f - f.toInt()), false, stroke)
                 }
             }
-            // Batería: arco a la derecha
-            val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-            stroke.color = line
-            stroke.strokeWidth = r * 0.016f
-            canvas.drawArc(oval(cx, cy, r * 0.82f), 25f - 90f, 35f, false, stroke)
-            if (pct >= 0) {
+            // Arco de batería arriba a la derecha
+            val pctArc = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+            stroke.strokeWidth = r * 0.028f
+            stroke.color = Color.rgb(Color.red(line) / 2 + 20, Color.green(line) / 2 + 20, Color.blue(line) / 2 + 20)
+            canvas.drawArc(oval(cx, cy, r * 0.875f), 33f - 90f, 24f, false, stroke)
+            if (pctArc >= 0) {
                 stroke.color = accent
-                canvas.drawArc(oval(cx, cy, r * 0.82f), 25f - 90f, 35f * pct / 100f, false, stroke)
+                canvas.drawArc(oval(cx, cy, r * 0.875f), 33f - 90f, 24f * pctArc / 100f, false, stroke)
             }
 
             // Rejilla detrás de la fecha
-            stroke.color = Color.argb(70, Color.red(line), Color.green(line), Color.blue(line))
+            stroke.color = Color.argb(80, Color.red(line), Color.green(line), Color.blue(line))
             stroke.strokeWidth = r * 0.004f
-            var gx = -0.44f
-            while (gx <= 0.45f) { canvas.drawLine(cx + gx * r, cy - r * 0.80f, cx + gx * r, cy - r * 0.40f, stroke); gx += 0.045f }
-            var gy = -0.80f
-            while (gy <= -0.40f) { canvas.drawLine(cx - r * 0.44f, cy + gy * r, cx + r * 0.45f, cy + gy * r, stroke); gy += 0.045f }
+            var gx = -0.42f
+            while (gx <= 0.42f) { canvas.drawLine(X(gx), Y(-0.85f), X(gx), Y(-0.42f), stroke); gx += 0.042f }
+            var gy = -0.85f
+            while (gy <= -0.42f) { canvas.drawLine(X(-0.42f), Y(gy), X(0.42f), Y(gy), stroke); gy += 0.042f }
         }
 
-        // Caja de la fecha
-        chamfer(cx - r * 0.45f, cy - r * 0.63f, cx + r * 0.46f, cy - r * 0.41f, r * 0.04f)
-        fill.color = if (ambient) Color.BLACK else th.panel
-        canvas.drawPath(path, fill)
+        // Caja de la fecha: doble borde redondeado; día y número en el acento, el mes en el secundario
+        val box = RectF(X(-0.555f), Y(-0.745f), X(0.555f), Y(-0.46f))
+        fill.color = panel
+        canvas.drawRoundRect(box, r * 0.05f, r * 0.05f, fill)
         stroke.color = second
-        stroke.strokeWidth = r * 0.012f
-        canvas.drawPath(path, stroke)
+        stroke.strokeWidth = r * 0.014f
+        canvas.drawRoundRect(box, r * 0.05f, r * 0.05f, stroke)
+        stroke.color = line
+        stroke.strokeWidth = r * 0.006f
+        canvas.drawRoundRect(RectF(box.left + r * 0.025f, box.top + r * 0.025f, box.right - r * 0.025f, box.bottom - r * 0.025f), r * 0.03f, r * 0.03f, stroke)
         val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").uppercase(loc)
         val mon = t.month.getDisplayName(TextStyle.SHORT, loc).replace(".", "").uppercase(loc)
-        text.textSize = r * 0.14f
-        val w1 = text.measureText("$dow ")
-        val w2 = text.measureText("$mon ")
-        val w3 = text.measureText(t.dayOfMonth.toString())
-        var x = cx - (w1 + w2 + w3) / 2
+        val dayN = t.dayOfMonth.toString()
+        text.textSize = r * 0.22f
+        val sp = text.measureText(" ")
+        val w1 = text.measureText(dow)
+        val w2 = text.measureText(mon)
+        val w3 = text.measureText(dayN)
+        val total = w1 + w2 + w3 + sp * 2
+        val k = (r * 0.94f / total).coerceAtMost(1f)
+        text.textScaleX = k
+        var x = cx - total * k / 2
         text.textAlign = Paint.Align.LEFT
         text.color = accent
-        canvas.drawText("$dow ", x, cy - r * 0.47f, text)
-        x += w1
+        canvas.drawText(dow, x, Y(-0.525f), text)
+        x += (w1 + sp) * k
         text.color = second
-        canvas.drawText("$mon ", x, cy - r * 0.47f, text)
-        x += w2
+        canvas.drawText(mon, x, Y(-0.525f), text)
+        x += (w2 + sp) * k
         text.color = accent
-        canvas.drawText(t.dayOfMonth.toString(), x, cy - r * 0.47f, text)
-        text.textAlign = Paint.Align.CENTER
+        canvas.drawText(dayN, x, Y(-0.525f), text)
+        text.textScaleX = 1f
 
-        // Fila de indicadores: ALM · SIG · barra · DST
+        // Fila: ALM · SIG · barra · DST
         if (!ambient) {
+            fill.color = Color.rgb(20, 21, 19)
+            path.reset()
+            path.moveTo(X(-0.88f), Y(-0.42f)); path.lineTo(X(0.70f), Y(-0.42f)); path.lineTo(X(0.66f), Y(-0.33f)); path.lineTo(X(-0.86f), Y(-0.33f)); path.close()
+            canvas.drawPath(path, fill)
             val dim = Color.argb(90, Color.red(second), Color.green(second), Color.blue(second))
-            text.textSize = r * 0.06f
-            text.color = if (Indicators.alarm(context)) accent else dim
-            canvas.drawText("ALM", cx - r * 0.50f, cy - r * 0.30f, text)
-            text.color = if (Indicators.online(context)) accent else dim
-            canvas.drawText("SIG", cx - r * 0.32f, cy - r * 0.30f, text)
-            text.color = if (Indicators.dst(t)) accent else dim
-            canvas.drawText("DST", cx + r * 0.42f, cy - r * 0.30f, text)
+            fitText(canvas, "ALM", X(-0.69f), Y(-0.355f), r * 0.075f, r * 0.15f, if (Indicators.alarm(context)) second else dim, Paint.Align.LEFT)
+            fitText(canvas, "SIG", X(-0.48f), Y(-0.355f), r * 0.075f, r * 0.12f, if (Indicators.online(context)) second else dim, Paint.Align.LEFT)
+            fitText(canvas, "DST", X(0.42f), Y(-0.355f), r * 0.075f, r * 0.13f, if (Indicators.dst(t)) second else dim, Paint.Align.LEFT)
             // Barra inclinada: avance del día
             val day = (t.hour * 60 + t.minute) / 1440f
             path.reset()
-            path.moveTo(cx - r * 0.14f, cy - r * 0.31f); path.lineTo(cx + r * 0.26f, cy - r * 0.31f)
-            path.lineTo(cx + r * 0.23f, cy - r * 0.35f); path.lineTo(cx - r * 0.11f, cy - r * 0.35f); path.close()
-            stroke.color = line
-            stroke.strokeWidth = r * 0.008f
-            canvas.drawPath(path, stroke)
+            path.moveTo(X(-0.17f), Y(-0.36f)); path.lineTo(X(0.30f), Y(-0.36f)); path.lineTo(X(0.33f), Y(-0.40f)); path.lineTo(X(-0.14f), Y(-0.40f)); path.close()
+            fill.color = Color.rgb(Color.red(line) / 2 + 10, Color.green(line) / 2 + 10, Color.blue(line) / 2 + 10)
+            canvas.drawPath(path, fill)
+            canvas.save()
+            canvas.clipPath(path)
             fill.color = second
-            canvas.drawRect(cx - r * 0.11f, cy - r * 0.345f, cx - r * 0.11f + r * 0.34f * day, cy - r * 0.315f, fill)
+            canvas.drawRect(X(-0.17f), Y(-0.40f), X(-0.17f) + r * 0.50f * day, Y(-0.36f), fill)
+            canvas.restore()
         }
 
-        // Panel de la hora
+        // Banda de la hora: tira clara arriba, fondo y rayas inclinadas abajo
         if (!ambient) {
+            fill.color = Color.rgb(78, 80, 74)
+            canvas.drawRect(X(-0.80f), Y(-0.32f), X(0.60f), Y(-0.28f), fill)
+            fill.color = Color.rgb(34, 36, 32)
+            canvas.drawRect(X(-0.80f), Y(-0.28f), X(0.60f), Y(0.29f), fill)
+            fill.color = Color.rgb(78, 80, 74)
             path.reset()
-            path.moveTo(cx - r * 0.72f, cy - r * 0.24f)
-            path.lineTo(cx + r * 0.63f, cy - r * 0.24f)
-            path.lineTo(cx + r * 0.63f, cy + r * 0.22f)
-            path.lineTo(cx - r * 0.68f, cy + r * 0.22f)
-            path.close()
-            fill.color = th.panel
+            path.moveTo(X(-0.74f), Y(0.29f)); path.lineTo(X(-0.08f), Y(0.29f)); path.lineTo(X(-0.12f), Y(0.34f)); path.lineTo(X(-0.70f), Y(0.34f)); path.close()
             canvas.drawPath(path, fill)
-            fill.color = line
-            canvas.drawRect(cx - r * 0.72f, cy - r * 0.27f, cx + r * 0.63f, cy - r * 0.24f, fill)
-            // Rayas inclinadas abajo
-            for (k in 0 until 6) {
-                fill.color = if (k >= 3) accent else line
-                val x0 = cx + r * (0.0f + k * 0.07f)
+            for (j in 0 until 7) {
+                fill.color = if (j == 4) accent else Color.rgb(78, 80, 74)
+                val x0 = X(-0.02f + j * 0.085f)
                 path.reset()
-                path.moveTo(x0, cy + r * 0.29f); path.lineTo(x0 + r * 0.04f, cy + r * 0.24f)
-                path.lineTo(x0 + r * 0.065f, cy + r * 0.24f); path.lineTo(x0 + r * 0.025f, cy + r * 0.29f); path.close()
+                path.moveTo(x0, Y(0.34f)); path.lineTo(x0 + r * 0.05f, Y(0.29f)); path.lineTo(x0 + r * 0.085f, Y(0.29f)); path.lineTo(x0 + r * 0.035f, Y(0.34f)); path.close()
                 canvas.drawPath(path, fill)
             }
         }
+
+        // Hora: horas en el acento y minutos en el secundario, grandes como en la foto
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
-        text.textScaleX = 0.9f
-        text.textSize = r * 0.46f
-        text.textAlign = Paint.Align.RIGHT
-        text.color = accent
-        canvas.drawText(h, cx - r * 0.15f, cy + r * 0.15f, text)
-        text.textAlign = Paint.Align.LEFT
-        text.color = second
-        canvas.drawText("%02d".format(t.minute), cx - r * 0.06f, cy + r * 0.15f, text)
-        text.textScaleX = 1f
-        text.textAlign = Paint.Align.CENTER
+        fitText(canvas, h, X(-0.285f), Y(0.22f), r * 0.60f, r * 0.44f, accent, Paint.Align.RIGHT)
+        fitText(canvas, "%02d".format(t.minute), X(-0.135f), Y(0.22f), r * 0.60f, r * 0.49f, second, Paint.Align.LEFT)
         // Dos puntos: el de arriba brilla (y parpadea si se eligió)
         val blinkOff = Choices.value(context, COLON) == 0 && t.second % 2 == 1 && !ambient
         fill.color = if (blinkOff) second else accent
-        if (!ambient && !blinkOff) fill.setShadowLayer(r * 0.03f, 0f, 0f, accent)
-        canvas.drawRoundRect(RectF(cx - r * 0.135f, cy - r * 0.07f, cx - r * 0.085f, cy - r * 0.02f), r * 0.008f, r * 0.008f, fill)
+        if (!ambient && !blinkOff) fill.setShadowLayer(r * 0.04f, 0f, 0f, accent)
+        canvas.drawRoundRect(RectF(X(-0.245f), Y(-0.11f), X(-0.175f), Y(-0.04f)), r * 0.012f, r * 0.012f, fill)
         fill.clearShadowLayer()
         fill.color = second
-        canvas.drawRoundRect(RectF(cx - r * 0.135f, cy + r * 0.04f, cx - r * 0.085f, cy + r * 0.09f), r * 0.008f, r * 0.008f, fill)
+        canvas.drawRoundRect(RectF(X(-0.245f), Y(0.055f), X(-0.175f), Y(0.125f)), r * 0.012f, r * 0.012f, fill)
 
         if (ambient) {
             Brand.draw(canvas, cx, cy + r * 0.45f, r * 0.03f, Color.DKGRAY)
@@ -325,75 +345,79 @@ class TacticRenderer(
         }
 
         // Segundos y AM/PM
-        if (Choices.value(context, SECONDS) == 0) {
-            text.textSize = r * 0.12f
-            text.color = accent
-            canvas.drawText("%02d".format(t.second), cx + r * 0.53f, cy - r * 0.08f, text)
-        }
+        if (Choices.value(context, SECONDS) == 0) fitText(canvas, "%02d".format(t.second), X(0.485f), Y(-0.05f), r * 0.22f, r * 0.17f, accent, Paint.Align.CENTER)
         if (!is24) {
-            val pm = RectF(cx + r * 0.45f, cy + r * 0.04f, cx + r * 0.61f, cy + r * 0.14f)
+            val pm = RectF(X(0.40f), Y(0.10f), X(0.56f), Y(0.205f))
             fill.color = accent
             canvas.drawRoundRect(pm, r * 0.02f, r * 0.02f, fill)
-            text.textSize = r * 0.07f
-            text.color = th.panel
-            canvas.drawText(if (t.hour < 12) "AM" else "PM", pm.centerX(), pm.bottom - r * 0.025f, text)
+            fitText(canvas, if (t.hour < 12) "AM" else "PM", pm.centerX(), Y(0.185f), r * 0.09f, r * 0.13f, panel, Paint.Align.CENTER)
         }
 
-        // Panel de batería (columna)
+        // Panel de batería alto: pila grande con tapa y 6 barras, «85%» y «BAT»
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-        chamfer(cx + r * 0.65f, cy - r * 0.27f, cx + r * 0.82f, cy + r * 0.22f, r * 0.03f)
-        fill.color = th.panel
+        chamfer(X(0.62f), Y(-0.38f), X(0.90f), Y(0.30f), r * 0.05f)
+        fill.color = panel
         canvas.drawPath(path, fill)
-        stroke.color = line
-        stroke.strokeWidth = r * 0.01f
-        canvas.drawPath(path, stroke)
-        val bx = cx + r * 0.735f
         stroke.color = second
-        stroke.strokeWidth = r * 0.008f
-        canvas.drawRoundRect(RectF(bx - r * 0.045f, cy - r * 0.22f, bx + r * 0.045f, cy + r * 0.0f), r * 0.01f, r * 0.01f, stroke)
+        stroke.strokeWidth = r * 0.012f
+        canvas.drawPath(path, stroke)
+        stroke.color = second
+        stroke.strokeWidth = r * 0.012f
+        canvas.drawRoundRect(RectF(X(0.68f), Y(-0.30f), X(0.85f), Y(0.005f)), r * 0.015f, r * 0.015f, stroke)
         fill.color = second
-        canvas.drawRect(bx - r * 0.018f, cy - r * 0.235f, bx + r * 0.018f, cy - r * 0.22f, fill)
-        for (k in 0 until 8) {
-            fill.color = if (pct >= 0 && pct >= (k + 1) * 12.5f - 6) accent else Color.argb(50, Color.red(second), Color.green(second), Color.blue(second))
-            val yb = cy - r * 0.012f - k * r * 0.025f
-            canvas.drawRect(bx - r * 0.032f, yb - r * 0.016f, bx + r * 0.032f, yb, fill)
+        canvas.drawRoundRect(RectF(X(0.73f), Y(-0.325f), X(0.80f), Y(-0.30f)), r * 0.006f, r * 0.006f, fill)
+        val bars = 6
+        for (j in 0 until bars) {
+            val lit = pct >= 0 && pct >= (j + 1) * (100f / bars) - 100f / bars / 2
+            fill.color = if (lit) accent else Color.argb(40, Color.red(second), Color.green(second), Color.blue(second))
+            val yb = Y(-0.015f) - j * r * 0.033f
+            canvas.drawRect(X(0.70f), yb - r * 0.022f, X(0.83f), yb, fill)
         }
-        text.textSize = r * 0.085f
-        text.color = accent
-        canvas.drawText(if (pct >= 0) "$pct%" else "--", bx, cy + r * 0.10f, text)
-        text.textSize = r * 0.055f
-        text.color = second
-        canvas.drawText("BAT", bx, cy + r * 0.17f, text)
+        fitText(canvas, if (pct >= 0) "$pct%" else "--", X(0.76f), Y(0.15f), r * 0.15f, r * 0.24f, accent, Paint.Align.CENTER)
+        fitText(canvas, "BAT", X(0.76f), Y(0.245f), r * 0.09f, r * 0.15f, second, Paint.Align.CENTER)
 
-        // Cajas de ritmo y pasos
+        // Cajas de ritmo y pasos (con la esquina de afuera cortada)
         val hr = complications.textOf(HEART, context.resources) ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
         val steps = complications.textOf(STEPS, context.resources) ?: "--"
-        for ((l, rr) in listOf(-0.45f to -0.03f, 0.03f to 0.45f)) {
-            chamfer(cx + l * r, cy + r * 0.32f, cx + rr * r, cy + r * 0.56f, r * 0.04f)
-            fill.color = th.panel
+        for (left in listOf(true, false)) {
+            val l = if (left) X(-0.58f) else X(0.02f)
+            val rr = if (left) X(-0.03f) else X(0.57f)
+            val tp = Y(0.40f)
+            val bt = Y(0.72f)
+            val c = r * 0.03f
+            val cut = r * 0.11f
+            path.reset()
+            path.moveTo(l + c, tp); path.lineTo(rr - c, tp); path.quadTo(rr, tp, rr, tp + c)
+            if (left) {
+                path.lineTo(rr, bt - c); path.quadTo(rr, bt, rr - c, bt); path.lineTo(l + cut, bt); path.lineTo(l, bt - cut)
+            } else {
+                path.lineTo(rr, bt - cut); path.lineTo(rr - cut, bt); path.lineTo(l + c, bt); path.quadTo(l, bt, l, bt - c)
+            }
+            if (left) { path.lineTo(l, tp + c); path.quadTo(l, tp, l + c, tp) } else { path.lineTo(l, tp + c); path.quadTo(l, tp, l + c, tp) }
+            path.close()
+            fill.color = panel
             canvas.drawPath(path, fill)
-            stroke.color = line
-            stroke.strokeWidth = r * 0.01f
+            stroke.color = second
+            stroke.strokeWidth = r * 0.012f
             canvas.drawPath(path, stroke)
         }
-        drawHeart(canvas, cx - r * 0.35f, cy + r * 0.40f, r * 0.04f, accent)
-        text.textSize = r * 0.11f
-        text.color = accent
-        canvas.drawText(hr, cx - r * 0.16f, cy + r * 0.44f, text)
-        text.textSize = r * 0.065f
-        text.color = second
-        canvas.drawText("LPM", cx - r * 0.20f, cy + r * 0.53f, text)
-        drawShoe(canvas, cx + r * 0.11f, cy + r * 0.40f, r * 0.04f, accent)
-        text.color = accent
-        text.textSize = r * 0.11f
-        val sw = text.measureText(steps)
-        if (sw > r * 0.26f) text.textSize *= r * 0.26f / sw
-        canvas.drawText(steps, cx + r * 0.30f, cy + r * 0.44f, text)
-        text.textSize = r * 0.065f
-        text.color = second
-        canvas.drawText("PASOS", cx + r * 0.26f, cy + r * 0.53f, text)
+        drawHeart(canvas, X(-0.45f), Y(0.515f), r * 0.06f, accent)
+        // Línea de latido sobre el corazón
+        stroke.color = panel
+        stroke.strokeWidth = r * 0.01f
+        stroke.strokeCap = Paint.Cap.ROUND
+        path.reset()
+        path.moveTo(X(-0.52f), Y(0.515f)); path.lineTo(X(-0.47f), Y(0.515f)); path.lineTo(X(-0.455f), Y(0.48f))
+        path.lineTo(X(-0.435f), Y(0.55f)); path.lineTo(X(-0.42f), Y(0.515f)); path.lineTo(X(-0.38f), Y(0.515f))
+        canvas.drawPath(path, stroke)
+        stroke.strokeCap = Paint.Cap.BUTT
+        fitText(canvas, hr, X(-0.21f), Y(0.575f), r * 0.155f, r * 0.24f, accent, Paint.Align.CENTER)
+        fitText(canvas, "LPM", X(-0.23f), Y(0.68f), r * 0.09f, r * 0.20f, second, Paint.Align.CENTER)
+        drawShoe(canvas, X(0.125f), Y(0.51f), r * 0.06f, accent)
+        fitText(canvas, steps, X(0.36f), Y(0.575f), r * 0.155f, r * 0.34f, accent, Paint.Align.CENTER)
+        fitText(canvas, "PASOS", X(0.27f), Y(0.68f), r * 0.09f, r * 0.26f, second, Paint.Align.CENTER)
 
-        Brand.draw(canvas, cx, cy + r * 0.67f, r * 0.03f, line)
+        Brand.draw(canvas, cx, Y(0.80f), r * 0.03f, line)
     }
 
     private fun drawHeart(canvas: Canvas, x: Float, y: Float, s: Float, color: Int) {

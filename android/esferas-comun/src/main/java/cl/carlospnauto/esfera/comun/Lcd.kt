@@ -190,6 +190,8 @@ object Lcd {
     private val A = 1; private val B = 2; private val C = 4; private val D = 8; private val E = 16; private val F = 32
     private val G1 = 64; private val G2 = 128; private val H = 256; private val I = 512; private val J = 1024
     private val K = 2048; private val L = 4096; private val M = 8192
+    /** V legible: dos diagonales desde la mitad de los costados hasta abajo al centro */
+    private val VV = 16384
     private val SEG14: Map<Char, Int> by lazy {
         mapOf(
             'A' to (A or B or C or E or F or G1 or G2), 'B' to (A or B or C or D or G2 or I or L), 'C' to (A or D or E or F),
@@ -198,7 +200,7 @@ object Lcd {
             'J' to (B or C or D or E), 'K' to (E or F or G1 or J or M), 'L' to (D or E or F), 'M' to (B or C or E or F or H or J),
             'N' to (B or C or E or F or H or M), 'O' to (A or B or C or D or E or F), 'P' to (A or B or E or F or G1 or G2),
             'Q' to (A or B or C or D or E or F or M), 'R' to (A or B or E or F or G1 or G2 or M), 'S' to (A or C or D or F or G1 or G2),
-            'T' to (A or I or L), 'U' to (B or C or D or E or F), 'V' to (E or F or K or J), 'W' to (B or C or E or F or K or M),
+            'T' to (A or I or L), 'U' to (B or C or D or E or F), 'V' to (F or B or VV), 'W' to (B or C or E or F or K or M),
             'X' to (H or J or K or M), 'Y' to (H or J or L), 'Z' to (A or D or J or K),
             '0' to (A or B or C or D or E or F), '1' to (B or C), '2' to (A or B or D or E or G1 or G2), '3' to (A or B or C or D or G1 or G2),
             '4' to (B or C or F or G1 or G2), '5' to (A or C or D or F or G1 or G2), '6' to (A or C or D or E or F or G1 or G2),
@@ -242,7 +244,10 @@ object Lcd {
         if (mask and J != 0) bar(w - e, e, c + q * 1.4f, m - q * 1.4f, dw)
         if (mask and K != 0) bar(e, h - e, c - q * 1.4f, m + q * 1.4f, dw)
         if (mask and M != 0) bar(w - e, h - e, c + q * 1.4f, m + q * 1.4f, dw)
-    }
+        if (mask and VV != 0) {
+            bar(q, m + q * 0.5f, c - q * 0.2f, h - q * 1.1f, t)
+            bar(w - q, m + q * 0.5f, c + q * 0.2f, h - q * 1.1f, t)
+        }
 
     /** Una letra o número de 14 segmentos (x, y = arriba a la izquierda) */
     fun letter(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
