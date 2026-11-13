@@ -104,6 +104,16 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
+// La app abrió sin estilos (pantalla blanca con letras y enlaces azules: un archivo guardado
+// dañado). Se borra la copia guardada de la app y se vuelve a cargar, una vez por minuto como máximo.
+// La biblioteca, las carátulas y las descargas NO se borran.
+const STYLE_REPAIR_SCRIPT = `(function(){function bad(){var b=document.body;if(!b)return false;var c=getComputedStyle(b).backgroundColor;return c==='rgba(0, 0, 0, 0)'||c==='transparent'||c==='rgb(255, 255, 255)'}
+function fix(){if(!bad())return;var k='cpn-style-repair',t=0;try{t=+localStorage.getItem(k)||0}catch(e){}if(Date.now()-t<60000)return;try{localStorage.setItem(k,String(Date.now()))}catch(e){}
+var p=[];try{p.push(caches.keys().then(function(ks){return Promise.all(ks.filter(function(x){return x.indexOf('cpn-cache')===0}).map(function(x){return caches.delete(x)}))}))}catch(e){}
+try{if(navigator.serviceWorker)p.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}catch(e){}
+Promise.all(p).catch(function(){}).then(function(){location.reload()})}
+window.addEventListener('load',function(){setTimeout(fix,1500)})})()`
+
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -129,6 +139,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: SPLASH_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: STYLE_REPAIR_SCRIPT }} />
         <link rel="preload" href="/brand/splash-poster.webp" as="image" />
       </head>
       <body className="min-h-screen bg-obsidian text-white font-sans pb-14 sm:pb-0">

@@ -1,7 +1,7 @@
 // Service worker de Carlos P. Nauto Interactive.
 // Permite instalar la app y usarla sin conexión: guarda las pantallas principales y sus
 // archivos, así la app abre sin internet (la biblioteca y las canciones descargadas).
-const CACHE = 'cpn-cache-v241'
+const CACHE = 'cpn-cache-v242'
 // Carátulas: caché aparte que NO se borra con las actualizaciones (se ven sin internet)
 const IMG_CACHE = 'cpn-img-v1'
 const IMG_MAX = 2000
@@ -89,7 +89,8 @@ self.addEventListener('activate', (event) => {
         for (const req of await old.keys()) {
           if (new URL(req.url).pathname.startsWith('/_next/static/') && !(await cache.match(req))) {
             const res = await old.match(req)
-            if (res) await cache.put(req, res)
+            // Solo archivos buenos (antes se arrastraba un error guardado y la app quedaba sin estilos)
+            if (res && res.ok) await cache.put(req, res)
           }
         }
         if (k === IMG_CACHE) continue
@@ -121,14 +122,18 @@ self.addEventListener('fetch', (event) => {
   // Archivos estáticos con hash: primero caché.
   if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/') || (url.pathname.startsWith('/brand/') && !url.pathname.endsWith('.mp4'))) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ||
-          fetch(request).then((res) => {
-            const copy = res.clone()
-            caches.open(CACHE).then((c) => c.put(request, copy))
-            return res
-          })
+      caches.match(request).then((cached) =>
+        // Un error guardado (404, página de error) no sirve: se vuelve a pedir
+        cached && cached.ok
+          ? cached
+          : fetch(request).then((res) => {
+              // Solo se guarda lo que llegó bien: un error guardado dejaba la app sin estilos para siempre
+              if (res.ok) {
+                const copy = res.clone()
+                caches.open(CACHE).then((c) => c.put(request, copy))
+              } else if (cached) caches.open(CACHE).then((c) => c.delete(request))
+              return res
+            })
       )
     )
     return

@@ -117,6 +117,14 @@ class MainActivity : AppCompatActivity() {
         // un momento: se mantiene con prioridad alta también en segundo plano
         web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
 
+        // App recién actualizada: se borra la caché de archivos de la página (no la biblioteca ni
+        // las descargas) para que no quede ningún archivo viejo o dañado (la app abría sin estilos)
+        val vp = getSharedPreferences("app", MODE_PRIVATE)
+        if (vp.getInt("webCacheVer", 0) != BuildConfig.VERSION_CODE && online()) {
+            web.clearCache(true)
+            vp.edit().putInt("webCacheVer", BuildConfig.VERSION_CODE).apply()
+        }
+
         // Sin internet al abrir: se usa lo guardado (la página guardada por la app abre sola)
         if (!online()) web.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
 
