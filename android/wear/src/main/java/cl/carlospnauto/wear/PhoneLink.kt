@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
@@ -45,7 +46,8 @@ data class Library(
     val total: Int = 0,
 )
 
-enum class Link { Searching, NoPhone, AppClosed, Ok }
+/** NoAnswer: el reloj está conectado al teléfono, pero la app del teléfono no responde */
+enum class Link { Searching, NoPhone, AppClosed, NoAnswer, Ok }
 
 /** Video de lo que suena, para verlo en el reloj */
 sealed class WatchVideo {
@@ -174,8 +176,22 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     }
 
     /** Avisa que la app del reloj está abierta y con qué versión (el teléfono la muestra al actualizar) */
-    fun hello(c: Context) = cmd(c, "hello") {
-        runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull()?.let { put("v", it) }
+    fun hello(c: Context) {
+        cmd(c, "hello") {
+            runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull()?.let { put("v", it) }
+        }
+        // Si a los 8 s la app del teléfono no respondió, se dice (antes quedaba «Conectando…» sin fin)
+        scope.launch {
+            delay(8_000)
+            if (_link.value == Link.Searching) _link.value = Link.NoAnswer
+        }
+    }
+
+    /** Reintentar: vuelve a «Conectando…» y saluda de nuevo */
+    fun retry(c: Context) {
+        _link.value = Link.Searching
+        hello(c)
+        browse(c)
     }
 
     fun browse(c: Context) = cmd(c, "browse")

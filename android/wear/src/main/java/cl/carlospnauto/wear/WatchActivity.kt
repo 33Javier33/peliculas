@@ -181,7 +181,13 @@ private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () ->
 
             when (link) {
                 Link.AppClosed -> Notice("Abre la app en el teléfono", "Abrir en el teléfono") { openOnPhone(ctx) }
-                Link.NoPhone -> Notice("Sin conexión con el teléfono", "Reintentar") { PhoneLink.hello(ctx) }
+                Link.NoPhone -> Notice("Sin conexión con el teléfono", "Reintentar") { PhoneLink.retry(ctx) }
+                // Conectado al teléfono, pero la app del teléfono no contesta: suele ser que ahí está la
+                // otra app (PulsoMedia ↔ PulsoMusic) o que nunca se abrió tras instalarla
+                Link.NoAnswer -> Notice(
+                    "Abre ${ctx.getString(R.string.app_name)} en el teléfono (la misma app que la del reloj) y vuelve a intentar",
+                    "Abrir en el teléfono",
+                ) { openOnPhone(ctx); PhoneLink.retry(ctx) }
                 else -> Column(
                     Modifier.fillMaxWidth().padding(horizontal = 22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -318,7 +324,8 @@ private fun Notice(text: String, action: String, onClick: () -> Unit) {
 
 /** Abre la app en el teléfono (el teléfono pide desbloquear si hace falta) */
 private fun openOnPhone(ctx: android.content.Context) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("carlospnauto://abrir")).addCategory(Intent.CATEGORY_BROWSABLE)
+    // Solo la misma app en el teléfono (PulsoMedia o PulsoMusic tienen el mismo enlace)
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("carlospnauto://abrir")).addCategory(Intent.CATEGORY_BROWSABLE).setPackage(ctx.packageName)
     runCatching { RemoteActivityHelper(ctx, Executors.newSingleThreadExecutor()).startRemoteActivity(intent) }
 }
 
