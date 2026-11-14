@@ -57,6 +57,7 @@ import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
+import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.ListHeader
@@ -88,6 +89,8 @@ class WatchActivity : ComponentActivity() {
                 try {
                     PhoneLink.hello(this@WatchActivity)
                     PhoneLink.browse(this@WatchActivity)
+                    // ¿Hay una versión nueva de esta app? (avisa con «Tu versión está desactualizada»)
+                    WatchUpdate.check(this@WatchActivity)
                     while (true) {
                         delay(60_000)
                         PhoneLink.hello(this@WatchActivity)
@@ -116,6 +119,61 @@ class WatchActivity : ComponentActivity() {
 
 @Composable
 private fun App() {
+    Box(Modifier.fillMaxSize()) {
+        Screens()
+        UpdateNotice()
+    }
+}
+
+/** Aviso de versión nueva: «Tu versión está desactualizada» con botón para actualizar desde el reloj */
+@Composable
+private fun UpdateNotice() {
+    val ctx = LocalContext.current
+    val state by WatchUpdate.state.collectAsState()
+    val dismissed by WatchUpdate.dismissed.collectAsState()
+    val show = when (state) {
+        is WatchUpdate.State.Available -> !dismissed
+        is WatchUpdate.State.Downloading, is WatchUpdate.State.Failed -> true
+        else -> false
+    }
+    if (!show) return
+    Box(Modifier.fillMaxSize().background(Color(0xF2000000)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            when (val s = state) {
+                is WatchUpdate.State.Available -> {
+                    Text("Tu versión está desactualizada", fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Tienes ${s.current.ifBlank { "una anterior" }} · nueva ${s.latest}", fontSize = 12.sp, color = Color(0xFFB0B0B8), textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(10.dp))
+                    Chip(onClick = { WatchUpdate.start(ctx) }, label = { Text("Actualizar") }, colors = ChipDefaults.primaryChipColors(backgroundColor = Violet))
+                    Spacer(Modifier.height(4.dp))
+                    CompactChip(onClick = { WatchUpdate.later(ctx) }, label = { Text("Más tarde") }, colors = ChipDefaults.secondaryChipColors())
+                }
+                is WatchUpdate.State.Downloading -> {
+                    Text("Descargando ${s.latest}…", fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator(progress = s.pct / 100f, modifier = Modifier.size(54.dp), indicatorColor = Violet, trackColor = Color(0x33FFFFFF))
+                    Spacer(Modifier.height(6.dp))
+                    Text("${s.pct}%", fontSize = 13.sp)
+                }
+                is WatchUpdate.State.Failed -> {
+                    Text(s.msg, fontSize = 13.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(10.dp))
+                    Chip(onClick = { WatchUpdate.start(ctx) }, label = { Text("Reintentar") }, colors = ChipDefaults.primaryChipColors(backgroundColor = Violet))
+                    Spacer(Modifier.height(4.dp))
+                    CompactChip(onClick = { WatchUpdate.later(ctx) }, label = { Text("Más tarde") }, colors = ChipDefaults.secondaryChipColors())
+                }
+                else -> {}
+            }
+        }
+    }
+}
+
+@Composable
+private fun Screens() {
     val nav = rememberSwipeDismissableNavController()
     val toNow = { nav.popBackStack("now", false); Unit }
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
