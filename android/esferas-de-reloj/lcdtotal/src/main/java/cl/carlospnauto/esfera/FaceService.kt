@@ -80,6 +80,7 @@ private val GLOW = Choice(
     ),
 )
 private val SECONDS = Choice("segundos", "Segundos", listOf("Visibles" to 0, "Ocultos" to 1))
+private val AMB = Choice("bajo", "Bajo consumo", listOf("Pantalla completa tenue" to 0, "Mínimo" to 1))
 
 object Config : FaceConfig {
     override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
@@ -89,7 +90,7 @@ object Config : FaceConfig {
         Spot(0.64f, -0.22f, Action.BATTERY, "Caja de batería", hit = 0.13f),
         Spot(0f, -0.56f, Action.ALARMS, "Caja de la fecha", hit = 0.22f),
     )
-    override val choices = listOf(THEME, GLOW, SECONDS)
+    override val choices = listOf(THEME, GLOW, SECONDS, AMB)
     override val heartRate = true
 }
 
@@ -206,6 +207,9 @@ class LcdTotalRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: LcdTotalAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        // Bajo consumo: la esfera completa más tenue, o solo la hora (mínimo)
+        val simple = ambient && Choices.value(context, AMB) == 1
+        val dimmed = ambient && !simple
         lastBounds = Rect(bounds)
         Lcd.skew = 0f
         val cx = bounds.exactCenterX()
@@ -214,19 +218,19 @@ class LcdTotalRenderer(
         val t = zonedDateTime
         val loc = Locale.getDefault()
         val th = THEMES[Choices.index(context, THEME)].second
-        val on = if (ambient) Color.rgb(190, 196, 186) else th.ink
-        val ghost = if (ambient) 0 else a(th.ink, 14)
+        val on = if (simple) Color.rgb(190, 196, 186) else th.ink
+        val ghost = if (simple) 0 else a(th.ink, 14)
         fun X(v: Float) = cx + v * r
         fun Y(v: Float) = cy + v * r
         canvas.drawColor(Color.BLACK)
 
-        if (!ambient) {
+        if (!simple) {
             // Toda la esfera es la pantalla: algo más oscura en el borde, luz cálida al centro
             fill.shader = RadialGradient(cx, cy, r, th.bg, th.edge, Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, r, fill)
             fill.shader = null
             val glow = Choices.value(context, GLOW)
-            val boost = System.currentTimeMillis() < lightUntil
+            val boost = !ambient && System.currentTimeMillis() < lightUntil
             if (Color.alpha(glow) > 0 || boost) {
                 val g = if (Color.alpha(glow) > 0) glow else Color.rgb(255, 170, 70)
                 fill.shader = RadialGradient(X(0f), Y(0.02f), r * (if (boost) 0.95f else 0.62f), a(g, if (boost) 200 else 125), Color.TRANSPARENT, Shader.TileMode.CLAMP)
@@ -277,7 +281,7 @@ class LcdTotalRenderer(
             Lcd.digit(canvas, s2[1], X(0.635f), Y(0.01f), r * 0.13f, r * 0.24f, on, ghost)
         }
 
-        if (ambient) {
+        if (simple) {
             Brand.draw(canvas, cx, Y(0.45f), r * 0.03f, Color.DKGRAY)
             return
         }
@@ -317,7 +321,7 @@ class LcdTotalRenderer(
         text.textSize = r * 0.07f
         text.color = if (!is24 && t.hour >= 12) on else if (!is24) on else ghost
         canvas.drawText(if (t.hour < 12) "AM" else "PM", X(-0.16f), Y(-0.205f), text)
-        Lcd.number(canvas, "%02d".format(t.second), X(0.165f), Y(-0.31f), r * 0.065f, r * 0.115f, r * 0.02f, 2, on, ghost)
+        if (!ambient) Lcd.number(canvas, "%02d".format(t.second), X(0.165f), Y(-0.31f), r * 0.065f, r * 0.115f, r * 0.02f, 2, on, ghost)
 
         // Caja de batería con forma de pila (punta a la derecha): «85%» y pila vertical
         stroke.color = on
@@ -372,6 +376,8 @@ class LcdTotalRenderer(
         text.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
 
         Brand.draw(canvas, cx, Y(0.87f), r * 0.03f, a(on, 140))
+        // Bajo consumo con la esfera completa: todo igual, pero más tenue
+        if (dimmed) canvas.drawColor(Color.argb(175, 0, 0, 0))
     }
 
     /** Pila horizontal con punta a la derecha y 2 barras de nivel */

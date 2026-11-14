@@ -232,11 +232,11 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   lcdtotal: {
     gallery: 2,
     long: 'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más). Fecha en letras de segmentos con año, ALM, SIG y DST que se encienden de verdad (alarma puesta, conexión y horario de verano), caja de batería con forma de pila, hora grande con segundos y celdas de ritmo cardíaco y pasos.',
-    customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', ...COMMON],
+    customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', 'Bajo consumo: esfera completa tenue o mínima', ...COMMON],
   },
   tactica: {
     gallery: 2,
-    long: 'Estilo militar: caja de fecha sobre rejilla, ALM, SIG y DST reales, hora en panel con dos puntos que parpadean, segundos y AM/PM, panel de batería con pila de 6 barras, arcos de segundos y batería en el borde y cajas de ritmo cardíaco y pasos.',
-    customize: ['7 temas (caqui, desierto, ártico, rojo, verde, blanco, naranja)', 'Dos puntos que parpadean o fijos', 'Segundos visibles u ocultos', 'Segundero suave o por segundos', ...COMMON],
+    long: 'Estilo militar: caja de fecha sobre rejilla, ALM, SIG y DST reales, hora en números cuadrados en un panel con dos puntos que parpadean, segundos y AM/PM, panel de batería con pila de 6 barras, arcos de segundos y batería en el borde y cajas de ritmo cardíaco y pasos.',
+    customize: ['7 temas (caqui, desierto, ártico, rojo, verde, blanco, naranja)', 'Dos puntos que parpadean o fijos', 'Segundos visibles u ocultos', 'Bajo consumo: esfera completa tenue o mínima', 'Segundero suave o por segundos', ...COMMON],
   },
 }

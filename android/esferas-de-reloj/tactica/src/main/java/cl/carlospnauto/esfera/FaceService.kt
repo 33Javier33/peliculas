@@ -70,6 +70,7 @@ private val THEMES = listOf(
 private val THEME = Choice("tema", "Tema", THEMES.map { it.first to it.second.accent })
 private val COLON = Choice("puntos", "Dos puntos", listOf("Parpadean" to 0, "Fijos" to 1))
 private val SECONDS = Choice("segundos", "Segundos", listOf("Visibles" to 0, "Ocultos" to 1))
+private val AMB = Choice("bajo", "Bajo consumo", listOf("Pantalla completa tenue" to 0, "Mínimo" to 1))
 
 object Config : FaceConfig {
     override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
@@ -79,7 +80,7 @@ object Config : FaceConfig {
         Spot(0.76f, -0.04f, Action.BATTERY, "Panel de batería", hit = 0.16f),
         Spot(0f, -0.60f, Action.ALARMS, "Caja de la fecha", hit = 0.22f),
     )
-    override val choices = listOf(THEME, COLON, SECONDS, Smooth.CHOICE)
+    override val choices = listOf(THEME, COLON, SECONDS, AMB, Smooth.CHOICE)
     override val heartRate = true
 }
 
@@ -187,6 +188,9 @@ class TacticRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: TacticAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        // Bajo consumo: la esfera completa más tenue, o solo fecha y hora (mínimo)
+        val simple = ambient && Choices.value(context, AMB) == 1
+        val dimmed = ambient && !simple
         interactiveDrawModeUpdateDelayMillis = Smooth.delay(context)
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
@@ -197,10 +201,10 @@ class TacticRenderer(
         val t = zonedDateTime
         val loc = Locale.getDefault()
         val th = THEMES[Choices.index(context, THEME)].second
-        val accent = if (ambient) Color.rgb(170, 170, 160) else th.accent
-        val second = if (ambient) Color.rgb(110, 110, 104) else th.second
-        val line = if (ambient) Color.rgb(60, 60, 56) else th.line
-        val panel = if (ambient) Color.BLACK else th.panel
+        val accent = if (simple) Color.rgb(170, 170, 160) else th.accent
+        val second = if (simple) Color.rgb(110, 110, 104) else th.second
+        val line = if (simple) Color.rgb(60, 60, 56) else th.line
+        val panel = if (simple) Color.BLACK else th.panel
         canvas.drawColor(Color.BLACK)
         stroke.strokeCap = Paint.Cap.BUTT
 
@@ -211,7 +215,7 @@ class TacticRenderer(
         stroke.color = Color.rgb(Color.red(line) / 2, Color.green(line) / 2, Color.blue(line) / 2)
         stroke.strokeWidth = r * 0.012f
         canvas.drawCircle(cx, cy, r * 0.93f, stroke)
-        if (!ambient) {
+        if (!simple) {
             stroke.strokeWidth = r * 0.028f
             for ((a0, sw) in listOf(-52f to 46f, 4f to 44f, 128f to 46f, 186f to 46f)) canvas.drawArc(oval(cx, cy, r * 0.875f), a0 - 90f, sw, false, stroke)
             stroke.strokeWidth = r * 0.012f
@@ -220,7 +224,7 @@ class TacticRenderer(
 
             // Columna de bloques a la izquierda: los segundos (se encienden de abajo hacia arriba)
             val n = 11
-            val f = Smooth.seconds(context, t) / 60f * n
+            val f = if (ambient) 0f else Smooth.seconds(context, t) / 60f * n
             stroke.strokeWidth = r * 0.05f
             for (i in 0 until n) {
                 val start = 245f + (n - 1 - i) * 4.6f
@@ -284,7 +288,7 @@ class TacticRenderer(
         text.textScaleX = 1f
 
         // Fila: ALM · SIG · barra · DST
-        if (!ambient) {
+        if (!simple) {
             fill.color = Color.rgb(20, 21, 19)
             path.reset()
             path.moveTo(X(-0.88f), Y(-0.42f)); path.lineTo(X(0.70f), Y(-0.42f)); path.lineTo(X(0.66f), Y(-0.33f)); path.lineTo(X(-0.86f), Y(-0.33f)); path.close()
@@ -307,7 +311,7 @@ class TacticRenderer(
         }
 
         // Banda de la hora: tira clara arriba, fondo y rayas inclinadas abajo
-        if (!ambient) {
+        if (!simple) {
             fill.color = Color.rgb(78, 80, 74)
             canvas.drawRect(X(-0.80f), Y(-0.32f), X(0.60f), Y(-0.28f), fill)
             fill.color = Color.rgb(34, 36, 32)
@@ -328,8 +332,13 @@ class TacticRenderer(
         // Hora: horas en el acento y minutos en el secundario, grandes como en la foto
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
-        fitText(canvas, h, X(-0.285f), Y(0.22f), r * 0.60f, r * 0.44f, accent, Paint.Align.RIGHT)
-        fitText(canvas, "%02d".format(t.minute), X(-0.135f), Y(0.22f), r * 0.60f, r * 0.49f, second, Paint.Align.LEFT)
+        // Números cuadrados (rectos, esquinas apenas redondeadas), como en la foto
+        val dH = r * 0.43f
+        val dW = r * 0.215f
+        val dT = r * 0.072f
+        val dG = r * 0.035f
+        SquareDigits.draw(canvas, h, X(-0.27f), Y(0.22f) - dH, dW, dH, dT, dG, accent, alignRight = true)
+        SquareDigits.draw(canvas, "%02d".format(t.minute), X(-0.15f), Y(0.22f) - dH, dW, dH, dT, dG, second, alignRight = false)
         // Dos puntos: el de arriba brilla (y parpadea si se eligió)
         val blinkOff = Choices.value(context, COLON) == 0 && t.second % 2 == 1 && !ambient
         fill.color = if (blinkOff) second else accent
@@ -339,13 +348,18 @@ class TacticRenderer(
         fill.color = second
         canvas.drawRoundRect(RectF(X(-0.245f), Y(0.055f), X(-0.175f), Y(0.125f)), r * 0.012f, r * 0.012f, fill)
 
-        if (ambient) {
+        if (simple) {
             Brand.draw(canvas, cx, cy + r * 0.45f, r * 0.03f, Color.DKGRAY)
             return
         }
 
         // Segundos y AM/PM
-        if (Choices.value(context, SECONDS) == 0) fitText(canvas, "%02d".format(t.second), X(0.485f), Y(-0.05f), r * 0.22f, r * 0.17f, accent, Paint.Align.CENTER)
+        if (!ambient && Choices.value(context, SECONDS) == 0) {
+            val sH = r * 0.17f
+            val sW = r * 0.075f
+            val sG = r * 0.016f
+            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.485f) - sW - sG / 2, Y(-0.05f) - sH, sW, sH, r * 0.026f, sG, accent, alignRight = false)
+        }
         if (!is24) {
             val pm = RectF(X(0.40f), Y(0.10f), X(0.56f), Y(0.205f))
             fill.color = accent
@@ -418,6 +432,8 @@ class TacticRenderer(
         fitText(canvas, "PASOS", X(0.27f), Y(0.68f), r * 0.09f, r * 0.26f, second, Paint.Align.CENTER)
 
         Brand.draw(canvas, cx, Y(0.80f), r * 0.03f, line)
+        // Bajo consumo con la esfera completa: todo igual, pero más tenue
+        if (dimmed) canvas.drawColor(Color.argb(175, 0, 0, 0))
     }
 
     private fun drawHeart(canvas: Canvas, x: Float, y: Float, s: Float, color: Int) {
