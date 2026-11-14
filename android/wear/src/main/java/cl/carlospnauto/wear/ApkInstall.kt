@@ -21,6 +21,7 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.tasks.Tasks
 import com.google.android.gms.wearable.ChannelClient
+import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import org.json.JSONObject
@@ -49,24 +50,67 @@ fun replyToPhone(c: Context, node: String?, name: String, state: String, msg: St
 class ApkService : WearableListenerService() {
     override fun onChannelOpened(channel: ChannelClient.Channel) {
         if (!channel.path.startsWith("/cpn/apk/")) return
-        val name = channel.path.substringAfterLast('/').replace(Regex("[^A-Za-z0-9._-]"), "")
-        if (!name.endsWith(".apk")) return
-        val dir = File(filesDir, "recibidos").apply { mkdirs() }
-        val file = File(dir, name)
+        val name = safeName(channel.path.substringAfterLast('/')) ?: return
+        val file = File(File(filesDir, "recibidos").apply { mkdirs() }, name)
         try {
             val client = Wearable.getChannelClient(this)
             val input = Tasks.await(client.getInputStream(channel), 30, TimeUnit.SECONDS)
             input.use { i -> file.outputStream().use { o -> i.copyTo(o, 64 * 1024) } }
             runCatching { Tasks.await(client.close(channel), 10, TimeUnit.SECONDS) }
             if (file.length() < 1024) throw IllegalStateException("El archivo llegó incompleto")
-            replyToPhone(this, channel.nodeId, name, "received")
-            InstallActivity.notify(this, file)
-            // Si el sistema lo permite, abre de una vez la pantalla de instalar
-            runCatching { startActivity(InstallActivity.intent(this, file).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            finish(file, channel.nodeId, name)
         } catch (e: Exception) {
             file.delete()
-            replyToPhone(this, channel.nodeId, name, "error", e.message ?: "No llegó bien al reloj")
+            // El teléfono reintenta solo por mensajes; no se avisa error aquí
         }
+    }
+
+    /**
+     * Otra vía (relojes donde el canal se corta): el APK llega en pedazos por mensajes.
+     * Ruta: /cpn/apkpart/<archivo>/<sesión>/<n.º>/<total de pedazos>/<bytes>
+     */
+    override fun onMessageReceived(event: MessageEvent) {
+        if (!event.path.startsWith("/cpn/apkpart/")) return
+        val p = event.path.removePrefix("/cpn/apkpart/").split('/')
+        if (p.size != 5) return
+        val name = safeName(p[0]) ?: return
+        val session = p[1].filter { it.isLetterOrDigit() }.take(24)
+        val idx = p[2].toIntOrNull() ?: return
+        val count = p[3].toIntOrNull() ?: return
+        val size = p[4].toLongOrNull() ?: return
+        if (session.isEmpty() || idx !in 0 until count || count > 2000) return
+        val base = File(filesDir, "pedazos").apply { mkdirs() }
+        // Pedazos viejos de envíos que no terminaron
+        base.listFiles()?.forEach { if (it.name != session && System.currentTimeMillis() - it.lastModified() > 10 * 60_000) it.deleteRecursively() }
+        val dir = File(base, session).apply { mkdirs() }
+        File(dir, "$idx").writeBytes(event.data)
+        val have = dir.listFiles()?.size ?: 0
+        if (have < count) {
+            // Avance para el teléfono cada 10 pedazos
+            if (have % 10 == 0) replyToPhone(this, event.sourceNodeId, name, "part", "$have/$count")
+            return
+        }
+        val file = File(File(filesDir, "recibidos").apply { mkdirs() }, name)
+        try {
+            file.outputStream().use { o -> for (k in 0 until count) o.write(File(dir, "$k").readBytes()) }
+            dir.deleteRecursively()
+            if (file.length() != size) throw IllegalStateException("El archivo llegó incompleto")
+            finish(file, event.sourceNodeId, name)
+        } catch (e: Exception) {
+            file.delete()
+            dir.deleteRecursively()
+            replyToPhone(this, event.sourceNodeId, name, "error", e.message ?: "No llegó bien al reloj")
+        }
+    }
+
+    private fun safeName(raw: String): String? =
+        raw.replace(Regex("[^A-Za-z0-9._-]"), "").takeIf { it.endsWith(".apk") }
+
+    private fun finish(file: File, node: String, name: String) {
+        replyToPhone(this, node, name, "received")
+        InstallActivity.notify(this, file)
+        // Si el sistema lo permite, abre de una vez la pantalla de instalar
+        runCatching { startActivity(InstallActivity.intent(this, file).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 }
 

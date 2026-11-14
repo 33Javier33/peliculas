@@ -32,10 +32,10 @@ object WatchInstall {
         thread(name = "watch-install") {
             val file = File(app.cacheDir, "reloj.apk")
             try {
-                // ¿Hay un reloj conectado? (antes de descargar, para no esperar en vano)
-                val nodes = Tasks.await(Wearable.getNodeClient(app).connectedNodes, 15, TimeUnit.SECONDS)
-                val node = nodes.firstOrNull { it.isNearby } ?: nodes.firstOrNull()
-                    ?: throw IOException("No hay un reloj conectado al teléfono")
+                // ¿Hay un reloj conectado? (antes de descargar, para no esperar en vano). Se elige el
+                // reloj que tiene la app del reloj de ESTA app (antes se tomaba el primero conectado,
+                // y si era otro reloj o no tenía la app, la conexión se cortaba)
+                val node = pickWatch(app)
 
                 // Descargar
                 report(safe, "download", 0)
@@ -61,27 +61,14 @@ object WatchInstall {
                     }
                 }
 
-                // Enviar al reloj
+                // Enviar al reloj: primero por el canal (rápido); si se corta (pasa en algunos
+                // relojes, como el TicWatch), por mensajes en pedazos
                 report(safe, "send", 0)
-                val channels = Wearable.getChannelClient(app)
-                val channel = Tasks.await(channels.openChannel(node.id, "/cpn/apk/$safe"), 20, TimeUnit.SECONDS)
-                val out = Tasks.await(channels.getOutputStream(channel), 20, TimeUnit.SECONDS)
-                val total = file.length()
-                var sent = 0L
-                var last = -1
-                out.use { o ->
-                    file.inputStream().use { input ->
-                        val buf = ByteArray(32 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            o.write(buf, 0, n)
-                            sent += n
-                            val pct = (sent * 100 / total).toInt()
-                            if (pct / 5 != last / 5) { last = pct; report(safe, "send", pct) }
-                        }
-                        o.flush()
-                    }
+                try {
+                    sendByChannel(app, node, safe, file)
+                } catch (e: Exception) {
+                    report(safe, "send", 0, "Reintentando por otra vía…")
+                    sendByMessages(app, node, safe, file)
                 }
                 report(safe, "sent", 100, "Confirma la instalación en el reloj")
             } catch (e: Exception) {
@@ -93,6 +80,75 @@ object WatchInstall {
         }
     }
 
+    private const val CAPABILITY = "cpn_reloj"
+
+    /** El reloj con la app del reloj instalada (el más cercano); si ninguno lo anuncia, el conectado */
+    private fun pickWatch(app: Context): String {
+        val withApp = runCatching {
+            Tasks.await(Wearable.getCapabilityClient(app).getCapability(CAPABILITY, com.google.android.gms.wearable.CapabilityClient.FILTER_REACHABLE), 15, TimeUnit.SECONDS).nodes
+        }.getOrNull().orEmpty()
+        withApp.firstOrNull { it.isNearby }?.let { return it.id }
+        withApp.firstOrNull()?.let { return it.id }
+        // Relojes con la app antigua (no se anunciaba): el conectado
+        val nodes = Tasks.await(Wearable.getNodeClient(app).connectedNodes, 15, TimeUnit.SECONDS)
+        val node = nodes.firstOrNull { it.isNearby } ?: nodes.firstOrNull()
+            ?: throw IOException("No hay un reloj conectado al teléfono")
+        return node.id
+    }
+
+    private fun sendByChannel(app: Context, node: String, safe: String, file: File) {
+        val channels = Wearable.getChannelClient(app)
+        val channel = Tasks.await(channels.openChannel(node, "/cpn/apk/$safe"), 20, TimeUnit.SECONDS)
+        try {
+            val out = Tasks.await(channels.getOutputStream(channel), 20, TimeUnit.SECONDS)
+            val total = file.length()
+            var sent = 0L
+            var last = -1
+            out.use { o ->
+                file.inputStream().use { input ->
+                    val buf = ByteArray(32 * 1024)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        o.write(buf, 0, n)
+                        sent += n
+                        val pct = (sent * 100 / total).toInt()
+                        if (pct / 5 != last / 5) { last = pct; report(safe, "send", pct) }
+                    }
+                    o.flush()
+                }
+            }
+        } catch (e: Exception) {
+            runCatching { channels.close(channel) }
+            throw e
+        }
+    }
+
+    /** Otra vía: el APK en pedazos de 90 KB por mensajes («/cpn/apkpart/…»); el reloj los junta */
+    private fun sendByMessages(app: Context, node: String, safe: String, file: File) {
+        val bytes = file.readBytes()
+        val chunk = 90 * 1024
+        val count = (bytes.size + chunk - 1) / chunk
+        val session = java.lang.Long.toString(System.currentTimeMillis(), 36)
+        val messages = Wearable.getMessageClient(app)
+        var last = -1
+        for (i in 0 until count) {
+            val part = bytes.copyOfRange(i * chunk, minOf(bytes.size, (i + 1) * chunk))
+            var tries = 0
+            while (true) {
+                try {
+                    Tasks.await(messages.sendMessage(node, "/cpn/apkpart/$safe/$session/$i/$count/${bytes.size}", part), 30, TimeUnit.SECONDS)
+                    break
+                } catch (e: Exception) {
+                    if (++tries >= 3) throw IOException("El reloj no recibe el archivo. Revisa que la app del reloj esté instalada y abierta")
+                    Thread.sleep(800)
+                }
+            }
+            val pct = (i + 1) * 100 / count
+            if (pct / 5 != last / 5) { last = pct; report(safe, "send", pct) }
+        }
+    }
+
     /** Respuesta del reloj ("/cpn/apkresult"): { name, ok, msg } */
     fun onResult(json: String) {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
@@ -100,6 +156,7 @@ object WatchInstall {
         when (o.optString("state")) {
             "received" -> report(name, "sent", 100, "Llegó al reloj: confirma la instalación allí")
             "done" -> report(name, "done", 100, "Instalada en el reloj")
+            "part" -> {}
             else -> report(name, "error", msg = o.optString("msg", "El reloj no pudo instalarla"))
         }
     }
