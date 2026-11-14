@@ -39,6 +39,7 @@ class NativeBridge(private val context: Context) {
             action = PlaybackService.ACTION_STATE
             putExtra("title", o.optString("title"))
             putExtra("artist", o.optString("artist"))
+            putExtra("album", o.optString("album"))
             putExtra("artwork", o.optString("artwork"))
             putExtra("playing", o.optBoolean("playing"))
             putExtra("visible", o.optBoolean("visible", true))

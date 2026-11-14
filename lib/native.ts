@@ -41,6 +41,8 @@ export function nativeAudioUrl(videoId: string): string | null {
 export function reportMediaState(state: {
   title: string
   artist: string
+  /** Álbum (radio del auto por Bluetooth). Sin álbum la app pone su nombre */
+  album?: string
   artwork?: string
   playing: boolean
   visible: boolean

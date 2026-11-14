@@ -34,6 +34,7 @@ class PlaybackService : Service() {
     private var title = ""
     private var trackId = ""
     private var artist = ""
+    private var album = ""
     private var artworkUrl = ""
     private var artwork: Bitmap? = null
     private var playing = false
@@ -99,6 +100,7 @@ class PlaybackService : Service() {
                 title = intent.getStringExtra("title") ?: ""
                 trackId = intent.getStringExtra("id") ?: ""
                 artist = intent.getStringExtra("artist") ?: ""
+                album = intent.getStringExtra("album").orEmpty()
                 playing = intent.getBooleanExtra("playing", false)
                 liked = intent.getBooleanExtra("liked", false)
                 val pos = intent.getDoubleExtra("position", -1.0)
@@ -156,6 +158,9 @@ class PlaybackService : Service() {
             MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
+                // Radios de auto (Bluetooth) muestran el álbum: sin él decían «Unavailable»
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album.ifBlank { getString(R.string.app_name) })
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST, artist)
                 .apply { artwork?.let { putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) } }
                 // Con la duración, Android muestra la barra de avance
                 .apply { if (durationMs > 0) putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs) }

@@ -2028,6 +2028,8 @@ export default function MusicPlayerBar() {
       reportMediaState({
         title: currentVideo ? currentVideo.title.replace(/^[^-–]+[-–]\s*/, '') || currentVideo.title : '',
         artist: currentVideo?.channelTitle || '',
+        // Álbum (la radio del auto lo muestra; sin él decía «Unavailable»)
+        album: (currentVideo as { album?: string } | null)?.album || undefined,
         artwork: currentVideo?.thumbnail?.startsWith('http') ? currentVideo.thumbnail : undefined,
         playing: isPlaying,
         visible: isVisible && !!currentVideo,
