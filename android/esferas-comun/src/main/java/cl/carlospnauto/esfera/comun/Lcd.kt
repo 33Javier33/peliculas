@@ -13,7 +13,7 @@ object Lcd {
     // a=1 b=2 c=4 d=8 e=16 f=32 g=64
     private val SEG = mapOf(
         '0' to 63, '1' to 6, '2' to 91, '3' to 79, '4' to 102, '5' to 109, '6' to 125, '7' to 7, '8' to 127, '9' to 111,
-        '-' to 64, 'P' to 115, 'A' to 119, ' ' to 0,
+        '-' to 64, 'P' to 115, 'A' to 119, 'E' to 121, 'r' to 80, ' ' to 0,
     )
 
     private var inset = 0f

@@ -37,7 +37,7 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Data Pulso',
     file: 'Esfera-Databank.apk',
     description:
-      'El reloj retro con el frente relleno y un halo de luz alrededor: pantalla de cristal líquido con luz al tocar LIGHT, botones SCH, TEL, ADJUST y MEMO, temperatura, pasos, batería y ritmo. Colores del frente, del halo, del marco y de la pantalla.',
+      'El reloj retro con el frente relleno y un halo de luz alrededor: pantalla de cristal líquido con luz al tocar LIGHT, botones SCH, TEL, ADJUST y MEMO, temperatura, pasos, batería y ritmo. Colores del frente, del halo, del marco y de la pantalla. Nuevo diseño Calculadora: teclado que calcula de verdad y la fecha al lado de la hora.',
     features: ['Digital', 'Retro LCD', '6 frentes', '7 halos', 'Pasos', 'Temperatura', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-13',
   },
@@ -73,7 +73,7 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Retro LCD',
     file: 'Esfera-Retro.apk',
     description:
-      'Reloj digital retro de los 80: pantalla de cristal líquido con reflejo y luz (toca LIGHT y se ilumina 3 segundos), dígitos de segmentos con sus «8» apagados, marco curvo y botones SCH, TEL, ADJUST y MEMO que abren lo que elijas. Pantalla clásica, invertida o con luz azul; temperatura, pasos, batería y ritmo.',
+      'Reloj digital retro de los 80: pantalla de cristal líquido con reflejo y luz (toca LIGHT y se ilumina 3 segundos), dígitos de segmentos con sus «8» apagados, marco curvo y botones SCH, TEL, ADJUST y MEMO que abren lo que elijas. Pantalla clásica, invertida o con luz azul; temperatura, pasos, batería y ritmo. Nuevo diseño Gaming: pantalla negra con dígitos de color y hora con segundos grandes.',
     features: ['Digital', 'Retro LCD', '3 pantallas', 'Pasos', 'Temperatura', 'Ritmo cardíaco', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-12',
   },
@@ -211,8 +211,8 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   },
   retro: {
     gallery: 3,
-    long: 'Reloj digital retro de los 80 con pantalla de cristal líquido: dígitos de segmentos con sus «8» apagados, letras de puntos, marco curvo y botones rotulados. LIGHT ilumina la pantalla 3 segundos; SCH, TEL, ADJUST y MEMO abren lo que elijas.',
-    customize: ['Pantalla clásica gris, invertida o con luz azul', 'Color de los dígitos (invertida)', 'Frente a color o blanco y negro', 'Marco de colores u oculto', 'Temperatura de la batería (°C/°F) o del clima', ...COMMON],
+    long: 'Reloj digital retro de los 80 con pantalla de cristal líquido: dígitos de segmentos con sus «8» apagados, letras de puntos, marco curvo y botones rotulados. LIGHT ilumina la pantalla 3 segundos; SCH, TEL, ADJUST y MEMO abren lo que elijas. Con el diseño Gaming la pantalla es negra, con dígitos de color, ícono de señal, día y año en puntos, fecha y hora con segundos grandes; el marco es negro (sin luz alrededor) o del color que elijas.',
+    customize: ['Diseño Clásico o Gaming', '7 colores del diseño Gaming', 'Marco Gaming: negro, gris, de color u oculto', 'Pantalla clásica gris, invertida o con luz azul', 'Color de los dígitos (invertida)', 'Frente a color o blanco y negro', 'Marco de colores u oculto', 'Temperatura de la batería (°C/°F) o del clima', ...COMMON],
   },
   lcdcolor: {
     gallery: 4,
@@ -226,8 +226,8 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   },
   databank: {
     gallery: 2,
-    long: 'El reloj retro con el frente relleno de color y un halo de luz alrededor. Tiene todo lo de la Retro LCD: luz al tocar LIGHT, botones que abren lo que elijas, temperatura, pasos, batería y ritmo cardíaco.',
-    customize: ['6 colores de frente', '7 halos de luz (o sin halo)', 'Pantalla, dígitos, marco y frente a color o B/N', 'Temperatura de la batería o del clima', ...COMMON],
+    long: 'El reloj retro con el frente relleno de color y un halo de luz alrededor. Tiene todo lo de la Retro LCD: luz al tocar LIGHT, botones que abren lo que elijas, temperatura, pasos, batería y ritmo cardíaco. Con el diseño Calculadora la pantalla iluminada muestra la hora con la fecha al lado, y el teclado es una calculadora que funciona (suma, resta, multiplica y divide; toca la pantalla para volver a la hora). LIGHT, SCH y TEL siguen funcionando.',
+    customize: ['Diseño Clásico o Calculadora', 'Pantalla de la calculadora: ámbar, gris, azul, verde o invertida', '6 colores de frente', '7 halos de luz (o sin halo)', 'Pantalla, dígitos, marco y frente a color o B/N', 'Temperatura de la batería o del clima', ...COMMON],
   },
   lcdtotal: {
     gallery: 2,

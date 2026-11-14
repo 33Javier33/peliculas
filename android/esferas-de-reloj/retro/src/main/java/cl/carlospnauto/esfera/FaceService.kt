@@ -42,6 +42,7 @@ import cl.carlospnauto.esfera.comun.Choice
 import cl.carlospnauto.esfera.comun.Choices
 import cl.carlospnauto.esfera.comun.FaceConfig
 import cl.carlospnauto.esfera.comun.HeartRate
+import cl.carlospnauto.esfera.comun.Indicators
 import cl.carlospnauto.esfera.comun.Lcd
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
@@ -78,6 +79,21 @@ private val FRAME = Choice(
     ),
 )
 private val TEMPERATURE = Choice("temp", "Temperatura", listOf("Batería °C" to 0, "Batería °F" to 1, "Clima" to 2))
+/** Diseño: el retro clásico o el «Gaming» (pantalla negra con dígitos de color y hora con segundos grandes) */
+private val DESIGN = Choice("diseno", "Diseño", listOf("Clásico" to 0, "Gaming" to 1))
+/** Color de los dígitos y rótulos del diseño Gaming */
+private val GAME_COLOR = Choice(
+    "gcolor", "Color (Gaming)",
+    listOf(
+        "Verde neón" to Color.rgb(170, 255, 60), "Cian" to Color.rgb(60, 230, 255), "Naranja" to Color.rgb(255, 140, 30),
+        "Ámbar" to Color.rgb(255, 200, 50), "Rojo" to Color.rgb(255, 60, 60), "Violeta" to Color.rgb(190, 120, 255), "Blanco" to Color.rgb(235, 240, 230),
+    ),
+)
+/** Marco del diseño Gaming: negro (sin luz alrededor) o del color elegido */
+private val GAME_FRAME = Choice(
+    "gmarco", "Marco (Gaming)",
+    listOf("Negro" to 0, "Gris" to 1, "Del color elegido" to 2, "Sin marco" to 3),
+)
 
 object Config : FaceConfig {
     override val slots = listOf(STEPS to "Pasos", TEMP to "Clima (si eliges «Clima»)", HEART to "Ritmo cardíaco")
@@ -94,7 +110,7 @@ object Config : FaceConfig {
         Spot(-0.70f, -0.30f, Action.SETTINGS, "Botón ADJUST", hit = 0.09f),
         Spot(0.70f, 0.22f, Action.TIMER, "Botón MEMO", hit = 0.09f),
     )
-    override val choices = listOf(SCREEN, DIGITS, FRONT, FRAME, TEMPERATURE)
+    override val choices = listOf(DESIGN, SCREEN, DIGITS, FRONT, FRAME, TEMPERATURE, GAME_COLOR, GAME_FRAME)
     override val heartRate = true
 }
 
@@ -239,6 +255,7 @@ class RetroRenderer(
     }
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: RetroAssets) {
+        if (Choices.value(context, DESIGN) == 1) return renderGaming(canvas, bounds, zonedDateTime)
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
@@ -500,6 +517,219 @@ class RetroRenderer(
         label.textAlign = Paint.Align.CENTER
 
         Brand.draw(canvas, cx, cy + r * 0.78f, r * 0.032f, Color.rgb(120, 120, 120))
+    }
+
+    private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
+
+    private fun heartPath(x: Float, y: Float, s: Float) {
+        path.reset()
+        path.moveTo(x, y + s * 0.9f)
+        path.cubicTo(x - s * 1.6f, y - s * 0.1f, x - s * 0.8f, y - s * 1.3f, x, y - s * 0.45f)
+        path.cubicTo(x + s * 0.8f, y - s * 1.3f, x + s * 1.6f, y - s * 0.1f, x, y + s * 0.9f)
+        path.close()
+    }
+
+    /**
+     * Diseño «Gaming»: el mismo reloj retro, con pantalla negra y dígitos de color, ícono de señal,
+     * día y año en puntos, fecha, hora con segundos grandes y los botones oscuros con letras de color.
+     * Sin luz alrededor: el marco es negro (configurable).
+     */
+    private fun renderGaming(canvas: Canvas, bounds: Rect, t: ZonedDateTime) {
+        val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        lastBounds = Rect(bounds)
+        val cx = bounds.exactCenterX()
+        val cy = bounds.exactCenterY()
+        val r = min(bounds.width(), bounds.height()) / 2f
+        val loc = Locale.getDefault()
+        val acc = Choices.value(context, GAME_COLOR)
+        val sky = Color.rgb(120, 200, 220)
+        val white = Color.rgb(225, 228, 222)
+        canvas.drawColor(Color.BLACK)
+
+        // Caja del reloj: negra, apenas más clara al centro
+        fill.shader = RadialGradient(cx, cy - r * 0.2f, r * 1.1f, Color.rgb(16, 18, 16), Color.rgb(4, 5, 4), Shader.TileMode.CLAMP)
+        canvas.drawCircle(cx, cy, r, fill)
+        fill.shader = null
+
+        // Marco: negro con borde fino (sin la luz de alrededor), gris o del color elegido
+        val frameMode = Choices.value(context, GAME_FRAME)
+        if (frameMode != 3) {
+            framePath(cx, cy, r)
+            stroke.color = Color.argb(150, 0, 0, 0)
+            stroke.strokeWidth = r * 0.05f
+            canvas.drawPath(path, stroke)
+            stroke.color = when (frameMode) {
+                0 -> Color.rgb(34, 36, 34)
+                1 -> Color.rgb(120, 124, 120)
+                else -> acc
+            }
+            stroke.strokeWidth = r * 0.03f
+            canvas.drawPath(path, stroke)
+            stroke.color = Color.argb(50, 255, 255, 255)
+            stroke.strokeWidth = r * 0.004f
+            canvas.drawPath(path, stroke)
+        }
+
+        // Acceso de arriba con su ícono
+        val top0 = Config.spots[0]
+        Shortcuts.draw(canvas, context, Shortcuts.get(context, 0, top0), cx + top0.x * r, cy + top0.y * r, r * 0.055f, Color.rgb(200, 205, 210), true)
+
+        // Rótulos del frente
+        label.textAlign = Paint.Align.LEFT
+        label.textSize = r * 0.078f
+        label.color = Color.WHITE
+        canvas.drawText("C.P.NAUTO", cx - r * 0.60f, cy - r * 0.50f, label)
+        label.textAlign = Paint.Align.RIGHT
+        label.textSize = r * 0.064f
+        label.color = acc
+        canvas.drawText("GAMING TIMER", cx + r * 0.60f, cy - r * 0.50f, label)
+        label.textAlign = Paint.Align.CENTER
+        label.textSize = r * 0.055f
+        label.color = sky
+        label.letterSpacing = 0.1f
+        canvas.drawText("WATER RESIST", cx, cy - r * 0.425f, label)
+        label.letterSpacing = 0f
+        vertical(canvas, "ADJUST", cx - r * 0.70f, cy - r * 0.30f, r * 0.045f, white, 90f)
+        vertical(canvas, "SELECT/MODE", cx - r * 0.70f, cy + r * 0.07f, r * 0.045f, acc, 90f)
+        vertical(canvas, "LIGHT", cx + r * 0.70f, cy - r * 0.30f, r * 0.045f, white, -90f)
+        vertical(canvas, "◄ SET ►", cx + r * 0.70f, cy - r * 0.04f, r * 0.045f, acc, -90f)
+        vertical(canvas, "MEMO", cx + r * 0.70f, cy + r * 0.22f, r * 0.045f, white, -90f)
+
+        // Pantalla negra
+        val lit = !ambient && System.currentTimeMillis() < lightUntil
+        val lcd = RectF(cx - r * 0.61f, cy - r * 0.39f, cx + r * 0.61f, cy + r * 0.335f)
+        stroke.color = Color.rgb(2, 3, 2)
+        stroke.strokeWidth = r * 0.03f
+        canvas.drawRoundRect(lcd, r * 0.05f, r * 0.05f, stroke)
+        fill.color = Color.rgb(6, 9, 6)
+        canvas.drawRoundRect(lcd, r * 0.05f, r * 0.05f, fill)
+        if (lit) {
+            fill.shader = RadialGradient(lcd.centerX(), lcd.centerY(), lcd.width() * 0.6f, a(acc, 70), Color.TRANSPARENT, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(lcd, r * 0.05f, r * 0.05f, fill)
+            fill.shader = null
+        }
+        stroke.color = Color.argb(45, 255, 255, 255)
+        stroke.strokeWidth = r * 0.004f
+        canvas.drawRoundRect(lcd, r * 0.05f, r * 0.05f, stroke)
+        val on = acc
+        val ghost = a(acc, 22)
+        // Los dígitos brillan un poco, como en la foto
+        fun glowOn() { if (!ambient) fill.setShadowLayer(r * 0.02f, 0f, 0f, a(acc, 160)) }
+
+        // Ícono de señal: barra y ondas (encendido con conexión)
+        val online = Indicators.online(context)
+        val sigC = if (online) on else ghost
+        fill.color = sigC
+        canvas.drawRoundRect(RectF(cx - r * 0.55f, cy - r * 0.335f, cx - r * 0.52f, cy - r * 0.285f), r * 0.006f, r * 0.006f, fill)
+        stroke.color = sigC
+        stroke.strokeWidth = r * 0.011f
+        stroke.strokeCap = Paint.Cap.BUTT
+        for (k in 0 until 4) {
+            val rad = r * (0.03f + k * 0.018f)
+            canvas.drawArc(RectF(cx - r * 0.51f - rad, cy - r * 0.31f - rad, cx - r * 0.51f + rad, cy - r * 0.31f + rad), -35f, 70f, false, stroke)
+        }
+        stroke.strokeCap = Paint.Cap.ROUND
+
+        // Fila 1: día y año en puntos
+        val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").take(3)
+        val top = "$dow '${"%02d".format(t.year % 100)}"
+        val p = r * 0.021f
+        Lcd.dots(canvas, top, lcd.right - r * 0.05f - Lcd.dotsWidth(top, p), cy - r * 0.355f, p, on, ghost)
+
+        // Fila 2: fecha (día-mes)
+        Lcd.row(canvas, "${t.dayOfMonth}-${t.monthValue}", lcd.right - r * 0.05f, cy - r * 0.16f, r * 0.075f, r * 0.12f, r * 0.03f, 5, on, ghost)
+
+        // Fila 3: hora con segundos, todos grandes (00:00:00) y P / 24
+        val is24 = DateFormat.is24HourFormat(context)
+        val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
+        val m = "%02d".format(t.minute)
+        val sec = if (ambient) "  " else "%02d".format(t.second)
+        val dw = r * 0.115f
+        val dh = r * 0.235f
+        val y3 = cy + r * 0.045f
+        var x = cx - r * 0.47f
+        val step = dw * 1.22f
+        val colonGap = dw * 0.62f
+        fill.color = on
+        glowOn()
+        Lcd.digit(canvas, h[0], x, y3, dw, dh, on, ghost); x += step
+        Lcd.digit(canvas, h[1], x, y3, dw, dh, on, ghost); x += step
+        Lcd.colon(canvas, x + colonGap * 0.25f, y3, dh, r * 0.016f, on); x += colonGap
+        Lcd.digit(canvas, m[0], x, y3, dw, dh, on, ghost); x += step
+        Lcd.digit(canvas, m[1], x, y3, dw, dh, on, ghost); x += step
+        if (!ambient) Lcd.colon(canvas, x + colonGap * 0.25f, y3, dh, r * 0.016f, on)
+        x += colonGap
+        val sw = dw * 0.88f
+        val sh = dh * 0.88f
+        Lcd.digit(canvas, sec[0], x, y3 + dh - sh, sw, sh, on, ghost); x += sw * 1.22f
+        Lcd.digit(canvas, sec[1], x, y3 + dh - sh, sw, sh, on, ghost)
+        fill.clearShadowLayer()
+        label.textAlign = Paint.Align.CENTER
+        label.textSize = r * 0.055f
+        label.color = if (is24 || t.hour >= 12) on else ghost
+        canvas.drawText(if (is24) "24" else "P", cx - r * 0.53f, y3 + r * 0.05f, label)
+
+        // Medidor de «SELECT/MODE»: la batería en cuadritos
+        val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        for (k in 0 until 9) {
+            fill.color = if (pct >= 0 && pct >= (8 - k) * 11.1f) on else a(acc, 50)
+            canvas.drawRect(cx - r * 0.655f, cy - r * 0.10f + k * r * 0.03f, cx - r * 0.633f, cy - r * 0.10f + k * r * 0.03f + r * 0.019f, fill)
+        }
+
+        // Botones de abajo: oscuros con letras de color
+        val by0 = cy + r * 0.37f
+        val by1 = cy + r * 0.45f
+        fill.color = Color.rgb(20, 26, 30)
+        canvas.drawRoundRect(RectF(cx - r * 0.66f, by0, cx - r * 0.43f, by1), r * 0.012f, r * 0.012f, fill)
+        canvas.drawRoundRect(RectF(cx + r * 0.43f, by0, cx + r * 0.66f, by1), r * 0.012f, r * 0.012f, fill)
+        canvas.drawRoundRect(RectF(cx - r * 0.41f, by0, cx + r * 0.41f, by1), r * 0.008f, r * 0.008f, fill)
+        label.textAlign = Paint.Align.CENTER
+        label.textSize = r * 0.05f
+        label.color = on
+        canvas.drawText("SCH", cx - r * 0.545f, cy + r * 0.43f, label)
+        canvas.drawText("TEL", cx + r * 0.545f, cy + r * 0.43f, label)
+        label.textSize = r * 0.065f
+        label.letterSpacing = 0.06f
+        canvas.drawText("WORLD TIME", cx, cy + r * 0.435f, label)
+        label.letterSpacing = 0f
+
+        // Fila de datos en color: pasos · temperatura · batería · ritmo
+        val steps = complications.textOf(STEPS, context.resources) ?: "--"
+        val tempMode = Choices.value(context, TEMPERATURE)
+        val temp = when (tempMode) {
+            2 -> complications.textOf(TEMP, context.resources) ?: "--"
+            else -> batteryTemperature().let { c ->
+                if (c.isNaN()) "--" else if (tempMode == 1) "${(c * 9 / 5 + 32).toInt()}°F" else "${c.toInt()}°C"
+            }
+        }
+        val hr = complications.textOf(HEART, context.resources) ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
+        val y = cy + r * 0.56f
+        label.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+        label.textSize = r * 0.08f
+        label.color = on
+        label.textAlign = Paint.Align.LEFT
+        fill.color = on
+        for (k in 0 until 3) canvas.drawCircle(cx - r * 0.57f + k * r * 0.022f, y - r * 0.01f - k * r * 0.012f, r * 0.007f, fill)
+        canvas.drawText(steps, cx - r * 0.49f, y, label)
+        val tx = cx - r * 0.19f
+        stroke.color = on
+        stroke.strokeWidth = r * 0.008f
+        canvas.drawRoundRect(RectF(tx, y - r * 0.06f, tx + r * 0.03f, y), r * 0.006f, r * 0.006f, stroke)
+        canvas.drawText(temp, tx + r * 0.045f, y, label)
+        val bxx = cx + r * 0.13f
+        canvas.drawRect(bxx, y - r * 0.055f, bxx + r * 0.028f, y, fill)
+        canvas.drawRect(bxx + r * 0.008f, y - r * 0.064f, bxx + r * 0.02f, y - r * 0.055f, fill)
+        canvas.drawText(if (pct >= 0) "$pct%" else "--", bxx + r * 0.04f, y, label)
+        val hx = cx + r * 0.41f
+        heartPath(hx, y - r * 0.03f, r * 0.03f)
+        canvas.drawPath(path, fill)
+        canvas.drawText(hr, hx + r * 0.05f, y, label)
+        label.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        label.textAlign = Paint.Align.CENTER
+
+        Brand.draw(canvas, cx, cy + r * 0.78f, r * 0.032f, Color.rgb(110, 110, 110))
+        // Siempre activa: la esfera completa, más tenue
+        if (ambient) canvas.drawColor(Color.argb(170, 0, 0, 0))
     }
 
     override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: RetroAssets) {
