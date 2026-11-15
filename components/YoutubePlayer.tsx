@@ -678,7 +678,7 @@ export default function YoutubePlayer({
 
       <div className="flex-1 flex flex-col items-center justify-start p-0 sm:p-4 min-h-0 gap-0 sm:gap-3">
         {/* El video queda fijo arriba mientras se recorre la lista de abajo */}
-        <div className="w-full max-w-6xl z-20 bg-black sm:-mt-4 sm:pt-4 border-b border-white/5 px-2 sm:px-0 pt-2 sm:pt-0">
+        <div className="w-full max-w-6xl sticky top-0 z-40 bg-black border-b border-white/5 px-2 sm:px-0 pt-2 sm:pt-0">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button role="tab" aria-selected={false} onClick={toSong} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
@@ -1000,14 +1000,14 @@ function fmt(t: number) {
 
 /** Botón de opción del reproductor: ícono en un cuadro y su nombre debajo (todos del mismo tamaño) */
 function Opt({ icon, label, onClick, href, active = false }: { icon: React.ReactNode; label: string; onClick?: () => void; href?: string; active?: boolean }) {
-  const box = `w-12 h-12 rounded-2xl flex items-center justify-center border transition-colors ${active ? 'bg-violet-500/25 border-violet-400/40 text-violet-200' : 'bg-surface-2/80 border-white/10 text-slate-200 group-hover:text-white'}`
+  const box = `w-10 h-10 rounded-lg flex items-center justify-center border text-sm transition-colors ${active ? 'bg-violet-500/25 border-violet-400/40 text-violet-200' : 'bg-surface-2/60 border-white/8 text-slate-300 hover:text-slate-100'}`
   const inner = (
     <>
       <span className={box}>{icon}</span>
-      <span className="text-[11px] text-slate-300 leading-tight text-center line-clamp-2">{label}</span>
+      <span className="text-[10px] text-slate-400 leading-tight text-center line-clamp-2">{label}</span>
     </>
   )
-  const cls = 'group shrink-0 w-[4.5rem] flex flex-col items-center gap-1'
+  const cls = 'group shrink-0 w-[3.5rem] flex flex-col items-center gap-0.5'
   if (href)
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
