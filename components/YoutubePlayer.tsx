@@ -844,14 +844,19 @@ export default function YoutubePlayer({
           <div className="flex-1 min-h-0 overflow-y-auto w-full">
             <div className="max-w-6xl mx-auto px-2 sm:px-0 py-6">
               <p className="text-white font-bold text-sm mb-2">A continuación</p>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-2.5">
                 {upcoming.map((v) => (
-                  <button key={v.id} onClick={() => onPick?.(v)} className="flex items-center gap-3 text-left rounded-xl p-1.5 hover:bg-white/5 active:bg-white/10">
+                  <button key={v.id} onClick={() => onPick?.(v)} className="group flex items-center gap-3 text-left rounded-2xl p-2.5 border border-white/10 bg-surface-2/40 hover:bg-surface-2/80 hover:border-violet-400/40 active:bg-surface-2 transition-all duration-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-32 aspect-video rounded-lg object-cover shrink-0 bg-surface-2" />
-                    <span className="min-w-0">
-                      <span className="block text-white text-sm font-semibold leading-snug line-clamp-2">{v.title}</span>
-                      {v.channel && <span className="block text-slate-500 text-xs truncate mt-0.5">{v.channel}</span>}
+                    <div className="relative shrink-0 w-36 aspect-video rounded-lg overflow-hidden bg-surface-2">
+                      <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                        <Play className="w-6 h-6 text-white fill-white opacity-80 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-white text-sm font-semibold leading-snug line-clamp-2 group-hover:text-violet-200 transition-colors">{v.title}</span>
+                      {v.channel && <span className="block text-slate-500 text-xs truncate mt-1">{v.channel}</span>}
                     </span>
                   </button>
                 ))}
