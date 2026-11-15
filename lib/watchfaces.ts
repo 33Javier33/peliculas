@@ -222,7 +222,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 3,
     long: 'Reloj digital retro de los 80 con pantalla de cristal líquido: dígitos de segmentos con sus «8» apagados, letras de puntos, marco curvo y botones rotulados. LIGHT ilumina la pantalla 3 segundos; SCH, TEL, ADJUST y MEMO abren lo que elijas. Con el diseño Gaming la pantalla es negra, con dígitos de color, ícono de señal, día y año en puntos, fecha y hora con segundos grandes; el marco es negro (sin luz alrededor) o del color que elijas.',
     customize: [
-      'Modo reproductor: cuando suena PulsoMusic en el teléfono, la pantalla muestra la canción, el artista, la barra de avance y botones ◄ ►‖ ►| (se puede apagar)','Diseño Clásico o Gaming', '7 colores del diseño Gaming', 'Marco Gaming: negro, gris, de color u oculto', 'Pantalla clásica gris, invertida o con luz azul', 'Color de los dígitos (invertida)', 'Frente a color o blanco y negro', 'Marco de colores u oculto', 'Temperatura de la batería (°C/°F) o del clima', ...COMMON],
+      'Modo reproductor (opcional, apagado al instalar): al sonar PulsoMusic la pantalla muestra la canción, el artista, la barra y botones ◄ ►‖ ►|; tocar la pantalla cambia entre la vista normal y el reproductor','Diseño Clásico o Gaming', '7 colores del diseño Gaming', 'Marco Gaming: negro, gris, de color u oculto', 'Pantalla clásica gris, invertida o con luz azul', 'Color de los dígitos (invertida)', 'Frente a color o blanco y negro', 'Marco de colores u oculto', 'Temperatura de la batería (°C/°F) o del clima', ...COMMON],
   },
   lcdcolor: {
     gallery: 4,
@@ -238,7 +238,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 2,
     long: 'El reloj retro con el frente relleno de color y un halo de luz alrededor. Tiene todo lo de la Retro LCD: luz al tocar LIGHT, botones que abren lo que elijas, temperatura, pasos, batería y ritmo cardíaco. Con el diseño Calculadora la pantalla iluminada muestra la hora con la fecha al lado, y el teclado es una calculadora que funciona (suma, resta, multiplica y divide; toca la pantalla para volver a la hora). LIGHT, SCH y TEL siguen funcionando.',
     customize: [
-      'Modo reproductor: cuando suena PulsoMusic en el teléfono, la pantalla muestra la canción, el artista, la barra de avance y botones ◄ ►‖ ►| (se puede apagar)','Diseño Clásico o Calculadora', 'Pantalla de la calculadora: ámbar, gris, azul, verde o invertida', '6 colores de frente', '7 halos de luz (o sin halo)', 'Pantalla, dígitos, marco y frente a color o B/N', 'Temperatura de la batería o del clima', ...COMMON],
+      'Modo reproductor (opcional, apagado al instalar): al sonar PulsoMusic la pantalla muestra la canción, el artista, la barra y botones ◄ ►‖ ►|; tocar la pantalla cambia entre la vista normal y el reproductor','Diseño Clásico o Calculadora', 'Pantalla de la calculadora: ámbar, gris, azul, verde o invertida', '6 colores de frente', '7 halos de luz (o sin halo)', 'Pantalla, dígitos, marco y frente a color o B/N', 'Temperatura de la batería o del clima', ...COMMON],
   },
   lcdtotal: {
     gallery: 2,
@@ -249,7 +249,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 3,
     long: 'Una esfera digital retro con luz. Arriba, triángulos de color y el nombre; al centro, un panel con marco de color con el ritmo cardíaco y su estado (Bajo, Normal o Alto), y una pantalla de cristal líquido con la batería, el día, la fecha (con sus «8» apagados), la campana de la alarma (se enciende si tienes una puesta), la hora grande con segundos e indicador P/24. Abajo, los pasos y la distancia recorrida, y WATER 50 RESIST. Toca la pantalla y se ilumina 3 segundos. APP 1 y APP 2, a los costados, abren PulsoMedia y PulsoMusic (o lo que elijas).',
     customize: [
-      'Modo reproductor: cuando suena PulsoMusic en el teléfono, la pantalla muestra la canción, el artista, la barra de avance y botones ◄ ►‖ ►| (se puede apagar)',
+      'Modo reproductor (opcional, apagado al instalar): al sonar PulsoMusic la pantalla muestra la canción, el artista, la barra y botones ◄ ►‖ ►|; tocar la pantalla cambia entre la vista normal y el reproductor',
       '11 pantallas: clásica de cristal líquido, gris, naranja, verde menta, rojo, amarillo, beige y negativas amarilla, cian, granate y magenta',
       '7 colores de frente: rojo y azul, verde, dorado, rosa, azul, plata y negro',
       'Segundos visibles u ocultos',

@@ -45,8 +45,31 @@ object PhoneNow {
         private set
     @Volatile private var pausedAt = 0L
 
-    /** Modo reproductor de la esfera: Automático (al sonar) o Apagado */
-    val CHOICE = Choice("reproductor", "Modo reproductor", listOf("Al sonar PulsoMusic" to 0, "Apagado" to 1))
+    /**
+     * Modo reproductor de la esfera. Por defecto apagado: la esfera queda con su pantalla de siempre.
+     * Encendido, al sonar música la pantalla pasa a reproductor, y tocar la pantalla cambia entre
+     * la vista normal y la del reproductor.
+     */
+    val CHOICE = Choice("reproductor2", "Modo reproductor", listOf("Apagado (pantalla normal)" to 1, "Al sonar PulsoMusic" to 0))
+
+    /** Canción para la que se eligió ver la pantalla normal (tocando la pantalla) */
+    @Volatile private var hiddenFor: String? = null
+
+    fun enabled(c: Context) = Choices.value(c, CHOICE) == 0
+
+    /** ¿Hay música para mostrar? (sonando, o pausada hace menos de 1 minuto) */
+    private fun hasMusic(): Boolean {
+        val s = state ?: return false
+        return s.playing || System.currentTimeMillis() - pausedAt < 60_000
+    }
+
+    /** Tocar la pantalla: cambia entre la vista normal y la del reproductor. true si cambió */
+    fun toggleView(c: Context): Boolean {
+        if (!enabled(c) || !hasMusic()) return false
+        val title = state?.title ?: return false
+        hiddenFor = if (hiddenFor == title) null else title
+        return true
+    }
 
     private var receiver: BroadcastReceiver? = null
     private var listeners = 0
@@ -104,9 +127,9 @@ object PhoneNow {
 
     /** ¿Se muestra el reproductor? Mientras suena, y hasta 1 minuto después de pausar */
     fun active(c: Context): Boolean {
-        if (Choices.value(c, CHOICE) != 0) return false
-        val s = state ?: return false
-        return s.playing || System.currentTimeMillis() - pausedAt < 60_000
+        if (!enabled(c) || !hasMusic()) return false
+        // Se eligió la pantalla normal para esta canción (vuelve el reproductor con la siguiente)
+        return state?.title != hiddenFor
     }
 }
 

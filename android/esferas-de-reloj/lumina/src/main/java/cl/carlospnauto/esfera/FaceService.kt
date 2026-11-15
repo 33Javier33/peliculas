@@ -201,12 +201,13 @@ class LuminaRenderer(
     /** Toque en los botones del reproductor (◄ anterior, ►‖ reproducir/pausar, ►| siguiente) */
     fun playerTap(x: Int, y: Int): Boolean {
         val lcd = playerLcd ?: return false
+        if (!PhoneNow.enabled(context) || !lcd.contains(x.toFloat(), y.toFloat())) return false
         val s = PhoneNow.state ?: return false
-        if (!PhoneNow.active(context)) return false
         val b = lastBounds
         val r = min(b.width(), b.height()) / 2f
-        val a = PlayerScreen.hit(lcd, r, x.toFloat(), y.toFloat(), s) ?: return false
-        PhoneNow.command(context, a)
+        val a = if (PhoneNow.active(context)) PlayerScreen.hit(lcd, r, x.toFloat(), y.toFloat(), s) else null
+        // Botón del reproductor, o tocar la pantalla para cambiar entre la vista normal y el reproductor
+        if (a != null) PhoneNow.command(context, a) else if (!PhoneNow.toggleView(context)) return false
         invalidate()
         return true
     }
