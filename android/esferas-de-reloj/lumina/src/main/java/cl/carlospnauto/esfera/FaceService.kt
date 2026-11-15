@@ -133,7 +133,10 @@ class FaceService : WatchFaceService() {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
                 if (tapType != TapType.UP || complicationSlot != null) return
                 val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
-                if (i >= 0) return Shortcuts.open(this@FaceService, i, Config.spots[i])
+                if (i >= 0) {
+                    Shortcuts.open(this@FaceService, i, Config.spots[i])
+                    return
+                }
                 // Tocar la pantalla: se ilumina 3 segundos (como la luz de los relojes digitales)
                 if (renderer.inScreen(tapEvent.xPos, tapEvent.yPos)) renderer.light()
             }
