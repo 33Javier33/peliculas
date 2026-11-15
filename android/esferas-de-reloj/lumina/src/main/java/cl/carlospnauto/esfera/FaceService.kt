@@ -222,111 +222,79 @@ class LuminaRenderer(
         return text.measureText(s)
     }
 
-    /**
-     * Fila de triángulos siguiendo el borde redondo (arriba apuntan hacia adentro, abajo también),
-     * más grandes al centro y con los chicos invertidos entre medio (el zigzag)
-     */
-    private fun chevrons(canvas: Canvas, cx: Float, cy: Float, radius: Float, r: Float, color: Int, top: Boolean) {
+    /** Fila recta de triángulos (apuntan hacia el centro), más grandes al centro, con el zigzag entre medio */
+    private fun chevrons(canvas: Canvas, cx: Float, y: Float, r: Float, color: Int, top: Boolean) {
         val n = 9
-        val stepDeg = 6.2f
+        val step = r * 0.066f
+        val dir = if (top) 1f else -1f
         for (i in 0 until n) {
             val k = i - (n - 1) / 2f
             val size = r * (0.052f - kotlin.math.abs(k) * 0.0055f)
-            canvas.save()
-            canvas.rotate(if (top) k * stepDeg else -k * stepDeg, cx, cy)
-            val y = if (top) cy - radius else cy + radius
-            val dir = if (top) 1f else -1f
-            // Grande: base hacia afuera, punta hacia el centro
+            val x = cx + k * step
             path.reset()
-            path.moveTo(cx - size * 0.75f, y - dir * size * 0.5f)
-            path.lineTo(cx + size * 0.75f, y - dir * size * 0.5f)
-            path.lineTo(cx, y + dir * size * 0.5f)
+            path.moveTo(x - size * 0.75f, y - dir * size * 0.5f)
+            path.lineTo(x + size * 0.75f, y - dir * size * 0.5f)
+            path.lineTo(x, y + dir * size * 0.5f)
             path.close()
             fill.color = if (i % 2 == 0) color else a(color, 170)
             canvas.drawPath(path, fill)
-            canvas.restore()
             if (i < n - 1) {
-                canvas.save()
-                canvas.rotate(if (top) (k + 0.5f) * stepDeg else -(k + 0.5f) * stepDeg, cx, cy)
+                val x2 = x + step / 2
                 val s2 = size * 0.62f
                 path.reset()
-                path.moveTo(cx - s2 * 0.7f, y + dir * size * 0.5f)
-                path.lineTo(cx + s2 * 0.7f, y + dir * size * 0.5f)
-                path.lineTo(cx, y - dir * size * 0.25f)
+                path.moveTo(x2 - s2 * 0.7f, y + dir * size * 0.5f)
+                path.lineTo(x2 + s2 * 0.7f, y + dir * size * 0.5f)
+                path.lineTo(x2, y - dir * size * 0.25f)
                 path.close()
                 fill.color = a(color, 120)
                 canvas.drawPath(path, fill)
-                canvas.restore()
             }
         }
     }
 
-    private val arcPath = Path()
-
     /**
-     * Texto curvo siguiendo el borde redondo (arriba o abajo), centrado. Cada parte con su tamaño,
-     * color y letra (como «WATER 50 RESIST»). radius: el renglón (la base de las letras).
-     */
-    private fun arcText(canvas: Canvas, cx: Float, cy: Float, radius: Float, top: Boolean, gap: Float, parts: List<Triple<String, Float, Pair<Int, Typeface>>>) {
-        val widths = parts.map { (txt, size, cf) -> width(txt, size, cf.second) }
-        val total = widths.sum() + gap * (parts.size - 1)
-        arcPath.reset()
-        val oval = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
-        // Arriba: de izquierda a derecha por arriba; abajo: de izquierda a derecha por abajo
-        if (top) arcPath.addArc(oval, 180f, 180f) else arcPath.addArc(oval, 180f, -180f)
-        val len = (Math.PI * radius).toFloat()
-        var off = len / 2 - total / 2
-        for ((idx, part) in parts.withIndex()) {
-            val (txt, size, cf) = part
-            text.typeface = cf.second
-            text.textSize = size
-            text.color = cf.first
-            text.textAlign = Paint.Align.LEFT
-            text.textSkewX = -0.18f
-            canvas.drawTextOnPath(txt, arcPath, off, 0f, text)
-            off += widths[idx] + gap
-        }
-        text.textSkewX = 0f
-    }
-
-    /**
-     * Panel con la forma de la foto: los costados siguen el círculo de la esfera y los bordes de
-     * arriba y abajo son arcos suaves, con las esquinas redondeadas. k achica el panel (línea de adentro).
+     * Panel con la forma de la foto: línea recta arriba y abajo, y los costados siguen el círculo de
+     * la esfera; las esquinas pasan suave de la recta a la curva. k achica el panel (línea de adentro).
      */
     private fun panelPath(cx: Float, cy: Float, r: Float, k: Float) {
         val rr = r * k
         fun X(v: Float) = cx + v * rr
         fun Y(v: Float) = cy + v * rr
         val side = 0.86f
-        val ang = Math.toDegrees(kotlin.math.asin(0.36 / side)).toFloat()
-        val sx = (side * kotlin.math.cos(Math.toRadians(ang.toDouble()))).toFloat()
+        val edge = 0.50f
+        val sy = 0.40f
+        val ang = Math.toDegrees(kotlin.math.asin((sy / side).toDouble())).toFloat()
+        val sx = kotlin.math.sqrt(side * side - sy * sy)
+        // Esquina: la recta y la tangente del círculo se cruzan en (cxk, edge)
+        val th = Math.toRadians(ang.toDouble())
+        val e = (edge - sy) / kotlin.math.cos(th).toFloat()
+        val cxk = sx - kotlin.math.sin(th).toFloat() * e
+        val start = cxk - 0.09f
         path.reset()
-        path.moveTo(X(-0.64f), Y(-0.43f))
-        path.quadTo(cx, Y(-0.565f), X(0.64f), Y(-0.43f))
-        path.quadTo(X(0.76f), Y(-0.405f), X(sx), Y(-0.36f))
+        path.moveTo(X(-start), Y(-edge))
+        path.lineTo(X(start), Y(-edge))
+        path.quadTo(X(cxk), Y(-edge), X(sx), Y(-sy))
         path.arcTo(RectF(X(-side), Y(-side), X(side), Y(side)), -ang, ang * 2, false)
-        path.quadTo(X(0.76f), Y(0.405f), X(0.64f), Y(0.43f))
-        path.quadTo(cx, Y(0.565f), X(-0.64f), Y(0.43f))
-        path.quadTo(X(-0.76f), Y(0.405f), X(-sx), Y(0.36f))
+        path.quadTo(X(cxk), Y(edge), X(start), Y(edge))
+        path.lineTo(X(-start), Y(edge))
+        path.quadTo(X(-cxk), Y(edge), X(-sx), Y(sy))
         path.arcTo(RectF(X(-side), Y(-side), X(side), Y(side)), 180f - ang, ang * 2, false)
-        path.quadTo(X(-0.76f), Y(-0.405f), X(-0.64f), Y(-0.43f))
+        path.quadTo(X(-cxk), Y(-edge), X(-start), Y(-edge))
         path.close()
     }
 
     /** Pantalla: esquinas redondeadas, arriba y abajo apenas curvos y los costados apenas abombados */
     private fun screenPath(lcd: RectF, r: Float) {
         val k = r * 0.075f
-        val mx = lcd.centerX()
-        val my = lcd.centerY()
         path.reset()
         path.moveTo(lcd.left + k, lcd.top)
-        path.quadTo(mx, lcd.top - r * 0.03f, lcd.right - k, lcd.top)
+        path.lineTo(lcd.right - k, lcd.top)
         path.quadTo(lcd.right, lcd.top, lcd.right, lcd.top + k)
-        path.quadTo(lcd.right + r * 0.018f, my, lcd.right, lcd.bottom - k)
+        path.lineTo(lcd.right, lcd.bottom - k)
         path.quadTo(lcd.right, lcd.bottom, lcd.right - k, lcd.bottom)
-        path.quadTo(mx, lcd.bottom + r * 0.03f, lcd.left + k, lcd.bottom)
+        path.lineTo(lcd.left + k, lcd.bottom)
         path.quadTo(lcd.left, lcd.bottom, lcd.left, lcd.bottom - k)
-        path.quadTo(lcd.left - r * 0.018f, my, lcd.left, lcd.top + k)
+        path.lineTo(lcd.left, lcd.top + k)
         path.quadTo(lcd.left, lcd.top, lcd.left + k, lcd.top)
         path.close()
     }
@@ -375,25 +343,19 @@ class LuminaRenderer(
             canvas.drawCircle(cx, cy, r, fill)
             fill.shader = null
 
-            // Triángulos y nombre arriba, curvos como el borde
-            chevrons(canvas, cx, cy, r * 0.775f, r, th.chevron, top = true)
+            // Triángulos y nombre arriba (rectos, como en la foto)
+            chevrons(canvas, cx, Y(-0.735f), r, th.chevron, top = true)
             val brand = "LUMINA"
             val bs = r * 0.085f
-            val bR = r * 0.60f
-            arcText(canvas, cx, cy, bR, true, 0f, listOf(Triple(brand, bs, th.brand to bold)))
-            // Flechitas a los lados del nombre (siguen la curva)
             val bw = width(brand, bs, bold)
-            val half = Math.toDegrees(((bw / 2 + r * 0.06f) / bR).toDouble()).toFloat()
+            write(canvas, brand, cx, Y(-0.585f), bs, th.brand, bold, Paint.Align.CENTER, -0.2f)
             fill.color = th.label
             for (side in listOf(-1f, 1f)) {
-                canvas.save()
-                canvas.rotate(side * half, cx, cy)
-                val ay = cy - bR - bs * 0.32f
+                val ax = cx + side * (bw / 2 + r * 0.05f)
                 path.reset()
-                path.moveTo(cx + side * r * 0.03f, ay); path.lineTo(cx - side * r * 0.012f, ay - r * 0.022f); path.lineTo(cx - side * r * 0.012f, ay + r * 0.022f)
+                path.moveTo(ax + side * r * 0.03f, Y(-0.613f)); path.lineTo(ax - side * r * 0.012f, Y(-0.635f)); path.lineTo(ax - side * r * 0.012f, Y(-0.591f))
                 path.close()
                 canvas.drawPath(path, fill)
-                canvas.restore()
             }
 
             // Panel con la forma de la foto (costados curvos como la esfera), doble línea de color
@@ -446,16 +408,12 @@ class LuminaRenderer(
             canvas.drawCircle(X(0.20f), Y(0.385f), r * 0.014f, fill)
             write(canvas, dist, X(0.23f), Y(0.405f), ls, th.brand, mono, Paint.Align.LEFT)
 
-            // WATER 50 RESIST curvo como el borde, y triángulos abajo
-            arcText(
-                canvas, cx, cy, r * 0.665f, false, r * 0.03f,
-                listOf(
-                    Triple("WATER", r * 0.062f, th.label to bold),
-                    Triple("50", r * 0.115f, th.brand to black),
-                    Triple("RESIST", r * 0.062f, th.label to bold),
-                ),
-            )
-            chevrons(canvas, cx, cy, r * 0.78f, r, th.chevron, top = false)
+            // WATER 50 RESIST y triángulos abajo (rectos)
+            val ws = r * 0.062f
+            write(canvas, "WATER", X(-0.11f), Y(0.655f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f)
+            write(canvas, "50", cx, Y(0.665f), r * 0.115f, th.brand, black, Paint.Align.CENTER, -0.3f)
+            write(canvas, "RESIST", X(0.11f), Y(0.655f), ws, th.label, bold, Paint.Align.LEFT, -0.2f)
+            chevrons(canvas, cx, Y(0.745f), r, th.chevron, top = false)
 
             // Pantalla: bisel y cristal
             stroke.color = Color.rgb(70, 76, 86)
