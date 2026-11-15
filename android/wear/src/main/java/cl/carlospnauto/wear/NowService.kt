@@ -26,8 +26,12 @@ class NowService : WearableListenerService() {
             "/cpn/now" -> {
                 val o = runCatching { JSONObject(String(e.data)) }.getOrNull() ?: return
                 NowNotice.show(applicationContext, o.optString("title"), o.optString("artist"), o.optBoolean("playing"))
+                FaceBridge.publish(applicationContext, o)
             }
-            "/cpn/stop" -> NowNotice.hide(applicationContext)
+            "/cpn/stop" -> {
+                NowNotice.hide(applicationContext)
+                FaceBridge.publish(applicationContext, null)
+            }
         }
     }
 }

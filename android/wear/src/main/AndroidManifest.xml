@@ -9,6 +9,13 @@
     <!-- Instalar esferas y actualizaciones que manda el teléfono (Android pide confirmar cada una) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Ver las esferas instaladas (para pasarles lo que suena en el teléfono) -->
+    <queries>
+        <intent>
+            <action android:name="android.service.wallpaper.WallpaperService" />
+        </intent>
+    </queries>
+
     <application
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -50,6 +57,13 @@
             android:theme="@android:style/Theme.DeviceDefault" />
 
         <!-- Avisos del teléfono aunque la app del reloj esté cerrada (lo que suena) -->
+        <!-- Esferas reproductor: preguntan qué suena y mandan anterior / siguiente / pausa -->
+        <receiver android:name=".FaceBridgeReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="cl.carlospnauto.esfera.ASK" />
+                <action android:name="cl.carlospnauto.esfera.CMD" />
+            </intent-filter>
+        </receiver>
         <service android:name=".NowService" android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />

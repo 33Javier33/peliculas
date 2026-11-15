@@ -41,6 +41,8 @@ import cl.carlospnauto.esfera.comun.FaceConfig
 import cl.carlospnauto.esfera.comun.HeartRate
 import cl.carlospnauto.esfera.comun.Indicators
 import cl.carlospnauto.esfera.comun.Lcd
+import cl.carlospnauto.esfera.comun.PhoneNow
+import cl.carlospnauto.esfera.comun.PlayerScreen
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import cl.carlospnauto.esfera.comun.textOf
@@ -104,7 +106,7 @@ object Config : FaceConfig {
         Spot(-0.40f, -0.43f, Action.SETTINGS, "Ritmo cardíaco (HR)", hit = 0.10f),
         Spot(0.40f, 0.43f, Action.BATTERY, "Distancia", hit = 0.10f),
     )
-    override val choices = listOf(SCREEN, THEME, SECONDS, DISTANCE, AMB)
+    override val choices = listOf(SCREEN, THEME, SECONDS, DISTANCE, AMB, PhoneNow.CHOICE)
     override val heartRate = true
 }
 
@@ -134,6 +136,8 @@ class FaceService : WatchFaceService() {
         return WatchFace(WatchFaceType.DIGITAL, renderer).setTapListener(object : WatchFace.TapListener {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
                 if (tapType != TapType.UP || complicationSlot != null) return
+                // Modo reproductor: los botones de la pantalla controlan la música del teléfono
+                if (renderer.playerTap(tapEvent.xPos, tapEvent.yPos)) return
                 val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
                 if (i >= 0) {
                     Shortcuts.open(this@FaceService, i, Config.spots[i])
@@ -186,7 +190,29 @@ class LuminaRenderer(
         }
     }
 
+    // ===== Modo reproductor (lo que suena en PulsoMusic del teléfono) =====
+    private val redraw: () -> Unit = { invalidate() }
+    private var playerLcd: RectF? = null
+
+    init {
+        PhoneNow.start(context, redraw)
+    }
+
+    /** Toque en los botones del reproductor (◄ anterior, ►‖ reproducir/pausar, ►| siguiente) */
+    fun playerTap(x: Int, y: Int): Boolean {
+        val lcd = playerLcd ?: return false
+        val s = PhoneNow.state ?: return false
+        if (!PhoneNow.active(context)) return false
+        val b = lastBounds
+        val r = min(b.width(), b.height()) / 2f
+        val a = PlayerScreen.hit(lcd, r, x.toFloat(), y.toFloat(), s) ?: return false
+        PhoneNow.command(context, a)
+        invalidate()
+        return true
+    }
+
     override fun onDestroy() {
+        PhoneNow.stop(context, redraw)
         heart.stop()
         scope.cancel()
         super.onDestroy()
@@ -438,6 +464,12 @@ class LuminaRenderer(
             fill.shader = null
         }
 
+        // Modo reproductor: la pantalla muestra lo que suena en el teléfono
+        playerLcd = RectF(lcd)
+        val playingNow = PhoneNow.state?.takeIf { PhoneNow.active(context) }
+        if (playingNow != null) {
+            PlayerScreen.draw(canvas, lcd, r, t, DateFormat.is24HourFormat(context), playingNow, ink, ghost, ink, a(ink, 200), ambient)
+        } else {
         // Batería: pila chica con su nivel y el porcentaje
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         if (!simple) {
@@ -487,6 +519,8 @@ class LuminaRenderer(
             Lcd.digit(canvas, s[1], X(0.40f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
         }
         write(canvas, if (is24) "24" else "P", X(-0.625f), top + r * 0.07f, r * 0.06f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
+
+        }
 
         Brand.draw(canvas, cx, Y(0.90f), r * 0.028f, Color.rgb(110, 110, 115))
         // Siempre activa: la esfera completa, más tenue

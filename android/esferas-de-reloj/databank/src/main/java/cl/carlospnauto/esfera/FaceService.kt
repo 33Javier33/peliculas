@@ -43,6 +43,8 @@ import cl.carlospnauto.esfera.comun.Choices
 import cl.carlospnauto.esfera.comun.FaceConfig
 import cl.carlospnauto.esfera.comun.HeartRate
 import cl.carlospnauto.esfera.comun.Lcd
+import cl.carlospnauto.esfera.comun.PhoneNow
+import cl.carlospnauto.esfera.comun.PlayerScreen
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import cl.carlospnauto.esfera.comun.textOf
@@ -119,7 +121,7 @@ object Config : FaceConfig {
         Spot(-0.70f, -0.30f, Action.SETTINGS, "Botón ADJUST", hit = 0.09f),
         Spot(0.70f, 0.22f, Action.TIMER, "Botón MEMO", hit = 0.09f),
     )
-    override val choices = listOf(DESIGN, SCREEN, DIGITS, PLATE, HALO, FRONT, FRAME, TEMPERATURE, CALC_SCREEN)
+    override val choices = listOf(DESIGN, SCREEN, DIGITS, PLATE, HALO, FRONT, FRAME, TEMPERATURE, CALC_SCREEN, PhoneNow.CHOICE)
     override val heartRate = true
 }
 
@@ -149,6 +151,8 @@ class FaceService : WatchFaceService() {
         return WatchFace(WatchFaceType.DIGITAL, renderer).setTapListener(object : WatchFace.TapListener {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
                 if (tapType != TapType.UP || complicationSlot != null) return
+                // Modo reproductor: los botones de la pantalla controlan la música del teléfono
+                if (renderer.playerTap(tapEvent.xPos, tapEvent.yPos)) return
                 // Diseño Calculadora: las teclas calculan (y la pantalla vuelve a la hora al tocarla)
                 if (renderer.calcTap(tapEvent.xPos, tapEvent.yPos)) return
                 // LIGHT: la luz de la pantalla por 3 segundos (como en los relojes de cristal líquido)
@@ -212,7 +216,29 @@ class RetroRenderer(
         }
     }
 
+    // ===== Modo reproductor (lo que suena en PulsoMusic del teléfono) =====
+    private val redraw: () -> Unit = { invalidate() }
+    private var playerLcd: RectF? = null
+
+    init {
+        PhoneNow.start(context, redraw)
+    }
+
+    /** Toque en los botones del reproductor (◄ anterior, ►‖ reproducir/pausar, ►| siguiente) */
+    fun playerTap(x: Int, y: Int): Boolean {
+        val lcd = playerLcd ?: return false
+        val s = PhoneNow.state ?: return false
+        if (!PhoneNow.active(context)) return false
+        val b = lastBounds
+        val r = min(b.width(), b.height()) / 2f
+        val a = PlayerScreen.hit(lcd, r, x.toFloat(), y.toFloat(), s) ?: return false
+        PhoneNow.command(context, a)
+        invalidate()
+        return true
+    }
+
     override fun onDestroy() {
+        PhoneNow.stop(context, redraw)
         heart.stop()
         scope.cancel()
         super.onDestroy()
@@ -404,6 +430,12 @@ class RetroRenderer(
 
         // Íconos de la pantalla: nivel (barritas), «memo» y campana apagados
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
+        // Modo reproductor: la pantalla muestra lo que suena en el teléfono
+        playerLcd = RectF(lcd)
+        val playing = PhoneNow.state?.takeIf { PhoneNow.active(context) }
+        if (playing != null) {
+            PlayerScreen.draw(canvas, lcd, r, t, DateFormat.is24HourFormat(context), playing, on, ghost, on, Color.argb(200, Color.red(on), Color.green(on), Color.blue(on)), ambient)
+        } else {
         if (!ambient) {
             for (k in 0 until 5) {
                 fill.color = if (pct >= 0 && pct >= k * 20 + 10) on else ghost
@@ -461,6 +493,8 @@ class RetroRenderer(
         } else {
             label.color = if (t.hour >= 12) on else ghost
             canvas.drawText("P", cx - r * 0.52f, y3 + r * 0.06f, label)
+        }
+
         }
 
         if (ambient) return
@@ -678,6 +712,7 @@ class RetroRenderer(
      * lado, teclado que funciona como calculadora, SCH y TEL, y la fila de datos en cajitas.
      */
     private fun renderCalc(canvas: Canvas, bounds: Rect, t: ZonedDateTime) {
+        playerLcd = null
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
         if (ambient && calcUsedAt > 0) calcClear()
         lastBounds = Rect(bounds)

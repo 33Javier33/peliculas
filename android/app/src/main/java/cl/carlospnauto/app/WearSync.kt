@@ -44,9 +44,17 @@ object WearSync {
         // Evento en curso del reloj (el ícono de la esfera que abre la app del reloj): solo al
         // cambiar la canción o al pausar, aunque la app del reloj esté cerrada (gasta muy poco)
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
-        val now = JSONObject().put("title", o.optString("title")).put("artist", o.optString("artist")).put("playing", o.optBoolean("playing")).toString()
-        if (now != lastNow) {
-            lastNow = now
+        val key = JSONObject().put("title", o.optString("title")).put("artist", o.optString("artist")).put("playing", o.optBoolean("playing")).toString()
+        if (key != lastNow) {
+            lastNow = key
+            // También el avance y el volumen: las esferas reproductor del reloj muestran la barra y VOL
+            val am = c.getSystemService(AudioManager::class.java)
+            val now = JSONObject(key)
+                .put("position", o.optLong("position", -1))
+                .put("duration", o.optLong("duration", 0))
+                .put("at", System.currentTimeMillis())
+                .put("vol", runCatching { am.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrDefault(-1))
+                .toString()
             send(c, "/cpn/now", now)
         }
     }
