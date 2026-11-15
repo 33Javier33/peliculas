@@ -19,8 +19,8 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Lumina',
     file: 'Esfera-Lumina.apk',
     description:
-      'Digital retro con luz: pantalla de cristal líquido que se ilumina al tocarla, día y fecha, alarma, batería, hora con segundos, ritmo cardíaco con su estado (Bajo, Normal, Alto), pasos y distancia, APP 1 y APP 2 a los lados y WATER 50 RESIST abajo. 10 pantallas y 7 colores de frente.',
-    features: ['Digital', 'LCD', '10 pantallas', '7 colores', 'Luz', 'Ritmo cardíaco', 'Pasos', 'Distancia', 'PulsoMedia', 'PulsoMusic'],
+      'Digital retro con luz: pantalla de cristal líquido que se ilumina al tocarla, día y fecha, alarma, batería, hora con segundos, ritmo cardíaco con su estado (Bajo, Normal, Alto), pasos y distancia, APP 1 y APP 2 a los lados y WATER 50 RESIST abajo. 11 pantallas (incluida la clásica de cristal líquido) y 7 colores de frente.',
+    features: ['Digital', 'LCD', '11 pantallas', '7 colores', 'Luz', 'Ritmo cardíaco', 'Pasos', 'Distancia', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-15',
   },
   {
@@ -247,7 +247,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 3,
     long: 'Una esfera digital retro con luz. Arriba, triángulos de color y el nombre; al centro, un panel con marco de color con el ritmo cardíaco y su estado (Bajo, Normal o Alto), y una pantalla de cristal líquido con la batería, el día, la fecha (con sus «8» apagados), la campana de la alarma (se enciende si tienes una puesta), la hora grande con segundos e indicador P/24. Abajo, los pasos y la distancia recorrida, y WATER 50 RESIST. Toca la pantalla y se ilumina 3 segundos. APP 1 y APP 2, a los costados, abren PulsoMedia y PulsoMusic (o lo que elijas).',
     customize: [
-      '10 pantallas: gris clásica, naranja, verde menta, rojo, amarillo, beige y negativas amarilla, cian, granate y magenta',
+      '11 pantallas: clásica de cristal líquido, gris, naranja, verde menta, rojo, amarillo, beige y negativas amarilla, cian, granate y magenta',
       '7 colores de frente: rojo y azul, verde, dorado, rosa, azul, plata y negro',
       'Segundos visibles u ocultos',
       'Distancia en kilómetros o millas',

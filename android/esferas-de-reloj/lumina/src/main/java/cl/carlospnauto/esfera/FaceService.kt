@@ -62,6 +62,8 @@ private const val STEPS = 102
 private data class Screen(val top: Int, val bottom: Int, val ink: Int, val dark: Boolean)
 
 private val SCREENS = listOf(
+    // La pantalla clásica de los relojes de cristal líquido: verde grisáceo con dígitos casi negros
+    "Clásica LCD" to Screen(Color.rgb(196, 202, 170), Color.rgb(158, 166, 134), Color.rgb(22, 26, 18), false),
     "Gris clásica" to Screen(Color.rgb(214, 220, 214), Color.rgb(178, 186, 180), Color.rgb(16, 18, 18), false),
     "Naranja" to Screen(Color.rgb(255, 150, 80), Color.rgb(236, 112, 50), Color.rgb(22, 10, 4), false),
     "Verde menta" to Screen(Color.rgb(120, 214, 170), Color.rgb(70, 170, 130), Color.rgb(6, 26, 18), false),
@@ -439,20 +441,20 @@ class LuminaRenderer(
         // Batería: pila chica con su nivel y el porcentaje
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         if (!simple) {
-            val bx = X(-0.65f)
-            val by = Y(-0.31f)
+            val bx = X(-0.665f)
+            val by = Y(-0.32f)
             stroke.color = ink
-            stroke.strokeWidth = r * 0.008f
-            canvas.drawRoundRect(RectF(bx, by, bx + r * 0.085f, by + r * 0.04f), r * 0.006f, r * 0.006f, stroke)
+            stroke.strokeWidth = r * 0.011f
+            canvas.drawRoundRect(RectF(bx, by, bx + r * 0.12f, by + r * 0.056f), r * 0.01f, r * 0.01f, stroke)
             fill.color = ink
-            canvas.drawRect(bx + r * 0.085f, by + r * 0.012f, bx + r * 0.095f, by + r * 0.028f, fill)
-            if (pct >= 0) canvas.drawRect(bx + r * 0.01f, by + r * 0.01f, bx + r * 0.01f + r * 0.065f * pct / 100f, by + r * 0.03f, fill)
-            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.045f, Y(-0.21f), r * 0.048f, ink, bold, Paint.Align.CENTER)
+            canvas.drawRect(bx + r * 0.12f, by + r * 0.016f, bx + r * 0.135f, by + r * 0.04f, fill)
+            if (pct >= 0) canvas.drawRect(bx + r * 0.014f, by + r * 0.014f, bx + r * 0.014f + r * 0.092f * pct / 100f, by + r * 0.042f, fill)
+            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.065f, Y(-0.185f), r * 0.068f, ink, bold, Paint.Align.CENTER)
         }
 
         // Día de la semana grande
         val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").take(3).uppercase(loc)
-        write(canvas, dow, X(-0.50f), Y(-0.17f), r * 0.165f, ink, black, Paint.Align.LEFT)
+        write(canvas, dow, X(-0.465f), Y(-0.17f), r * 0.165f, ink, black, Paint.Align.LEFT)
 
         // Fecha (mes-día) en su cajita, con «8» apagados
         if (!simple) {
