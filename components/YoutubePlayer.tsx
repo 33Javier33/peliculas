@@ -676,9 +676,9 @@ export default function YoutubePlayer({
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-start p-2 sm:p-4 min-h-0 gap-3 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-start p-0 sm:p-4 min-h-0 gap-0 sm:gap-3 overflow-y-auto">
         {/* El video queda fijo arriba mientras se recorre la lista de abajo */}
-        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black -mt-2 pt-2 sm:-mt-4 sm:pt-4 border-b border-white/5">
+        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black sm:-mt-4 sm:pt-4 border-b border-white/5 px-2 sm:px-0 pt-2 sm:pt-0">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button role="tab" aria-selected={false} onClick={toSong} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
@@ -839,19 +839,21 @@ export default function YoutubePlayer({
         </div>
         {menuOpen && <VideoMenu video={{ id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '' }} channelTitle={channelTitle} title={title} onClose={() => setMenuOpen(false)} onNavigate={(href) => router.push(href)} />}
         {upcoming.length > 0 && (
-          <div className="w-full max-w-6xl px-1 pb-6">
-            <p className="text-white font-bold text-sm mb-2">A continuación</p>
-            <div className="flex flex-col gap-1">
-              {upcoming.map((v) => (
-                <button key={v.id} onClick={() => onPick?.(v)} className="flex items-center gap-3 text-left rounded-xl p-1.5 hover:bg-white/5 active:bg-white/10">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-32 aspect-video rounded-lg object-cover shrink-0 bg-surface-2" />
-                  <span className="min-w-0">
-                    <span className="block text-white text-sm font-semibold leading-snug line-clamp-2">{v.title}</span>
-                    {v.channel && <span className="block text-slate-500 text-xs truncate mt-0.5">{v.channel}</span>}
-                  </span>
-                </button>
-              ))}
+          <div className="flex-1 min-h-0 overflow-y-auto w-full">
+            <div className="max-w-6xl mx-auto px-2 sm:px-0 py-6">
+              <p className="text-white font-bold text-sm mb-2">A continuación</p>
+              <div className="flex flex-col gap-1">
+                {upcoming.map((v) => (
+                  <button key={v.id} onClick={() => onPick?.(v)} className="flex items-center gap-3 text-left rounded-xl p-1.5 hover:bg-white/5 active:bg-white/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`} alt="" loading="lazy" className="w-32 aspect-video rounded-lg object-cover shrink-0 bg-surface-2" />
+                    <span className="min-w-0">
+                      <span className="block text-white text-sm font-semibold leading-snug line-clamp-2">{v.title}</span>
+                      {v.channel && <span className="block text-slate-500 text-xs truncate mt-0.5">{v.channel}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
