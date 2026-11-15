@@ -241,7 +241,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   }, [trending, router])
 
   const chip =
-    'shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold font-display transition-colors'
+    'shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-semibold font-display transition-colors'
   const chipIdle = `${chip} bg-surface-2/60 border border-white/8 text-slate-300 hover:text-white`
 
   return (
@@ -273,7 +273,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
         </div>
 
         {/* Chips de sección */}
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 mb-6 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
           <span className={`${chip} bg-violet-300 text-violet-950`}>
             <Music2 className="w-4 h-4" /> Música
           </span>
