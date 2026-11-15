@@ -104,6 +104,7 @@ class WatchActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
+        AppStyle.load(this)
         setContent { MaterialTheme { App() } }
     }
 
@@ -194,6 +195,19 @@ private fun Screens() {
 @Composable
 private fun NowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Unit, onVideo: () -> Unit) {
     val ctx = LocalContext.current
+    // Estilo Retro LCD (se elige en el menú): otra pantalla con los mismos controles
+    val style by AppStyle.style.collectAsState()
+    if (style == 1) {
+        val link by PhoneLink.link.collectAsState()
+        RetroNowScreen(onBrowse, onVolume, onQueue, onVideo) {
+            when (link) {
+                Link.AppClosed -> Notice("Abre la app en el teléfono", "Abrir en el teléfono") { openOnPhone(ctx) }
+                Link.NoPhone -> Notice("Sin conexión con el teléfono", "Reintentar") { PhoneLink.retry(ctx) }
+                else -> Notice("Abre ${ctx.getString(R.string.app_name)} en el teléfono y vuelve a intentar", "Abrir en el teléfono") { openOnPhone(ctx); PhoneLink.retry(ctx) }
+            }
+        }
+        return
+    }
     val now by PhoneLink.now.collectAsState()
     val link by PhoneLink.link.collectAsState()
     val focus = remember { FocusRequester() }
@@ -446,6 +460,19 @@ private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
             item { Entry(icon = R.drawable.ic_radio, title = "Radio por género", sub = "Internet Archive") { nav("list/genres") } }
             item { Entry(icon = R.drawable.ic_radio, title = "NTS Radio", sub = "En vivo y mixtapes") { nav("list/nts") } }
             item { Entry(icon = R.drawable.ic_heart, title = "Radios favoritas", sub = lib?.let { "${it.radios.size}" }) { nav("list/radios") } }
+            // Estilo de la pantalla «Sonando»: Moderno (con la carátula) o Retro LCD
+            item { ListHeader { Text("Estilo") } }
+            item {
+                val style by AppStyle.style.collectAsState()
+                Entry(icon = R.drawable.ic_bars, title = "Pantalla: ${if (style == 1) "Retro LCD" else "Moderna"}", sub = "Toca para cambiar") {
+                    AppStyle.setStyle(ctx, if (style == 1) 0 else 1)
+                }
+            }
+            item {
+                val style by AppStyle.style.collectAsState()
+                val color by AppStyle.color.collectAsState()
+                if (style == 1) Entry(icon = R.drawable.ic_bars, title = "Color: ${AppStyle.COLORS[color].first}", sub = "Toca para cambiar") { AppStyle.nextColor(ctx) }
+            }
             // Versión de la app del reloj (para saber si está al día)
             item {
                 val version = remember {
