@@ -989,10 +989,12 @@ export default function MusicPlayerBar() {
     if (audioMode && nextId) loadAudioCandidates(nextId)
   }, [audioMode, nextId])
 
-  // Unos segundos después de que la canción empieza a sonar se prepara la siguiente: el teléfono
-  // (o el servidor) ya busca su audio y empieza a descargarlo, así el cambio de tema es inmediato
+  // Precarga rápida: apenas 2s después de que empieza la canción se prepara la siguiente
+  // Si el usuario salta seguido, el audio ya está en buffer o descargándose
   const soundingId = useMusicStore((s) => s.soundingId)
   const nextKey = nextTrack && !nextTrack.streamUrl && !nextTrack.pending ? `${nextTrack.id}|${nextTrack.audioUrl ?? ''}` : ''
+  const nextNextTrack = queue[currentIndex + 2]
+  const nextNextKey = nextNextTrack && !nextNextTrack.streamUrl && !nextNextTrack.pending ? `${nextNextTrack.id}|${nextNextTrack.audioUrl ?? ''}` : ''
   useEffect(() => {
     if (!nextKey || !currentId || soundingId !== currentId) return
     const [id, fileUrl] = nextKey.split('|')
@@ -1014,7 +1016,7 @@ export default function MusicPlayerBar() {
       warm.preload = 'auto'
       warm.muted = true
       warm.src = url
-    }, 6000)
+    }, 2000)
     return () => {
       cancelled = true
       clearTimeout(timer)
@@ -1027,6 +1029,24 @@ export default function MusicPlayerBar() {
         }, 15000)
     }
   }, [nextKey, currentId, soundingId])
+
+  // Precarga del siguiente-siguiente para saltos múltiples rápidos (next, next, next)
+  useEffect(() => {
+    if (!nextNextKey || !currentId || soundingId !== currentId) return
+    const [id, fileUrl] = nextNextKey.split('|')
+    let cancelled = false
+    // Espera un poco más (5s) para no saturar si el usuario da muchos saltos
+    const timer = setTimeout(async () => {
+      if (!fileUrl && /^[A-Za-z0-9_-]{11}$/.test(id)) {
+        if (nativePrefetch(id)) return
+        loadAudioCandidates(id).catch(() => [])
+      }
+    }, 5000)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [nextNextKey, currentId, soundingId])
 
   // ===== Radio en vivo: reconectar en vez de saltar =====
   // Las emisoras cortan la conexión a veces (cambio de Wi-Fi a datos, servidor que reinicia,
