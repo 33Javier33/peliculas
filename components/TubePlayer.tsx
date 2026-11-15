@@ -215,11 +215,11 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
   const pickedNext = upNext[0]
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="min-w-0">
+    <div className="flex flex-col min-h-screen lg:h-auto lg:grid lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="sticky top-0 z-40 lg:static lg:z-auto min-w-0 flex flex-col lg:flex-col bg-black">
         <div
           ref={box}
-          className="group relative aspect-video w-full overflow-hidden rounded-2xl bg-black shadow-2xl shadow-black/60 ring-1 ring-white/10"
+          className="group relative aspect-video w-full overflow-hidden rounded-b-none lg:rounded-2xl bg-black shadow-2xl shadow-black/60 ring-1 ring-white/10 lg:flex-shrink-0"
           onMouseEnter={() => setHover(true)}
           onMouseLeave={() => setHover(false)}
         >
@@ -287,33 +287,33 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold leading-snug text-white sm:text-xl">{video.title}</h2>
-            <p className="mt-1 text-sm text-slate-400">{video.channel}{mode === 'alt' ? ' · otra fuente' : ''}</p>
+        <div className="sticky top-0 z-20 bg-black border-b border-white/5 lg:static lg:mt-4 lg:border-b-0 lg:bg-transparent lg:flex lg:flex-wrap lg:items-start lg:gap-3 p-3 lg:p-0">
+          <div className="min-w-0 flex-1 lg:flex-1">
+            <h2 className="text-base font-bold leading-snug text-white lg:text-lg lg:sm:text-xl">{video.title}</h2>
+            <p className="mt-1 text-xs lg:text-sm text-slate-400">{video.channel}{mode === 'alt' ? ' · otra fuente' : ''}</p>
           </div>
           {onClose && (
-            <button onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Cerrar el video"><X className="h-5 w-5" /></button>
+            <button onClick={onClose} className="absolute top-3 right-3 lg:relative lg:top-0 lg:right-0 rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="Cerrar el video"><X className="h-5 w-5" /></button>
           )}
-        </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Action active={isLiked} onClick={() => toggle('liked', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id), duration: undefined })} icon={<Heart className={`h-4 w-4 ${isLiked ? 'fill-violet-300 text-violet-300' : ''}`} />} label={isLiked ? 'Me gusta' : 'Me gusta'} />
-          <Action active={isLater} onClick={() => toggle('watchLater', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id) })} icon={<Clock3 className="h-4 w-4" />} label={isLater ? 'Guardado para después' : 'Ver después'} />
-          <VideoAudioDownload id={video.id} title={video.title} channelTitle={video.channel} className="!h-auto !rounded-full !border !border-white/10 !bg-surface-2/70 !px-4 !py-2 !text-sm !text-slate-200" />
-          <Action onClick={share} icon={<Share2 className="h-4 w-4" />} label="Compartir" />
-          <Action onClick={toTv} icon={<Cast className="h-4 w-4" />} label="Ver en la TV" />
-          <Action onClick={float} icon={<PictureInPicture2 className="h-4 w-4" />} label="Ventana flotante" />
-          <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">
-            <ExternalLink className="h-4 w-4" /> YouTube
-          </a>
+          <div className="mt-3 lg:mt-0 flex flex-wrap gap-2 w-full lg:w-auto">
+            <Action active={isLiked} onClick={() => toggle('liked', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id), duration: undefined })} icon={<Heart className={`h-4 w-4 ${isLiked ? 'fill-violet-300 text-violet-300' : ''}`} />} label={isLiked ? 'Me gusta' : 'Me gusta'} />
+            <Action active={isLater} onClick={() => toggle('watchLater', { id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id) })} icon={<Clock3 className="h-4 w-4" />} label={isLater ? 'Guardado para después' : 'Ver después'} />
+            <VideoAudioDownload id={video.id} title={video.title} channelTitle={video.channel} className="!h-auto !rounded-full !border !border-white/10 !bg-surface-2/70 !px-4 !py-2 !text-sm !text-slate-200" />
+            <Action onClick={share} icon={<Share2 className="h-4 w-4" />} label="Compartir" />
+            <Action onClick={toTv} icon={<Cast className="h-4 w-4" />} label="Ver en la TV" />
+            <Action onClick={float} icon={<PictureInPicture2 className="h-4 w-4" />} label="Ventana flotante" />
+            <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">
+              <ExternalLink className="h-4 w-4" /> YouTube
+            </a>
+          </div>
+          {note && <p className="mt-2 text-xs text-amber-300 w-full">{note}</p>}
         </div>
-        {note && <p className="mt-2 text-xs text-amber-300">{note}</p>}
       </div>
 
-      <aside className="min-w-0">
-        <p className="mb-3 text-sm font-bold text-white">A continuación</p>
-        <div className="flex flex-col gap-2.5">
+      <aside className="min-w-0 flex-1 lg:overflow-y-visible lg:flex-grow-0 lg:min-h-0">
+        <p className="mb-3 text-sm font-bold text-white px-3 lg:px-0 pt-3 lg:pt-0 lg:bg-transparent">A continuación</p>
+        <div className="flex flex-col gap-2.5 px-3 lg:px-0">
           {upNext.slice(0, 12).map((v) => (
             <button key={v.id} onClick={() => onPick(v)} className="group flex gap-3 rounded-xl p-1.5 text-left hover:bg-white/5">
               <div className="relative aspect-video w-36 shrink-0 overflow-hidden rounded-lg bg-surface-2">
