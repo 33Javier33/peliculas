@@ -676,9 +676,9 @@ export default function YoutubePlayer({
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-start p-0 sm:p-4 min-h-0 gap-0 sm:gap-3 overflow-y-auto">
+      <div className="flex-1 flex flex-col items-center justify-start p-0 sm:p-4 min-h-0 gap-0 sm:gap-3">
         {/* El video queda fijo arriba mientras se recorre la lista de abajo */}
-        <div className="w-full max-w-6xl sticky top-0 z-20 bg-black sm:-mt-4 sm:pt-4 border-b border-white/5 px-2 sm:px-0 pt-2 sm:pt-0">
+        <div className="w-full max-w-6xl z-20 bg-black sm:-mt-4 sm:pt-4 border-b border-white/5 px-2 sm:px-0 pt-2 sm:pt-0">
           {songToggle && (
             <div className="mb-3 mx-auto w-fit flex p-1 rounded-full bg-surface-2/80 border border-white/10" role="tablist" aria-label="Canción o video">
               <button role="tab" aria-selected={false} onClick={toSong} className="flex items-center gap-1.5 px-5 py-1.5 rounded-full text-slate-200 text-sm font-bold">
