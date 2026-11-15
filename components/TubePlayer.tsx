@@ -215,8 +215,8 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
   const pickedNext = upNext[0]
 
   return (
-    <div className="flex flex-col h-screen lg:h-auto lg:grid lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="min-w-0 flex flex-col lg:flex-col">
+    <div className="flex flex-col min-h-screen lg:h-auto lg:grid lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="sticky top-0 z-40 lg:static lg:z-auto min-w-0 flex flex-col lg:flex-col bg-black">
         <div
           ref={box}
           className="group relative aspect-video w-full overflow-hidden rounded-b-none lg:rounded-2xl bg-black shadow-2xl shadow-black/60 ring-1 ring-white/10 lg:flex-shrink-0"
@@ -311,8 +311,8 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
         </div>
       </div>
 
-      <aside className="min-w-0 flex-1 overflow-y-auto lg:overflow-y-visible lg:flex-grow-0 lg:min-h-0">
-        <p className="mb-3 text-sm font-bold text-white px-3 lg:px-0 pt-3 lg:pt-0 sticky top-0 z-10 bg-black lg:bg-transparent">A continuación</p>
+      <aside className="min-w-0 flex-1 lg:overflow-y-visible lg:flex-grow-0 lg:min-h-0">
+        <p className="mb-3 text-sm font-bold text-white px-3 lg:px-0 pt-3 lg:pt-0 lg:bg-transparent">A continuación</p>
         <div className="flex flex-col gap-2.5 px-3 lg:px-0">
           {upNext.slice(0, 12).map((v) => (
             <button key={v.id} onClick={() => onPick(v)} className="group flex gap-3 rounded-xl p-1.5 text-left hover:bg-white/5">
