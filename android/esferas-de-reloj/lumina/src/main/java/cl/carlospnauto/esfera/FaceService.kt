@@ -201,7 +201,7 @@ class LuminaRenderer(
         val r = min(b.width(), b.height()) / 2f
         val fx = (x - b.exactCenterX()) / r
         val fy = (y - b.exactCenterY()) / r
-        return fx in -0.66f..0.66f && fy in -0.36f..0.30f
+        return fx in -0.64f..0.64f && fy in -0.31f..0.29f
     }
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
@@ -222,38 +222,113 @@ class LuminaRenderer(
         return text.measureText(s)
     }
 
-    /** Fila de triángulos (arriba apuntan hacia abajo, abajo hacia arriba), más grandes al centro */
-    private fun chevrons(canvas: Canvas, cx: Float, y: Float, r: Float, color: Int, up: Boolean) {
+    /**
+     * Fila de triángulos siguiendo el borde redondo (arriba apuntan hacia adentro, abajo también),
+     * más grandes al centro y con los chicos invertidos entre medio (el zigzag)
+     */
+    private fun chevrons(canvas: Canvas, cx: Float, cy: Float, radius: Float, r: Float, color: Int, top: Boolean) {
         val n = 9
-        val step = r * 0.07f
+        val stepDeg = 6.2f
         for (i in 0 until n) {
             val k = i - (n - 1) / 2f
-            val size = r * (0.05f - kotlin.math.abs(k) * 0.006f)
-            val x = cx + k * step
+            val size = r * (0.052f - kotlin.math.abs(k) * 0.0055f)
+            canvas.save()
+            canvas.rotate(if (top) k * stepDeg else -k * stepDeg, cx, cy)
+            val y = if (top) cy - radius else cy + radius
+            val dir = if (top) 1f else -1f
+            // Grande: base hacia afuera, punta hacia el centro
             path.reset()
-            if (!up) {
-                path.moveTo(x - size * 0.7f, y - size * 0.5f); path.lineTo(x + size * 0.7f, y - size * 0.5f); path.lineTo(x, y + size * 0.5f)
-            } else {
-                path.moveTo(x - size * 0.7f, y + size * 0.5f); path.lineTo(x + size * 0.7f, y + size * 0.5f); path.lineTo(x, y - size * 0.5f)
-            }
+            path.moveTo(cx - size * 0.75f, y - dir * size * 0.5f)
+            path.lineTo(cx + size * 0.75f, y - dir * size * 0.5f)
+            path.lineTo(cx, y + dir * size * 0.5f)
             path.close()
-            fill.color = if (i % 2 == 0) color else a(color, 150)
+            fill.color = if (i % 2 == 0) color else a(color, 170)
             canvas.drawPath(path, fill)
-            // Triángulos invertidos entre los de la fila (el zigzag)
+            canvas.restore()
             if (i < n - 1) {
-                val x2 = x + step / 2
-                val s2 = size * 0.7f
+                canvas.save()
+                canvas.rotate(if (top) (k + 0.5f) * stepDeg else -(k + 0.5f) * stepDeg, cx, cy)
+                val s2 = size * 0.62f
                 path.reset()
-                if (!up) {
-                    path.moveTo(x2 - s2 * 0.6f, y + size * 0.5f); path.lineTo(x2 + s2 * 0.6f, y + size * 0.5f); path.lineTo(x2, y - size * 0.3f)
-                } else {
-                    path.moveTo(x2 - s2 * 0.6f, y - size * 0.5f); path.lineTo(x2 + s2 * 0.6f, y - size * 0.5f); path.lineTo(x2, y + size * 0.3f)
-                }
+                path.moveTo(cx - s2 * 0.7f, y + dir * size * 0.5f)
+                path.lineTo(cx + s2 * 0.7f, y + dir * size * 0.5f)
+                path.lineTo(cx, y - dir * size * 0.25f)
                 path.close()
-                fill.color = a(color, 110)
+                fill.color = a(color, 120)
                 canvas.drawPath(path, fill)
+                canvas.restore()
             }
         }
+    }
+
+    private val arcPath = Path()
+
+    /**
+     * Texto curvo siguiendo el borde redondo (arriba o abajo), centrado. Cada parte con su tamaño,
+     * color y letra (como «WATER 50 RESIST»). radius: el renglón (la base de las letras).
+     */
+    private fun arcText(canvas: Canvas, cx: Float, cy: Float, radius: Float, top: Boolean, gap: Float, parts: List<Triple<String, Float, Pair<Int, Typeface>>>) {
+        val widths = parts.map { (txt, size, cf) -> width(txt, size, cf.second) }
+        val total = widths.sum() + gap * (parts.size - 1)
+        arcPath.reset()
+        val oval = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
+        // Arriba: de izquierda a derecha por arriba; abajo: de izquierda a derecha por abajo
+        if (top) arcPath.addArc(oval, 180f, 180f) else arcPath.addArc(oval, 180f, -180f)
+        val len = (Math.PI * radius).toFloat()
+        var off = len / 2 - total / 2
+        for ((idx, part) in parts.withIndex()) {
+            val (txt, size, cf) = part
+            text.typeface = cf.second
+            text.textSize = size
+            text.color = cf.first
+            text.textAlign = Paint.Align.LEFT
+            text.textSkewX = -0.18f
+            canvas.drawTextOnPath(txt, arcPath, off, 0f, text)
+            off += widths[idx] + gap
+        }
+        text.textSkewX = 0f
+    }
+
+    /**
+     * Panel con la forma de la foto: los costados siguen el círculo de la esfera y los bordes de
+     * arriba y abajo son arcos suaves, con las esquinas redondeadas. k achica el panel (línea de adentro).
+     */
+    private fun panelPath(cx: Float, cy: Float, r: Float, k: Float) {
+        val rr = r * k
+        fun X(v: Float) = cx + v * rr
+        fun Y(v: Float) = cy + v * rr
+        val side = 0.86f
+        val ang = Math.toDegrees(kotlin.math.asin(0.36 / side)).toFloat()
+        val sx = (side * kotlin.math.cos(Math.toRadians(ang.toDouble()))).toFloat()
+        path.reset()
+        path.moveTo(X(-0.64f), Y(-0.43f))
+        path.quadTo(cx, Y(-0.565f), X(0.64f), Y(-0.43f))
+        path.quadTo(X(0.76f), Y(-0.405f), X(sx), Y(-0.36f))
+        path.arcTo(RectF(X(-side), Y(-side), X(side), Y(side)), -ang, ang * 2, false)
+        path.quadTo(X(0.76f), Y(0.405f), X(0.64f), Y(0.43f))
+        path.quadTo(cx, Y(0.565f), X(-0.64f), Y(0.43f))
+        path.quadTo(X(-0.76f), Y(0.405f), X(-sx), Y(0.36f))
+        path.arcTo(RectF(X(-side), Y(-side), X(side), Y(side)), 180f - ang, ang * 2, false)
+        path.quadTo(X(-0.76f), Y(-0.405f), X(-0.64f), Y(-0.43f))
+        path.close()
+    }
+
+    /** Pantalla: esquinas redondeadas, arriba y abajo apenas curvos y los costados apenas abombados */
+    private fun screenPath(lcd: RectF, r: Float) {
+        val k = r * 0.075f
+        val mx = lcd.centerX()
+        val my = lcd.centerY()
+        path.reset()
+        path.moveTo(lcd.left + k, lcd.top)
+        path.quadTo(mx, lcd.top - r * 0.03f, lcd.right - k, lcd.top)
+        path.quadTo(lcd.right, lcd.top, lcd.right, lcd.top + k)
+        path.quadTo(lcd.right + r * 0.018f, my, lcd.right, lcd.bottom - k)
+        path.quadTo(lcd.right, lcd.bottom, lcd.right - k, lcd.bottom)
+        path.quadTo(mx, lcd.bottom + r * 0.03f, lcd.left + k, lcd.bottom)
+        path.quadTo(lcd.left, lcd.bottom, lcd.left, lcd.bottom - k)
+        path.quadTo(lcd.left - r * 0.018f, my, lcd.left, lcd.top + k)
+        path.quadTo(lcd.left, lcd.top, lcd.left + k, lcd.top)
+        path.close()
     }
 
     private fun bell(canvas: Canvas, x: Float, y: Float, s: Float, color: Int) {
@@ -290,7 +365,7 @@ class LuminaRenderer(
         val th = THEMES[Choices.index(context, THEME)].second
         canvas.drawColor(Color.BLACK)
 
-        val lcd = RectF(X(-0.66f), Y(-0.36f), X(0.66f), Y(0.30f))
+        val lcd = RectF(X(-0.64f), Y(-0.31f), X(0.64f), Y(0.29f))
         val ink = if (simple) Color.rgb(170, 170, 170) else sc.ink
         val ghost = if (simple) 0 else a(sc.ink, if (sc.dark) 30 else 26)
 
@@ -300,35 +375,41 @@ class LuminaRenderer(
             canvas.drawCircle(cx, cy, r, fill)
             fill.shader = null
 
-            // Triángulos y nombre arriba
-            chevrons(canvas, cx, Y(-0.76f), r, th.chevron, up = false)
+            // Triángulos y nombre arriba, curvos como el borde
+            chevrons(canvas, cx, cy, r * 0.775f, r, th.chevron, top = true)
             val brand = "LUMINA"
             val bs = r * 0.085f
+            val bR = r * 0.60f
+            arcText(canvas, cx, cy, bR, true, 0f, listOf(Triple(brand, bs, th.brand to bold)))
+            // Flechitas a los lados del nombre (siguen la curva)
             val bw = width(brand, bs, bold)
-            write(canvas, brand, cx, Y(-0.60f), bs, th.brand, bold, Paint.Align.CENTER, -0.2f)
+            val half = Math.toDegrees(((bw / 2 + r * 0.06f) / bR).toDouble()).toFloat()
             fill.color = th.label
             for (side in listOf(-1f, 1f)) {
-                val ax = cx + side * (bw / 2 + r * 0.05f)
+                canvas.save()
+                canvas.rotate(side * half, cx, cy)
+                val ay = cy - bR - bs * 0.32f
                 path.reset()
-                path.moveTo(ax + side * r * 0.03f, Y(-0.627f)); path.lineTo(ax - side * r * 0.012f, Y(-0.648f)); path.lineTo(ax - side * r * 0.012f, Y(-0.606f))
+                path.moveTo(cx + side * r * 0.03f, ay); path.lineTo(cx - side * r * 0.012f, ay - r * 0.022f); path.lineTo(cx - side * r * 0.012f, ay + r * 0.022f)
                 path.close()
                 canvas.drawPath(path, fill)
+                canvas.restore()
             }
 
-            // Panel con marco de color (doble línea) y fondo azul muy oscuro
-            val panel = RectF(X(-0.84f), Y(-0.53f), X(0.84f), Y(0.53f))
+            // Panel con la forma de la foto (costados curvos como la esfera), doble línea de color
+            panelPath(cx, cy, r, 1f)
             fill.color = Color.rgb(16, 22, 34)
-            canvas.drawRoundRect(panel, r * 0.24f, r * 0.24f, fill)
+            canvas.drawPath(path, fill)
             stroke.color = th.frame
             stroke.strokeWidth = r * 0.02f
-            canvas.drawRoundRect(panel, r * 0.24f, r * 0.24f, stroke)
-            stroke.color = a(th.frame, 110)
+            canvas.drawPath(path, stroke)
+            panelPath(cx, cy, r, 0.955f)
+            stroke.color = a(th.frame, 120)
             stroke.strokeWidth = r * 0.006f
-            val inner = RectF(panel.left + r * 0.03f, panel.top + r * 0.03f, panel.right - r * 0.03f, panel.bottom - r * 0.03f)
-            canvas.drawRoundRect(inner, r * 0.21f, r * 0.21f, stroke)
+            canvas.drawPath(path, stroke)
 
             // APP 1 y APP 2 (accesos) en los costados
-            for ((sx, label, deg) in listOf(Triple(-0.765f, "APP 1", -90f), Triple(0.765f, "APP 2", 90f))) {
+            for ((sx, label, deg) in listOf(Triple(-0.745f, "APP 1", -90f), Triple(0.745f, "APP 2", 90f))) {
                 canvas.save()
                 canvas.rotate(deg, X(sx), cy)
                 write(canvas, label, X(sx), cy + r * 0.018f, r * 0.05f, th.label, mono, Paint.Align.CENTER)
@@ -339,11 +420,11 @@ class LuminaRenderer(
             val hrTxt = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString()
             val hr = hrTxt?.toIntOrNull() ?: 0
-            val ls = r * 0.06f
+            val ls = r * 0.056f
             fill.color = th.frame
-            canvas.drawCircle(X(-0.56f), Y(-0.415f), r * 0.014f, fill)
-            write(canvas, "HR:", X(-0.53f), Y(-0.395f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.38f), Y(-0.395f), ls, th.value, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(-0.52f), Y(-0.375f), r * 0.014f, fill)
+            write(canvas, "HR:", X(-0.49f), Y(-0.355f), ls, th.label, mono, Paint.Align.LEFT)
+            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.34f), Y(-0.355f), ls, th.value, mono, Paint.Align.LEFT)
             val status = when {
                 hr <= 0 -> "--"
                 hr < 60 -> "Bajo"
@@ -351,83 +432,88 @@ class LuminaRenderer(
                 else -> "Alto"
             }
             val stColor = when (status) { "Normal" -> Color.rgb(60, 220, 110); "Bajo" -> Color.rgb(90, 180, 255); "Alto" -> Color.rgb(255, 90, 80); else -> Color.GRAY }
-            canvas.drawCircle(X(0.22f), Y(-0.415f), r * 0.014f, fill)
-            write(canvas, status, X(0.25f), Y(-0.395f), ls, stColor, bold, Paint.Align.LEFT)
+            canvas.drawCircle(X(0.20f), Y(-0.375f), r * 0.014f, fill)
+            write(canvas, status, X(0.23f), Y(-0.355f), ls, stColor, bold, Paint.Align.LEFT)
 
             // Pasos y distancia
             val stepsTxt = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() } ?: ""
             val steps = stepsTxt.toLongOrNull() ?: 0L
             val km = steps * 0.00075
             val dist = if (Choices.value(context, DISTANCE) == 1) "%.2f mi".format(loc, km * 0.621371) else "%.2f km".format(loc, km)
-            canvas.drawCircle(X(-0.56f), Y(0.415f), r * 0.014f, fill)
-            write(canvas, "SC:", X(-0.53f), Y(0.435f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.38f), Y(0.435f), ls, th.value, mono, Paint.Align.LEFT)
-            canvas.drawCircle(X(0.22f), Y(0.415f), r * 0.014f, fill)
-            write(canvas, dist, X(0.25f), Y(0.435f), ls, th.brand, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(-0.52f), Y(0.385f), r * 0.014f, fill)
+            write(canvas, "SC:", X(-0.49f), Y(0.405f), ls, th.label, mono, Paint.Align.LEFT)
+            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.34f), Y(0.405f), ls, th.value, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(0.20f), Y(0.385f), r * 0.014f, fill)
+            write(canvas, dist, X(0.23f), Y(0.405f), ls, th.brand, mono, Paint.Align.LEFT)
 
-            // WATER 50 RESIST y triángulos abajo
-            val ws = r * 0.06f
-            write(canvas, "WATER", X(-0.12f), Y(0.69f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f)
-            write(canvas, "50", cx, Y(0.70f), r * 0.12f, th.brand, black, Paint.Align.CENTER, -0.3f)
-            write(canvas, "RESIST", X(0.12f), Y(0.69f), ws, th.label, bold, Paint.Align.LEFT, -0.2f)
-            chevrons(canvas, cx, Y(0.78f), r, th.chevron, up = true)
+            // WATER 50 RESIST curvo como el borde, y triángulos abajo
+            arcText(
+                canvas, cx, cy, r * 0.665f, false, r * 0.03f,
+                listOf(
+                    Triple("WATER", r * 0.062f, th.label to bold),
+                    Triple("50", r * 0.115f, th.brand to black),
+                    Triple("RESIST", r * 0.062f, th.label to bold),
+                ),
+            )
+            chevrons(canvas, cx, cy, r * 0.78f, r, th.chevron, top = false)
 
             // Pantalla: bisel y cristal
             stroke.color = Color.rgb(70, 76, 86)
             stroke.strokeWidth = r * 0.02f
-            canvas.drawRoundRect(lcd, r * 0.07f, r * 0.07f, stroke)
+            screenPath(lcd, r)
+            canvas.drawPath(path, stroke)
             fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.bottom, sc.top, sc.bottom, Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(lcd, r * 0.07f, r * 0.07f, fill)
+            canvas.drawPath(path, fill)
             fill.shader = null
             if (!ambient && System.currentTimeMillis() < lightUntil) {
                 // Luz: la pantalla se ilumina desde el centro
                 val glow = if (sc.dark) a(sc.ink, 80) else Color.argb(150, 200, 255, 240)
                 fill.shader = RadialGradient(lcd.centerX(), lcd.centerY(), lcd.width() * 0.6f, glow, Color.TRANSPARENT, Shader.TileMode.CLAMP)
-                canvas.drawRoundRect(lcd, r * 0.07f, r * 0.07f, fill)
+                canvas.drawPath(path, fill)
                 fill.shader = null
             }
             // Sombra arriba y reflejo
             fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.top + lcd.height() * 0.18f, Color.argb(60, 0, 0, 0), Color.TRANSPARENT, Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(lcd, r * 0.07f, r * 0.07f, fill)
+            canvas.drawPath(path, fill)
             fill.shader = null
         }
 
         // Batería: pila chica con su nivel y el porcentaje
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         if (!simple) {
-            val bx = X(-0.61f)
-            val by = Y(-0.30f)
+            val bx = X(-0.59f)
+            val by = Y(-0.255f)
             stroke.color = ink
             stroke.strokeWidth = r * 0.008f
             canvas.drawRoundRect(RectF(bx, by, bx + r * 0.085f, by + r * 0.04f), r * 0.006f, r * 0.006f, stroke)
             fill.color = ink
             canvas.drawRect(bx + r * 0.085f, by + r * 0.012f, bx + r * 0.095f, by + r * 0.028f, fill)
             if (pct >= 0) canvas.drawRect(bx + r * 0.01f, by + r * 0.01f, bx + r * 0.01f + r * 0.065f * pct / 100f, by + r * 0.03f, fill)
-            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.045f, Y(-0.20f), r * 0.045f, ink, bold, Paint.Align.CENTER)
+            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.045f, Y(-0.16f), r * 0.045f, ink, bold, Paint.Align.CENTER)
         }
 
         // Día de la semana grande
         val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").take(3).uppercase(loc)
-        write(canvas, dow, X(-0.47f), Y(-0.17f), r * 0.15f, ink, black, Paint.Align.LEFT)
+        write(canvas, dow, X(-0.45f), Y(-0.135f), r * 0.14f, ink, black, Paint.Align.LEFT)
 
         // Fecha (mes-día) en su cajita, con «8» apagados
         if (!simple) {
             fill.color = a(sc.ink, if (sc.dark) 22 else 16)
-            canvas.drawRoundRect(RectF(X(0.13f), Y(-0.33f), X(0.62f), Y(-0.15f)), r * 0.02f, r * 0.02f, fill)
+            canvas.drawRoundRect(RectF(X(0.13f), Y(-0.28f), X(0.60f), Y(-0.115f)), r * 0.02f, r * 0.02f, fill)
         }
-        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.61f), Y(-0.31f), r * 0.07f, r * 0.13f, r * 0.022f, 5, ink, ghost)
+        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.59f), Y(-0.265f), r * 0.066f, r * 0.12f, r * 0.02f, 5, ink, ghost)
 
         // Alarma puesta: campana con ondas
-        if (!simple) bell(canvas, X(0.50f), Y(-0.095f), r * 0.035f, if (Indicators.alarm(context)) ink else ghost)
+        if (!simple) bell(canvas, X(0.49f), Y(-0.06f), r * 0.035f, if (Indicators.alarm(context)) ink else ghost)
 
         // Hora grande, segundos e indicador P / 24
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
         val dw = r * 0.145f
-        val dh = r * 0.27f
-        val top = Y(-0.04f)
-        var x = X(-0.50f)
+        val dh = r * 0.25f
+        val top = Y(0.005f)
+        var x = X(-0.48f)
         Lcd.digit(canvas, h[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, h[1], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.colon(canvas, x + dw * 0.18f, top, dh, r * 0.02f, ink); x += dw * 0.5f
@@ -436,11 +522,11 @@ class LuminaRenderer(
         if (!ambient && Choices.value(context, SECONDS) == 0) {
             val s = "%02d".format(t.second)
             val sw = r * 0.095f
-            val sh = r * 0.18f
+            val sh = r * 0.17f
             Lcd.digit(canvas, s[0], X(0.39f), top + dh - sh, sw, sh, ink, ghost)
             Lcd.digit(canvas, s[1], X(0.39f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
         }
-        write(canvas, if (is24) "24" else "P", X(-0.585f), top + r * 0.06f, r * 0.055f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
+        write(canvas, if (is24) "24" else "P", X(-0.565f), top + r * 0.06f, r * 0.055f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
 
         Brand.draw(canvas, cx, Y(0.90f), r * 0.028f, Color.rgb(110, 110, 115))
         // Siempre activa: la esfera completa, más tenue
