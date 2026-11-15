@@ -182,7 +182,14 @@ private fun Screens() {
         composable("video") { VideoScreen(close = { nav.popBackStack() }) }
         composable("queue") { QueueScreen(played = toNow) }
         composable("volume") { VolumeScreen() }
-        composable("home") { HomeScreen(nav = { nav.navigate(it) }, played = toNow) }
+        composable("home") {
+            // Estilo Retro: el menú también es oscuro, con el marco y los rótulos
+            val style by AppStyle.style.collectAsState()
+            if (style == 1) {
+                val search = rememberSearch { nav.navigate("search") }
+                RetroMenuScreen(nav = { nav.navigate(it) }, played = toNow, search = search, back = { nav.popBackStack() })
+            } else HomeScreen(nav = { nav.navigate(it) }, played = toNow)
+        }
         composable("library") { LibraryScreen(nav = { nav.navigate(it) }) }
         composable("search") { SearchScreen(played = toNow) }
         composable("list/{kind}") { e -> ListScreen(kind = e.arguments?.getString("kind") ?: "songs", nav = { nav.navigate(it) }, played = toNow) }

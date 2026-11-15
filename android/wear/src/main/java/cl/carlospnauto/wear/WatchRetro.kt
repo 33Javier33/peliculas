@@ -44,6 +44,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.material.Text
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.res.painterResource
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumnDefaults
+import androidx.wear.compose.foundation.lazy.items
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material.Icon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -142,6 +151,81 @@ fun RetroNowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Un
             .focusable(),
         contentAlignment = Alignment.Center,
     ) {
+        RetroFrame(
+            acc, vol,
+            onAdjust = onBrowse, onMode = onVideo,
+            onLight = { PhoneLink.optimistic { it.copy(liked = !it.liked) }; send("like") },
+            onSet = onVolume, onMemo = onQueue,
+        )
+
+        if (link == Link.NoPhone || link == Link.AppClosed || link == Link.NoAnswer) {
+            Box(Modifier.padding(horizontal = 40.dp)) { notice() }
+            return@Box
+        }
+
+        // Contenido de la pantalla
+        Column(Modifier.fillMaxWidth().padding(horizontal = 50.dp), horizontalAlignment = Alignment.Start) {
+            Text(time, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.End))
+            Spacer(Modifier.height(2.dp))
+            Text(
+                // El reproductor que suena (PulsoMusic o PulsoMedia)
+                if (now.title.isBlank()) (if (link == Link.Searching) "CONECTANDO…" else ctx.getString(R.string.app_name).uppercase())
+                else ctx.getString(R.string.app_name).uppercase() + if (now.playing) "" else " ❚❚",
+                color = Color(0xFF3A3D40), fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1,
+            )
+            // Título: tocarlo reproduce o pausa
+            Column(
+                Modifier.fillMaxWidth().clickable {
+                    PhoneLink.optimistic { it.copy(playing = !it.playing, positionMs = pos, startedAt = System.currentTimeMillis()) }
+                    send(if (now.playing) "pause" else "play")
+                },
+            ) {
+                Text(
+                    now.title.ifBlank { "—" }.uppercase(), color = Color(0xFFF4F1E6), fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp,
+                )
+                if (now.artist.isNotBlank()) Text(now.artist.uppercase(), color = Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Spacer(Modifier.height(6.dp))
+            // Barra de avance con su perilla
+            Canvas(Modifier.fillMaxWidth().height(8.dp)) {
+                val y = size.height / 2
+                drawLine(Color(0xFF3A3D40), Offset(0f, y), Offset(size.width, y), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                val x = size.width * progress
+                if (progress > 0f) drawLine(acc, Offset(0f, y), Offset(x, y), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                drawCircle(acc, 4.dp.toPx(), Offset(x.coerceAtLeast(4.dp.toPx()), y))
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("<", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light, modifier = Modifier.clickable { send("prev") }.padding(horizontal = 6.dp))
+                    Text(if (now.playing) "❚❚" else "▶", color = acc, fontSize = 13.sp, modifier = Modifier.clickable {
+                        PhoneLink.optimistic { it.copy(playing = !it.playing, positionMs = pos, startedAt = System.currentTimeMillis()) }
+                        send(if (now.playing) "pause" else "play")
+                    }.padding(horizontal = 4.dp))
+                    Text(">", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light, modifier = Modifier.clickable { send("next") }.padding(horizontal = 6.dp))
+                }
+                val v = vol?.first
+                Text(if (v != null) "VOL $v" else "VOL", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onVolume() })
+            }
+        }
+    }
+}
+
+/**
+ * Marco Retro (igual en «Sonando» y en el menú): brillo del color alrededor, marco octogonal,
+ * medidor de cuadritos (el volumen) y los rótulos ADJUST, SELECT/MODE, LIGHT, SET y MEMO, que son botones.
+ */
+@Composable
+fun BoxScope.RetroFrame(
+    acc: Color,
+    vol: Pair<Int, Int>?,
+    onAdjust: () -> Unit,
+    onMode: () -> Unit,
+    onLight: () -> Unit,
+    onSet: () -> Unit,
+    onMemo: () -> Unit,
+) {
         // Brillo cálido alrededor y el marco octogonal (esquinas cortadas y redondeadas)
         Canvas(Modifier.fillMaxSize()) {
             val r = size.minDimension / 2
@@ -179,59 +263,104 @@ fun RetroNowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Un
         }
 
         // Rótulos de los costados (botones)
-        SideLabel("ADJUST", Color(0xFFE8E8E0), 90f, onBrowse, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = (-32).dp))
-        SideLabel("SELECT/MODE", acc, 90f, onVideo, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = 34.dp))
-        SideLabel("LIGHT", Color(0xFFE8E8E0), -90f, { PhoneLink.optimistic { it.copy(liked = !it.liked) }; send("like") }, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = (-38).dp))
-        SideLabel("◄ SET ►", acc, -90f, onVolume, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 10.dp))
-        SideLabel("MEMO", Color(0xFFE8E8E0), -90f, onQueue, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 52.dp))
+        SideLabel("ADJUST", Color(0xFFE8E8E0), 90f, onAdjust, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = (-32).dp))
+        SideLabel("SELECT/MODE", acc, 90f, onMode, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = 34.dp))
+        SideLabel("LIGHT", Color(0xFFE8E8E0), -90f, onLight, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = (-38).dp))
+        SideLabel("◄ SET ►", acc, -90f, onSet, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 10.dp))
+        SideLabel("MEMO", Color(0xFFE8E8E0), -90f, onMemo, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 52.dp))
 
-        if (link == Link.NoPhone || link == Link.AppClosed || link == Link.NoAnswer) {
-            Box(Modifier.padding(horizontal = 40.dp)) { notice() }
-            return@Box
+}
+
+/** Ícono del menú Retro: el dibujo en el color elegido dentro de un cuadrito de contorno */
+@Composable
+private fun MenuIcon(icon: Int, acc: Color) {
+    Box(
+        Modifier.size(24.dp).border(1.5.dp, acc, RoundedCornerShape(5.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = acc, modifier = Modifier.size(14.dp))
+    }
+}
+
+@Composable
+private fun MenuRow(icon: Int, title: String, acc: Color, sub: String? = null, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MenuIcon(icon, acc)
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(title, color = Color(0xFFF4F1E6), fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (!sub.isNullOrBlank()) Text(sub, color = Dim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
 
-        // Contenido de la pantalla
-        Column(Modifier.fillMaxWidth().padding(horizontal = 50.dp), horizontalAlignment = Alignment.Start) {
-            Text(time, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.End))
-            Spacer(Modifier.height(2.dp))
-            Text(
-                if (now.playing) "NOW PLAYING" else if (now.title.isBlank()) (if (link == Link.Searching) "CONECTANDO…" else "SIN MÚSICA") else "PAUSED",
-                color = Color(0xFF3A3D40), fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1,
-            )
-            // Título: tocarlo reproduce o pausa
-            Column(
-                Modifier.fillMaxWidth().clickable {
-                    PhoneLink.optimistic { it.copy(playing = !it.playing, positionMs = pos, startedAt = System.currentTimeMillis()) }
-                    send(if (now.playing) "pause" else "play")
-                },
-            ) {
-                Text(
-                    now.title.ifBlank { "—" }.uppercase(), color = Color(0xFFF4F1E6), fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp,
-                )
-                if (now.artist.isNotBlank()) Text(now.artist.uppercase(), color = Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+/**
+ * Menú con el estilo Retro (oscuro, marco y rótulos, «MENÚ» en el color elegido y una lista con
+ * íconos de contorno). La corona o el bisel recorren la lista.
+ */
+@Composable
+fun RetroMenuScreen(nav: (String) -> Unit, played: () -> Unit, search: () -> Unit, back: () -> Unit) {
+    val ctx = LocalContext.current
+    val lib by PhoneLink.library.collectAsState()
+    val vol by PhoneLink.volume.collectAsState()
+    val colorIdx by AppStyle.color.collectAsState()
+    val style by AppStyle.style.collectAsState()
+    val acc = AppStyle.COLORS[colorIdx].second
+    val tick = remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val state = rememberScalingLazyListState()
+    LaunchedEffect(Unit) {
+        PhoneLink.browse(ctx)
+        while (true) {
+            delay(1000)
+            tick.longValue = System.currentTimeMillis()
+        }
+    }
+    val time = remember(tick.longValue / 1000) {
+        SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm", Locale.getDefault()).format(Date(tick.longValue))
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        RetroFrame(
+            acc, vol,
+            onAdjust = back, onMode = { nav("library") },
+            onLight = { AppStyle.nextColor(ctx) },
+            onSet = { nav("volume") }, onMemo = { nav("queue") },
+        )
+        Text(time, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 52.dp))
+        ScalingLazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxWidth().padding(start = 50.dp, end = 44.dp, top = 70.dp, bottom = 44.dp),
+            horizontalAlignment = Alignment.Start,
+            autoCentering = null,
+            scalingParams = ScalingLazyColumnDefaults.scalingParams(edgeScale = 0.92f, edgeAlpha = 0.6f),
+        ) {
+            item { Text("MENÚ", color = acc, fontSize = 22.sp, fontWeight = FontWeight.Black, modifier = Modifier.fillMaxWidth()) }
+            item { MenuRow(R.drawable.ic_heart_filled, "Canciones", acc, lib?.let { "${it.total} me gusta" }) { nav("list/songs") } }
+            item { MenuRow(R.drawable.ic_heart, "Favoritos", acc, "Radios favoritas") { nav("list/radios") } }
+            item { MenuRow(R.drawable.ic_library, "Biblioteca", acc) { nav("library") } }
+            item { MenuRow(R.drawable.ic_search, "Buscar", acc) { search() } }
+            item { MenuRow(R.drawable.ic_shuffle, "Aleatorio", acc, "Toda tu biblioteca") { PhoneLink.play(ctx, "shuffle"); played() } }
+            item { MenuRow(R.drawable.ic_queue, "En reproducción", acc) { nav("queue") } }
+            item { MenuRow(R.drawable.ic_radio, "Radio por género", acc) { nav("list/genres") } }
+            item { MenuRow(R.drawable.ic_radio, "NTS Radio", acc, "En vivo y mixtapes") { nav("list/nts") } }
+            val mixes = lib?.mixes.orEmpty()
+            if (mixes.isNotEmpty()) {
+                item { Text("MEZCLAS", color = acc, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) }
+                items(mixes.take(6)) { m -> MenuRow(R.drawable.ic_bars, m.title, acc, m.sub) { nav("group/mix/${android.net.Uri.encode(m.id)}") } }
             }
-            Spacer(Modifier.height(6.dp))
-            // Barra de avance con su perilla
-            Canvas(Modifier.fillMaxWidth().height(8.dp)) {
-                val y = size.height / 2
-                drawLine(Color(0xFF3A3D40), Offset(0f, y), Offset(size.width, y), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
-                val x = size.width * progress
-                if (progress > 0f) drawLine(acc, Offset(0f, y), Offset(x, y), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
-                drawCircle(acc, 4.dp.toPx(), Offset(x.coerceAtLeast(4.dp.toPx()), y))
+            val pls = lib?.playlists.orEmpty()
+            if (pls.isNotEmpty()) {
+                item { Text("PLAYLISTS", color = acc, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) }
+                items(pls.take(6)) { pl -> MenuRow(R.drawable.ic_queue, pl.title, acc, pl.sub) { nav("group/playlist/${android.net.Uri.encode(pl.id)}") } }
             }
-            Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("<", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light, modifier = Modifier.clickable { send("prev") }.padding(horizontal = 6.dp))
-                    Text(if (now.playing) "❚❚" else "▶", color = acc, fontSize = 13.sp, modifier = Modifier.clickable {
-                        PhoneLink.optimistic { it.copy(playing = !it.playing, positionMs = pos, startedAt = System.currentTimeMillis()) }
-                        send(if (now.playing) "pause" else "play")
-                    }.padding(horizontal = 4.dp))
-                    Text(">", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Light, modifier = Modifier.clickable { send("next") }.padding(horizontal = 6.dp))
-                }
-                val v = vol?.first
-                Text(if (v != null) "VOL $v" else "VOL", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { onVolume() })
+            item { Text("ESTILO", color = acc, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) }
+            item { MenuRow(R.drawable.ic_bars, "Pantalla: ${if (style == 1) "Retro LCD" else "Moderna"}", acc, "Toca para cambiar") { AppStyle.setStyle(ctx, if (style == 1) 0 else 1) } }
+            item { MenuRow(R.drawable.ic_bars, "Color: ${AppStyle.COLORS[colorIdx].first}", acc, "Toca para cambiar") { AppStyle.nextColor(ctx) } }
+            item {
+                val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?" }
+                Text("${ctx.getString(R.string.app_name)} reloj · $version", color = Dim, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
             }
         }
     }
