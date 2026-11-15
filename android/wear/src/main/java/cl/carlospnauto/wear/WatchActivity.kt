@@ -29,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
+import androidx.wear.compose.foundation.lazy.ScalingLazyListScope
+import androidx.compose.foundation.border
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.Chip
@@ -177,6 +181,9 @@ private fun UpdateNotice() {
 private fun Screens() {
     val nav = rememberSwipeDismissableNavController()
     val toNow = { nav.popBackStack("now", false); Unit }
+    // Rótulos del marco Retro en las pantallas interiores
+    val retroNav = remember { RetroNav(now = toNow, video = { nav.navigate("video") }, volume = { nav.navigate("volume") }, queue = { nav.navigate("queue") }) }
+    CompositionLocalProvider(LocalRetroNav provides retroNav) {
     SwipeDismissableNavHost(navController = nav, startDestination = "now") {
         composable("now") { NowScreen(onBrowse = { nav.navigate("home") }, onVolume = { nav.navigate("volume") }, onQueue = { nav.navigate("queue") }, onVideo = { nav.navigate("video") }) }
         composable("video") { VideoScreen(close = { nav.popBackStack() }) }
@@ -195,6 +202,19 @@ private fun Screens() {
         composable("list/{kind}") { e -> ListScreen(kind = e.arguments?.getString("kind") ?: "songs", nav = { nav.navigate(it) }, played = toNow) }
         composable("group/{kind}/{id}") { e ->
             GroupScreen(kind = e.arguments?.getString("kind") ?: "", id = Uri.decode(e.arguments?.getString("id") ?: ""), played = toNow)
+        }
+    }
+    }
+}
+
+/** Pantalla de lista: la clásica o con el marco Retro (según el estilo elegido) */
+@Composable
+private fun ListPage(header: String, state: ScalingLazyListState, content: ScalingLazyListScope.() -> Unit) {
+    if (retroOn()) return RetroListPage(header, state, content)
+    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
+        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
+            item { ListHeader { Text(header, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center) } }
+            content()
         }
     }
 }
@@ -314,9 +334,7 @@ private fun QueueScreen(played: () -> Unit) {
     val songs = group?.takeIf { it.kind == "queue" }?.items
     val current = songs?.indexOfFirst { it.sub.startsWith("▶") } ?: -1
     LaunchedEffect(current) { if (current > 0) state.scrollToItem(current + 1) }
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
-        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { ListHeader { Text("En reproducción") } }
+    ListPage("En reproducción", state) {
             when {
                 songs == null -> item { Text("Cargando…", color = Grey) }
                 songs.isEmpty() -> item { Text("No hay nada en la cola", color = Grey, textAlign = TextAlign.Center) }
@@ -327,7 +345,6 @@ private fun QueueScreen(played: () -> Unit) {
                     }
                 }
             }
-        }
     }
 }
 
@@ -341,6 +358,7 @@ private fun VolumeScreen() {
         focus.requestFocus()
         PhoneLink.cmd(ctx, "vol")
     }
+    if (retroOn()) return RetroVolume(focus)
     Scaffold(timeText = { TimeText() }) {
         Box(
             Modifier
@@ -495,15 +513,12 @@ private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
 private fun LibraryScreen(nav: (String) -> Unit) {
     val lib by PhoneLink.library.collectAsState()
     val state = rememberScalingLazyListState()
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
-        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { ListHeader { Text("Biblioteca") } }
+    ListPage("Biblioteca", state) {
             item { Entry(icon = R.drawable.ic_list, title = "Playlists", sub = lib?.let { "${it.playlists.size}" }) { nav("list/playlists") } }
             item { Entry(icon = R.drawable.ic_artist, title = "Artistas", sub = lib?.let { "${it.artists.size}" }) { nav("list/artists") } }
             item { Entry(icon = R.drawable.ic_album, title = "Álbumes", sub = lib?.let { "${it.albums.size}" }) { nav("list/albums") } }
             item { Entry(icon = R.drawable.ic_music, title = "Canciones", sub = lib?.let { "${it.total}" }) { nav("list/songs") } }
             item { Entry(icon = R.drawable.ic_shuffle, title = "Mezclas por género", sub = lib?.let { "${it.mixes.size}" }) { nav("list/mixes") } }
-        }
     }
 }
 
@@ -513,9 +528,7 @@ private fun SearchScreen(played: () -> Unit) {
     val search by PhoneLink.search.collectAsState()
     val state = rememberScalingLazyListState()
     val results = search?.second
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
-        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { ListHeader { Text(search?.first ?: "Buscar", maxLines = 1, overflow = TextOverflow.Ellipsis) } }
+    ListPage(search?.first ?: "Buscar", state) {
             when {
                 results == null -> item { Text("Buscando en YouTube e Internet Archive…", color = Grey, textAlign = TextAlign.Center) }
                 results.isEmpty() -> item { Text("Sin resultados. Prueba con otro nombre.", color = Grey, textAlign = TextAlign.Center) }
@@ -528,7 +541,6 @@ private fun SearchScreen(played: () -> Unit) {
                     }
                 }
             }
-        }
     }
 }
 
@@ -550,9 +562,7 @@ private fun ListScreen(kind: String, nav: (String) -> Unit, played: () -> Unit) 
     }
     val opens = mapOf("playlists" to "playlist", "artists" to "artist", "albums" to "album", "mixes" to "mix")
     val plays = mapOf("genres" to "genre", "nts" to "nts", "radios" to "radio", "songs" to "song")
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
-        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { ListHeader { Text(title) } }
+    ListPage(title, state) {
             when {
                 items == null -> item { Text("Cargando…", color = Grey) }
                 items.isEmpty() -> item { Text("Nada por aquí todavía", color = Grey, textAlign = TextAlign.Center) }
@@ -567,7 +577,6 @@ private fun ListScreen(kind: String, nav: (String) -> Unit, played: () -> Unit) 
                     }
                 }
             }
-        }
     }
 }
 
@@ -586,9 +595,7 @@ private fun GroupScreen(kind: String, id: String, played: () -> Unit) {
         "album" -> id.substringBefore("||")
         else -> id
     } ?: id
-    Scaffold(timeText = { TimeText() }, positionIndicator = { PositionIndicator(state) }) {
-        ScalingLazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
-            item { ListHeader { Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center) } }
+    ListPage(name, state) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Pill(R.drawable.ic_play, "Reproducir", Violet) {
@@ -611,7 +618,6 @@ private fun GroupScreen(kind: String, id: String, played: () -> Unit) {
                     }
                 }
             }
-        }
     }
 }
 
@@ -620,6 +626,7 @@ private val Grey = Color(0xFFB0B7C3)
 /** Botón redondo con ícono (arriba de las listas, como en Spotify) */
 @Composable
 private fun Pill(icon: Int, label: String, color: Color = Color(0xFF2A2C3A), onClick: () -> Unit) {
+    if (retroOn()) return RetroButton(icon, label, onClick)
     Button(onClick = onClick, modifier = Modifier.size(width = 64.dp, height = 44.dp), colors = ButtonDefaults.buttonColors(backgroundColor = color)) {
         Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(22.dp))
     }
@@ -649,6 +656,15 @@ private fun Entry(
     accent: Boolean = false,
     onClick: () -> Unit,
 ) {
+    if (retroOn()) {
+        val acc = retroAcc()
+        val leading: (@Composable () -> Unit)? = when {
+            img.startsWith("http") -> { { Box(Modifier.border(1.dp, acc, if (round) CircleShape else RoundedCornerShape(7.dp)).padding(1.dp)) { Thumb(img, round) } } }
+            icon != null -> { { MenuIcon(icon, acc) } }
+            else -> null
+        }
+        return RetroRow(title, sub, accent, leading, onClick)
+    }
     val slot: (@Composable BoxScope.() -> Unit)? = when {
         img.startsWith("http") -> { { Thumb(img, round) } }
         icon != null -> { { Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(22.dp), tint = if (accent) Color(0xFF34D399) else Color.White) } }
@@ -662,4 +678,44 @@ private fun Entry(
         secondaryLabel = sub?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Grey) } },
         colors = ChipDefaults.chipColors(backgroundColor = Color(0xFF1E2030)),
     )
+}
+
+/** Volumen con el estilo Retro: marco, «VOL n» grande y botones − / + con contorno */
+@Composable
+private fun RetroVolume(focus: FocusRequester) {
+    val ctx = LocalContext.current
+    val vol by PhoneLink.volume.collectAsState()
+    val acc = retroAcc()
+    val go = LocalRetroNav.current
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .onRotaryScrollEvent {
+                PhoneLink.volumeStep(ctx, it.verticalScrollPixels > 0)
+                true
+            }
+            .focusRequester(focus)
+            .focusable(),
+        contentAlignment = Alignment.Center,
+    ) {
+        RetroFrame(
+            acc, vol,
+            onAdjust = go.now, onMode = go.video,
+            onLight = { PhoneLink.optimistic { it.copy(liked = !it.liked) }; PhoneLink.cmd(ctx, "like") },
+            onSet = {}, onMemo = go.queue,
+            adjustLabel = "SONANDO",
+        )
+        val (v, max) = vol ?: (0 to 0)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("VOLUMEN", color = acc, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Text(if (max > 0) "VOL $v" else "VOL …", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            if (max > 0) Text("${(v * 100f / max).toInt()}%", color = Grey, fontSize = 12.sp)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                RetroButton(R.drawable.ic_minus, "Bajar volumen") { PhoneLink.volumeStep(ctx, false) }
+                RetroButton(R.drawable.ic_plus, "Subir volumen") { PhoneLink.volumeStep(ctx, true) }
+            }
+        }
+    }
 }

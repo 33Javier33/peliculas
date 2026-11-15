@@ -24,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -52,6 +53,8 @@ import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumnDefaults
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
+import androidx.wear.compose.foundation.lazy.ScalingLazyListScope
 import androidx.wear.compose.material.Icon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -156,6 +159,7 @@ fun RetroNowScreen(onBrowse: () -> Unit, onVolume: () -> Unit, onQueue: () -> Un
             onAdjust = onBrowse, onMode = onVideo,
             onLight = { PhoneLink.optimistic { it.copy(liked = !it.liked) }; send("like") },
             onSet = onVolume, onMemo = onQueue,
+            lightLabel = if (now.liked) "♥ ME GUSTA" else "♡ ME GUSTA",
         )
 
         if (link == Link.NoPhone || link == Link.AppClosed || link == Link.NoAnswer) {
@@ -225,6 +229,11 @@ fun BoxScope.RetroFrame(
     onLight: () -> Unit,
     onSet: () -> Unit,
     onMemo: () -> Unit,
+    adjustLabel: String = "MENÚ",
+    modeLabel: String = "VIDEO",
+    lightLabel: String = "♥ ME GUSTA",
+    setLabel: String = "◄ VOL ►",
+    memoLabel: String = "LISTA",
 ) {
         // Brillo cálido alrededor y el marco octogonal (esquinas cortadas y redondeadas)
         Canvas(Modifier.fillMaxSize()) {
@@ -263,17 +272,17 @@ fun BoxScope.RetroFrame(
         }
 
         // Rótulos de los costados (botones)
-        SideLabel("ADJUST", Color(0xFFE8E8E0), 90f, onAdjust, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = (-32).dp))
-        SideLabel("SELECT/MODE", acc, 90f, onMode, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = 34.dp))
-        SideLabel("LIGHT", Color(0xFFE8E8E0), -90f, onLight, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = (-38).dp))
-        SideLabel("◄ SET ►", acc, -90f, onSet, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 10.dp))
-        SideLabel("MEMO", Color(0xFFE8E8E0), -90f, onMemo, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 52.dp))
+        SideLabel(adjustLabel, Color(0xFFE8E8E0), 90f, onAdjust, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = (-32).dp))
+        SideLabel(modeLabel, acc, 90f, onMode, Modifier.align(Alignment.CenterStart).offset(x = 22.dp, y = 34.dp))
+        SideLabel(lightLabel, Color(0xFFE8E8E0), -90f, onLight, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = (-38).dp))
+        SideLabel(setLabel, acc, -90f, onSet, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 10.dp))
+        SideLabel(memoLabel, Color(0xFFE8E8E0), -90f, onMemo, Modifier.align(Alignment.CenterEnd).offset(x = (-22).dp, y = 52.dp))
 
 }
 
 /** Ícono del menú Retro: el dibujo en el color elegido dentro de un cuadrito de contorno */
 @Composable
-private fun MenuIcon(icon: Int, acc: Color) {
+fun MenuIcon(icon: Int, acc: Color) {
     Box(
         Modifier.size(24.dp).border(1.5.dp, acc, RoundedCornerShape(5.dp)),
         contentAlignment = Alignment.Center,
@@ -324,9 +333,10 @@ fun RetroMenuScreen(nav: (String) -> Unit, played: () -> Unit, search: () -> Uni
     Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         RetroFrame(
             acc, vol,
-            onAdjust = back, onMode = { nav("library") },
-            onLight = { AppStyle.nextColor(ctx) },
+            onAdjust = back, onMode = { nav("video") },
+            onLight = { PhoneLink.optimistic { it.copy(liked = !it.liked) }; PhoneLink.cmd(ctx, "like") },
             onSet = { nav("volume") }, onMemo = { nav("queue") },
+            adjustLabel = "SONANDO",
         )
         Text(time, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 52.dp))
         ScalingLazyColumn(
@@ -363,5 +373,88 @@ fun RetroMenuScreen(nav: (String) -> Unit, played: () -> Unit, search: () -> Uni
                 Text("${ctx.getString(R.string.app_name)} reloj · $version", color = Dim, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
             }
         }
+    }
+}
+
+/** A dónde llevan los rótulos del marco Retro en las pantallas interiores */
+class RetroNav(val now: () -> Unit, val video: () -> Unit, val volume: () -> Unit, val queue: () -> Unit)
+
+val LocalRetroNav = staticCompositionLocalOf { RetroNav({}, {}, {}, {}) }
+
+/** ¿Está elegido el estilo Retro? */
+@Composable
+fun retroOn(): Boolean = AppStyle.style.collectAsState().value == 1
+
+/** Color elegido del estilo Retro */
+@Composable
+fun retroAcc(): Color = AppStyle.COLORS[AppStyle.color.collectAsState().value].second
+
+/** Pantalla interior (listas) con el estilo Retro: marco, rótulos, hora y la lista con su título */
+@Composable
+fun RetroListPage(header: String, state: ScalingLazyListState, content: ScalingLazyListScope.() -> Unit) {
+    val ctx = LocalContext.current
+    val vol by PhoneLink.volume.collectAsState()
+    val acc = retroAcc()
+    val go = LocalRetroNav.current
+    val tick = remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            tick.longValue = System.currentTimeMillis()
+        }
+    }
+    val time = remember(tick.longValue / 1000) {
+        SimpleDateFormat(if (android.text.format.DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm", Locale.getDefault()).format(Date(tick.longValue))
+    }
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+        RetroFrame(
+            acc, vol,
+            onAdjust = go.now, onMode = go.video,
+            onLight = { PhoneLink.optimistic { it.copy(liked = !it.liked) }; PhoneLink.cmd(ctx, "like") },
+            onSet = go.volume, onMemo = go.queue,
+            adjustLabel = "SONANDO",
+        )
+        Text(time, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(top = 44.dp, end = 52.dp))
+        ScalingLazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxWidth().padding(start = 50.dp, end = 44.dp, top = 70.dp, bottom = 44.dp),
+            horizontalAlignment = Alignment.Start,
+            autoCentering = null,
+            scalingParams = ScalingLazyColumnDefaults.scalingParams(edgeScale = 0.92f, edgeAlpha = 0.6f),
+        ) {
+            item { Text(header.uppercase(), color = acc, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth()) }
+            content()
+        }
+    }
+}
+
+/** Fila de una lista con el estilo Retro: carátula o ícono en su cuadrito y el texto en blanco */
+@Composable
+fun RetroRow(title: String, sub: String?, accent: Boolean, leading: (@Composable () -> Unit)?, onClick: () -> Unit) {
+    val acc = retroAcc()
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(10.dp))
+        }
+        Column {
+            Text(title, color = if (accent) acc else Color(0xFFF4F1E6), fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp)
+            if (!sub.isNullOrBlank()) Text(sub, color = Dim, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Botón chico con contorno del color (reproducir, aleatorio, volumen) */
+@Composable
+fun RetroButton(icon: Int, label: String, onClick: () -> Unit) {
+    val acc = retroAcc()
+    Box(
+        Modifier.size(width = 56.dp, height = 36.dp).border(1.5.dp, acc, RoundedCornerShape(8.dp)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(icon), contentDescription = label, tint = acc, modifier = Modifier.size(20.dp))
     }
 }
