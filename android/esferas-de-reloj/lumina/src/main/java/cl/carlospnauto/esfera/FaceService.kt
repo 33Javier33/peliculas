@@ -201,7 +201,7 @@ class LuminaRenderer(
         val r = min(b.width(), b.height()) / 2f
         val fx = (x - b.exactCenterX()) / r
         val fy = (y - b.exactCenterY()) / r
-        return fx in -0.64f..0.64f && fy in -0.31f..0.29f
+        return fx in -0.70f..0.70f && fy in -0.365f..0.345f
     }
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
@@ -261,8 +261,8 @@ class LuminaRenderer(
         fun X(v: Float) = cx + v * rr
         fun Y(v: Float) = cy + v * rr
         val side = 0.86f
-        val edge = 0.50f
-        val sy = 0.40f
+        val edge = 0.53f
+        val sy = 0.42f
         val ang = Math.toDegrees(kotlin.math.asin((sy / side).toDouble())).toFloat()
         val sx = kotlin.math.sqrt(side * side - sy * sy)
         // Esquina: la recta y la tangente del círculo se cruzan en (cxk, edge)
@@ -333,7 +333,7 @@ class LuminaRenderer(
         val th = THEMES[Choices.index(context, THEME)].second
         canvas.drawColor(Color.BLACK)
 
-        val lcd = RectF(X(-0.64f), Y(-0.31f), X(0.64f), Y(0.29f))
+        val lcd = RectF(X(-0.70f), Y(-0.365f), X(0.70f), Y(0.345f))
         val ink = if (simple) Color.rgb(170, 170, 170) else sc.ink
         val ghost = if (simple) 0 else a(sc.ink, if (sc.dark) 30 else 26)
 
@@ -371,7 +371,7 @@ class LuminaRenderer(
             canvas.drawPath(path, stroke)
 
             // APP 1 y APP 2 (accesos) en los costados
-            for ((sx, label, deg) in listOf(Triple(-0.745f, "APP 1", -90f), Triple(0.745f, "APP 2", 90f))) {
+            for ((sx, label, deg) in listOf(Triple(-0.778f, "APP 1", -90f), Triple(0.778f, "APP 2", 90f))) {
                 canvas.save()
                 canvas.rotate(deg, X(sx), cy)
                 write(canvas, label, X(sx), cy + r * 0.018f, r * 0.05f, th.label, mono, Paint.Align.CENTER)
@@ -384,9 +384,9 @@ class LuminaRenderer(
             val hr = hrTxt?.toIntOrNull() ?: 0
             val ls = r * 0.056f
             fill.color = th.frame
-            canvas.drawCircle(X(-0.52f), Y(-0.375f), r * 0.014f, fill)
-            write(canvas, "HR:", X(-0.49f), Y(-0.355f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.34f), Y(-0.355f), ls, th.value, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(-0.54f), Y(-0.43f), r * 0.014f, fill)
+            write(canvas, "HR:", X(-0.51f), Y(-0.41f), ls, th.label, mono, Paint.Align.LEFT)
+            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.36f), Y(-0.41f), ls, th.value, mono, Paint.Align.LEFT)
             val status = when {
                 hr <= 0 -> "--"
                 hr < 60 -> "Bajo"
@@ -394,19 +394,19 @@ class LuminaRenderer(
                 else -> "Alto"
             }
             val stColor = when (status) { "Normal" -> Color.rgb(60, 220, 110); "Bajo" -> Color.rgb(90, 180, 255); "Alto" -> Color.rgb(255, 90, 80); else -> Color.GRAY }
-            canvas.drawCircle(X(0.20f), Y(-0.375f), r * 0.014f, fill)
-            write(canvas, status, X(0.23f), Y(-0.355f), ls, stColor, bold, Paint.Align.LEFT)
+            canvas.drawCircle(X(0.22f), Y(-0.43f), r * 0.014f, fill)
+            write(canvas, status, X(0.25f), Y(-0.41f), ls, stColor, bold, Paint.Align.LEFT)
 
             // Pasos y distancia
             val stepsTxt = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() } ?: ""
             val steps = stepsTxt.toLongOrNull() ?: 0L
             val km = steps * 0.00075
             val dist = if (Choices.value(context, DISTANCE) == 1) "%.2f mi".format(loc, km * 0.621371) else "%.2f km".format(loc, km)
-            canvas.drawCircle(X(-0.52f), Y(0.385f), r * 0.014f, fill)
-            write(canvas, "SC:", X(-0.49f), Y(0.405f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.34f), Y(0.405f), ls, th.value, mono, Paint.Align.LEFT)
-            canvas.drawCircle(X(0.20f), Y(0.385f), r * 0.014f, fill)
-            write(canvas, dist, X(0.23f), Y(0.405f), ls, th.brand, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(-0.54f), Y(0.435f), r * 0.014f, fill)
+            write(canvas, "SC:", X(-0.51f), Y(0.455f), ls, th.label, mono, Paint.Align.LEFT)
+            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.36f), Y(0.455f), ls, th.value, mono, Paint.Align.LEFT)
+            canvas.drawCircle(X(0.22f), Y(0.435f), r * 0.014f, fill)
+            write(canvas, dist, X(0.25f), Y(0.455f), ls, th.brand, mono, Paint.Align.LEFT)
 
             // WATER 50 RESIST y triángulos abajo (rectos)
             val ws = r * 0.062f
@@ -439,52 +439,52 @@ class LuminaRenderer(
         // Batería: pila chica con su nivel y el porcentaje
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         if (!simple) {
-            val bx = X(-0.59f)
-            val by = Y(-0.255f)
+            val bx = X(-0.65f)
+            val by = Y(-0.31f)
             stroke.color = ink
             stroke.strokeWidth = r * 0.008f
             canvas.drawRoundRect(RectF(bx, by, bx + r * 0.085f, by + r * 0.04f), r * 0.006f, r * 0.006f, stroke)
             fill.color = ink
             canvas.drawRect(bx + r * 0.085f, by + r * 0.012f, bx + r * 0.095f, by + r * 0.028f, fill)
             if (pct >= 0) canvas.drawRect(bx + r * 0.01f, by + r * 0.01f, bx + r * 0.01f + r * 0.065f * pct / 100f, by + r * 0.03f, fill)
-            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.045f, Y(-0.16f), r * 0.045f, ink, bold, Paint.Align.CENTER)
+            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.045f, Y(-0.21f), r * 0.048f, ink, bold, Paint.Align.CENTER)
         }
 
         // Día de la semana grande
         val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").take(3).uppercase(loc)
-        write(canvas, dow, X(-0.45f), Y(-0.135f), r * 0.14f, ink, black, Paint.Align.LEFT)
+        write(canvas, dow, X(-0.50f), Y(-0.17f), r * 0.165f, ink, black, Paint.Align.LEFT)
 
         // Fecha (mes-día) en su cajita, con «8» apagados
         if (!simple) {
             fill.color = a(sc.ink, if (sc.dark) 22 else 16)
-            canvas.drawRoundRect(RectF(X(0.13f), Y(-0.28f), X(0.60f), Y(-0.115f)), r * 0.02f, r * 0.02f, fill)
+            canvas.drawRoundRect(RectF(X(0.14f), Y(-0.335f), X(0.66f), Y(-0.14f)), r * 0.02f, r * 0.02f, fill)
         }
-        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.59f), Y(-0.265f), r * 0.066f, r * 0.12f, r * 0.02f, 5, ink, ghost)
+        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.65f), Y(-0.315f), r * 0.075f, r * 0.14f, r * 0.022f, 5, ink, ghost)
 
         // Alarma puesta: campana con ondas
-        if (!simple) bell(canvas, X(0.49f), Y(-0.06f), r * 0.035f, if (Indicators.alarm(context)) ink else ghost)
+        if (!simple) bell(canvas, X(0.56f), Y(-0.06f), r * 0.04f, if (Indicators.alarm(context)) ink else ghost)
 
         // Hora grande, segundos e indicador P / 24
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
-        val dw = r * 0.145f
-        val dh = r * 0.25f
-        val top = Y(0.005f)
-        var x = X(-0.48f)
+        val dw = r * 0.16f
+        val dh = r * 0.30f
+        val top = Y(0.0f)
+        var x = X(-0.52f)
         Lcd.digit(canvas, h[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, h[1], x, top, dw, dh, ink, ghost); x += dw * 1.22f
-        Lcd.colon(canvas, x + dw * 0.18f, top, dh, r * 0.02f, ink); x += dw * 0.5f
+        Lcd.colon(canvas, x + dw * 0.18f, top, dh, r * 0.022f, ink); x += dw * 0.5f
         Lcd.digit(canvas, m[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, m[1], x, top, dw, dh, ink, ghost)
         if (!ambient && Choices.value(context, SECONDS) == 0) {
             val s = "%02d".format(t.second)
-            val sw = r * 0.095f
-            val sh = r * 0.17f
-            Lcd.digit(canvas, s[0], X(0.39f), top + dh - sh, sw, sh, ink, ghost)
-            Lcd.digit(canvas, s[1], X(0.39f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
+            val sw = r * 0.11f
+            val sh = r * 0.20f
+            Lcd.digit(canvas, s[0], X(0.40f), top + dh - sh, sw, sh, ink, ghost)
+            Lcd.digit(canvas, s[1], X(0.40f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
         }
-        write(canvas, if (is24) "24" else "P", X(-0.565f), top + r * 0.06f, r * 0.055f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
+        write(canvas, if (is24) "24" else "P", X(-0.625f), top + r * 0.07f, r * 0.06f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
 
         Brand.draw(canvas, cx, Y(0.90f), r * 0.028f, Color.rgb(110, 110, 115))
         // Siempre activa: la esfera completa, más tenue

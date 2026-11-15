@@ -19,6 +19,9 @@ jobs:
       ANDROID_USER_HOME: /home/runner/.cpn-android
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Historia completa: para saber si cambió la app o solo las esferas
+          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
@@ -92,6 +95,21 @@ jobs:
           JSON
           cat assetlinks.json
 
+      # ¿Cambió la app (teléfono o reloj)? Si solo cambiaron esferas, la app NO se vuelve a publicar
+      # con otro número: así no pide actualizar cada vez que se agrega una esfera a la tienda
+      - name: ¿Cambió la app?
+        run: |
+          APP_COMMIT=$(git log -1 --format=%H -- android/app android/wear android/build.gradle.kts android/gradle.properties android/gradle)
+          PREV=$(curl -sfL "https://github.com/${{ github.repository }}/releases/download/android-latest/app-commit.txt" || true)
+          echo "$APP_COMMIT" > app-commit.txt
+          if [ "$APP_COMMIT" = "$PREV" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            echo "APP_CHANGED=false" >> "$GITHUB_ENV"
+            echo "La app no cambió ($APP_COMMIT): solo se publican las esferas"
+          else
+            echo "APP_CHANGED=true" >> "$GITHUB_ENV"
+            echo "La app cambió: $PREV → $APP_COMMIT"
+          fi
+
       # Versión publicada y qué trae: la página avisa a quien tenga una versión anterior
       - name: Datos de la versión
         env:
@@ -117,7 +135,8 @@ jobs:
           PY
           cat version.json version-music.json
 
-      - name: Publicar en "android-latest"
+      - name: Publicar la app en "android-latest"
+        if: env.APP_CHANGED == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
@@ -137,6 +156,17 @@ jobs:
             version.json
             version-music.json
             assetlinks.json
+            app-commit.txt
+          make_latest: true
+
+      # Solo esferas: se suben las esferas y la app queda como estaba (misma versión, sin aviso)
+      - name: Publicar solo las esferas
+        if: env.APP_CHANGED != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          files: |
+            Esfera-*.apk
           make_latest: true
 
       - uses: actions/upload-artifact@v4
