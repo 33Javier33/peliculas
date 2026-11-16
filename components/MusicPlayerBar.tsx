@@ -38,7 +38,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativePrefetchFile, nativeFileUrl, hasNativeEq, applyNativeEq, getNative, nativeListPrefetch } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativePrefetchLater, nativePrefetchFile, nativeFileUrl, hasNativeEq, applyNativeEq, getNative, nativeListPrefetch } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -1053,7 +1053,8 @@ export default function MusicPlayerBar() {
       const limit = native && !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
       const offline = useOfflineStore.getState().items
       const items = listKey.split(',').slice(0, limit)
-      for (const item of items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
         if (cancelled) return
         const [id, fileUrl, skip] = item.split('|')
         if (skip === '1' || isLocalTrack(id) || (fileUrl && offline[fileUrl])) continue
@@ -1064,7 +1065,9 @@ export default function MusicPlayerBar() {
         const yt = ytIdOf({ id })
         if (!yt) continue
         if (native) {
-          nativePrefetch(yt)
+          // La que sigue: ya y con prioridad normal; las demás, en fila con prioridad baja
+          if (i === 0) nativePrefetch(yt)
+          else nativePrefetchLater(yt)
           continue
         }
         await loadAudioCandidates(yt).catch(() => [])

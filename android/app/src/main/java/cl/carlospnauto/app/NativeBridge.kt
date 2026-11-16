@@ -100,6 +100,10 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun listPrefetch(): Boolean = true
 
+    /** Preparar una canción más adelante de la lista (en fila, con prioridad baja) */
+    @JavascriptInterface
+    fun prefetchLater(id: String) = AudioServer.prefetchLater(id)
+
     /** La app sabe descargar e instalar su actualización (APK 1.0.16+) */
     @JavascriptInterface
     fun canDownload(): Boolean = true

@@ -8,7 +8,7 @@ import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast, useCastStore } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
-import { isNativeApp, nativePrefetch, nativeListPrefetch } from '@/lib/native'
+import { isNativeApp, nativePrefetch, nativePrefetchLater, nativeListPrefetch } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -342,10 +342,10 @@ export default function YoutubePlayer({
       const ids = [...nextIdsRef.current.slice(0, many ? 15 : 1), ytIdOf(st.queue[st.currentIndex + 1])].filter(
         (id): id is string => !!id && id !== videoId && /^[A-Za-z0-9_-]{11}$/.test(id)
       )
-      for (const id of Array.from(new Set(ids))) {
-        if (isNativeApp()) nativePrefetch(id)
+      Array.from(new Set(ids)).forEach((id, i) => {
+        if (isNativeApp()) (i === 0 ? nativePrefetch : nativePrefetchLater)(id)
         else if (!isDesktop()) cacheYtAudio(id)
-      }
+      })
     }, 2000)
     return () => clearTimeout(t)
   }, [ytPlaying, videoId])

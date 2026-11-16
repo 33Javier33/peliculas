@@ -177,9 +177,14 @@ object AudioServer {
     // el trabajo y se estorbaban: la canción tardaba más de un minuto en empezar)
     private val locks = ConcurrentHashMap<String, Any>()
 
+    // Hilos que buscan un audio en segundo plano (prioridad baja): si esa canción se pide para
+    // sonar, se le sube la prioridad a esa búsqueda (antes, la canción esperaba a la búsqueda lenta)
+    private val resolvingTid = ConcurrentHashMap<String, Int>()
+
     fun resolve(id: String, fresh: Boolean = false, background: Boolean = false): Resolved {
         val fresh0 = cache[id]
         if (!fresh && fresh0 != null && System.currentTimeMillis() - fresh0.at < 3 * 60 * 60 * 1000) return fresh0
+        if (!background) resolvingTid[id]?.let { tid -> runCatching { android.os.Process.setThreadPriority(tid, android.os.Process.THREAD_PRIORITY_DEFAULT) } }
         val lock = locks.getOrPut(id) { Any() }
         synchronized(lock) {
             val hit = cache[id]
@@ -196,9 +201,11 @@ object AudioServer {
         val thread = android.os.Process.myTid()
         val prevPriority = android.os.Process.getThreadPriority(thread)
         android.os.Process.setThreadPriority(if (background) android.os.Process.THREAD_PRIORITY_BACKGROUND else android.os.Process.THREAD_PRIORITY_DEFAULT)
+        if (background) resolvingTid[id] = thread
         val info = try {
             StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
         } finally {
+            resolvingTid.remove(id)
             android.os.Process.setThreadPriority(prevPriority)
         }
         val streams = info.audioStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
@@ -419,15 +426,26 @@ object AudioServer {
         while (heads.size >= MAX_HEADS) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) } ?: break
     }
 
-    fun prefetch(id: String) {
-        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id)) return
-        val hit = heads[id]
-        if (hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000) return
-        if (!prefetchPending.add(id)) return
-        prefetchQueue.execute {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+    /** La siguiente canción: ya, en su propio hilo y con prioridad normal (es la que suena después) */
+    fun prefetch(id: String) = prefetchYt(id, urgent = true)
+
+    /** El resto de la lista: en fila, de a una y con prioridad baja (no le quita nada a lo que suena) */
+    fun prefetchLater(id: String) = prefetchYt(id, urgent = false)
+
+    private val urgentPending: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    private fun fresh(key: String): Boolean {
+        val hit = heads[key]
+        return hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000
+    }
+
+    private fun prefetchYt(id: String, urgent: Boolean) {
+        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id) || fresh(id)) return
+        val work = Runnable {
+            if (fresh(id)) return@Runnable
+            if (!urgent) android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             runCatching {
-                val r = resolve(id, background = true)
+                val r = resolve(id, background = !urgent)
                 val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
                     setRequestProperty("User-Agent", r.userAgent)
                     setRequestProperty("Range", "bytes=0-${HEAD_BYTES - 1}")
@@ -444,7 +462,17 @@ object AudioServer {
                 }
                 conn.disconnect()
             }.onFailure { Log.w(TAG, "No se pudo preparar $id: ${it.message}") }
-            prefetchPending.remove(id)
+        }
+        if (urgent) {
+            if (!urgentPending.add(id)) return
+            Thread {
+                try { work.run() } finally { urgentPending.remove(id) }
+            }.start()
+        } else {
+            if (!prefetchPending.add(id)) return
+            prefetchQueue.execute {
+                try { work.run() } finally { prefetchPending.remove(id) }
+            }
         }
     }
 

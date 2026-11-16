@@ -100,6 +100,18 @@ export function nativeListPrefetch(): boolean {
   }
 }
 
+/** Preparar una canción más adelante de la lista (en fila, prioridad baja). App nueva; si no, como nativePrefetch */
+export function nativePrefetchLater(videoId: string): boolean {
+  const n = getNative() as (CPNNativeBridge & { prefetchLater?(id: string): void }) | null
+  if (!n?.prefetchLater) return nativePrefetch(videoId)
+  try {
+    n.prefetchLater(videoId)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function nativePrefetch(videoId: string): boolean {
   const n = getNative() as (CPNNativeBridge & { prefetch?(id: string): void }) | null
   if (!n?.prefetch) return false
