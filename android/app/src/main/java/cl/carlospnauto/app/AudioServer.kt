@@ -40,6 +40,100 @@ object AudioServer {
         server = s
         port = s.listeningPort
         Log.i(TAG, "Escuchando en 127.0.0.1:$port")
+        Thread { loadDisk() }.start()
+    }
+
+    // ===== Memoria en el disco =====
+    // Al cerrar la app se perdía lo preparado: el primer play tras abrirla volvía a buscar el audio
+    // en YouTube y a descargar desde cero. Se guardan en el teléfono las direcciones ya resueltas
+    // (sirven unas horas) y el comienzo de las canciones (~25 s; las últimas 30, ~15 MB en caché).
+    private const val RESOLVED_FILE = "yt-resolved.json"
+    private const val HEADS_DIR = "heads"
+    private const val MAX_DISK_HEADS = 30
+
+    private fun headsDir(): java.io.File? = appContext?.let { java.io.File(it.cacheDir, HEADS_DIR).apply { mkdirs() } }
+
+    private fun loadDisk() = runCatching {
+        val ctx = appContext ?: return@runCatching
+        val f = java.io.File(ctx.filesDir, RESOLVED_FILE)
+        if (f.exists()) {
+            val o = org.json.JSONObject(f.readText())
+            val now = System.currentTimeMillis()
+            for (k in o.keys()) {
+                val e = o.getJSONObject(k)
+                val r = Resolved(e.getString("u"), e.getString("m"), e.getString("a"), e.getLong("t"))
+                if (now - r.at < 3 * 60 * 60 * 1000 && cache[k] == null) cache[k] = r
+            }
+        }
+    }.onFailure { Log.w(TAG, "No se pudo leer lo guardado: ${it.message}") }
+
+    private val saveLock = Any()
+    private fun saveResolved() {
+        val ctx = appContext ?: return
+        Thread {
+            runCatching {
+                synchronized(saveLock) {
+                    val now = System.currentTimeMillis()
+                    val o = org.json.JSONObject()
+                    cache.entries.filter { now - it.value.at < 3 * 60 * 60 * 1000 }.sortedByDescending { it.value.at }.take(60).forEach { (k, r) ->
+                        o.put(k, org.json.JSONObject().put("u", r.url).put("m", r.mime).put("a", r.userAgent).put("t", r.at))
+                    }
+                    val tmp = java.io.File(ctx.filesDir, "$RESOLVED_FILE.tmp")
+                    tmp.writeText(o.toString())
+                    tmp.renameTo(java.io.File(ctx.filesDir, RESOLVED_FILE))
+                }
+            }
+        }.start()
+    }
+
+    // Un comienzo vale lo mismo que la dirección de su audio (después YouTube puede dar otra versión)
+    private const val HEAD_TTL = 3L * 60 * 60 * 1000
+
+    // Archivo del comienzo: [hora (8)][total (8)][largo del tipo (4)][tipo][bytes]
+    private fun saveHead(key: String, h: Head) {
+        val dir = headsDir() ?: return
+        runCatching {
+            val f = java.io.File(dir, key.hashCode().toUInt().toString(16) + ".h")
+            java.io.DataOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(f))).use { out ->
+                out.writeLong(h.at)
+                out.writeLong(h.total)
+                val m = h.mime.toByteArray()
+                out.writeInt(m.size)
+                out.write(m)
+                out.write(h.bytes)
+            }
+            dir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(MAX_DISK_HEADS)?.forEach { it.delete() }
+        }
+    }
+
+    private fun diskHead(key: String): Head? {
+        val dir = headsDir() ?: return null
+        val f = java.io.File(dir, key.hashCode().toUInt().toString(16) + ".h")
+        if (!f.exists()) return null
+        return runCatching {
+            java.io.DataInputStream(java.io.BufferedInputStream(java.io.FileInputStream(f))).use { inp ->
+                val at = inp.readLong()
+                if (System.currentTimeMillis() - at > HEAD_TTL) {
+                    f.delete()
+                    return@runCatching null
+                }
+                val total = inp.readLong()
+                val m = ByteArray(inp.readInt()).also { inp.readFully(it) }
+                val bytes = inp.readBytes()
+                keepRoom()
+                Head(bytes, total, String(m), at).also { heads[key] = it }
+            }
+        }.getOrNull()
+    }
+
+    /** Comienzo listo: en memoria o guardado en el teléfono (si no venció) */
+    private fun headOf(key: String): Head? {
+        val mem = heads[key]
+        if (mem != null) {
+            if (System.currentTimeMillis() - mem.at < HEAD_TTL) return mem
+            heads.remove(key)
+        }
+        return diskHead(key)
     }
 
     private fun cors(r: NanoHTTPD.Response): NanoHTTPD.Response {
@@ -226,6 +320,7 @@ object AudioServer {
         }
         val r = Resolved(url, best.format?.mimeType ?: "audio/mp4", ua, System.currentTimeMillis())
         cache[id] = r
+        saveResolved()
         return r
     }
 
@@ -434,10 +529,7 @@ object AudioServer {
 
     private val urgentPending: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    private fun fresh(key: String): Boolean {
-        val hit = heads[key]
-        return hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000
-    }
+    private fun fresh(key: String): Boolean = headOf(key) != null
 
     private fun prefetchYt(id: String, urgent: Boolean) {
         if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id) || fresh(id)) return
@@ -458,7 +550,9 @@ object AudioServer {
                     val bytes = conn.inputStream.use { it.readNBytesCompat(HEAD_BYTES.toInt()) }
                     // Solo las últimas canciones preparadas (memoria acotada: ~10 MB)
                     keepRoom()
-                    heads[id] = Head(bytes, total, r.mime, System.currentTimeMillis())
+                    val h = Head(bytes, total, r.mime, System.currentTimeMillis())
+                    heads[id] = h
+                    if (total > 0) saveHead(id, h)
                 }
                 conn.disconnect()
             }.onFailure { Log.w(TAG, "No se pudo preparar $id: ${it.message}") }
@@ -561,7 +655,7 @@ object AudioServer {
         val reqEnd = Regex("bytes=(\\d+)-(\\d+)").find(rangeHeader ?: "")?.groupValues?.get(2)?.toLongOrNull()
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
-        val head = if (video || watch || castPart.isNotEmpty()) null else heads[id]
+        val head = if (video || watch || castPart.isNotEmpty()) null else headOf(id)
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
 
         val r = if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }

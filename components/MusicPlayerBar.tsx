@@ -1039,6 +1039,19 @@ export default function MusicPlayerBar() {
     }
   }, [nextKey, currentId, soundingId])
 
+  // Al abrir la app: la canción que quedó en la barra se prepara ya (al tocar play suena al instante)
+  const hydratedForWarm = useMusicStore((s) => s.hasHydrated)
+  const warmedRef = useRef(false)
+  useEffect(() => {
+    if (!hydratedForWarm || warmedRef.current) return
+    warmedRef.current = true
+    const st = useMusicStore.getState()
+    const cur = st.queue[st.currentIndex]
+    if (!cur || cur.streamUrl || cur.pending || isLocalTrack(cur.id)) return
+    const yt = (cur.audioUrl && convertedYtId(cur.audioUrl)) || (!cur.audioUrl ? ytIdOf(cur) : null)
+    if (yt && !nativePrefetch(yt)) loadAudioCandidates(yt).catch(() => [])
+  }, [hydratedForWarm])
+
   // ===== Precarga de toda la lista =====
   // 2 s después de que suena un tema se preparan los que vienen (hasta 15), en orden y de a uno:
   // - App de Android (versión nueva de PulsoMedia o PulsoMusic): el teléfono busca el audio de cada uno y guarda su comienzo
@@ -2876,7 +2889,16 @@ export default function MusicPlayerBar() {
 
             <div className="flex flex-col items-center gap-0.5 shrink-0 sm:mx-auto">
               <div className="flex items-center gap-1 sm:gap-3">
-                {/* Móvil, como YouTube Music: transmitir, reproducir y siguiente (el resto, en el reproductor grande) */}
+                {/* Móvil, como YouTube Music: me gusta, transmitir, reproducir y siguiente (el resto, en el reproductor grande) */}
+                <button
+                  onClick={() => currentVideo && (isLive ? toggleFavoriteRadio(currentVideo) : toggleSaved(currentVideo))}
+                  className={`sm:hidden p-2 transition-colors ${isCurrentSaved ? 'text-purple-400' : 'text-slate-300 hover:text-white'}`}
+                  title={isCurrentSaved ? (isLive ? 'Quitar de radios favoritas' : 'Quitar de Tus me gusta') : isLive ? 'Agregar a radios favoritas' : 'Agregar a Tus me gusta'}
+                  aria-label={isCurrentSaved ? (isLive ? 'Quitar de radios favoritas' : 'Quitar de Tus me gusta') : isLive ? 'Agregar a radios favoritas' : 'Agregar a Tus me gusta'}
+                  aria-pressed={isCurrentSaved}
+                >
+                  <Heart className={`w-5 h-5 ${isCurrentSaved ? 'fill-purple-400' : ''}`} />
+                </button>
                 {canCast && (
                   <button
                     onClick={() => (castingMusic ? openFromBar() : setTvPicker(true))}
