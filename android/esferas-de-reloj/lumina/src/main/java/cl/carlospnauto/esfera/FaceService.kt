@@ -230,7 +230,7 @@ class LuminaRenderer(
         val r = min(b.width(), b.height()) / 2f
         val fx = (x - b.exactCenterX()) / r
         val fy = (y - b.exactCenterY()) / r
-        return fx in -0.70f..0.70f && fy in -0.365f..0.345f
+        return fx in -0.76f..0.76f && fy in -0.37f..0.35f
     }
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
@@ -289,7 +289,7 @@ class LuminaRenderer(
         val rr = r * k
         fun X(v: Float) = cx + v * rr
         fun Y(v: Float) = cy + v * rr
-        val side = 0.86f
+        val side = 0.93f
         val edge = 0.53f
         val sy = 0.42f
         val ang = Math.toDegrees(kotlin.math.asin((sy / side).toDouble())).toFloat()
@@ -362,7 +362,9 @@ class LuminaRenderer(
         val th = THEMES[Choices.index(context, THEME)].second
         canvas.drawColor(Color.BLACK)
 
-        val lcd = RectF(X(-0.70f), Y(-0.365f), X(0.70f), Y(0.345f))
+        // Bisel (marco) de la pantalla y, adentro, la pantalla bajo el cristal
+        val bezel = RectF(X(-0.76f), Y(-0.37f), X(0.76f), Y(0.35f))
+        val lcd = RectF(bezel.left + r * 0.035f, bezel.top + r * 0.035f, bezel.right - r * 0.035f, bezel.bottom - r * 0.035f)
         val ink = if (simple) Color.rgb(170, 170, 170) else sc.ink
         val ghost = if (simple) 0 else a(sc.ink, if (sc.dark) 30 else 26)
 
@@ -400,7 +402,7 @@ class LuminaRenderer(
             canvas.drawPath(path, stroke)
 
             // APP 1 y APP 2 (accesos) en los costados
-            for ((sx, label, deg) in listOf(Triple(-0.778f, "APP 1", -90f), Triple(0.778f, "APP 2", 90f))) {
+            for ((sx, label, deg) in listOf(Triple(-0.85f, "APP 1", -90f), Triple(0.85f, "APP 2", 90f))) {
                 canvas.save()
                 canvas.rotate(deg, X(sx), cy)
                 write(canvas, label, X(sx), cy + r * 0.018f, r * 0.05f, th.label, mono, Paint.Align.CENTER)
@@ -444,10 +446,18 @@ class LuminaRenderer(
             write(canvas, "RESIST", X(0.11f), Y(0.655f), ws, th.label, bold, Paint.Align.LEFT, -0.2f)
             chevrons(canvas, cx, Y(0.745f), r, th.chevron, top = false)
 
-            // Pantalla: bisel y cristal
-            stroke.color = Color.rgb(70, 76, 86)
-            stroke.strokeWidth = r * 0.02f
+            // Bisel: marco metálico oscuro alrededor de la pantalla, con un filo de luz arriba
+            screenPath(bezel, r)
+            fill.shader = LinearGradient(bezel.left, bezel.top, bezel.left, bezel.bottom, Color.rgb(62, 66, 74), Color.rgb(22, 24, 28), Shader.TileMode.CLAMP)
+            canvas.drawPath(path, fill)
+            fill.shader = null
+            stroke.color = Color.argb(110, 255, 255, 255)
+            stroke.strokeWidth = r * 0.006f
+            canvas.drawPath(path, stroke)
+            // La pantalla, hundida en el bisel
             screenPath(lcd, r)
+            stroke.color = Color.argb(170, 0, 0, 0)
+            stroke.strokeWidth = r * 0.014f
             canvas.drawPath(path, stroke)
             fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left, lcd.bottom, sc.top, sc.bottom, Shader.TileMode.CLAMP)
             canvas.drawPath(path, fill)
@@ -474,38 +484,38 @@ class LuminaRenderer(
         // Batería: pila chica con su nivel y el porcentaje
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         if (!simple) {
-            val bx = X(-0.665f)
-            val by = Y(-0.32f)
+            val bx = X(-0.67f)
+            val by = Y(-0.305f)
             stroke.color = ink
             stroke.strokeWidth = r * 0.011f
             canvas.drawRoundRect(RectF(bx, by, bx + r * 0.12f, by + r * 0.056f), r * 0.01f, r * 0.01f, stroke)
             fill.color = ink
             canvas.drawRect(bx + r * 0.12f, by + r * 0.016f, bx + r * 0.135f, by + r * 0.04f, fill)
             if (pct >= 0) canvas.drawRect(bx + r * 0.014f, by + r * 0.014f, bx + r * 0.014f + r * 0.092f * pct / 100f, by + r * 0.042f, fill)
-            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.065f, Y(-0.185f), r * 0.068f, ink, bold, Paint.Align.CENTER)
+            write(canvas, if (pct >= 0) "$pct%" else "--", bx + r * 0.065f, Y(-0.172f), r * 0.064f, ink, bold, Paint.Align.CENTER)
         }
 
         // Día de la semana grande
         val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").take(3).uppercase(loc)
-        write(canvas, dow, X(-0.465f), Y(-0.17f), r * 0.165f, ink, black, Paint.Align.LEFT)
+        write(canvas, dow, X(-0.465f), Y(-0.16f), r * 0.155f, ink, black, Paint.Align.LEFT)
 
         // Fecha (mes-día) en su cajita, con «8» apagados
         if (!simple) {
             fill.color = a(sc.ink, if (sc.dark) 22 else 16)
-            canvas.drawRoundRect(RectF(X(0.14f), Y(-0.335f), X(0.66f), Y(-0.14f)), r * 0.02f, r * 0.02f, fill)
+            canvas.drawRoundRect(RectF(X(0.15f), Y(-0.31f), X(0.68f), Y(-0.13f)), r * 0.02f, r * 0.02f, fill)
         }
-        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.65f), Y(-0.315f), r * 0.075f, r * 0.14f, r * 0.022f, 5, ink, ghost)
+        Lcd.row(canvas, "${t.monthValue}-${t.dayOfMonth}", X(0.67f), Y(-0.295f), r * 0.075f, r * 0.135f, r * 0.022f, 5, ink, ghost)
 
         // Alarma puesta: campana con ondas
-        if (!simple) bell(canvas, X(0.56f), Y(-0.06f), r * 0.04f, if (Indicators.alarm(context)) ink else ghost)
+        if (!simple) bell(canvas, X(0.58f), Y(-0.05f), r * 0.04f, if (Indicators.alarm(context)) ink else ghost)
 
         // Hora grande, segundos e indicador P / 24
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
-        val dw = r * 0.16f
-        val dh = r * 0.30f
-        val top = Y(0.0f)
+        val dw = r * 0.155f
+        val dh = r * 0.28f
+        val top = Y(0.005f)
         var x = X(-0.52f)
         Lcd.digit(canvas, h[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, h[1], x, top, dw, dh, ink, ghost); x += dw * 1.22f
@@ -514,13 +524,29 @@ class LuminaRenderer(
         Lcd.digit(canvas, m[1], x, top, dw, dh, ink, ghost)
         if (!ambient && Choices.value(context, SECONDS) == 0) {
             val s = "%02d".format(t.second)
-            val sw = r * 0.11f
-            val sh = r * 0.20f
-            Lcd.digit(canvas, s[0], X(0.40f), top + dh - sh, sw, sh, ink, ghost)
-            Lcd.digit(canvas, s[1], X(0.40f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
+            val sw = r * 0.105f
+            val sh = r * 0.19f
+            Lcd.digit(canvas, s[0], X(0.42f), top + dh - sh, sw, sh, ink, ghost)
+            Lcd.digit(canvas, s[1], X(0.42f) + sw * 1.22f, top + dh - sh, sw, sh, ink, ghost)
         }
-        write(canvas, if (is24) "24" else "P", X(-0.625f), top + r * 0.07f, r * 0.06f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
+        write(canvas, if (is24) "24" else "P", X(-0.635f), top + r * 0.07f, r * 0.06f, if (is24 || t.hour >= 12) ink else ghost, bold, Paint.Align.CENTER)
 
+        }
+
+        // Cristal (mica) sobre la pantalla: un brillo en diagonal y un filo de luz arriba
+        if (!ambient && !simple) {
+            screenPath(lcd, r)
+            canvas.save()
+            canvas.clipPath(path)
+            fill.shader = LinearGradient(lcd.left, lcd.top, lcd.left + lcd.width() * 0.6f, lcd.bottom,
+                intArrayOf(Color.argb(46, 255, 255, 255), Color.argb(14, 255, 255, 255), Color.TRANSPARENT, Color.TRANSPARENT),
+                floatArrayOf(0f, 0.35f, 0.5f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawRect(lcd, fill)
+            fill.shader = null
+            canvas.restore()
+            stroke.color = Color.argb(70, 255, 255, 255)
+            stroke.strokeWidth = r * 0.004f
+            canvas.drawLine(lcd.left + r * 0.08f, lcd.top + r * 0.012f, lcd.right - r * 0.08f, lcd.top + r * 0.012f, stroke)
         }
 
         Brand.draw(canvas, cx, Y(0.90f), r * 0.028f, Color.rgb(110, 110, 115))
