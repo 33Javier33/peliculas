@@ -52,14 +52,24 @@ class PlaybackService : Service() {
         session = MediaSessionCompat(this, "CPN").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    // Solo reproduce si la app está en foreground (usuario la está usando)
+                    if (!MainActivity.isInForeground()) {
+                        playing = false
+                        update()
+                        return
+                    }
                     playing = true
                     positionAt = android.os.SystemClock.elapsedRealtime()
                     update()
                     MainActivity.play(this@PlaybackService)
                 }
                 override fun onPause() = MainActivity.sendAction("pause")
-                override fun onSkipToNext() = MainActivity.sendAction("next")
-                override fun onSkipToPrevious() = MainActivity.sendAction("prev")
+                override fun onSkipToNext() {
+                    if (MainActivity.isInForeground()) MainActivity.sendAction("next")
+                }
+                override fun onSkipToPrevious() {
+                    if (MainActivity.isInForeground()) MainActivity.sendAction("prev")
+                }
                 override fun onStop() = MainActivity.sendAction("pause")
                 // Barra de avance de la notificación y de la pantalla bloqueada
                 override fun onSeekTo(pos: Long) {
