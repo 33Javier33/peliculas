@@ -70,6 +70,11 @@ let audioDownUntil = 0
 /** ¿Las fuentes de audio están fallando todas ahora? */
 const audioSourcesDown = () => Date.now() < audioDownUntil
 
+/** Canción convertida de YouTube (/api/stream?id=…): su id de YouTube */
+function convertedYtId(url: string): string | null {
+  return url.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)?.[1] ?? null
+}
+
 function loadAudioCandidates(id: string): Promise<AudioCandidate[]> {
   // App de Android: el propio teléfono saca el audio (no lo bloquea YouTube y es al instante).
   // Si falla, se sigue con las fuentes de siempre (loadWebCandidates).
@@ -1004,7 +1009,11 @@ export default function MusicPlayerBar() {
       let url = fileUrl
       // Ya descargada (o descargándose antes de su turno): no hay nada que preparar
       if (url && useOfflineStore.getState().items[url]) return
-      if (url && precacheEnabled()) return
+      // Convertida de YouTube (/api/stream?id=…): en la app suena desde el teléfono, que deja
+      // listo su comienzo (antes no se preparaba por ningún lado)
+      const conv = url ? convertedYtId(url) : null
+      if (conv && nativePrefetch(conv)) return
+      if (url && !conv && precacheEnabled()) return
       // (Los archivos suenan directo: se precargan con el navegador, más abajo)
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id) && nativePrefetch(id)) return
       if (!url && /^[A-Za-z0-9_-]{11}$/.test(id)) {
@@ -1058,11 +1067,12 @@ export default function MusicPlayerBar() {
         if (cancelled) return
         const [id, fileUrl, skip] = item.split('|')
         if (skip === '1' || isLocalTrack(id) || (fileUrl && offline[fileUrl])) continue
-        if (fileUrl) {
+        const conv = fileUrl ? convertedYtId(fileUrl) : null
+        if (fileUrl && !conv) {
           if (native) nativePrefetchFile(fileUrl)
           continue
         }
-        const yt = ytIdOf({ id })
+        const yt = conv ?? ytIdOf({ id })
         if (!yt) continue
         if (native) {
           // La que sigue: ya y con prioridad normal; las demás, en fila con prioridad baja
@@ -1070,6 +1080,8 @@ export default function MusicPlayerBar() {
           else nativePrefetchLater(yt)
           continue
         }
+        // (En el navegador la convertida suena directo desde /api/stream: no hay dirección que buscar)
+        if (conv) continue
         await loadAudioCandidates(yt).catch(() => [])
         await new Promise((r) => setTimeout(r, 300))
       }
