@@ -1595,27 +1595,27 @@ export default function MusicPlayerBar() {
   }, [resumeIfNeeded, setIsPlaying])
 
   // ===== Reanudar después de una interrupción de otra app =====
-  // Android le devuelve el audio a la app cuando la otra termina y el navegador reanuda solo.
-  // Por si no lo hace: al volver a la app se reanuda al instante y, con la app en segundo plano,
-  // se reintenta con calma (cada 20 s, para no sonar encima de un audio que se esté grabando).
+  // Otra app tomó el sonido (video de Facebook, llamada, grabación): mientras el usuario siga en
+  // esa app la música NO vuelve sola (sonaba encima y pausaba lo otro). Android devuelve el audio
+  // tras una llamada; si no, se reanuda al volver a esta app (si la interrupción fue reciente).
   const interruptedAtRef = useRef(0)
   useEffect(() => {
     const tryResume = () => {
       const el = playerRef.current
       const st = useMusicStore.getState()
       if (videoOwnsRef.current || !interruptedAtRef.current || !useAudioRef.current || !st.isPlaying || !el?.paused) return
-      if (Date.now() - interruptedAtRef.current > 30 * 60 * 1000) {
-        interruptedAtRef.current = 0
-        st.setIsPlaying(false)
-        return
-      }
+      const since = Date.now() - interruptedAtRef.current
+      interruptedAtRef.current = 0
+      if (since > 10 * 60 * 1000) return st.setIsPlaying(false)
       el.play().catch(() => {})
     }
+    // Interrupción larga con la app en segundo plano: queda en pausa (no suena de sorpresa al volver)
     const timer = setInterval(() => {
-      const since = Date.now() - interruptedAtRef.current
-      // Primer intento a los 20 s y luego cada 20 s
-      if (interruptedAtRef.current && since >= 20000 && since % 20000 < 5000) tryResume()
-    }, 5000)
+      if (interruptedAtRef.current && Date.now() - interruptedAtRef.current > 10 * 60 * 1000 && playerRef.current?.paused) {
+        interruptedAtRef.current = 0
+        useMusicStore.getState().setIsPlaying(false)
+      }
+    }, 30000)
     const onVisible = () => document.visibilityState === 'visible' && tryResume()
     document.addEventListener('visibilitychange', onVisible)
     // Si justo después de la pausa se desconectaron los audífonos, era eso: queda en pausa
@@ -1667,7 +1667,8 @@ export default function MusicPlayerBar() {
         // Justo al salir de la app o bloquear (no es otra app sonando): se sigue AL INSTANTE.
         // Antes se esperaba como si fuera una llamada (20 s o más)
         const sinceHide = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : document.visibilityState === 'hidden' ? 0 : -1
-        if (el && (el.muted || (sinceHide >= 0 && sinceHide < 5000))) {
+        // (solo la pausa inmediata del sistema al ocultarse; una posterior es otra app tomando el sonido)
+        if (el && (el.muted || (sinceHide >= 0 && sinceHide < 1500))) {
           el.muted = false
           for (const ms of [50, 400, 1200, 2500]) setTimeout(() => el.paused && useMusicStore.getState().isPlaying && el.play()?.catch?.(() => {}), ms)
           return

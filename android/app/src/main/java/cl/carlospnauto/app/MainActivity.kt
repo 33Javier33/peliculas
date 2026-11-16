@@ -52,7 +52,6 @@ class MainActivity : AppCompatActivity() {
     private var fullView: View? = null
     private var fullCallback: WebChromeClient.CustomViewCallback? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
-    private var isInForeground = false
 
     private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data
@@ -385,16 +384,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        isInForeground = true
         // La app a la vista y sin ventanita: la página nunca debe quedar con el video estirado a
         // toda la pantalla (pasaba si Android no avisaba el cierre de la ventanita)
         pipOn = isInPictureInPictureMode
         if (!isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(false)", null)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        isInForeground = false
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -473,9 +466,6 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_WIDGET_PLAY = "cl.carlospnauto.app.WIDGET_PLAY"
         const val ACTION_FRONT_PLAY = "cl.carlospnauto.app.FRONT_PLAY"
         @Volatile private var widgetPlay = false
-
-        /** ¿La app está en foreground (visible al usuario)? */
-        fun isInForeground(): Boolean = current?.get()?.isInForeground ?: false
 
         /** ¿La app se abrió con el play del widget? (una sola vez) */
         fun takeWidgetPlay(): Boolean {
