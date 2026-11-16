@@ -38,7 +38,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativePrefetchFile, nativeFileUrl, hasNativeEq, applyNativeEq, getNative, nativeBuild, NATIVE_LIST_PREFETCH_BUILD } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativePrefetchFile, nativeFileUrl, hasNativeEq, applyNativeEq, getNative, nativeListPrefetch } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -1032,7 +1032,7 @@ export default function MusicPlayerBar() {
 
   // ===== Precarga de toda la lista =====
   // 2 s después de que suena un tema se preparan los que vienen (hasta 15), en orden y de a uno:
-  // - App de Android (1.0.107+): el teléfono busca el audio de cada uno y guarda su comienzo
+  // - App de Android (versión nueva de PulsoMedia o PulsoMusic): el teléfono busca el audio de cada uno y guarda su comienzo
   //   (~25 s); al llegar su turno, o al saltar varios seguidos, empieza al instante.
   // - Web: se deja lista la dirección del audio de cada uno (la espera más larga al cambiar).
   // Con «Ahorro de datos» no se precarga nada; con datos móviles, solo los próximos 5.
@@ -1048,7 +1048,7 @@ export default function MusicPlayerBar() {
       if (c?.saveData) return
       const cellular = c?.type === 'cellular' || c?.effectiveType === '3g' || c?.effectiveType === '2g'
       const native = isNativeApp()
-      const fullList = native && nativeBuild() >= NATIVE_LIST_PREFETCH_BUILD
+      const fullList = native && nativeListPrefetch()
       // Apps antiguas guardan solo 3 comienzos: ahí se siguen preparando solo los 2 próximos
       const limit = native && !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
       const offline = useOfflineStore.getState().items

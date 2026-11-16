@@ -8,7 +8,7 @@ import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast, useCastStore } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
-import { isNativeApp, nativePrefetch, nativeBuild, NATIVE_LIST_PREFETCH_BUILD } from '@/lib/native'
+import { isNativeApp, nativePrefetch, nativeListPrefetch } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -331,14 +331,14 @@ export default function YoutubePlayer({
     else cacheYtAudio(videoId)
   }, [ytPlaying, videoId])
   // 2 s después de que suena el video se prepara el audio de los que vienen (videos de la lista,
-  // hasta 15 con la app 1.0.107+, y la canción que sigue en la cola): al terminar, o si se sale
+  // hasta 15 con la app nueva, y la canción que sigue en la cola): al terminar, o si se sale
   // de la app, arranca sin espera
   const nextIdsRef = useRef<string[]>([])
   useEffect(() => {
     if (!ytPlaying) return
     const t = setTimeout(() => {
       const st = useMusicStore.getState()
-      const many = isNativeApp() && nativeBuild() >= NATIVE_LIST_PREFETCH_BUILD
+      const many = nativeListPrefetch()
       const ids = [...nextIdsRef.current.slice(0, many ? 15 : 1), ytIdOf(st.queue[st.currentIndex + 1])].filter(
         (id): id is string => !!id && id !== videoId && /^[A-Za-z0-9_-]{11}$/.test(id)
       )

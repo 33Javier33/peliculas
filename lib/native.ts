@@ -86,18 +86,19 @@ export function reportVideoActive(active: boolean) {
 }
 
 /** App de Android: dejar lista la siguiente canción (su audio y el comienzo descargado) */
-/** Número de compilación de la app de Android (1.0.N → N), 0 si no es la app */
-export function nativeBuild(): number {
+/**
+ * ¿La app (PulsoMedia o PulsoMusic) prepara el comienzo de muchas canciones en fila? Las versiones
+ * antiguas guardaban solo 3: ahí se preparan solo las 2 próximas. (Se pregunta a la app, no por
+ * número de versión: cada app tiene su propia numeración.)
+ */
+export function nativeListPrefetch(): boolean {
+  const n = getNative() as (CPNNativeBridge & { listPrefetch?(): boolean }) | null
   try {
-    const v = getNative()?.version?.() ?? ''
-    return Number(v.split('.').pop()) || 0
+    return !!n?.listPrefetch?.()
   } catch {
-    return 0
+    return false
   }
 }
-
-/** App 1.0.107+: prepara el comienzo de muchas canciones en fila (antes solo guardaba 3) */
-export const NATIVE_LIST_PREFETCH_BUILD = 107
 
 export function nativePrefetch(videoId: string): boolean {
   const n = getNative() as (CPNNativeBridge & { prefetch?(id: string): void }) | null

@@ -96,6 +96,10 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun prefetchFile(url: String) = AudioServer.prefetchFile(url)
 
+    /** Prepara el comienzo de muchas canciones en fila (toda la lista): PulsoMedia y PulsoMusic */
+    @JavascriptInterface
+    fun listPrefetch(): Boolean = true
+
     /** La app sabe descargar e instalar su actualización (APK 1.0.16+) */
     @JavascriptInterface
     fun canDownload(): Boolean = true
