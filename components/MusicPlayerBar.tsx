@@ -38,7 +38,7 @@ import { findAudioCandidates, type AudioCandidate } from '@/lib/audio-sources'
 import type { MusicVideo } from '@/lib/youtube-music'
 import { isLocalTrack, getLocalBlob } from '@/lib/local-music'
 import { bestTrack } from '@/lib/track-match'
-import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativeFileUrl, hasNativeEq, applyNativeEq, getNative } from '@/lib/native'
+import { nativeAudioUrl, reportMediaState, isNativeApp, nativePrefetch, nativePrefetchFile, nativeFileUrl, hasNativeEq, applyNativeEq, getNative, nativeBuild, NATIVE_LIST_PREFETCH_BUILD } from '@/lib/native'
 import NowPlayingSheet from '@/components/NowPlayingSheet'
 import { trackShareUrl } from '@/lib/share'
 import { useOfflineStore } from '@/store/offlineStore'
@@ -153,6 +153,8 @@ const STALL_MS = 15000
 const START_MS = 7000
 // Radio: más margen antes de reconectar (con señal débil el audio puede tardar en volver solo)
 const LIVE_STALL_MS = 25000
+// Temas de la cola que se preparan de antemano (ver «Precarga de toda la lista»)
+const LIST_PREFETCH = 15
 // Archivos (archive.org, MP3, música del teléfono): una sola fuente, con datos lentos tarda más
 const FILE_START_MS = 40000
 const FILE_STALL_MS = 45000
@@ -993,8 +995,6 @@ export default function MusicPlayerBar() {
   // Si el usuario salta seguido, el audio ya está en buffer o descargándose
   const soundingId = useMusicStore((s) => s.soundingId)
   const nextKey = nextTrack && !nextTrack.streamUrl && !nextTrack.pending ? `${nextTrack.id}|${nextTrack.audioUrl ?? ''}` : ''
-  const nextNextTrack = queue[currentIndex + 2]
-  const nextNextKey = nextNextTrack && !nextNextTrack.streamUrl && !nextNextTrack.pending ? `${nextNextTrack.id}|${nextNextTrack.audioUrl ?? ''}` : ''
   useEffect(() => {
     if (!nextKey || !currentId || soundingId !== currentId) return
     const [id, fileUrl] = nextKey.split('|')
@@ -1030,23 +1030,52 @@ export default function MusicPlayerBar() {
     }
   }, [nextKey, currentId, soundingId])
 
-  // Precarga del siguiente-siguiente para saltos múltiples rápidos (next, next, next)
+  // ===== Precarga de toda la lista =====
+  // 2 s después de que suena un tema se preparan los que vienen (hasta 15), en orden y de a uno:
+  // - App de Android (1.0.107+): el teléfono busca el audio de cada uno y guarda su comienzo
+  //   (~25 s); al llegar su turno, o al saltar varios seguidos, empieza al instante.
+  // - Web: se deja lista la dirección del audio de cada uno (la espera más larga al cambiar).
+  // Con «Ahorro de datos» no se precarga nada; con datos móviles, solo los próximos 5.
+  const listKey = queue
+    .slice(currentIndex + 1, currentIndex + 1 + LIST_PREFETCH)
+    .map((t) => `${t.id}|${t.audioUrl ?? ''}|${t.streamUrl || t.pending ? 1 : 0}`)
+    .join(',')
   useEffect(() => {
-    if (!nextNextKey || !currentId || soundingId !== currentId) return
-    const [id, fileUrl] = nextNextKey.split('|')
+    if (!listKey || !currentId || soundingId !== currentId) return
     let cancelled = false
-    // Espera un poco más (5s) para no saturar si el usuario da muchos saltos
     const timer = setTimeout(async () => {
-      if (!fileUrl && /^[A-Za-z0-9_-]{11}$/.test(id)) {
-        if (nativePrefetch(id)) return
-        loadAudioCandidates(id).catch(() => [])
+      const c = (navigator as unknown as { connection?: { saveData?: boolean; type?: string; effectiveType?: string } }).connection
+      if (c?.saveData) return
+      const cellular = c?.type === 'cellular' || c?.effectiveType === '3g' || c?.effectiveType === '2g'
+      const native = isNativeApp()
+      const fullList = native && nativeBuild() >= NATIVE_LIST_PREFETCH_BUILD
+      // Apps antiguas guardan solo 3 comienzos: ahí se siguen preparando solo los 2 próximos
+      const limit = native && !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
+      const offline = useOfflineStore.getState().items
+      const items = listKey.split(',').slice(0, limit)
+      for (const item of items) {
+        if (cancelled) return
+        const [id, fileUrl, skip] = item.split('|')
+        if (skip === '1' || isLocalTrack(id) || (fileUrl && offline[fileUrl])) continue
+        if (fileUrl) {
+          if (native) nativePrefetchFile(fileUrl)
+          continue
+        }
+        const yt = ytIdOf({ id })
+        if (!yt) continue
+        if (native) {
+          nativePrefetch(yt)
+          continue
+        }
+        await loadAudioCandidates(yt).catch(() => [])
+        await new Promise((r) => setTimeout(r, 300))
       }
-    }, 5000)
+    }, 2000)
     return () => {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [nextNextKey, currentId, soundingId])
+  }, [listKey, currentId, soundingId])
 
   // ===== Radio en vivo: reconectar en vez de saltar =====
   // Las emisoras cortan la conexión a veces (cambio de Wi-Fi a datos, servidor que reinicia,

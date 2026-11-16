@@ -8,7 +8,7 @@ import SocialPanel from '@/components/SocialPanel'
 import CastButton, { loadCast, useCastStore } from '@/components/CastButton'
 import { appHidden, PIP_EVENT, ytIdOf } from '@/lib/pip'
 import { useMusicStore } from '@/store/musicStore'
-import { isNativeApp, nativePrefetch } from '@/lib/native'
+import { isNativeApp, nativePrefetch, nativeBuild, NATIVE_LIST_PREFETCH_BUILD } from '@/lib/native'
 import { cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { nativeCast, nativeCastAvailable, openMirroring, canOpenMirroring, nativeCastControl, castKind, castYtId, tvSync } from '@/lib/native-cast'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -330,14 +330,16 @@ export default function YoutubePlayer({
     if (isNativeApp()) nativePrefetch(videoId)
     else cacheYtAudio(videoId)
   }, [ytPlaying, videoId])
-  // 2 s después de que suena el video se prepara el audio del siguiente (video de la lista o la
-  // canción que sigue en la cola): al terminar, o si se sale de la app, arranca sin espera
-  const nextIdRef = useRef<string | undefined>()
+  // 2 s después de que suena el video se prepara el audio de los que vienen (videos de la lista,
+  // hasta 15 con la app 1.0.107+, y la canción que sigue en la cola): al terminar, o si se sale
+  // de la app, arranca sin espera
+  const nextIdsRef = useRef<string[]>([])
   useEffect(() => {
     if (!ytPlaying) return
     const t = setTimeout(() => {
       const st = useMusicStore.getState()
-      const ids = [nextIdRef.current, ytIdOf(st.queue[st.currentIndex + 1])].filter(
+      const many = isNativeApp() && nativeBuild() >= NATIVE_LIST_PREFETCH_BUILD
+      const ids = [...nextIdsRef.current.slice(0, many ? 15 : 1), ytIdOf(st.queue[st.currentIndex + 1])].filter(
         (id): id is string => !!id && id !== videoId && /^[A-Za-z0-9_-]{11}$/.test(id)
       )
       for (const id of Array.from(new Set(ids))) {
@@ -551,7 +553,7 @@ export default function YoutubePlayer({
     const rest = i >= 0 ? [...list.slice(i + 1), ...list.slice(0, i)] : list.filter((v) => v.id !== videoId)
     return rest.slice(0, 20)
   }, [list, onPick, videoId])
-  nextIdRef.current = upcoming[0]?.id
+  nextIdsRef.current = upcoming.map((v) => v.id)
   // Canción: si se ve en la TV, la TV pasa a la canción en el mismo segundo (el teléfono sigue callado)
   const toSong = () => {
     if (castHereRef.current) {

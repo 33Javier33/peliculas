@@ -404,18 +404,27 @@ object AudioServer {
         return "http://$ip:$castPort/c/$castToken"
     }
 
-    // ===== Siguiente canción lista de antemano =====
-    // Mientras suena una canción, la app pide preparar la siguiente: se busca su audio y se
-    // descarga el comienzo (en memoria). Al cambiar de tema empieza a sonar al instante.
+    // ===== Lista lista de antemano =====
+    // Mientras suena una canción, la app pide preparar las que vienen (hasta ~15): de cada una se
+    // busca su audio y se descarga el comienzo (~25 s, en memoria). Al cambiar de tema empieza a
+    // sonar al instante. Se preparan de a una (no le quitan conexión a la que suena), en orden.
     private class Head(val bytes: ByteArray, val total: Long, val mime: String, val at: Long)
     private val heads = ConcurrentHashMap<String, Head>()
-    private const val HEAD_BYTES = 768L * 1024
+    private const val HEAD_BYTES = 512L * 1024
+    private const val MAX_HEADS = 20
+    private val prefetchQueue = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val prefetchPending: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    private fun keepRoom() {
+        while (heads.size >= MAX_HEADS) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) } ?: break
+    }
 
     fun prefetch(id: String) {
         if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id)) return
         val hit = heads[id]
         if (hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000) return
-        Thread {
+        if (!prefetchPending.add(id)) return
+        prefetchQueue.execute {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             runCatching {
                 val r = resolve(id, background = true)
@@ -429,13 +438,14 @@ object AudioServer {
                     val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
                         ?: conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
                     val bytes = conn.inputStream.use { it.readNBytesCompat(HEAD_BYTES.toInt()) }
-                    // Solo las últimas canciones preparadas (poca memoria)
-                    if (heads.size >= 3) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) }
+                    // Solo las últimas canciones preparadas (memoria acotada: ~10 MB)
+                    keepRoom()
                     heads[id] = Head(bytes, total, r.mime, System.currentTimeMillis())
                 }
                 conn.disconnect()
             }.onFailure { Log.w(TAG, "No se pudo preparar $id: ${it.message}") }
-        }.start()
+            prefetchPending.remove(id)
+        }
     }
 
     fun fileAllowed(u: String): Boolean = runCatching {
@@ -458,7 +468,8 @@ object AudioServer {
         val key = "u:$u"
         val hit = heads[key]
         if (hit != null && System.currentTimeMillis() - hit.at < 60 * 60 * 1000) return
-        Thread {
+        if (!prefetchPending.add(key)) return
+        prefetchQueue.execute {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             runCatching {
                 val conn = openRange(u, 0, HEAD_BYTES - 1)
@@ -467,12 +478,13 @@ object AudioServer {
                         ?: conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
                     val mime = conn.contentType ?: "audio/mpeg"
                     val bytes = conn.inputStream.use { it.readNBytesCompat(HEAD_BYTES.toInt()) }
-                    if (heads.size >= 4) heads.entries.minByOrNull { it.value.at }?.let { heads.remove(it.key) }
+                    keepRoom()
                     heads[key] = Head(bytes, total, mime, System.currentTimeMillis())
                 }
                 conn.disconnect()
             }.onFailure { Log.w(TAG, "No se pudo preparar $u: ${it.message}") }
-        }.start()
+            prefetchPending.remove(key)
+        }
     }
 
     private fun serveHead(head: Head, start: Long, reqEnd: Long?): NanoHTTPD.Response {
