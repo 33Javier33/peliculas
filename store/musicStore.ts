@@ -265,7 +265,7 @@ export const useMusicStore = create<MusicStore>()(
         else set({ savedAlbums: [{ ...album, savedAt: Date.now() }, ...savedAlbums] })
       },
       history: [],
-      audioBoost: false,
+      audioBoost: true,
       audioMode: true,
       radioEnabled: true,
       repeatMode: 'off',
@@ -522,7 +522,13 @@ export const useMusicStore = create<MusicStore>()(
     {
       name: 'carlospn-music-store',
       storage: deferredStorage<Partial<MusicState>>(),
-      version: 2,
+      version: 3,
+      // v3: la mejor calidad de audio pasa a estar encendida para todos (se puede apagar en el ecualizador)
+      migrate: (persisted, from) => {
+        const st = (persisted ?? {}) as Partial<MusicState>
+        if (from < 3) st.audioBoost = true
+        return st as MusicState
+      },
       partialize: (state) => ({
         saved: state.saved,
         savedAlbums: state.savedAlbums,

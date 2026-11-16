@@ -2,10 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { Heart, Play, Shuffle, ArrowLeft } from 'lucide-react'
+import { Heart, Play, Shuffle, ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
 import BackButton from '@/components/BackButton'
 import { useMusicStore } from '@/store/musicStore'
 import { TrackStateOverlay } from '@/components/TrackState'
+import { songArtist } from '@/lib/library-radio'
+import { smartShuffle, fisherYates } from '@/lib/smart-shuffle'
+import { cachedJson } from '@/lib/client-cache'
+import type { MusicVideo } from '@/lib/youtube-music'
+
+type Top = { id: string; title: string; channel: string; thumbnail: string; views: number }
+const PER_ARTIST = 3
+const MAX_ARTISTS = 15
 
 // Tus me gusta como un disco: reproducir, aleatorio, tocar una canción o quitarle el ♥
 export default function LikedSongsClient() {
@@ -17,6 +25,41 @@ export default function LikedSongsClient() {
     const st = useMusicStore.getState()
     if (shuffle !== st.shuffle) st.toggleShuffle()
     st.play(list, shuffle ? Math.floor(Math.random() * list.length) : i)
+  }
+  // Mezcla de tus artistas: de cada artista de tus me gusta, sus temas más reproducidos, al azar.
+  // Suena apenas llega el primer artista; los demás se van sumando (mezclados) a la cola.
+  const [mixing, setMixing] = useState(false)
+  const artists = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const t of list) {
+      const a = songArtist(t)?.trim()
+      if (a) count.set(a, (count.get(a) ?? 0) + 1)
+    }
+    return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([a]) => a).slice(0, MAX_ARTISTS)
+  }, [list])
+  const playArtistMix = async () => {
+    if (mixing || !artists.length) return
+    setMixing(true)
+    let started = false
+    const seen = new Set<string>()
+    await Promise.all(
+      fisherYates(artists).map(async (name) => {
+        const d = await cachedJson<{ tracks?: Top[] }>(`/api/artist-top?name=${encodeURIComponent(name)}`, 12 * 3600_000, (x) => !!x?.tracks?.length).catch(() => null)
+        const tracks: MusicVideo[] = (d?.tracks ?? [])
+          .filter((t) => !seen.has(t.id) && seen.add(t.id))
+          .slice(0, PER_ARTIST)
+          .map((t) => ({ id: t.id, title: t.title, channelTitle: t.channel, thumbnail: t.thumbnail, publishedAt: '', description: '', artist: name }) as MusicVideo)
+        if (!tracks.length) return
+        const st = useMusicStore.getState()
+        if (!started) {
+          started = true
+          if (!st.shuffle) st.toggleShuffle()
+          st.play(smartShuffle(tracks), 0)
+          setMixing(false)
+        } else st.appendToQueue(tracks)
+      })
+    )
+    setMixing(false)
   }
   if (!mounted) return <div className="pt-20 min-h-screen bg-obsidian" />
   return (
@@ -36,13 +79,23 @@ export default function LikedSongsClient() {
           </div>
         </div>
         {list.length > 0 && (
-          <div className="mt-5 flex items-center gap-2">
+          <div className="mt-5 flex flex-wrap items-center gap-2">
             <button onClick={() => playAt(0)} className="inline-flex items-center gap-2 bg-violet-500 text-white font-bold px-5 py-2.5 rounded-full text-sm">
               <Play className="w-4 h-4 fill-white" /> Reproducir
             </button>
             <button onClick={() => playAt(0, true)} className="inline-flex items-center gap-2 bg-surface-1 border border-white/10 text-white font-semibold px-4 py-2.5 rounded-full text-sm">
               <Shuffle className="w-4 h-4" /> Aleatorio
             </button>
+            {artists.length > 0 && (
+              <button
+                onClick={playArtistMix}
+                disabled={mixing}
+                title="Los temas más reproducidos de cada artista de tus me gusta, en aleatorio"
+                className="inline-flex items-center gap-2 bg-surface-1 border border-violet-400/30 text-violet-100 font-semibold px-4 py-2.5 rounded-full text-sm disabled:opacity-70"
+              >
+                {mixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Mezcla de tus artistas
+              </button>
+            )}
           </div>
         )}
         {list.length === 0 ? (

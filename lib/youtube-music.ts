@@ -1,4 +1,5 @@
 import { publicSearch, publicTrendingMusic, formatSeconds, isQuotaBlocked, noteYouTubeError, type PublicVideo } from '@/lib/public-search'
+import { rankResults, clockToSeconds, asksVariant } from '@/lib/search-rank'
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
@@ -170,6 +171,11 @@ async function getTrendingMusicVideosApi(regionCode: string): Promise<MusicVideo
 // Las páginas del respaldo se marcan "pub:N" para seguir sin la API oficial
 const PUBLIC_PAGE = /^pub:(\d+)$/
 
+/** Lo que se pide a YouTube: con «official» (versiones oficiales), salvo que se busque una versión concreta */
+function musicQuery(query: string): string {
+  return asksVariant(query) ? query.trim() : `${query.trim()} official`
+}
+
 export async function searchMusicVideos(
   query: string,
   pageToken?: string,
@@ -187,10 +193,11 @@ export async function searchMusicVideos(
   }
   // Respaldo sin cuota (Invidious/Piped)
   const page = publicPage ? Number(publicPage[1]) : 1
-  const found = await publicSearch(`${query.trim()} official`, page)
+  const found = await publicSearch(musicQuery(query), page)
   if (found.length === 0 && page === 1) throw new Error('La búsqueda no está disponible por ahora')
+  const ranked = rankResults(query, found, (v) => ({ title: v.title, channel: v.author ?? '', views: v.views, seconds: v.lengthSeconds }), 'music')
   return {
-    videos: found.slice(0, maxResults).map(fromPublic),
+    videos: ranked.slice(0, maxResults).map(fromPublic),
     nextPageToken: found.length > 0 ? `pub:${page + 1}` : undefined,
   }
 }
@@ -206,7 +213,7 @@ async function searchMusicVideosApi(
 
   const searchUrl = new URL(`${YOUTUBE_API_BASE}/search`)
   searchUrl.searchParams.set('key', key)
-  searchUrl.searchParams.set('q', `${query.trim()} official`)
+  searchUrl.searchParams.set('q', musicQuery(query))
   searchUrl.searchParams.set('part', 'snippet')
   searchUrl.searchParams.set('type', 'video')
   searchUrl.searchParams.set('videoCategoryId', '10')
@@ -231,7 +238,7 @@ async function searchMusicVideosApi(
   const items: { id: { videoId: string }; snippet: { title: string; channelTitle: string; thumbnails: Record<string, { url: string }>; publishedAt: string; description: string } }[] = searchData.items ?? []
 
   const ids = items.map((i) => i.id.videoId).filter(Boolean).join(',')
-  const detailsMap: Record<string, { statistics?: { viewCount?: string; likeCount?: string }; contentDetails?: { duration?: string } }> = {}
+  const detailsMap: Record<string, { statistics?: { viewCount?: string; likeCount?: string }; contentDetails?: { duration?: string; definition?: string } }> = {}
 
   if (ids) {
     const detailsUrl = new URL(`${YOUTUBE_API_BASE}/videos`)
@@ -248,7 +255,23 @@ async function searchMusicVideosApi(
     }
   }
 
-  const videos: MusicVideo[] = items.map((item) => {
+  // Mejor calidad y versión oficial primero (lib/search-rank)
+  const rankedItems = rankResults(
+    query,
+    items,
+    (item) => {
+      const d = detailsMap[item.id.videoId]
+      return {
+        title: decodeEntities(item.snippet.title),
+        channel: decodeEntities(item.snippet.channelTitle),
+        views: Number(d?.statistics?.viewCount ?? 0) || undefined,
+        seconds: d?.contentDetails?.duration ? clockToSeconds(parseDuration(d.contentDetails.duration)) : undefined,
+        hd: d?.contentDetails?.definition === 'hd',
+      }
+    },
+    'music'
+  )
+  const videos: MusicVideo[] = rankedItems.map((item) => {
     const d = detailsMap[item.id.videoId]
     return {
       id: item.id.videoId,

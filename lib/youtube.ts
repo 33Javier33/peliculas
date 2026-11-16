@@ -1,4 +1,5 @@
 import { publicSearch, isQuotaBlocked, noteYouTubeError, type PublicVideo } from '@/lib/public-search'
+import { rankResults, clockToSeconds } from '@/lib/search-rank'
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3'
 
@@ -106,9 +107,11 @@ function publicToSearchItem(v: PublicVideo): YouTubeSearchItem {
 
 const PUBLIC_PAGE = /^pub:(\d+)$/
 
-async function publicMovieSearch(query: string, page: number, onlyLong = true): Promise<YouTubeSearchResponse> {
+async function publicMovieSearch(query: string, page: number, onlyLong = true, rankQuery?: string): Promise<YouTubeSearchResponse> {
   // Solo películas largas (más de 40 minutos) cuando se conoce la duración
-  const found = (await publicSearch(query, page)).filter((v) => !onlyLong || !v.lengthSeconds || v.lengthSeconds >= 40 * 60)
+  let found = (await publicSearch(query, page)).filter((v) => !onlyLong || !v.lengthSeconds || v.lengthSeconds >= 40 * 60)
+  // Videos en general: lo que coincide, oficial, en HD y más visto primero
+  if (rankQuery) found = rankResults(rankQuery, found, (v) => ({ title: v.title, channel: v.author ?? '', views: v.views, seconds: v.lengthSeconds }), 'video')
   if (found.length === 0 && page === 1) throw new Error('La búsqueda no está disponible por ahora')
   return {
     kind: 'youtube#searchListResponse',
@@ -133,7 +136,7 @@ export async function searchMoviesOnYouTube(
     }
   }
   if (!query.trim()) return searchMoviesOnYouTubeApi(query, pageToken, lang)
-  return publicMovieSearch(`${query.trim()} ${VIDEO_LANGS[lang].suffix}`.trim(), publicPage ? Number(publicPage[1]) : 1, lang !== 'todo')
+  return publicMovieSearch(`${query.trim()} ${VIDEO_LANGS[lang].suffix}`.trim(), publicPage ? Number(publicPage[1]) : 1, lang !== 'todo', lang === 'todo' ? query : undefined)
 }
 
 export async function getTrendingMoviesOnYouTube(lang: VideoLang = 'latino', pageToken?: string): Promise<YouTubeSearchResponse> {
@@ -192,7 +195,27 @@ async function searchMoviesOnYouTubeApi(
     throw new Error(message)
   }
 
-  return response.json() as Promise<YouTubeSearchResponse>
+  const data = (await response.json()) as YouTubeSearchResponse
+  if (lang !== 'todo' || !data.items?.length) return data
+  // Videos en general: se piden reproducciones, duración y calidad (1 unidad de cuota) para
+  // ordenar como YouTube: lo que coincide, oficial, en HD y más visto primero
+  const ids = data.items.map((i) => i.id?.videoId).filter(Boolean).join(',')
+  const details = new Map<string, { views?: number; seconds?: number; hd?: boolean }>()
+  if (ids) {
+    const du = new URL(`${YOUTUBE_API_BASE}/videos`)
+    du.searchParams.set('key', apiKey)
+    du.searchParams.set('id', ids)
+    du.searchParams.set('part', 'statistics,contentDetails')
+    const dr = await fetch(du.toString(), { next: { revalidate: 3600 } }).catch(() => null)
+    const dd = dr?.ok ? ((await dr.json().catch(() => null)) as { items?: { id: string; statistics?: { viewCount?: string }; contentDetails?: { duration?: string; definition?: string } }[] } | null) : null
+    for (const v of dd?.items ?? [])
+      details.set(v.id, {
+        views: Number(v.statistics?.viewCount ?? 0) || undefined,
+        seconds: v.contentDetails?.duration ? clockToSeconds(parseDuration(v.contentDetails.duration)) : undefined,
+        hd: v.contentDetails?.definition === 'hd',
+      })
+  }
+  return { ...data, items: rankResults(query, data.items, (it) => ({ title: it.snippet.title, channel: it.snippet.channelTitle, ...details.get(it.id.videoId) }), 'video') }
 }
 
 async function getTrendingMoviesOnYouTubeApi(lang: VideoLang, pageToken?: string): Promise<YouTubeSearchResponse> {

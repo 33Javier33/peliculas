@@ -330,6 +330,23 @@ export default function YoutubePlayer({
     if (isNativeApp()) nativePrefetch(videoId)
     else cacheYtAudio(videoId)
   }, [ytPlaying, videoId])
+  // 2 s después de que suena el video se prepara el audio del siguiente (video de la lista o la
+  // canción que sigue en la cola): al terminar, o si se sale de la app, arranca sin espera
+  const nextIdRef = useRef<string | undefined>()
+  useEffect(() => {
+    if (!ytPlaying) return
+    const t = setTimeout(() => {
+      const st = useMusicStore.getState()
+      const ids = [nextIdRef.current, ytIdOf(st.queue[st.currentIndex + 1])].filter(
+        (id): id is string => !!id && id !== videoId && /^[A-Za-z0-9_-]{11}$/.test(id)
+      )
+      for (const id of Array.from(new Set(ids))) {
+        if (isNativeApp()) nativePrefetch(id)
+        else if (!isDesktop()) cacheYtAudio(id)
+      }
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [ytPlaying, videoId])
   useEffect(() => {
     // En el computador los videos siguen sonando solos al minimizar o cambiar de pestaña: no se
     // cambia nada. En el teléfono (app o navegador) se pasa al audio al bloquear o salir.
@@ -534,6 +551,7 @@ export default function YoutubePlayer({
     const rest = i >= 0 ? [...list.slice(i + 1), ...list.slice(0, i)] : list.filter((v) => v.id !== videoId)
     return rest.slice(0, 20)
   }, [list, onPick, videoId])
+  nextIdRef.current = upcoming[0]?.id
   // Canción: si se ve en la TV, la TV pasa a la canción en el mismo segundo (el teléfono sigue callado)
   const toSong = () => {
     if (castHereRef.current) {

@@ -65,7 +65,7 @@ export default function ArtistTopTracks({ name }: { name: string }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{t.title}</p>
-                <p className="truncate text-xs text-slate-500">{t.views ? `${compact(t.views)} reproducciones` : t.channel}</p>
+                <p className="truncate text-xs text-slate-500">{t.views ? `${compact(t.views)} reproducciones · ${t.channel}` : t.channel}</p>
               </div>
             </button>
           </li>

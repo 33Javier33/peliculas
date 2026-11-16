@@ -6,14 +6,15 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const BASE = 'https://www.googleapis.com/youtube/v3'
-// Respaldo sin clave de YouTube (sin cifras de reproducciones): búsqueda pública de videos del artista
+// Respaldo sin clave de YouTube (o sin cuota): búsqueda pública, que también trae las reproducciones
 async function fallback(name: string) {
   const want = norm(name)
   const found = await publicSearch(`${name} official`).catch(() => [])
   return found
     .filter((v) => norm(v.title + (v.author ?? '')).includes(want))
+    .map((v) => ({ id: v.id, title: v.title, channel: v.author ?? '', thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, views: v.views ?? 0 }))
+    .sort((a, b) => b.views - a.views)
     .slice(0, 10)
-    .map((v) => ({ id: v.id, title: v.title, channel: v.author ?? '', thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, views: 0 }))
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')

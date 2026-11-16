@@ -326,6 +326,49 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 </button>
               )}
             </div>
+            {/* Mejor resultado (como en Spotify): el artista si es lo buscado; si no, la primera canción */}
+            {isSearchMode && (() => {
+              const n = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+              const q = n(submittedQuery)
+              const a = catalog?.artists[0]
+              const an = a ? n(a.name) : ''
+              const isArtist = !!a && !!an && (an === q || (q.startsWith(an) && an.length >= q.length * 0.6) || (an.startsWith(q) && q.length >= an.length * 0.6))
+              const song = videos[0]
+              if (!isArtist && !song) return null
+              return (
+                <div className="mb-7">
+                  <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.08em] font-display mb-3">Mejor resultado</h3>
+                  {isArtist && a ? (
+                    <Link href={`/music/artist/${a.id}`} className="group flex items-center gap-4 rounded-2xl bg-surface-1 border border-white/8 p-4 hover:bg-surface-2/70 transition-colors">
+                      <span className="relative w-24 h-24 rounded-full overflow-hidden bg-surface-2 shrink-0 shadow-lg">
+                        {a.picture && <Image src={a.picture} alt={a.name} fill sizes="96px" className="object-cover" />}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-white text-2xl font-black font-display truncate group-hover:text-violet-200">{a.name}</span>
+                        <span className="mt-1 inline-block rounded-full bg-black/40 px-2.5 py-0.5 text-xs font-semibold text-slate-200">Artista</span>
+                      </span>
+                    </Link>
+                  ) : song ? (
+                    <button onClick={() => play(videos, 0)} className="group w-full flex items-center gap-4 rounded-2xl bg-surface-1 border border-white/8 p-4 text-left hover:bg-surface-2/70 transition-colors">
+                      <span className="relative w-24 h-24 rounded-xl overflow-hidden bg-surface-2 shrink-0 shadow-lg">
+                        {song.thumbnail && <Image src={song.thumbnail} alt="" fill sizes="96px" className="object-cover" />}
+                        <TrackStateOverlay id={song.id} size="sm" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-white text-xl font-black font-display leading-tight line-clamp-2 group-hover:text-violet-200">{song.title.replace(/^[^-–]+[-–]\s*/, '') || song.title}</span>
+                        <span className="block text-slate-400 text-sm truncate mt-1">
+                          Canción · {song.channelTitle}
+                          {song.viewCount ? ` · ${song.viewCount} reproducciones` : ''}
+                        </span>
+                      </span>
+                      <span className="w-12 h-12 rounded-full bg-violet-400 text-violet-950 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-105 transition-transform">
+                        <Play className="w-5 h-5 fill-violet-950 ml-0.5" />
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })()}
             {/* Artistas y álbumes (como en Spotify) */}
             {catalog && catalog.artists.length > 0 && (
               <div className="mb-7">
@@ -376,7 +419,10 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block text-white text-sm font-semibold truncate">{v.title.replace(/^[^-–]+[-–]\s*/, '') || v.title}</span>
-                          <span className="block text-slate-500 text-xs truncate">{v.channelTitle}</span>
+                          <span className="block text-slate-500 text-xs truncate">
+                            {v.channelTitle}
+                            {v.viewCount ? ` · ${v.viewCount} reproducciones` : ''}
+                          </span>
                         </span>
                         <Play className="w-4 h-4 text-slate-400 shrink-0" />
                       </button>
