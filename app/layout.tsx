@@ -21,6 +21,7 @@ import WearBridge from '@/components/WearBridge'
 import FocusIntoView from '@/components/FocusIntoView'
 import AppUpdateBanner from '@/components/AppUpdateBanner'
 import AccountSync from '@/components/AccountSync'
+import MovieCloudSync from '@/components/MovieCloudSync'
 import AccountSheet from '@/components/AccountSheet'
 import OfflineBanner from '@/components/OfflineBanner'
 import OfflineManager from '@/components/OfflineManager'
@@ -175,6 +176,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </SafeBoundary>
         <SafeBoundary name="AccountSync">
           <AccountSync />
+        </SafeBoundary>
+        <SafeBoundary name="MovieCloudSync">
+          <MovieCloudSync />
         </SafeBoundary>
         <SafeBoundary name="AccountSheet">
           <AccountSheet />
