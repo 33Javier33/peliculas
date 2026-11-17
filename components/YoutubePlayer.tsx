@@ -15,6 +15,7 @@ import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { useVideoStore } from '@/store/videoStore'
 import { tvTakeVideo } from '@/lib/video-handoff'
 import VideoMenu from '@/components/VideoMenu'
+import { withoutBlocked, useBlockedVersion } from '@/store/blockStore'
 import { useRouter } from 'next/navigation'
 
 interface YoutubePlayerProps {
@@ -547,12 +548,14 @@ export default function YoutubePlayer({
   const sendYt = (func: string, args: unknown[] = []) =>
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
   // Los que siguen en la lista (para echar un vistazo bajo el video)
+  const blockedVersion = useBlockedVersion()
   const upcoming = useMemo(() => {
+    void blockedVersion
     if (!list?.length || !onPick) return []
     const i = list.findIndex((v) => v.id === videoId)
     const rest = i >= 0 ? [...list.slice(i + 1), ...list.slice(0, i)] : list.filter((v) => v.id !== videoId)
-    return rest.slice(0, 20)
-  }, [list, onPick, videoId])
+    return withoutBlocked(rest).slice(0, 20)
+  }, [list, onPick, videoId, blockedVersion])
   nextIdsRef.current = upcoming.map((v) => v.id)
   // Canción: si se ve en la TV, la TV pasa a la canción en el mismo segundo (el teléfono sigue callado)
   const toSong = () => {
@@ -859,7 +862,7 @@ export default function YoutubePlayer({
           </div>
         </div>
         </div>
-        {menuOpen && <VideoMenu video={{ id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '' }} channelTitle={channelTitle} title={title} onClose={() => setMenuOpen(false)} onNavigate={(href) => router.push(href)} />}
+        {menuOpen && <VideoMenu video={{ id: videoId, title, channelTitle, thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`, publishedAt: '', description: '' }} channelTitle={channelTitle} title={title} onClose={() => setMenuOpen(false)} onNavigate={(href) => router.push(href)} onHidden={() => (upcoming[0] && onPick ? onPick(upcoming[0]) : onNext ? onNext() : onClose(timeRef.current))} />}
         {upcoming.length > 0 && (
           <div className="flex-1 min-h-0 overflow-y-auto w-full">
             <div className="max-w-6xl mx-auto px-2 sm:px-0 py-6">

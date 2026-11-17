@@ -7,6 +7,7 @@ import TubePlayer from '@/components/TubePlayer'
 import { cachedJson } from '@/lib/client-cache'
 import { readSession, writeSession } from '@/lib/session-cache'
 import { useTubeStore } from '@/store/tubeStore'
+import { withoutBlocked, useBlockedVersion } from '@/store/blockStore'
 import { useVideoStore } from '@/store/videoStore'
 import { useMusicStore } from '@/store/musicStore'
 import { ytIdOf } from '@/lib/pip'
@@ -137,22 +138,28 @@ export default function PulsoTubeClient() {
     }
   }, [debounced])
 
+  // Lo oculto («No me interesa») no se muestra en ninguna lista
+  const blockedVersion = useBlockedVersion()
+  const recsShown = useMemo(() => (recs ? withoutBlocked(recs) : recs), [recs, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  const resultsShown = useMemo(() => (results ? withoutBlocked(results) : results), [results, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filtro al instante sobre lo que ya se conoce (recomendaciones y lo visto)
-  const watched = useTubeStore((s) => s.watched)
+  const watchedAll = useTubeStore((s) => s.watched)
+  const watched = useMemo(() => withoutBlocked(watchedAll), [watchedAll, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
   const local = useMemo(() => {
     const n = norm(q.trim())
     if (!n) return []
-    const pool: V[] = [...(recs ?? []), ...watched.map((w) => ({ id: w.id, title: w.title, channel: w.channel }))]
+    const pool: V[] = [...(recsShown ?? []), ...watched.map((w) => ({ id: w.id, title: w.title, channel: w.channel }))]
     const seen = new Set<string>()
     return pool.filter((v) => {
       if (seen.has(v.id)) return false
       seen.add(v.id)
       return norm(v.title).includes(n) || norm(v.channel).includes(n)
     })
-  }, [q, recs, watched])
+  }, [q, recsShown, watched])
 
   // Lista que se ve (para pasar al siguiente video)
-  const list: V[] = pastedId ? [] : q.trim() ? [...local, ...(results ?? []).filter((r) => !local.some((l) => l.id === r.id))] : recs ?? []
+  const list: V[] = pastedId ? [] : q.trim() ? [...local, ...(resultsShown ?? []).filter((r) => !local.some((l) => l.id === r.id))] : recsShown ?? []
 
   const play = (v: V) => {
     addWatched({ id: v.id, title: v.title, channel: v.channel })
@@ -216,13 +223,13 @@ export default function PulsoTubeClient() {
             <h2 className="text-white font-bold font-display">Resultados de YouTube</h2>
             {searching && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
           </div>
-          {results && results.length > 0 ? <Grid items={results} onPlay={play} /> : !searching && results && <p className="mt-2 text-slate-500 text-sm">Sin resultados para «{q.trim()}».</p>}
+          {resultsShown && resultsShown.length > 0 ? <Grid items={resultsShown} onPlay={play} /> : !searching && resultsShown && <p className="mt-2 text-slate-500 text-sm">Sin resultados para «{q.trim()}».</p>}
         </>
       ) : (
         <>
           {recs === null && <p className="mt-8 flex items-center gap-2 text-slate-400 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Preparando tus recomendaciones…</p>}
-          {recs && recs.length > 0 && <Grid title="Para ti" subtitle="Parecidos a lo que miraste y te gustó" items={recs} onPlay={play} />}
-          {recs && recs.length === 0 && (
+          {recsShown && recsShown.length > 0 && <Grid title="Para ti" subtitle="Parecidos a lo que miraste y te gustó" items={recsShown} onPlay={play} />}
+          {recsShown && recsShown.length === 0 && (
             <div className="mt-10 rounded-2xl border border-dashed border-white/10 p-8 text-center text-slate-400 text-sm">
               Mira videos o dales me gusta: aquí aparecerán recomendaciones de lo que te gusta.
             </div>

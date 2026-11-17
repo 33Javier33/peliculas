@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Heart, Share2, Headphones, Loader2, ExternalLink } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
+import { withoutBlocked } from '@/store/blockStore'
 import { useMyArtists, artistVideoRows, pickArtists, interleave, videoOf, type V, type Row } from '@/lib/music-videos-data'
 import { withAppParam } from '@/lib/app-flavor'
 import { getNative } from '@/lib/native'
@@ -79,7 +80,7 @@ export default function MusicFeedClient() {
     const names = pickArtists(seed)
     artistVideoRows(names, seed, (rows: Row[]) => {
       if (!alive) return
-      setVideos(interleave(rows).slice(0, 60))
+      setVideos(withoutBlocked(interleave(rows)).slice(0, 60))
       setLoading(false)
     })
     return () => {

@@ -8,6 +8,7 @@ import { archiveItemOf } from '@/lib/archive-radio-client'
 import { ARCHIVE_RADIO_GENRES } from '@/components/ArchiveRadioSection'
 import { usePlaylistStore } from '@/store/playlistStore'
 import SongDownloadButton from '@/components/SongDownloadButton'
+import HideOptions from '@/components/HideOptions'
 import { useLinksStore } from '@/store/linksStore'
 import { useMusicStore } from '@/store/musicStore'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -196,6 +197,7 @@ export default function TrackMenu({
             </button>
           </>
         )}
+        <HideOptions track={video} artist={archiveItem ? archiveArtist : info?.artist.name || artist} onDone={onClose} />
       </div>
     </div>
   )

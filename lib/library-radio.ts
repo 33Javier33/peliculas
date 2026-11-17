@@ -3,6 +3,7 @@
 // artista se consulta en MusicBrainz una sola vez y queda guardado en el teléfono.
 import type { MusicVideo } from '@/lib/youtube-music'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
+import { withoutBlocked } from '@/store/blockStore'
 import { useLinksStore } from '@/store/linksStore'
 import { useOfflineStore } from '@/store/offlineStore'
 
@@ -86,7 +87,8 @@ export function librarySongs(): MusicVideo[] {
   const downloaded = Object.values(useOfflineStore.getState().items).map((i) => i.track)
   const all = [...saved, ...links, ...downloaded].filter((t) => !t.streamUrl)
   const seen = new Set<string>()
-  return all.filter((t) => !seen.has(t.id) && seen.add(t.id))
+  // Lo oculto («No me interesa») no entra a mezclas ni radios
+  return withoutBlocked(all.filter((t) => !seen.has(t.id) && seen.add(t.id)))
 }
 
 let classifying = false

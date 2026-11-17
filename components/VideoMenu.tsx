@@ -6,6 +6,7 @@ import SheetHandle from '@/components/SheetHandle'
 import { Disc3, UserRound, Library, Loader2, X, ListPlus, Play } from 'lucide-react'
 import { usePlaylistStore } from '@/store/playlistStore'
 import SongDownloadButton from '@/components/SongDownloadButton'
+import HideOptions from '@/components/HideOptions'
 import { useLinksStore } from '@/store/linksStore'
 import { useMusicStore } from '@/store/musicStore'
 import { readSession, writeSession } from '@/lib/session-cache'
@@ -22,12 +23,15 @@ export default function VideoMenu({
   title,
   onClose,
   onNavigate,
+  onHidden,
 }: {
   video: MusicVideo
   channelTitle: string
   title: string
   onClose: () => void
   onNavigate: (href: string) => void
+  /** Se ocultó este video o su artista (el reproductor pasa al siguiente) */
+  onHidden?: () => void
 }) {
   const [info, setInfo] = useState<Info | undefined>(undefined)
   const savedAlbum = useMusicStore((s) => s.savedAlbums.find((a) => /^deezer-\d+$/.test(a.id) && a.tracks.some((t) => t.id === video.id)))
@@ -136,6 +140,7 @@ export default function VideoMenu({
             <span className="block text-slate-400 text-xs truncate">Videos de {channelTitle}</span>
           </span>
         </button>
+        <HideOptions track={video} artist={info?.artist.name || channelTitle} kind="video" onDone={() => (onClose(), onHidden?.())} />
       </div>
     </div>
   )

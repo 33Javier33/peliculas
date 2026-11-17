@@ -14,6 +14,7 @@ import type { YouTubeSearchItem } from '@/lib/youtube'
 import { cachedJson } from '@/lib/client-cache'
 import { artistVideoRows, pickArtists, searchVideos, useMyArtists, type V, toV } from '@/lib/music-videos-data'
 import { useMusicStore } from '@/store/musicStore'
+import { withoutBlocked, useBlockedVersion } from '@/store/blockStore'
 import { useFollowStore } from '@/store/followStore'
 import { songArtist } from '@/lib/library-radio'
 import type { CatalogArtist } from '@/lib/catalog'
@@ -123,7 +124,13 @@ export default function MusicVideosClient() {
     if (mine.length && GENRES.some((g) => g.id === genre)) setGenre('')
   }, [mounted, mine.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { next, advance } = useNextMusicVideo(open, openList.length ? openList : items ?? [], useCallback((v: V) => setOpen(v), []))
+  // Lo oculto («No me interesa») no se muestra ni sigue después
+  const blockedVersion = useBlockedVersion()
+  const itemsShown = useMemo(() => (items ? withoutBlocked(items) : items), [items, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  const rowsShown = useMemo(() => rows.map((r) => ({ ...r, items: withoutBlocked(r.items) })).filter((r) => r.items.length), [rows, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+  const openListShown = useMemo(() => withoutBlocked(openList), [openList, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { next, advance } = useNextMusicVideo(open, openListShown.length ? openListShown : itemsShown ?? [], useCallback((v: V) => setOpen(v), []))
 
   return (
     <div className="pt-20 bg-obsidian pb-8">
@@ -157,7 +164,7 @@ export default function MusicVideosClient() {
         </form>
         {/* De tus artistas y de artistas parecidos (según tu biblioteca) */}
         {!submitted &&
-          rows.map((r) => (
+          rowsShown.map((r) => (
             <section key={r.title} className="mt-6">
               <h2 className="text-white font-bold text-lg font-display leading-tight">{r.title}</h2>
               <p className="text-slate-500 text-xs truncate mb-2">{r.sub}</p>
@@ -206,18 +213,18 @@ export default function MusicVideosClient() {
           ))}
         </div>
 
-        {!submitted && !genre ? null : items === null ? (
+        {!submitted && !genre ? null : itemsShown === null ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
           </div>
-        ) : items.length === 0 ? (
+        ) : itemsShown.length === 0 ? (
           <p className="text-slate-500 text-center py-20">{error ? 'No se pudieron cargar los videos. Intenta de nuevo en un momento.' : 'No se encontraron videos.'}</p>
         ) : (
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((v) => (
+            {itemsShown.map((v) => (
               <div key={v.id} className="relative">
                 <VideoAudioDownload compact id={v.id} title={v.title} channelTitle={v.channel} className="absolute top-2 right-2 z-[1]" />
-                <button onClick={() => play(v, items)} className="w-full text-left group">
+                <button onClick={() => play(v, itemsShown)} className="w-full text-left group">
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-2 border border-white/8">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -241,9 +248,9 @@ export default function MusicVideosClient() {
           channelTitle={open.channel}
           onNext={next ? advance : undefined}
           upNext={next?.title}
-          list={openList.length ? openList : items ?? []}
+          list={openListShown.length ? openListShown : itemsShown ?? []}
           onPick={(v) => {
-            const hit = (openList.length ? openList : items ?? []).find((x) => x.id === v.id)
+            const hit = (openListShown.length ? openListShown : itemsShown ?? []).find((x) => x.id === v.id)
             if (hit) setOpen(hit)
           }}
           autoNext

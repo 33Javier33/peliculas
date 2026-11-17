@@ -4,6 +4,7 @@
 import { useMemo } from 'react'
 import { useMusicStore } from '@/store/musicStore'
 import { useFollowStore } from '@/store/followStore'
+import { isArtistBlocked, useBlockedVersion } from '@/store/blockStore'
 import { songArtist } from '@/lib/library-radio'
 import { cachedJson } from '@/lib/client-cache'
 import { decodeEntities } from '@/lib/youtube-music'
@@ -26,7 +27,9 @@ export function useMyArtists(): string[] {
   const saved = useMusicStore((s) => s.saved)
   const savedAlbums = useMusicStore((s) => s.savedAlbums)
   const follows = useFollowStore((s) => s.artists)
+  const blockedVersion = useBlockedVersion()
   return useMemo(() => {
+    void blockedVersion
     const count = new Map<string, { name: string; n: number }>()
     const add = (name: string, n: number) => {
       const k = name?.trim().toLowerCase()
@@ -36,8 +39,8 @@ export function useMyArtists(): string[] {
     follows.forEach((a) => add(a.name, 5))
     savedAlbums.forEach((a) => add(a.artist, 3))
     saved.forEach((t) => add(songArtist(t), 1))
-    return Array.from(count.values()).sort((a, b) => b.n - a.n).map((a) => a.name)
-  }, [saved, savedAlbums, follows])
+    return Array.from(count.values()).sort((a, b) => b.n - a.n).map((a) => a.name).filter((n) => !isArtistBlocked(n))
+  }, [saved, savedAlbums, follows, blockedVersion])
 }
 
 

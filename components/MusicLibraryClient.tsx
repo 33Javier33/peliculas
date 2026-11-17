@@ -53,6 +53,7 @@ import {
   Radio,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta, type SavedTrack } from '@/store/musicStore'
+import { withoutBlocked, useBlockedVersion } from '@/store/blockStore'
 import { useLinksStore } from '@/store/linksStore'
 import { usePlaylistStore } from '@/store/playlistStore'
 import ViewToggle, { useView } from '@/components/ViewToggle'
@@ -93,6 +94,7 @@ export default function MusicLibraryClient() {
   const removeLinkTrack = useLinksStore((s) => s.removeTrack)
   const downloadedItems = useOfflineStore((s) => s.items)
   const savedAlbums = useMusicStore((s) => s.savedAlbums)
+  const blockedVersion = useBlockedVersion()
   // ♥ = Me gusta: solo las canciones que marcaste tú (no las de un álbum guardado o descargado)
   const likedIds = useMemo(() => new Set(liked.map((t) => t.id)), [liked])
   const toggleLike = (t: MusicVideo) => useMusicStore.getState().toggleSaved(t)
@@ -114,8 +116,9 @@ export default function MusicLibraryClient() {
     const fromDownloads = Object.values(downloadedItems)
       .filter((i) => !known.has(i.track.id) && !i.track.streamUrl && known.add(i.track.id))
       .map((i) => ({ ...i.track, artist: i.track.channelTitle, album: i.track.album || i.groupTitle, savedAt: i.savedAt }))
-    return [...liked, ...fromLinks, ...fromAlbums, ...fromDownloads]
-  }, [liked, linkTracks, linkAlbums, downloadedItems, savedAlbums])
+    // Lo oculto («No me interesa») no se muestra (sigue guardado: se recupera en Configuración)
+    return withoutBlocked([...liked, ...fromLinks, ...fromAlbums, ...fromDownloads])
+  }, [liked, linkTracks, linkAlbums, downloadedItems, savedAlbums, blockedVersion])
   const removeSaved = (id: string) => {
     if (liked.some((t) => t.id === id)) return removeLiked(id)
     // De un álbum guardado: sale del álbum (y el álbum, si queda vacío)

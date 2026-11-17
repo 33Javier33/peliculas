@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
 import { decodeEntities, type MusicVideo } from '@/lib/youtube-music'
 import { smartShuffle } from '@/lib/smart-shuffle'
+import { isBlocked } from '@/store/blockStore'
 
 export type { MusicVideo }
 
@@ -120,6 +121,8 @@ interface MusicActions {
   resolvePending: (pendingId: string, newId: string) => void
   playIndex: (index: number) => void
   playNext: () => void
+  /** Saca de la cola lo oculto («No me interesa») */
+  purgeBlocked: () => void
   playPrev: () => void
   togglePlay: () => void
   setIsPlaying: (v: boolean) => void
@@ -275,7 +278,11 @@ export const useMusicStore = create<MusicStore>()(
       soundingId: null,
       hasHydrated: false,
 
-      play: (videos, startIndex = 0) => {
+      play: (all, startIndex0 = 0) => {
+        // Lo oculto («No me interesa») no entra a la cola, salvo la canción que se tocó a propósito
+        const start0 = all[startIndex0]
+        const videos = all.filter((v, i) => i === startIndex0 || !isBlocked(v))
+        const startIndex = start0 ? Math.max(0, videos.indexOf(start0)) : 0
         const start = videos[startIndex]
         // En aleatorio: suena la elegida y después el resto de la lista en orden al azar
         const queue =
@@ -290,7 +297,7 @@ export const useMusicStore = create<MusicStore>()(
       appendToQueue: (videos) => {
         const { queue } = get()
         const inQueue = new Set(queue.map((v) => v.id))
-        const fresh = videos.filter((v) => !inQueue.has(v.id) && inQueue.add(v.id))
+        const fresh = videos.filter((v) => !inQueue.has(v.id) && !isBlocked(v) && inQueue.add(v.id))
         if (fresh.length > 0) {
           const { shuffle, currentIndex } = get()
           // En aleatorio, lo que añade la radio se mezcla con lo que queda por sonar
@@ -338,7 +345,9 @@ export const useMusicStore = create<MusicStore>()(
       },
 
       enqueue: (videos, next) => {
-        const list = videos.filter((v, i, a) => a.findIndex((x) => x.id === v.id) === i)
+        const unique = videos.filter((v, i, a) => a.findIndex((x) => x.id === v.id) === i)
+        // (Una canción oculta agregada a mano sí entra; de una lista, no)
+        const list = unique.length > 1 ? unique.filter((v) => !isBlocked(v)) : unique
         if (!list.length) return 0
         const { queue, currentIndex, isVisible } = get()
         if (!isVisible || !queue.length) {
@@ -352,6 +361,19 @@ export const useMusicStore = create<MusicStore>()(
         const add = list.filter((v) => !before.some((b, i) => i === currentIndex && b.id === v.id))
         set({ queue: next ? [...before, ...add, ...after] : [...before, ...after, ...add] })
         return add.length
+      },
+
+      purgeBlocked: () => {
+        const { queue, currentIndex } = get()
+        const cur = queue[currentIndex]
+        const after = queue.slice(currentIndex + 1).filter((v) => !isBlocked(v))
+        const next = [...queue.slice(0, currentIndex + 1), ...after]
+        if (next.length !== queue.length) set({ queue: next })
+        // Lo que suena ahora quedó oculto: se pasa a la siguiente
+        if (cur && isBlocked(cur)) {
+          if (currentIndex < next.length - 1) get().playNext()
+          else set({ isPlaying: false })
+        }
       },
 
       removeFromQueue: (index) => {
@@ -377,8 +399,10 @@ export const useMusicStore = create<MusicStore>()(
 
       playNext: () => {
         const { currentIndex, queue } = get()
-        if (currentIndex < queue.length - 1) {
-          const nextIdx = currentIndex + 1
+        // Se salta lo oculto que haya quedado en la cola
+        let nextIdx = currentIndex + 1
+        while (nextIdx < queue.length - 1 && isBlocked(queue[nextIdx])) nextIdx++
+        if (nextIdx < queue.length && !isBlocked(queue[nextIdx])) {
           set({ currentIndex: nextIdx, isPlaying: true, played: 0, duration: 0, resumeAt: 0 })
           get().recordPlay(queue[nextIdx])
         } else if (get().repeatMode === 'all' && queue.length > 0) {

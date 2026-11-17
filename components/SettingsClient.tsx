@@ -20,9 +20,10 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users, AudioLines, HardDriveDownload, TvMinimalPlay } from 'lucide-react'
+  Users, AudioLines, HardDriveDownload, TvMinimalPlay, EyeOff } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
+import { useBlockStore } from '@/store/blockStore'
 import { useLangStore } from '@/store/langStore'
 import { useAccountStore } from '@/store/accountStore'
 import { readAlias, saveAlias } from '@/lib/community'
@@ -244,6 +245,8 @@ export default function SettingsClient() {
           </Link>
         </Section>
 
+        <HiddenSection />
+
         <Section title="La app">
           <Link href="/app-android" className="block">
             <Row icon={<Smartphone className="w-4 h-4" />} title="App de Android" desc={apk ? `Instalada: ${apk}` : 'Instálala o actualízala'}>
@@ -293,5 +296,52 @@ export default function SettingsClient() {
         </Section>
       </div>
     </div>
+  )
+}
+
+/** «No me interesa»: lo ocultado, con «Mostrar de nuevo» */
+function HiddenSection() {
+  const songs = useBlockStore((s) => s.songs)
+  const artists = useBlockStore((s) => s.artists)
+  const [open, setOpen] = useState(false)
+  const artistList = Object.entries(artists)
+  const total = songs.length + artistList.length
+  const btn = 'shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:text-white'
+  return (
+    <Section title="Ocultados">
+      <button onClick={() => setOpen(!open)} className="w-full text-left" aria-expanded={open}>
+        <Row
+          icon={<EyeOff className="w-4 h-4" />}
+          title="No me interesa"
+          desc={total ? `${artistList.length} ${artistList.length === 1 ? 'artista' : 'artistas'} · ${songs.length} ${songs.length === 1 ? 'canción o video' : 'canciones o videos'}` : 'Nada oculto. Usa ⋮ → «No me interesa» en una canción o video'}
+        >
+          {total > 0 && <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform ${open ? 'rotate-90' : ''}`} />}
+        </Row>
+      </button>
+      {open &&
+        artistList.map(([k, name]) => (
+          <div key={`a:${k}`} className="flex items-center gap-3 px-4 py-2.5">
+            <span className="flex-1 min-w-0">
+              <span className="block text-white text-sm truncate">{name}</span>
+              <span className="block text-slate-500 text-xs">Artista</span>
+            </span>
+            <button onClick={() => useBlockStore.getState().unblockArtist(k)} className={btn}>
+              Mostrar de nuevo
+            </button>
+          </div>
+        ))}
+      {open &&
+        songs.map((t) => (
+          <div key={`s:${t.id}`} className="flex items-center gap-3 px-4 py-2.5">
+            <span className="flex-1 min-w-0">
+              <span className="block text-white text-sm truncate">{t.title}</span>
+              <span className="block text-slate-500 text-xs truncate">{t.artist || 'Canción o video'}</span>
+            </span>
+            <button onClick={() => useBlockStore.getState().unblockSong(t.id)} className={btn}>
+              Mostrar de nuevo
+            </button>
+          </div>
+        ))}
+    </Section>
   )
 }

@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle, Cast } from 'lucide-react'
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, PictureInPicture2, Heart, Clock3, Share2, ExternalLink, X, Loader2, AlertCircle, Cast, MoreVertical } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import VideoMenu from '@/components/VideoMenu'
+import { withoutBlocked } from '@/store/blockStore'
 import { useVideoStore } from '@/store/videoStore'
 import { openFloat, closeFloat, floatingId } from '@/lib/float-window'
 import { isPhoneScreen, openMini, useMiniStore } from '@/store/miniStore'
@@ -38,6 +41,8 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
   const [muted, setMuted] = useState(false)
   const [ended, setEnded] = useState(false)
   const [hover, setHover] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const router = useRouter()
   const [floating, setFloating] = useState(floatingId() === video.id)
   const [note, setNote] = useState('')
   const timeRef = useRef(0)
@@ -303,6 +308,7 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
             <Action onClick={share} icon={<Share2 className="h-4 w-4" />} label="Compartir" />
             <Action onClick={toTv} icon={<Cast className="h-4 w-4" />} label="Ver en la TV" />
             <Action onClick={float} icon={<PictureInPicture2 className="h-4 w-4" />} label="Ventana flotante" />
+            <Action onClick={() => setMenuOpen(true)} icon={<MoreVertical className="h-4 w-4" />} label="Más" />
             <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface-2/70 px-4 py-2 text-sm font-semibold text-slate-200 hover:text-white">
               <ExternalLink className="h-4 w-4" /> YouTube
             </a>
@@ -328,6 +334,20 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
           {!pickedNext && <p className="text-xs text-slate-500">No hay más videos por ahora.</p>}
         </div>
       </aside>
+      {menuOpen && (
+        <VideoMenu
+          video={{ id: video.id, title: video.title, channelTitle: video.channel, thumbnail: thumb(video.id), publishedAt: '', description: '' }}
+          channelTitle={video.channel}
+          title={video.title}
+          onClose={() => setMenuOpen(false)}
+          onNavigate={(href) => router.push(href)}
+          onHidden={() => {
+            const n = withoutBlocked(upNext.filter((v) => v.id !== video.id))[0]
+            if (n) onPick(n)
+            else onClose?.()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import BackButton from '@/components/BackButton'
 import { useMusicStore } from '@/store/musicStore'
 import { TrackStateOverlay } from '@/components/TrackState'
 import { songArtist } from '@/lib/library-radio'
+import { withoutBlocked, isArtistBlocked, useBlockedVersion } from '@/store/blockStore'
 import { smartShuffle, fisherYates } from '@/lib/smart-shuffle'
 import { cachedJson } from '@/lib/client-cache'
 import type { MusicVideo } from '@/lib/youtube-music'
@@ -20,7 +21,9 @@ export default function LikedSongsClient() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const saved = useMusicStore((s) => s.saved)
-  const list = useMemo(() => [...saved].sort((a, b) => b.savedAt - a.savedAt), [saved])
+  const blockedVersion = useBlockedVersion()
+  // Lo oculto («No me interesa») no se muestra ni suena (sigue guardado: se recupera en Configuración)
+  const list = useMemo(() => withoutBlocked([...saved].sort((a, b) => b.savedAt - a.savedAt)), [saved, blockedVersion]) // eslint-disable-line react-hooks/exhaustive-deps
   const playAt = (i: number, shuffle = false) => {
     const st = useMusicStore.getState()
     if (shuffle !== st.shuffle) st.toggleShuffle()
@@ -33,7 +36,7 @@ export default function LikedSongsClient() {
     const count = new Map<string, number>()
     for (const t of list) {
       const a = songArtist(t)?.trim()
-      if (a) count.set(a, (count.get(a) ?? 0) + 1)
+      if (a && !isArtistBlocked(a)) count.set(a, (count.get(a) ?? 0) + 1)
     }
     return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([a]) => a).slice(0, MAX_ARTISTS)
   }, [list])

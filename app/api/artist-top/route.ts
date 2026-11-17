@@ -11,13 +11,19 @@ async function fallback(name: string) {
   const want = norm(name)
   const found = await publicSearch(`${name} official`).catch(() => [])
   return found
-    .filter((v) => norm(v.title + (v.author ?? '')).includes(want))
+    .filter((v) => isOwn(want, v.title, v.author ?? ''))
     .map((v) => ({ id: v.id, title: v.title, channel: v.author ?? '', thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, views: v.views ?? 0 }))
     .sort((a, b) => b.views - a.views)
     .slice(0, 10)
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+// ¿Es del artista? Su canal (con o sin «VEVO», «- Topic», «Official») o un título «Artista - Canción».
+// (Antes bastaba con que lo nombrara: entraban «parecidos a…», recopilaciones y otros artistas)
+const isOwn = (want: string, title: string, channel: string) => {
+  const ch = norm(channel).replace(/(vevo|topic|official|oficial|music|tv)$/g, '')
+  return ch === want || ch.startsWith(want) || norm(title).startsWith(want)
+}
 const decode = (s: string) => s.replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
 
 export async function GET(request: NextRequest) {
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
     .filter((it) => it.id?.videoId && it.snippet)
   // Solo lo que es del artista (título o canal lo nombran), para no mezclar otros
   const want = norm(name)
-  const own = items.filter((it) => norm(it.snippet!.title + it.snippet!.channelTitle).includes(want))
+  const own = items.filter((it) => isOwn(want, decode(it.snippet!.title), decode(it.snippet!.channelTitle)))
   const ids = own.map((it) => it.id!.videoId!).slice(0, 25)
   if (!ids.length) return NextResponse.json({ tracks: await fallback(name) }, { headers: { 'Cache-Control': 'public, s-maxage=43200' } })
   const vq = new URLSearchParams({ key, part: 'statistics', id: ids.join(',') }).toString()
