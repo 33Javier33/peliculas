@@ -45,9 +45,10 @@ class HealthMonitor {
   async checkConnection(): Promise<HealthMetric> {
     const start = Date.now()
     try {
-      const res = await fetch('/api/health', { method: 'HEAD', cache: 'no-store' })
+      // Sin pedirle nada al servidor (cada pedido cuenta en el plan de Vercel): estado de la red del navegador
+      const online = typeof navigator === 'undefined' || navigator.onLine
       const latency = Date.now() - start
-      const status = res.ok ? (latency > 2000 ? 'warning' : 'ok') : 'error'
+      const status = online ? 'ok' : 'error'
       return { timestamp: start, type: 'connection', status, value: latency, message: `${latency}ms` }
     } catch (e) {
       return { timestamp: Date.now(), type: 'connection', status: 'error', message: String(e) }
@@ -57,8 +58,8 @@ class HealthMonitor {
   async checkLatency(): Promise<HealthMetric> {
     const start = Date.now()
     try {
-      await fetch('/robots.txt', { cache: 'no-store' })
-      const latency = Date.now() - start
+      const c = (navigator as unknown as { connection?: { rtt?: number } }).connection
+      const latency = c?.rtt ?? Date.now() - start
       const status = latency > 3000 ? 'warning' : 'ok'
       return { timestamp: start, type: 'latency', status, value: latency }
     } catch (e) {
