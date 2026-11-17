@@ -226,13 +226,21 @@ abstract class BaseEditorActivity : ComponentActivity() {
             setPadding(0, dp(10f).toInt(), 0, dp(10f).toInt())
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14f).toInt() })
+        // Versión de la esfera y, debajo, la marca (sutil)
+        col.addView(TextView(this).apply {
+            text = "Versión " + (runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?")
+            textSize = 10f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(140, 140, 140))
+            setPadding(0, dp(10f).toInt(), 0, 0)
+        })
         col.addView(TextView(this).apply {
             text = Brand.NAME
-            textSize = 9f
+            textSize = 8f
             letterSpacing = 0.12f
             gravity = Gravity.CENTER
-            setTextColor(Color.rgb(110, 110, 110))
-            setPadding(0, dp(10f).toInt(), 0, 0)
+            setTextColor(Color.rgb(90, 90, 90))
+            setPadding(0, dp(2f).toInt(), 0, 0)
         })
 
         scroll.removeAllViews()
