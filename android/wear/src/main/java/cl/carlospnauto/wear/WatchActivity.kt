@@ -138,7 +138,7 @@ private fun UpdateNotice() {
     val dismissed by WatchUpdate.dismissed.collectAsState()
     val show = when (state) {
         is WatchUpdate.State.Available -> !dismissed
-        is WatchUpdate.State.Downloading, is WatchUpdate.State.Failed -> true
+        is WatchUpdate.State.Downloading, is WatchUpdate.State.Failed, is WatchUpdate.State.FromPhone, is WatchUpdate.State.Ready -> true
         else -> false
     }
     if (!show) return
@@ -163,6 +163,20 @@ private fun UpdateNotice() {
                     CircularProgressIndicator(progress = s.pct / 100f, modifier = Modifier.size(54.dp), indicatorColor = Violet, trackColor = Color(0x33FFFFFF))
                     Spacer(Modifier.height(6.dp))
                     Text("${s.pct}%", fontSize = 13.sp)
+                }
+                is WatchUpdate.State.FromPhone -> {
+                    Text(s.msg, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator(progress = s.pct / 100f, modifier = Modifier.size(54.dp), indicatorColor = Violet, trackColor = Color(0x33FFFFFF))
+                    Spacer(Modifier.height(6.dp))
+                    Text("${s.pct}% · ${s.latest}", fontSize = 12.sp, color = Color(0xFFB0B0B8))
+                }
+                is WatchUpdate.State.Ready -> {
+                    Text("${s.latest} descargada", fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(10.dp))
+                    Chip(onClick = { WatchUpdate.install(ctx) }, label = { Text("Instalar") }, colors = ChipDefaults.primaryChipColors(backgroundColor = Violet))
+                    Spacer(Modifier.height(4.dp))
+                    CompactChip(onClick = { WatchUpdate.later(ctx) }, label = { Text("Más tarde") }, colors = ChipDefaults.secondaryChipColors())
                 }
                 is WatchUpdate.State.Failed -> {
                     Text(s.msg, fontSize = 13.sp, textAlign = TextAlign.Center)

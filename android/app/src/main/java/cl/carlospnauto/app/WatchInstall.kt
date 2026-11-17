@@ -17,13 +17,36 @@ import kotlin.concurrent.thread
  */
 object WatchInstall {
     @Volatile private var busy = false
+    /** Actualización pedida desde el reloj: el avance también se le cuenta a él ("/cpn/updateprog") */
+    @Volatile private var askedBy: String? = null
+    @Volatile private var appCtx: Context? = null
 
     fun report(name: String, state: String, pct: Int = 0, msg: String = "") {
         val o = JSONObject().put("name", name).put("state", state).put("pct", pct).put("msg", msg)
         MainActivity.toWeb("window.__cpnWatchInstall && window.__cpnWatchInstall(${o})")
+        val node = askedBy
+        val ctx = appCtx
+        if (node != null && ctx != null) runCatching { Wearable.getMessageClient(ctx).sendMessage(node, "/cpn/updateprog", o.toString().toByteArray()) }
     }
 
-    fun start(c: Context, url: String, name: String) {
+    private const val RELEASE = "https://github.com/33Javier33/peliculas/releases/download/android-latest/"
+
+    /**
+     * El reloj pide su actualización ("/cpn/update" con el nombre del APK): el teléfono la descarga
+     * con su internet y se la manda (el reloj solo la bajaba por Bluetooth: 24 MB, lento y se cortaba)
+     */
+    fun fromWatch(c: Context, node: String, rawName: String) {
+        val name = rawName.trim()
+        if (name != "CarlosPNauto-Reloj.apk" && name != "PulsoMusic-Reloj.apk") return
+        val app = c.applicationContext
+        runCatching { Wearable.getMessageClient(app).sendMessage(node, "/cpn/updateack", name.toByteArray()) }
+        if (busy) return
+        askedBy = node
+        appCtx = app
+        start(app, RELEASE + name, name, node)
+    }
+
+    fun start(c: Context, url: String, name: String, toNode: String? = null) {
         val app = c.applicationContext
         val safe = name.replace(Regex("[^A-Za-z0-9._-]"), "")
         if (!url.startsWith("https://") || !safe.endsWith(".apk")) return report(name, "error", msg = "Archivo no válido")
@@ -35,7 +58,7 @@ object WatchInstall {
                 // ¿Hay un reloj conectado? (antes de descargar, para no esperar en vano). Se elige el
                 // reloj que tiene la app del reloj de ESTA app (antes se tomaba el primero conectado,
                 // y si era otro reloj o no tenía la app, la conexión se cortaba)
-                val node = pickWatch(app)
+                val node = toNode ?: pickWatch(app)
 
                 // Descargar
                 report(safe, "download", 0)
@@ -76,6 +99,7 @@ object WatchInstall {
             } finally {
                 file.delete()
                 busy = false
+                askedBy = null
             }
         }
     }

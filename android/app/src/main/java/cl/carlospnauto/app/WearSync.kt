@@ -183,6 +183,7 @@ class WearService : WearableListenerService() {
         when (event.path) {
             "/cpn/cmd" -> WearSync.onCommand(applicationContext, String(event.data))
             "/cpn/apkresult" -> WatchInstall.onResult(String(event.data))
+            "/cpn/update" -> WatchInstall.fromWatch(applicationContext, event.sourceNodeId, String(event.data))
         }
     }
 }

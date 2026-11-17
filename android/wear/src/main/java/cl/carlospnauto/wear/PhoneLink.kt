@@ -289,6 +289,9 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 _busy.value = false
                 _link.value = Link.AppClosed
             }
+            // Actualización de la app del reloj pedida al teléfono
+            "/cpn/updateack" -> WatchUpdate.onPhoneAck()
+            "/cpn/updateprog" -> WatchUpdate.onPhoneProgress(text)
         }
     }
 }
