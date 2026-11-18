@@ -78,7 +78,7 @@ private val THEMES = listOf(
 )
 private val THEME = Choice("tema", "Colores", THEMES.map { it.first to it.second.to })
 private val GOAL = Choice("meta", "Meta de pasos", listOf("10.000" to 10000, "6.000" to 6000, "8.000" to 8000, "12.000" to 12000, "15.000" to 15000))
-private val MINI = Choice("mini", "Mini reproductor (en eventos)", listOf("Al sonar PulsoMusic" to 0, "Apagado (solo eventos)" to 1))
+private val MINI = Choice("mini2", "Reproductor", listOf("Siempre visible" to 0, "Ocultar (ver eventos ahí)" to 1))
 private val AMB = Choice("bajo", "Bajo consumo", listOf("Pantalla completa tenue" to 0, "Mínimo" to 1))
 
 object Config : FaceConfig {
@@ -102,13 +102,13 @@ class FaceService : WatchFaceService() {
         fun slot(id: Int, types: List<ComplicationType>, policy: DefaultComplicationDataSourcePolicy, b: RectF) =
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, types, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
-            slot(WEATHER, short, DefaultComplicationDataSourcePolicy(), RectF(0.225f, 0.12f, 0.75f, 0.22f)),
+            slot(WEATHER, short, DefaultComplicationDataSourcePolicy(), RectF(0.21f, 0.165f, 0.40f, 0.225f)),
             slot(STEPS, short, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.20f, 0.235f, 0.85f, 0.33f)),
-            // Eventos: no llega hasta los botones del mini reproductor (a la derecha)
+            // Eventos: la línea junto a la temperatura
             slot(
                 EVENT, listOf(ComplicationType.LONG_TEXT, ComplicationType.SHORT_TEXT),
                 DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_NEXT_EVENT, ComplicationType.LONG_TEXT),
-                RectF(0.47f, 0.35f, 0.80f, 0.48f),
+                RectF(0.40f, 0.165f, 0.75f, 0.225f),
             ),
             slot(HEART, short, DefaultComplicationDataSourcePolicy(), RectF(0.53f, 0.86f, 0.72f, 0.96f)),
         )
@@ -222,7 +222,7 @@ class HybridRenderer(
 
     fun playerTap(x: Int, y: Int): Boolean {
         if (!miniOn()) return false
-        val s = PhoneNow.current() ?: return false
+        val s = PhoneNow.current()
         val b = lastBounds
         if (b.isEmpty) return false
         val r = min(b.width(), b.height()) / 2f
@@ -230,7 +230,7 @@ class HybridRenderer(
         val cy = b.exactCenterY()
         val action = when {
             playerZone(cx, cy, r, 0).contains(x.toFloat(), y.toFloat()) -> "prev"
-            playerZone(cx, cy, r, 1).contains(x.toFloat(), y.toFloat()) -> if (s.playing) "pause" else "play"
+            playerZone(cx, cy, r, 1).contains(x.toFloat(), y.toFloat()) -> if (s?.playing == true) "pause" else "play"
             playerZone(cx, cy, r, 2).contains(x.toFloat(), y.toFloat()) -> "next"
             else -> return false
         }
@@ -353,8 +353,21 @@ class HybridRenderer(
         val digits = temp?.filter { it.isDigit() || it == '-' }.orEmpty()
         write(canvas, digits.ifEmpty { "--" }, X(-0.32f), Y(-0.59f), r * 0.10f, white, medium, Paint.Align.RIGHT)
         write(canvas, if (temp?.contains("F") == true) "°F" else "°C", X(-0.305f), Y(-0.645f), r * 0.045f, white, medium, Paint.Align.LEFT)
-        // Estado del clima (o «elige el clima en Personalizar»)
-        write(canvas, wTitle ?: if (temp == null) "Elige el clima en Personalizar" else "", X(-0.19f), Y(-0.595f), r * 0.06f, Color.rgb(225, 225, 225), medium, Paint.Align.LEFT, maxW = r * 0.62f)
+        // Junto a la temperatura: el próximo evento (con el reproductor visible, los eventos van aquí);
+        // si no hay, el estado del clima
+        val ev = complications.textOf(EVENT, context.resources)
+        val evTitle = complications.titleOf(EVENT, context.resources)
+        val evLine = when {
+            ev == null -> null
+            evTitle != null -> "$evTitle  $ev"
+            else -> ev
+        }
+        if (miniOn() && evLine != null) {
+            drawCalendar(canvas, X(-0.16f), Y(-0.625f), r * 0.032f, t.dayOfMonth)
+            write(canvas, evLine, X(-0.115f), Y(-0.598f), r * 0.056f, Color.rgb(225, 225, 225), medium, Paint.Align.LEFT, maxW = r * 0.58f)
+        } else {
+            write(canvas, wTitle ?: if (temp == null) "Elige el clima en Personalizar" else if (miniOn()) "Sin eventos próximos" else "", X(-0.19f), Y(-0.595f), r * 0.058f, Color.rgb(225, 225, 225), medium, Paint.Align.LEFT, maxW = r * 0.62f)
+        }
 
         // ===== Pasos, distancia y meta =====
         // Corchete naranja a la derecha
@@ -407,12 +420,15 @@ class HybridRenderer(
         fill.color = Color.rgb(28, 28, 30)
         canvas.drawRect(band, fill)
         canvas.restore()
+        // El reproductor es parte de la esfera: siempre está (sin música, con su nombre y «Sin música»)
         val music = if (miniOn()) PhoneNow.current() else null
-        if (music != null) {
+        if (miniOn()) {
             // Nota musical en el color del tema
             drawNote(canvas, X(0.03f), Y(-0.17f), r * 0.05f, th.day)
-            write(canvas, music.title, X(0.10f), Y(-0.185f), r * 0.064f, white, bold, Paint.Align.LEFT, maxW = r * 0.50f)
-            if (music.artist.isNotBlank()) write(canvas, music.artist, X(0.10f), Y(-0.105f), r * 0.048f, grey, medium, Paint.Align.LEFT, maxW = r * 0.50f)
+            val app = if (PhoneNow.state?.from == "cl.carlospnauto.app") "PulsoMedia" else "PulsoMusic"
+            write(canvas, music?.title ?: app, X(0.10f), Y(-0.185f), r * 0.064f, white, bold, Paint.Align.LEFT, maxW = r * 0.50f)
+            val sub = if (music == null) "Sin música" else music.artist
+            if (sub.isNotBlank()) write(canvas, sub, X(0.10f), Y(-0.105f), r * 0.048f, grey, medium, Paint.Align.LEFT, maxW = r * 0.50f)
             // Botones ◄ ►‖ ►|
             fill.color = white
             val by = Y(-0.17f)
@@ -425,7 +441,7 @@ class HybridRenderer(
             fill.color = th.day
             canvas.drawCircle(bx, by, s * 1.9f, fill)
             fill.color = Color.rgb(20, 20, 22)
-            if (music.playing) {
+            if (music?.playing == true) {
                 canvas.drawRect(bx - s * 0.75f, by - s * 0.85f, bx - s * 0.25f, by + s * 0.85f, fill)
                 canvas.drawRect(bx + s * 0.25f, by - s * 0.85f, bx + s * 0.75f, by + s * 0.85f, fill)
             } else {
@@ -438,7 +454,7 @@ class HybridRenderer(
             canvas.drawPath(path, fill)
             canvas.drawRect(bx + s * 0.7f, by - s, bx + s * 1.05f, by + s, fill)
             // Avance de la canción
-            val p = if (music.durationMs > 0) (music.position().toFloat() / music.durationMs).coerceIn(0f, 1f) else 0f
+            val p = if (music != null && music.durationMs > 0) (music.position().toFloat() / music.durationMs).coerceIn(0f, 1f) else 0f
             stroke.strokeWidth = r * 0.01f
             stroke.color = Color.rgb(60, 60, 64)
             canvas.drawLine(X(0.03f), Y(-0.055f), X(0.86f), Y(-0.055f), stroke)
@@ -447,16 +463,9 @@ class HybridRenderer(
                 canvas.drawLine(X(0.03f), Y(-0.055f), X(0.03f) + r * 0.83f * p, Y(-0.055f), stroke)
             }
         } else {
-            // Próximo evento del calendario
+            // Reproductor oculto: aquí va el próximo evento del calendario
             drawCalendar(canvas, X(0.03f), Y(-0.17f), r * 0.055f, t.dayOfMonth)
-            val ev = complications.textOf(EVENT, context.resources)
-            val evTitle = complications.titleOf(EVENT, context.resources)
-            val line = when {
-                ev == null -> "Sin eventos próximos"
-                evTitle != null -> "$evTitle: $ev"
-                else -> ev
-            }
-            write(canvas, line, X(0.12f), Y(-0.145f), r * 0.064f, white, medium, Paint.Align.LEFT, maxW = r * 0.74f)
+            write(canvas, evLine ?: "Sin eventos próximos", X(0.12f), Y(-0.145f), r * 0.064f, white, medium, Paint.Align.LEFT, maxW = r * 0.74f)
         }
 
         // ===== Hora digital grande, segundos y su fondo =====
@@ -466,7 +475,7 @@ class HybridRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         // Números cuadrados con las esquinas redondeadas, como los de la foto
         // Como en la foto: la hora grande y los minutos más chicos, alineados arriba
-        SquareDigits.draw(canvas, h, X(0.365f), Y(0.055f), r * 0.21f, r * 0.30f, r * 0.058f, r * 0.035f, white, alignRight = true)
+        SquareDigits.draw(canvas, h, X(0.37f), Y(0.055f), r * 0.175f, r * 0.30f, r * 0.052f, r * 0.03f, white, alignRight = true)
         // Dos puntos redondos
         fill.color = white
         canvas.drawCircle(X(0.40f), Y(0.165f), r * 0.024f, fill)

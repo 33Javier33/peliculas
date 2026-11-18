@@ -19,7 +19,7 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Pulso Híbrida',
     file: 'Esfera-Hibrida.apk',
     description:
-      'Agujas y digital a la vez: escala de minutos en el borde, clima, pasos con distancia y meta, próximo evento (y un mini reproductor cuando suena PulsoMusic o PulsoMedia), reloj de agujas con fecha y alarma, hora grande con segundos, mes y días de la semana, batería y ritmo cardíaco con su zona.',
+      'Agujas y digital a la vez: escala de minutos en el borde, clima, pasos con distancia y meta, próximo evento junto al clima, mini reproductor de PulsoMusic o PulsoMedia siempre a la vista, reloj de agujas con fecha y alarma, hora grande con segundos, mes y días de la semana, batería y ritmo cardíaco con su zona.',
     features: ['Híbrida', 'Mini reproductor', 'Clima', 'Pasos', 'Eventos', 'Ritmo cardíaco', '6 colores', 'PulsoMusic', 'PulsoMedia'],
     added: '2026-11-18',
   },
@@ -260,7 +260,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     customize: [
       '6 colores: naranja y cian, verde, azul, rojo, violeta y blanco',
       'Meta de pasos: 6.000, 8.000, 10.000, 12.000 o 15.000',
-      'Mini reproductor al sonar PulsoMusic, o solo eventos',
+      'Reproductor siempre visible (sin música muestra «Sin música») u ocultarlo y ver los eventos ahí',
       'Segundero suave o por segundos',
       'Bajo consumo: esfera completa tenue o mínima',
       'Clima: elige el dato en Personalizar',
