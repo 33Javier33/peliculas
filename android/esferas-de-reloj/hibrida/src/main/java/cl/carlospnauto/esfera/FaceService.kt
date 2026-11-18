@@ -465,19 +465,18 @@ class HybridRenderer(
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         // Números cuadrados con las esquinas redondeadas, como los de la foto
-        val dH = r * 0.28f
-        val dW = r * 0.19f
-        val dT = r * 0.052f
-        SquareDigits.draw(canvas, h, X(0.37f), Y(0.33f) - dH, dW, dH, dT, r * 0.035f, white, alignRight = true)
+        // Como en la foto: la hora grande y los minutos más chicos, alineados arriba
+        SquareDigits.draw(canvas, h, X(0.365f), Y(0.055f), r * 0.21f, r * 0.30f, r * 0.058f, r * 0.035f, white, alignRight = true)
         // Dos puntos redondos
         fill.color = white
-        canvas.drawCircle(X(0.405f), Y(0.14f), r * 0.022f, fill)
-        canvas.drawCircle(X(0.405f), Y(0.30f), r * 0.022f, fill)
-        SquareDigits.draw(canvas, "%02d".format(t.minute), X(0.44f), Y(0.33f) - dH, dW, dH, dT, r * 0.035f, white, alignRight = false)
+        canvas.drawCircle(X(0.40f), Y(0.165f), r * 0.024f, fill)
+        canvas.drawCircle(X(0.40f), Y(0.325f), r * 0.024f, fill)
+        SquareDigits.draw(canvas, "%02d".format(t.minute), X(0.44f), Y(0.075f), r * 0.17f, r * 0.20f, r * 0.046f, r * 0.03f, white, alignRight = false)
         if (!ambient) {
             fill.color = Color.rgb(16, 16, 17)
-            canvas.drawRect(X(0.42f), Y(0.36f), X(0.70f), Y(0.475f), fill)
-            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.67f), Y(0.462f) - r * 0.095f, r * 0.068f, r * 0.095f, r * 0.02f, r * 0.018f, white, alignRight = true)
+            canvas.drawRect(X(0.44f), Y(0.30f), X(0.74f), Y(0.47f), fill)
+            // Segundos debajo de los minutos
+            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.71f), Y(0.335f), r * 0.085f, r * 0.11f, r * 0.026f, r * 0.02f, white, alignRight = true)
         }
 
         // ===== Mes y días de la semana =====
