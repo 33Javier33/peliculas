@@ -52,6 +52,7 @@ import { useAlwaysVideo, getAlwaysVideo, setAlwaysVideo } from '@/lib/always-vid
 import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
+import { useDevicesStore } from '@/lib/devices'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -999,6 +1000,7 @@ export default function MusicPlayerBar() {
   // Precarga rápida: apenas 2s después de que empieza la canción se prepara la siguiente
   // Si el usuario salta seguido, el audio ya está en buffer o descargándose
   const soundingId = useMusicStore((s) => s.soundingId)
+  const remoteMode = useDevicesStore((s) => s.remote)
   const nextKey = nextTrack && !nextTrack.streamUrl && !nextTrack.pending ? `${nextTrack.id}|${nextTrack.audioUrl ?? ''}` : ''
   useEffect(() => {
     if (!nextKey || !currentId || soundingId !== currentId) return
@@ -2607,7 +2609,9 @@ export default function MusicPlayerBar() {
       )}
 
       {/* ===== PLAYER BAR ===== */}
-      <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col">
+      {/* Con el control remoto activo (suena en otro dispositivo) la barra local se oculta: sigue
+          montada para no cortar nada, y vuelve al tocar «Escuchar aquí» o cerrar el control remoto */}
+      <div ref={barRef} className={`fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col ${remoteMode && !isPlaying ? 'opacity-0 pointer-events-none' : ''}`}>
         {/* Ventana flotante con el video (sobre la app; al cerrarla la música sigue) */}
         {inline?.place === 'float' && (
           <div
@@ -2793,7 +2797,7 @@ export default function MusicPlayerBar() {
                 ? 'relative w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
                 : floating
                   ? 'absolute right-2 bottom-[calc(100%+14px)] z-10 w-[62vw] max-w-[360px] aspect-video rounded-xl border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)]'
-                  : 'relative shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
+                  : 'relative shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] lg:w-[100px] lg:h-[56px] lg:my-2 lg:ml-3 lg:rounded-md self-start sm:self-stretch lg:self-center'
             }`}
           >
             {/* Ventana de video: agrandar, compartir y bajarla a la barra (sigue sonando) */}
