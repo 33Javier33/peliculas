@@ -48,7 +48,10 @@ export function loadCast(): Promise<boolean> {
       if (!available) return resolve(false)
       try {
         window.cast.framework.CastContext.getInstance().setOptions({
-          receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+          // Receptor propio (en la TV dice «PulsoMedia», con su logo) si se registró; si no, el de Google
+          receiverApplicationId: /^[0-9A-F]{8}$/i.test(process.env.NEXT_PUBLIC_CAST_APP_ID || '')
+            ? (process.env.NEXT_PUBLIC_CAST_APP_ID as string).toUpperCase()
+            : window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
           autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
         })
         resolve(true)

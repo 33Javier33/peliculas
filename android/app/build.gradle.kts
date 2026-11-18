@@ -6,6 +6,11 @@ plugins {
 // Número de versión: el de la compilación en GitHub (así cada APK nuevo actualiza al anterior)
 val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 
+// Receptor propio de Chromecast (la TV muestra «PulsoMedia» o «PulsoMusic» en vez de «Default Media
+// Receiver»): su ID se registra en la consola de Google Cast y se guarda en las variables del
+// repositorio (CAST_APP_ID_MEDIA / CAST_APP_ID_MUSIC). Sin ID, el receptor estándar de Google.
+fun castId(name: String): String = (System.getenv(name) ?: "").trim().uppercase().takeIf { Regex("^[0-9A-F]{8}$").matches(it) } ?: "CC1AD845"
+
 android {
     namespace = "cl.carlospnauto.app"
     compileSdk = 35
@@ -33,6 +38,7 @@ android {
             buildConfigField("String", "FLAVOR_NAME", "\"media\"")
             buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMedia\"")
             buildConfigField("String", "BRAND", "\"PulsoMedia\"")
+            buildConfigField("String", "CAST_APP_ID", "\"${castId("CAST_APP_ID_MEDIA")}\"")
             buildConfigField("String", "OTHER_APP", "\"cl.carlospnauto.music\"")
         }
         create("music") {
@@ -45,6 +51,7 @@ android {
             // lo descargado (no se baja dos veces)
             buildConfigField("String", "STORAGE_ROOT", "\"Music/PulsoMedia\"")
             buildConfigField("String", "BRAND", "\"PulsoMusic\"")
+            buildConfigField("String", "CAST_APP_ID", "\"${castId("CAST_APP_ID_MUSIC")}\"")
             buildConfigField("String", "OTHER_APP", "\"cl.carlospnauto.app\"")
         }
     }
