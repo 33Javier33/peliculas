@@ -14,6 +14,7 @@ import CommunityShareButton from '@/components/CommunityShareButton'
 import PlaylistCover from '@/components/PlaylistCover'
 import ViewToggle, { useView } from '@/components/ViewToggle'
 import TrackTiles from '@/components/TrackTiles'
+import TrackTable from '@/components/TrackTable'
 import BackButton from '@/components/BackButton'
 import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
@@ -60,13 +61,13 @@ export default function PlaylistClient({ id }: { id: string }) {
 
   return (
     <div className="pt-20 bg-obsidian pb-8">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-5xl lg:max-w-none mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <BackButton fallbackHref="/music/library?tab=playlists" className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-4">
           Volver
         </BackButton>
 
         <div className="flex flex-col sm:flex-row sm:items-end gap-5 mb-6">
-          <PlaylistCover tracks={tracks} className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl shadow-2xl shadow-violet-900/40 shrink-0 mx-auto sm:mx-0" />
+          <PlaylistCover tracks={tracks} className="w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 rounded-2xl lg:rounded-md shadow-2xl shadow-violet-900/40 shrink-0 mx-auto sm:mx-0" />
           <div className="min-w-0 flex-1">
             <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.12em]">Playlist</p>
             {editing ? (
@@ -94,7 +95,7 @@ export default function PlaylistClient({ id }: { id: string }) {
                 </button>
               </form>
             ) : (
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight break-words">{playlist.name}</h1>
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl xl:text-7xl font-black text-white leading-tight lg:tracking-tight break-words">{playlist.name}</h1>
             )}
             <p className="text-slate-400 text-sm mt-1">
               {tracks.length} {tracks.length === 1 ? 'canción' : 'canciones'}
@@ -157,6 +158,29 @@ export default function PlaylistClient({ id }: { id: string }) {
             Aún no tiene canciones. En cualquier canción toca <b>⋮</b> o el botón de playlist y elige <b>{playlist.name}</b>.
           </div>
         ) : (
+          <>
+          {/* Computador: tabla como Spotify */}
+          <div className="hidden lg:block">
+            <TrackTable
+              tracks={tracks}
+              onPlay={(i) => play(i)}
+              actions={(t, i) => (
+                <>
+                  <TrackDownloadIcon track={t} />
+                  <button onClick={() => moveTrack(playlist.id, i, i - 1)} disabled={i === 0} className={`${btn} disabled:opacity-30`} aria-label="Subir">
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => moveTrack(playlist.id, i, i + 1)} disabled={i === tracks.length - 1} className={`${btn} disabled:opacity-30`} aria-label="Bajar">
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => removeTrack(playlist.id, t.id)} className={`${btn} hover:text-red-400`} aria-label="Quitar de la playlist">
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            />
+          </div>
+          <div className="lg:hidden">
           <TrackTiles
             tracks={tracks}
             view={view}
@@ -177,6 +201,8 @@ export default function PlaylistClient({ id }: { id: string }) {
               </>
             )}
           />
+          </div>
+          </>
         )}
       </div>
     </div>

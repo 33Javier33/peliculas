@@ -194,6 +194,13 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
   // Búsqueda desde la barra superior (/music?q=...)
   const searchParams = useSearchParams()
   const urlQuery = searchParams.get('q') || ''
+  // «Buscar» del menú lateral: el cursor queda en el buscador
+  const wantsSearch = searchParams.get('buscar') === '1'
+  useEffect(() => {
+    if (!wantsSearch) return
+    window.scrollTo({ top: 0 })
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }, [wantsSearch])
   useEffect(() => {
     if (!urlQuery || urlQuery === lastSearchedRef.current) return
     setQuery(urlQuery)
