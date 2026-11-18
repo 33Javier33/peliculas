@@ -85,9 +85,9 @@ object Config : FaceConfig {
     override val slots = listOf(WEATHER to "Clima (arriba)", STEPS to "Pasos", EVENT to "Eventos", HEART to "Ritmo cardíaco")
     override val spots = listOf(
         Spot(-0.63f, 0.55f, Action.MUSIC, "Ícono de la izquierda", hit = 0.10f),
-        Spot(-0.745f, 0.02f, Action.ALARMS, "Campana (alarmas)", hit = 0.09f),
+        Spot(-0.68f, 0.02f, Action.ALARMS, "Campana (alarmas)", hit = 0.09f),
         Spot(0.40f, 0.20f, Action.MEDIA, "Toque en la hora", hit = 0.22f),
-        Spot(-0.20f, 0.82f, Action.BATTERY, "Batería", hit = 0.11f),
+        Spot(-0.14f, 0.80f, Action.BATTERY, "Batería", hit = 0.11f),
         Spot(0.03f, 0.53f, Action.TIMER, "Mes", hit = 0.09f),
     )
     override val choices = listOf(THEME, GOAL, MINI, AMB, Smooth.CHOICE)
@@ -308,21 +308,20 @@ class HybridRenderer(
         stroke.shader = LinearGradient(X(-0.55f), 0f, X(0.75f), 0f, Color.rgb(230, 230, 230), Color.rgb(60, 60, 62), Shader.TileMode.CLAMP)
         stroke.strokeWidth = r * 0.016f
         path.reset()
-        path.moveTo(X(-0.25f), Y(-0.755f))
-        path.lineTo(X(-0.46f), Y(-0.755f))
-        path.quadTo(X(-0.55f), Y(-0.755f), X(-0.55f), Y(-0.665f))
-        path.lineTo(X(-0.55f), Y(-0.645f))
-        path.quadTo(X(-0.55f), Y(-0.56f), X(-0.46f), Y(-0.56f))
+        path.moveTo(X(-0.28f), Y(-0.70f))
+        path.lineTo(X(-0.50f), Y(-0.70f))
+        path.quadTo(X(-0.57f), Y(-0.70f), X(-0.57f), Y(-0.63f))
+        path.quadTo(X(-0.57f), Y(-0.56f), X(-0.50f), Y(-0.56f))
         path.lineTo(X(0.47f), Y(-0.56f))
         canvas.drawPath(path, stroke)
         stroke.shader = null
         val temp = complications.textOf(WEATHER, context.resources)
         val wTitle = complications.titleOf(WEATHER, context.resources)
         val digits = temp?.filter { it.isDigit() || it == '-' }.orEmpty()
-        write(canvas, digits.ifEmpty { "--" }, X(-0.30f), Y(-0.605f), r * 0.11f, white, medium, Paint.Align.RIGHT)
-        write(canvas, if (temp?.contains("F") == true) "°F" else "°C", X(-0.285f), Y(-0.665f), r * 0.05f, white, medium, Paint.Align.LEFT)
+        write(canvas, digits.ifEmpty { "--" }, X(-0.32f), Y(-0.59f), r * 0.10f, white, medium, Paint.Align.RIGHT)
+        write(canvas, if (temp?.contains("F") == true) "°F" else "°C", X(-0.305f), Y(-0.645f), r * 0.045f, white, medium, Paint.Align.LEFT)
         // Estado del clima (o «elige el clima en Personalizar»)
-        write(canvas, wTitle ?: if (temp == null) "Elige el clima en Personalizar" else "", X(-0.17f), Y(-0.605f), r * 0.062f, Color.rgb(225, 225, 225), medium, Paint.Align.LEFT, maxW = r * 0.62f)
+        write(canvas, wTitle ?: if (temp == null) "Elige el clima en Personalizar" else "", X(-0.19f), Y(-0.595f), r * 0.06f, Color.rgb(225, 225, 225), medium, Paint.Align.LEFT, maxW = r * 0.62f)
 
         // ===== Pasos, distancia y meta =====
         // Corchete naranja a la derecha
@@ -449,7 +448,7 @@ class HybridRenderer(
         write(canvas, t.month.getDisplayName(TextStyle.FULL_STANDALONE, loc).replaceFirstChar { it.uppercase(loc) }, X(0.03f), Y(0.535f), r * 0.07f, white, bold, Paint.Align.CENTER)
         fill.color = Color.rgb(26, 26, 28)
         path.reset()
-        path.moveTo(X(-0.66f), Y(0.585f)); path.lineTo(X(0.70f), Y(0.585f)); path.lineTo(X(0.64f), Y(0.70f)); path.lineTo(X(-0.60f), Y(0.70f)); path.close()
+        path.moveTo(X(-0.64f), Y(0.585f)); path.lineTo(X(0.68f), Y(0.585f)); path.lineTo(X(0.61f), Y(0.70f)); path.lineTo(X(-0.57f), Y(0.70f)); path.close()
         canvas.drawPath(path, fill)
         val days = DayOfWeek.values()
         for ((i, d) in days.withIndex()) {
@@ -470,24 +469,24 @@ class HybridRenderer(
         // ===== Batería y ritmo cardíaco =====
         fill.color = Color.rgb(26, 26, 28)
         path.reset()
-        path.moveTo(X(-0.46f), Y(0.72f)); path.lineTo(X(0.52f), Y(0.72f)); path.lineTo(X(0.44f), Y(0.865f)); path.lineTo(X(-0.38f), Y(0.865f)); path.close()
+        path.moveTo(X(-0.36f), Y(0.72f)); path.lineTo(X(0.40f), Y(0.72f)); path.lineTo(X(0.33f), Y(0.865f)); path.lineTo(X(-0.29f), Y(0.865f)); path.close()
         canvas.drawPath(path, fill)
         stroke.color = Color.rgb(70, 70, 74)
         stroke.strokeWidth = r * 0.008f
-        canvas.drawLine(X(0.07f), Y(0.73f), X(0.02f), Y(0.855f), stroke)
+        canvas.drawLine(X(0.06f), Y(0.73f), X(0.01f), Y(0.855f), stroke)
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-        drawBolt(canvas, X(-0.27f), Y(0.79f), r * 0.045f, Color.rgb(235, 50, 50))
-        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.21f), Y(0.825f), r * 0.085f, white, bold, Paint.Align.LEFT)
+        drawBolt(canvas, X(-0.255f), Y(0.79f), r * 0.04f, Color.rgb(235, 50, 50))
+        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.215f), Y(0.82f), r * 0.07f, white, bold, Paint.Align.LEFT)
         val hrTxt = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
             ?: heart.bpm.takeIf { it > 0 }?.toString()
         val hr = hrTxt?.toIntOrNull() ?: 0
-        write(canvas, "bpm", X(0.15f), Y(0.755f), r * 0.042f, grey, medium, Paint.Align.CENTER)
-        write(canvas, hrTxt ?: "--", X(0.15f), Y(0.845f), r * 0.085f, white, bold, Paint.Align.CENTER)
+        write(canvas, "bpm", X(0.135f), Y(0.755f), r * 0.042f, grey, medium, Paint.Align.CENTER)
+        write(canvas, hrTxt ?: "--", X(0.135f), Y(0.845f), r * 0.075f, white, bold, Paint.Align.CENTER)
         // Zona del ritmo: bajo (naranja), normal (verde), alto (rojo)
         val zone = when { hr <= 0 -> -1; hr < 60 -> 0; hr <= 100 -> 1; else -> 2 }
         val zc = listOf(Color.rgb(255, 160, 40), Color.rgb(50, 220, 90), Color.rgb(235, 50, 50))
         for (k in 0 until 3) {
-            val x0 = X(0.27f + k * 0.05f)
+            val x0 = X(0.215f + k * 0.04f)
             path.reset()
             path.moveTo(x0 + r * 0.012f, Y(0.74f)); path.lineTo(x0 + r * 0.035f, Y(0.74f)); path.lineTo(x0 + r * 0.023f, Y(0.785f)); path.lineTo(x0, Y(0.785f)); path.close()
             fill.color = if (k == zone) zc[k] else a(zc[k], 120)
@@ -500,7 +499,7 @@ class HybridRenderer(
         }
 
         // ===== Reloj de agujas con fecha y alarma =====
-        drawAnalog(canvas, X(-0.50f), Y(0.02f), r * 0.425f, r, t, th, ambient)
+        drawAnalog(canvas, X(-0.46f), Y(0.02f), r * 0.38f, r, t, th, ambient)
 
         // Siempre activa: la esfera completa, más tenue
         if (ambient) canvas.drawColor(Color.argb(160, 0, 0, 0))
