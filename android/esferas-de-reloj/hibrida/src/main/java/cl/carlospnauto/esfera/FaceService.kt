@@ -270,26 +270,58 @@ class HybridRenderer(
         canvas.drawCircle(cx, cy, r, fill)
         fill.shader = null
 
-        // ===== Escala del borde: rayitas finas, marcas cada 5 y los números 5…60 =====
+        // ===== Escala del borde (como la foto) =====
+        // Arriba (del 50 al 10): banda algo más clara con rayitas finas y apretadas entre los números
+        stroke.strokeCap = Paint.Cap.BUTT
+        stroke.color = Color.rgb(36, 36, 38)
+        stroke.strokeWidth = r * 0.07f
+        canvas.drawArc(RectF(cx - r * 0.945f, cy - r * 0.945f, cx + r * 0.945f, cy + r * 0.945f), -90f - 62f, 124f, false, stroke)
         for (i in 0 until 300) {
-            val ang = Math.toRadians(i * 1.2 - 90).toFloat()
-            val major = i % 25 == 0
-            val mid = i % 5 == 0
-            if (major) continue
-            val r0 = if (mid) 0.935f else 0.955f
-            stroke.color = if (mid) Color.rgb(200, 200, 200) else Color.rgb(120, 120, 125)
-            stroke.strokeWidth = r * (if (mid) 0.009f else 0.0045f)
-            canvas.drawLine(cx + cos(ang) * r * r0, cy + sin(ang) * r * r0, cx + cos(ang) * r * 0.985f, cy + sin(ang) * r * 0.985f, stroke)
+            val deg = i * 1.2f
+            val fromTop = if (deg > 180f) 360f - deg else deg
+            if (fromTop > 61f) continue
+            // Hueco para cada número
+            val toNum = (deg % 30f).let { minOf(it, 30f - it) }
+            if (toNum < 5.5f) continue
+            val ang = Math.toRadians(deg - 90.0).toFloat()
+            stroke.color = Color.rgb(150, 150, 155)
+            stroke.strokeWidth = r * 0.005f
+            canvas.drawLine(cx + cos(ang) * r * 0.925f, cy + sin(ang) * r * 0.925f, cx + cos(ang) * r * 0.965f, cy + sin(ang) * r * 0.965f, stroke)
         }
+        // Resto: una rayita por minuto, más larga en los 5, unidas por una línea escalonada
+        for (m in 0 until 60) {
+            val deg = m * 6f
+            val fromTop = if (deg > 180f) 360f - deg else deg
+            if (fromTop < 62f || m % 5 == 0) continue
+            val ang = Math.toRadians(deg - 90.0).toFloat()
+            stroke.color = Color.rgb(205, 205, 205)
+            stroke.strokeWidth = r * 0.008f
+            canvas.drawLine(cx + cos(ang) * r * 0.90f, cy + sin(ang) * r * 0.90f, cx + cos(ang) * r * 0.945f, cy + sin(ang) * r * 0.945f, stroke)
+        }
+        stroke.color = Color.rgb(150, 150, 155)
+        stroke.strokeWidth = r * 0.005f
+        for (side in listOf(1f, -1f)) {
+            // Línea fina del borde en la mitad de abajo (de un costado al otro)
+            canvas.drawArc(RectF(cx - r * 0.945f, cy - r * 0.945f, cx + r * 0.945f, cy + r * 0.945f), if (side > 0) -28f else 152f, 56f, false, stroke)
+        }
+        canvas.drawArc(RectF(cx - r * 0.945f, cy - r * 0.945f, cx + r * 0.945f, cy + r * 0.945f), 28f, 124f, false, stroke)
+        stroke.strokeCap = Paint.Cap.ROUND
         for (k in 1..12) {
             canvas.save()
             canvas.rotate(k * 30f, cx, cy)
-            write(canvas, "${k * 5}", cx, cy - r * 0.925f + r * 0.035f, r * 0.075f, Color.rgb(215, 215, 215), condensed, Paint.Align.CENTER)
+            write(canvas, "${k * 5}", cx, cy - r * 0.93f + r * 0.03f, r * 0.075f, Color.rgb(225, 225, 225), condensed, Paint.Align.CENTER)
             canvas.restore()
         }
 
         // ===== Clima =====
-        // Ícono (sol detrás de una nube)
+        // Ícono del clima que manda el dato elegido (sol, nube, lluvia…); si no trae, sol con nube
+        val wIcon = weatherIcon()
+        if (wIcon != null) {
+            val s = (r * 0.08f).toInt()
+            wIcon.setBounds((X(0f) - s).toInt(), (Y(-0.785f) - s).toInt(), (X(0f) + s).toInt(), (Y(-0.785f) + s).toInt())
+            wIcon.setTint(Color.WHITE)
+            wIcon.draw(canvas)
+        } else {
         fill.color = Color.rgb(255, 196, 60)
         canvas.drawCircle(X(0.045f), Y(-0.835f), r * 0.042f, fill)
         stroke.color = Color.rgb(255, 196, 60)
@@ -303,6 +335,7 @@ class HybridRenderer(
         canvas.drawCircle(X(-0.005f), Y(-0.815f), r * 0.048f, fill)
         canvas.drawCircle(X(0.05f), Y(-0.79f), r * 0.032f, fill)
         canvas.drawRoundRect(RectF(X(-0.09f), Y(-0.80f), X(0.085f), Y(-0.755f)), r * 0.02f, r * 0.02f, fill)
+        }
 
         // Marco del clima (corchete claro a la izquierda) y línea de abajo
         stroke.shader = LinearGradient(X(-0.55f), 0f, X(0.75f), 0f, Color.rgb(230, 230, 230), Color.rgb(60, 60, 62), Shader.TileMode.CLAMP)
@@ -431,17 +464,20 @@ class HybridRenderer(
         canvas.drawRect(X(-0.06f), Y(-0.01f), X(0.84f), Y(0.36f), fill)
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
-        val ts = r * 0.30f
-        write(canvas, h, X(0.37f), Y(0.33f), ts, white, bold, Paint.Align.RIGHT)
+        // Números cuadrados con las esquinas redondeadas, como los de la foto
+        val dH = r * 0.28f
+        val dW = r * 0.19f
+        val dT = r * 0.052f
+        SquareDigits.draw(canvas, h, X(0.37f), Y(0.33f) - dH, dW, dH, dT, r * 0.035f, white, alignRight = true)
         // Dos puntos redondos
         fill.color = white
         canvas.drawCircle(X(0.405f), Y(0.14f), r * 0.022f, fill)
         canvas.drawCircle(X(0.405f), Y(0.30f), r * 0.022f, fill)
-        write(canvas, "%02d".format(t.minute), X(0.44f), Y(0.33f), ts, white, bold, Paint.Align.LEFT)
+        SquareDigits.draw(canvas, "%02d".format(t.minute), X(0.44f), Y(0.33f) - dH, dW, dH, dT, r * 0.035f, white, alignRight = false)
         if (!ambient) {
             fill.color = Color.rgb(16, 16, 17)
             canvas.drawRect(X(0.42f), Y(0.36f), X(0.70f), Y(0.475f), fill)
-            write(canvas, "%02d".format(t.second), X(0.66f), Y(0.46f), r * 0.12f, white, bold, Paint.Align.RIGHT)
+            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.67f), Y(0.462f) - r * 0.095f, r * 0.068f, r * 0.095f, r * 0.02f, r * 0.018f, white, alignRight = true)
         }
 
         // ===== Mes y días de la semana =====
@@ -525,6 +561,11 @@ class HybridRenderer(
         stroke.strokeCap = Paint.Cap.ROUND
         // Fecha a las 3
         val box = RectF(x + rad * 0.27f, y - rad * 0.17f, x + rad * 0.78f, y + rad * 0.17f)
+        // Recuadro con margen: un filo blanco por fuera, un hueco oscuro y la ventana blanca
+        stroke.color = Color.rgb(230, 230, 230)
+        stroke.strokeWidth = r * 0.006f
+        val m = rad * 0.05f
+        canvas.drawRect(box.left - m, box.top - m, box.right + m, box.bottom + m, stroke)
         fill.color = Color.WHITE
         canvas.drawRect(box, fill)
         write(canvas, "${t.dayOfMonth}", box.centerX(), box.centerY() + rad * 0.10f, rad * 0.27f, Color.BLACK, bold, Paint.Align.CENTER)
@@ -627,6 +668,24 @@ class HybridRenderer(
             canvas.drawArc(RectF(x - rr, y - rr, x + rr, y + rr), -50f, 40f, false, stroke)
             canvas.drawArc(RectF(x - rr, y - rr, x + rr, y + rr), 190f, 40f, false, stroke)
         }
+    }
+
+    // Ícono del clima (se carga una vez por cada dato nuevo)
+    private var wIconKey: Any? = null
+    private var wIconDrawable: android.graphics.drawable.Drawable? = null
+
+    private fun weatherIcon(): android.graphics.drawable.Drawable? {
+        val d = complications.complicationSlots[WEATHER]?.complicationData?.value
+        val icon = when (d) {
+            is androidx.wear.watchface.complications.data.ShortTextComplicationData -> d.monochromaticImage?.image ?: d.smallImage?.image
+            is androidx.wear.watchface.complications.data.RangedValueComplicationData -> d.monochromaticImage?.image ?: d.smallImage?.image
+            else -> null
+        }
+        if (icon !== wIconKey) {
+            wIconKey = icon
+            wIconDrawable = runCatching { icon?.loadDrawable(context)?.mutate() }.getOrNull()
+        }
+        return wIconDrawable
     }
 
     override fun renderHighlightLayer(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: HybridAssets) {
