@@ -1072,9 +1072,8 @@ export default function MusicPlayerBar() {
       const native = isNativeApp()
       const fullList = native && nativeListPrefetch()
       // Apps antiguas guardan solo 3 comienzos: ahí se siguen preparando solo los 2 próximos
-      // En el navegador cada tema preparado es un pedido al servidor (Vercel cobra por uso): solo
-      // los 2 próximos. En la app lo hace el teléfono, sin gastar servidor: la lista entera.
-      const limit = !native || !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
+      // Como antes de la pausa de Vercel (plan Pro): en el navegador también se prepara la lista
+      const limit = native && !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
       const offline = useOfflineStore.getState().items
       const items = listKey.split(',').slice(0, limit)
       for (let i = 0; i < items.length; i++) {
