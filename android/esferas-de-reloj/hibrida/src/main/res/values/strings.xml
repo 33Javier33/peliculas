@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Pulso Híbrida</string>
+    <string name="face_name">Pulso Híbrida</string>
+    <string name="editor_title">Personalizar Pulso Híbrida</string>
+    <string name="done">Listo</string>
+</resources>

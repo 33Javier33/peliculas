@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'hibrida',
+    name: 'Pulso Híbrida',
+    file: 'Esfera-Hibrida.apk',
+    description:
+      'Agujas y digital a la vez: escala de minutos en el borde, clima, pasos con distancia y meta, próximo evento (y un mini reproductor cuando suena PulsoMusic o PulsoMedia), reloj de agujas con fecha y alarma, hora grande con segundos, mes y días de la semana, batería y ritmo cardíaco con su zona.',
+    features: ['Híbrida', 'Mini reproductor', 'Clima', 'Pasos', 'Eventos', 'Ritmo cardíaco', '6 colores', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-18',
+  },
+  {
     id: 'lumina',
     name: 'Lumina',
     file: 'Esfera-Lumina.apk',
@@ -244,6 +253,19 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 2,
     long: 'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más). Fecha en letras de segmentos con año, ALM, SIG y DST que se encienden de verdad (alarma puesta, conexión y horario de verano), caja de batería con forma de pila, hora grande con segundos y celdas de ritmo cardíaco y pasos.',
     customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', 'Bajo consumo: esfera completa tenue o mínima', ...COMMON],
+  },
+  hibrida: {
+    gallery: 3,
+    long: 'Una esfera híbrida: un reloj de agujas con fecha y campana de alarma junto a la hora digital grande con segundos. Arriba, el clima y los pasos con la distancia y la meta en 5 tramos de color. Donde va el próximo evento del calendario aparece un mini reproductor cuando suena PulsoMusic o PulsoMedia en el teléfono: título, artista, barra de avance y botones ◄ ►‖ ►|. Abajo, el mes, los días de la semana (el de hoy marcado), la batería y el ritmo cardíaco con su zona (bajo, normal o alto).',
+    customize: [
+      '6 colores: naranja y cian, verde, azul, rojo, violeta y blanco',
+      'Meta de pasos: 6.000, 8.000, 10.000, 12.000 o 15.000',
+      'Mini reproductor al sonar PulsoMusic, o solo eventos',
+      'Segundero suave o por segundos',
+      'Bajo consumo: esfera completa tenue o mínima',
+      'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
   },
   lumina: {
     gallery: 3,

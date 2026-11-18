@@ -11,6 +11,7 @@ import android.hardware.SensorManager
 import androidx.wear.watchface.ComplicationSlotsManager
 import androidx.wear.watchface.complications.data.RangedValueComplicationData
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
+import androidx.wear.watchface.complications.data.LongTextComplicationData
 import java.time.Instant
 
 /** Ritmo cardíaco del sensor del reloj (con el permiso dado en Personalizar), solo mientras se mira la esfera */
@@ -49,6 +50,19 @@ fun ComplicationSlotsManager.textOf(id: Int, res: Resources): String? {
     val t = when (d) {
         is ShortTextComplicationData -> d.text.getTextAt(res, Instant.now())
         is RangedValueComplicationData -> d.text?.getTextAt(res, Instant.now()) ?: d.value.toInt().toString()
+        is LongTextComplicationData -> d.text.getTextAt(res, Instant.now())
+        else -> null
+    }
+    return t?.toString()?.takeIf { it.isNotBlank() }
+}
+
+/** Título del dato (por ejemplo, el estado del clima o la hora del evento), si lo trae */
+fun ComplicationSlotsManager.titleOf(id: Int, res: Resources): String? {
+    val d = complicationSlots[id]?.complicationData?.value ?: return null
+    val t = when (d) {
+        is ShortTextComplicationData -> d.title?.getTextAt(res, Instant.now())
+        is LongTextComplicationData -> d.title?.getTextAt(res, Instant.now())
+        is RangedValueComplicationData -> d.title?.getTextAt(res, Instant.now())
         else -> null
     }
     return t?.toString()?.takeIf { it.isNotBlank() }
