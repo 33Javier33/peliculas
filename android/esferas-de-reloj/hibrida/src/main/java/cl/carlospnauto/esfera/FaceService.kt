@@ -475,7 +475,7 @@ class HybridRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         // Números cuadrados con las esquinas redondeadas, como los de la foto
         // Como en la foto: la hora grande y los minutos más chicos, alineados arriba
-        SquareDigits.draw(canvas, h, X(0.37f), Y(0.055f), r * 0.175f, r * 0.30f, r * 0.052f, r * 0.03f, white, alignRight = true)
+        SquareDigits.draw(canvas, h, X(0.358f), Y(0.055f), r * 0.175f, r * 0.30f, r * 0.052f, r * 0.03f, white, alignRight = true)
         // Dos puntos redondos
         fill.color = white
         canvas.drawCircle(X(0.40f), Y(0.165f), r * 0.024f, fill)

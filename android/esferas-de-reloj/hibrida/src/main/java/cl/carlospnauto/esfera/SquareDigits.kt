@@ -12,7 +12,7 @@ import android.graphics.Path
 object SquareDigits {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.BUTT
+        strokeCap = Paint.Cap.SQUARE
         strokeJoin = Paint.Join.MITER
     }
     private val path = Path()
