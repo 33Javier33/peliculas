@@ -441,8 +441,8 @@ class HybridRenderer(
         write(canvas, "%02d".format(t.minute), X(0.44f), Y(0.33f), ts, white, bold, Paint.Align.LEFT)
         if (!ambient) {
             fill.color = Color.rgb(16, 16, 17)
-            canvas.drawRect(X(0.50f), Y(0.36f), X(0.80f), Y(0.475f), fill)
-            write(canvas, "%02d".format(t.second), X(0.78f), Y(0.46f), r * 0.12f, white, bold, Paint.Align.RIGHT)
+            canvas.drawRect(X(0.42f), Y(0.36f), X(0.70f), Y(0.475f), fill)
+            write(canvas, "%02d".format(t.second), X(0.66f), Y(0.46f), r * 0.12f, white, bold, Paint.Align.RIGHT)
         }
 
         // ===== Mes y días de la semana =====
