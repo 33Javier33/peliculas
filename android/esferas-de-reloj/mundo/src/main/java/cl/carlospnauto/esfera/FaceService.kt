@@ -367,7 +367,23 @@ class WorldRenderer(
         val tBox = RectF(X(-0.82f), Y(-0.355f), X(0.14f), Y(-0.11f))
         lcd(canvas, tBox, r, sc, false)
         val sec = if (ambient) "  " else "%02d".format(t.second)
-        Lcd.number(canvas, "$h:${"%02d".format(t.minute)}:$sec", X(0.115f), Y(-0.33f), r * 0.10f, r * 0.19f, r * 0.04f, 6, ink, ghost)
+        // En pares (HH · MM · SS), como en la foto: juntos dentro del par y más aire en los dos puntos
+        val dw = r * 0.095f
+        val dh = r * 0.19f
+        val inGap = r * 0.024f
+        val colonGap = r * 0.066f
+        val total = 3 * (2 * dw + inGap) + 2 * colonGap
+        var dx = tBox.centerX() - total / 2
+        val dy = Y(-0.33f)
+        for ((i, pair) in listOf(h, "%02d".format(t.minute), sec).withIndex()) {
+            Lcd.digit(canvas, pair[0], dx, dy, dw, dh, ink, ghost)
+            Lcd.digit(canvas, pair[1], dx + dw + inGap, dy, dw, dh, ink, ghost)
+            dx += 2 * dw + inGap
+            if (i < 2) {
+                if (i == 0 || !ambient) Lcd.colon(canvas, dx + colonGap / 2, dy, dh, r * 0.016f, ink)
+                dx += colonGap
+            }
+        }
         // Fecha: DÍA-DD-MES
         val dBox = RectF(X(0.21f), Y(-0.35f), X(0.78f), Y(-0.19f))
         lcd(canvas, dBox, r, sc, false)
