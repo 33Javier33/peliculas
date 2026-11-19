@@ -93,7 +93,7 @@ private val PALETTE = listOf(
     Color.rgb(206, 208, 212) to Color.rgb(22, 22, 26),
 )
 private val THEME = Choice("tema", "Tema", THEMES)
-private val AOD = Choice("aod", "Pantalla siempre activa", listOf("Bajo consumo" to 0, "Completa" to 1))
+private val AOD = Choice("aod2", "Pantalla siempre activa", listOf("Completa (los segundos se pausan)" to 0, "Mínima (solo hora y fecha)" to 1))
 /** Reproductor en el recuadro del evento cuando suena PulsoMusic o PulsoMedia */
 private val PLAYER = Choice("reproductor", "Reproductor (en el evento)", listOf("Al sonar PulsoMusic" to 0, "Apagado" to 1))
 
@@ -265,7 +265,7 @@ class ClassicRenderer(
         val r = min(bounds.width(), bounds.height()) / 2f
         val t = zonedDateTime
         val (bg, ink) = if (ambient) Color.BLACK to Color.rgb(200, 200, 200) else PALETTE[Choices.index(context, THEME)]
-        val lowPower = ambient && Choices.value(context, AOD) == 0
+        val lowPower = ambient && Choices.value(context, AOD) == 1
         val loc = Locale.getDefault()
         val is24 = DateFormat.is24HourFormat(context)
         canvas.drawColor(Color.BLACK)
@@ -291,12 +291,12 @@ class ClassicRenderer(
             }
         }
 
-        // Marcas: rayitas cada minuto y triángulos cada 5
+        // Marcas: triángulos cada 5, rayitas largas cada minuto y cortas cada medio minuto (como la foto)
         if (!lowPower) {
-            for (i in 0 until 60) {
+            for (i in 0 until 120) {
                 canvas.save()
-                canvas.rotate(i * 6f, cx, cy)
-                if (i % 5 == 0) {
+                canvas.rotate(i * 3f, cx, cy)
+                if (i % 10 == 0) {
                     fill.color = ink
                     path.reset()
                     path.moveTo(cx - r * 0.025f, cy - r * 0.975f)
@@ -304,10 +304,11 @@ class ClassicRenderer(
                     path.lineTo(cx, cy - r * 0.905f)
                     path.close()
                     canvas.drawPath(path, fill)
-                } else if (!ambient) {
+                } else {
+                    val minute = i % 2 == 0
                     stroke.color = ink
-                    stroke.strokeWidth = r * 0.008f
-                    canvas.drawLine(cx, cy - r * 0.975f, cx, cy - r * (if (i % 5 == 0) 0.90f else 0.93f), stroke)
+                    stroke.strokeWidth = r * (if (minute) 0.009f else 0.006f)
+                    canvas.drawLine(cx, cy - r * 0.975f, cx, cy - r * (if (minute) 0.925f else 0.948f), stroke)
                 }
                 canvas.restore()
             }
@@ -315,8 +316,9 @@ class ClassicRenderer(
 
         // Hora (con segundos fuera del modo de bajo consumo)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
-        val groups = if (ambient) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), "%02d".format(t.second))
-        time.textSize = r * (if (ambient) 0.52f else 0.44f)
+        // Los segundos siempre se ven; con la pantalla siempre activa quedan quietos (menos en la mínima)
+        val groups = if (lowPower) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), "%02d".format(t.second))
+        time.textSize = r * (if (lowPower) 0.52f else 0.44f)
         time.color = ink
         if (lowPower) {
             time.style = Paint.Style.STROKE
@@ -330,8 +332,19 @@ class ClassicRenderer(
         var gx = cx - totalW / 2
         val base = cy + r * 0.15f
         val capTop = base - time.textSize * 0.72f
+        val charW = time.measureText("0")
         for ((i, g) in groups.withIndex()) {
             canvas.drawText(g, gx, base, time)
+            // El cero lleva una raya diagonal adentro, como en la foto
+            for ((ci, ch) in g.withIndex()) {
+                if (ch != '0') continue
+                val zx = gx + ci * charW
+                stroke.color = ink
+                stroke.strokeWidth = time.textSize * 0.06f
+                stroke.strokeCap = Paint.Cap.BUTT
+                canvas.drawLine(zx + charW * 0.36f, base - (base - capTop) * 0.24f, zx + charW * 0.64f, base - (base - capTop) * 0.76f, stroke)
+                stroke.strokeCap = Paint.Cap.ROUND
+            }
             gx += gw[i]
             if (i < groups.size - 1) {
                 fill.color = ink
@@ -400,8 +413,6 @@ class ClassicRenderer(
         stroke.color = Color.argb(70, Color.red(ink), Color.green(ink), Color.blue(ink))
         stroke.strokeWidth = r * 0.006f
         canvas.drawLine(cx - r * 0.5f, cy - r * 0.42f, cx + r * 0.5f, cy - r * 0.42f, stroke)
-
-        if (ambient) return
 
         // Marca
         Brand.draw(canvas, cx, cy + r * 0.215f, r * 0.03f, Color.argb(130, Color.red(ink), Color.green(ink), Color.blue(ink)))

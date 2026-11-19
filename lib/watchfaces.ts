@@ -234,7 +234,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   clasica: {
     gallery: 3,
     long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos. Cuando suena PulsoMusic o PulsoMedia, el recuadro del evento muestra la canción con su avance y los botones ◄◄ ►‖ ►|.',
-    customize: ['16 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste, azul eléctrico, morado, menta, naranja, rosa, petróleo, café, gris perla)', 'Reproductor en el evento al sonar PulsoMusic, o apagado', 'Pantalla siempre activa de bajo consumo o completa', 'Segundero suave o por segundos', ...COMMON],
+    customize: ['16 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste, azul eléctrico, morado, menta, naranja, rosa, petróleo, café, gris perla)', 'Reproductor en el evento al sonar PulsoMusic, o apagado', 'Pantalla siempre activa completa (los segundos quedan quietos) o mínima', 'Segundero suave o por segundos', ...COMMON],
   },
   retro: {
     gallery: 3,
