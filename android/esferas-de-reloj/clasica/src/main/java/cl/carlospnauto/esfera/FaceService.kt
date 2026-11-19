@@ -319,48 +319,29 @@ class ClassicRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         // Los segundos siempre se ven; con la pantalla siempre activa quedan quietos (menos en la mínima)
         val groups = if (lowPower) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), "%02d".format(t.second))
-        time.textSize = r * (if (lowPower) 0.52f else 0.44f)
-        time.color = ink
-        if (lowPower) {
-            time.style = Paint.Style.STROKE
-            time.strokeWidth = r * 0.008f
-        }
-        // Los grupos (hora, minutos, segundos) separados por dos rayitas cuadradas, como el reloj original
-        time.textAlign = Paint.Align.LEFT
-        val gw = groups.map { time.measureText(it) }
-        val sep = time.textSize * 0.42f
+        // Los grupos (hora, minutos, segundos) con números de trazo delgado (dibujados a mano) y dos
+        // rayitas cuadradas entre ellos, como el reloj original
+        val dh = r * (if (lowPower) 0.36f else 0.31f)
+        val gw = groups.map { ThinDigits.width(it, dh) }
+        val sep = dh * 0.40f
         val totalW = gw.sum() + sep * (groups.size - 1)
         var gx = cx - totalW / 2
         val base = cy + r * 0.15f
-        val capTop = base - time.textSize * 0.72f
-        val charW = time.measureText("0")
+        val capTop = base - dh
         for ((i, g) in groups.withIndex()) {
-            canvas.drawText(g, gx, base, time)
-            // El cero lleva una raya diagonal adentro, como en la foto
-            for ((ci, ch) in g.withIndex()) {
-                if (ch != '0') continue
-                val zx = gx + ci * charW
-                stroke.color = ink
-                stroke.strokeWidth = time.textSize * 0.06f
-                stroke.strokeCap = Paint.Cap.BUTT
-                canvas.drawLine(zx + charW * 0.36f, base - (base - capTop) * 0.24f, zx + charW * 0.64f, base - (base - capTop) * 0.76f, stroke)
-                stroke.strokeCap = Paint.Cap.ROUND
-            }
+            ThinDigits.draw(canvas, g, gx, capTop, dh, ink)
             gx += gw[i]
             if (i < groups.size - 1) {
                 fill.color = ink
-                val q = time.textSize * 0.075f
+                val q = dh * 0.05f
                 val mx = gx + sep / 2
                 for (k in listOf(0.30f, 0.72f)) {
-                    val my = capTop + (base - capTop) * k
-                    if (lowPower) canvas.drawRect(mx - q, my - q, mx + q, my + q, stroke.apply { color = ink; strokeWidth = r * 0.006f })
-                    else canvas.drawRect(mx - q, my - q, mx + q, my + q, fill)
+                    val my = capTop + dh * k
+                    canvas.drawRect(mx - q, my - q, mx + q, my + q, fill)
                 }
                 gx += sep
             }
         }
-        time.textAlign = Paint.Align.CENTER
-        time.style = Paint.Style.FILL
 
         // Fecha: SÁBADO MAR [28] [AM]
         val day = t.dayOfWeek.getDisplayName(TextStyle.FULL, loc).uppercase(loc)
