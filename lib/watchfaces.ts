@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'mundo',
+    name: 'LCD Mundo',
+    file: 'Esfera-Mundo.apk',
+    description:
+      'Pantallitas de cristal líquido: clima, próximo evento con la fase de la luna, hora con segundos, fecha, mapa del mundo con la noche según la hora, reloj de agujas, pasos, ritmo cardíaco y batería. Toca el reloj de agujas y se abre el reproductor de lo que suena en PulsoMusic o PulsoMedia.',
+    features: ['Digital', 'LCD', 'Mapa mundial', 'Fase lunar', 'Reproductor', '7 colores', 'Ritmo cardíaco', 'Pasos', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-19',
+  },
+  {
     id: 'hibrida',
     name: 'Pulso Híbrida',
     file: 'Esfera-Hibrida.apk',
@@ -253,6 +262,19 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 2,
     long: 'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más). Fecha en letras de segmentos con año, ALM, SIG y DST que se encienden de verdad (alarma puesta, conexión y horario de verano), caja de batería con forma de pila, hora grande con segundos y celdas de ritmo cardíaco y pasos.',
     customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', 'Bajo consumo: esfera completa tenue o mínima', ...COMMON],
+  },
+  mundo: {
+    gallery: 3,
+    long: 'Una esfera de pantallitas de cristal líquido: arriba el clima con su ícono y dos accesos (PulsoMedia y PulsoMusic, o lo que elijas), el próximo evento del calendario con la fase de la luna, la hora con segundos sobre sus «8» apagados, la fecha (día, número y mes), un mapa del mundo con la sombra de la noche según la hora y un reloj de agujas. Abajo, los pasos, el ritmo cardíaco y la batería. Toca el reloj de agujas: se abre un reproductor con la hora, la canción que suena en PulsoMusic o PulsoMedia, su avance y los botones ◄◄ ►‖ ►►; toca fuera de los botones para volver.',
+    customize: [
+      '7 colores de pantalla: gris, amarillo, crema, lavanda, lima, celeste y menta',
+      'Fondo: negro, gris oscuro o grafito',
+      'Accesos de arriba visibles u ocultos',
+      'Mapa con la noche (hora mundial) o solo el mapa',
+      'Bajo consumo: esfera completa tenue o mínima',
+      'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
   },
   hibrida: {
     gallery: 3,
