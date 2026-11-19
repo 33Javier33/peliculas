@@ -91,8 +91,8 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Clásica',
     file: 'Esfera-Clasica.apk',
     description:
-      'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora grande con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. 8 temas y pantalla siempre activa de bajo consumo.',
-    features: ['Digital', '8 temas', 'Bajo consumo', 'Clima', 'Eventos', 'Hora mundial', 'PulsoMedia', 'PulsoMusic'],
+      'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora grande con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Reproductor de PulsoMusic y PulsoMedia en el recuadro del evento. 16 temas y pantalla siempre activa de bajo consumo.',
+    features: ['Digital', '16 temas', 'Reproductor', 'Bajo consumo', 'Clima', 'Eventos', 'Hora mundial', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-13',
   },
   {
@@ -233,8 +233,8 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   },
   clasica: {
     gallery: 3,
-    long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos.',
-    customize: ['8 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste)', 'Pantalla siempre activa de bajo consumo o completa', 'Segundero suave o por segundos', ...COMMON],
+    long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos. Cuando suena PulsoMusic o PulsoMedia, el recuadro del evento muestra la canción con su avance y los botones ◄◄ ►‖ ►|.',
+    customize: ['16 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste, azul eléctrico, morado, menta, naranja, rosa, petróleo, café, gris perla)', 'Reproductor en el evento al sonar PulsoMusic, o apagado', 'Pantalla siempre activa de bajo consumo o completa', 'Segundero suave o por segundos', ...COMMON],
   },
   retro: {
     gallery: 3,

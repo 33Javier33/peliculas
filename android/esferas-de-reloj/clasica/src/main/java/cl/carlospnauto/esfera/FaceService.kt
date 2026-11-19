@@ -42,6 +42,7 @@ import cl.carlospnauto.esfera.comun.Choice
 import cl.carlospnauto.esfera.comun.Choices
 import cl.carlospnauto.esfera.comun.FaceConfig
 import cl.carlospnauto.esfera.comun.HeartRate
+import cl.carlospnauto.esfera.comun.PhoneNow
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import kotlinx.coroutines.CoroutineScope
@@ -66,10 +67,12 @@ private const val WORLD = 106
 private const val HEART = 107
 private const val STEPS = 108
 
-/** 8 temas: fondo y tinta (el número del día va en una caja de tinta) */
+/** 16 temas: fondo y tinta (el número del día va en una caja de tinta) */
 private val THEMES = listOf(
     "Negro" to 0, "Blanco" to 1, "Grafito" to 2, "Azul noche" to 3,
     "Verde militar" to 4, "Arena" to 5, "Rojo vino" to 6, "Celeste" to 7,
+    "Azul eléctrico" to 8, "Morado" to 9, "Menta" to 10, "Naranja" to 11,
+    "Rosa" to 12, "Petróleo" to 13, "Café" to 14, "Gris perla" to 15,
 )
 private val PALETTE = listOf(
     Color.BLACK to Color.rgb(242, 242, 242),
@@ -80,9 +83,19 @@ private val PALETTE = listOf(
     Color.rgb(230, 220, 198) to Color.rgb(42, 36, 24),
     Color.rgb(74, 14, 22) to Color.rgb(247, 233, 234),
     Color.rgb(220, 235, 245) to Color.rgb(14, 34, 53),
+    Color.rgb(10, 50, 140) to Color.rgb(235, 242, 255),
+    Color.rgb(46, 18, 70) to Color.rgb(240, 228, 255),
+    Color.rgb(205, 240, 222) to Color.rgb(14, 58, 38),
+    Color.rgb(196, 86, 20) to Color.rgb(255, 240, 225),
+    Color.rgb(250, 222, 232) to Color.rgb(86, 20, 44),
+    Color.rgb(8, 52, 60) to Color.rgb(222, 246, 246),
+    Color.rgb(52, 34, 22) to Color.rgb(242, 226, 204),
+    Color.rgb(206, 208, 212) to Color.rgb(22, 22, 26),
 )
 private val THEME = Choice("tema", "Tema", THEMES)
 private val AOD = Choice("aod", "Pantalla siempre activa", listOf("Bajo consumo" to 0, "Completa" to 1))
+/** Reproductor en el recuadro del evento cuando suena PulsoMusic o PulsoMedia */
+private val PLAYER = Choice("reproductor", "Reproductor (en el evento)", listOf("Al sonar PulsoMusic" to 0, "Apagado" to 1))
 
 object Config : FaceConfig {
     override val slots = listOf(
@@ -94,7 +107,7 @@ object Config : FaceConfig {
         Spot(0.50f, 0.0f, Action.MUSIC, "Toque en los segundos", hit = 0.22f),
         Spot(0f, 0.79f, Action.BATTERY, "Toque en la batería", hit = 0.11f),
     )
-    override val choices = listOf(THEME, AOD, Smooth.CHOICE)
+    override val choices = listOf(THEME, AOD, PLAYER, Smooth.CHOICE)
     override val heartRate = true
 }
 
@@ -115,9 +128,9 @@ class FaceService : WatchFaceService() {
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, types, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
             // El clima (humedad, estado, UV, temperaturas) lo dan Samsung o Google: se elige en Personalizar
-            slot(HUMIDITY, short, none, RectF(0.29f, 0.08f, 0.41f, 0.20f)),
-            slot(WEATHER, short, none, RectF(0.44f, 0.08f, 0.56f, 0.20f)),
-            slot(UV, short, none, RectF(0.58f, 0.08f, 0.70f, 0.20f)),
+            slot(HUMIDITY, short, none, RectF(0.245f, 0.065f, 0.415f, 0.215f)),
+            slot(WEATHER, short, none, RectF(0.415f, 0.05f, 0.585f, 0.21f)),
+            slot(UV, short, none, RectF(0.585f, 0.065f, 0.755f, 0.215f)),
             slot(TEMP, listOf(ComplicationType.RANGED_VALUE, ComplicationType.SHORT_TEXT), none, RectF(0.25f, 0.21f, 0.75f, 0.27f)),
             slot(EVENT, listOf(ComplicationType.LONG_TEXT, ComplicationType.SHORT_TEXT), DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_NEXT_EVENT, ComplicationType.LONG_TEXT), RectF(0.21f, 0.625f, 0.79f, 0.685f)),
             slot(WORLD, listOf(ComplicationType.SHORT_TEXT), DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_WORLD_CLOCK, ComplicationType.SHORT_TEXT), RectF(0.24f, 0.70f, 0.36f, 0.81f)),
@@ -136,7 +149,10 @@ class FaceService : WatchFaceService() {
         val renderer = ClassicRenderer(this, surfaceHolder, watchState, complicationSlotsManager, currentUserStyleRepository)
         return WatchFace(WatchFaceType.DIGITAL, renderer).setTapListener(object : WatchFace.TapListener {
             override fun onTapEvent(tapType: Int, tapEvent: TapEvent, complicationSlot: ComplicationSlot?) {
-                if (tapType != TapType.UP || complicationSlot != null) return
+                if (tapType != TapType.UP) return
+                // Reproductor: ◄◄ a la izquierda, ►‖ y ►| a la derecha del recuadro del evento
+                if (renderer.playerTap(tapEvent.xPos, tapEvent.yPos)) return
+                if (complicationSlot != null) return
                 val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
                 if (i >= 0) Shortcuts.open(this@FaceService, i, Config.spots[i])
             }
@@ -177,14 +193,41 @@ class ClassicRenderer(
     var lastBounds = Rect()
         private set
 
+    private val redraw: () -> Unit = { invalidate() }
+
     init {
         scope.launch {
             watchState.isAmbient.combine(watchState.isVisible) { ambient, visible -> ambient != true && visible == true }
                 .collect { heart.update(it) }
         }
+        PhoneNow.start(context, redraw)
+    }
+
+    private fun playerOn() = Choices.value(context, PLAYER) == 0
+
+    /** Toques en los botones del reproductor (solo cuando suena algo) */
+    fun playerTap(x: Int, y: Int): Boolean {
+        if (!playerOn()) return false
+        val s = PhoneNow.current() ?: return false
+        val b = lastBounds
+        if (b.isEmpty) return false
+        val r = min(b.width(), b.height()) / 2f
+        val fx = (x - b.exactCenterX()) / r
+        val fy = (y - b.exactCenterY()) / r
+        if (fy !in 0.22f..0.40f) return false
+        val a = when {
+            fx in -0.80f..-0.60f -> "prev"
+            fx in 0.60f..0.745f -> if (s.playing) "pause" else "play"
+            fx in 0.745f..0.90f -> "next"
+            else -> return false
+        }
+        PhoneNow.command(context, a)
+        invalidate()
+        return true
     }
 
     override fun onDestroy() {
+        PhoneNow.stop(context, redraw)
         heart.stop()
         scope.cancel()
         super.onDestroy()
@@ -233,6 +276,11 @@ class ClassicRenderer(
         for ((_, slot) in complications.complicationSlots) {
             val d = (slot.renderer as? CanvasComplicationDrawable)?.drawable ?: continue
             for (s in listOf(d.activeStyle, d.ambientStyle)) {
+                val ts = r * 0.075f
+                if (s.textSize != ts.toInt()) {
+                    s.textSize = ts.toInt()
+                    s.titleSize = (r * 0.06f).toInt()
+                }
                 if (s.textColor != ink) {
                     s.textColor = ink
                     s.titleColor = ink
@@ -267,14 +315,37 @@ class ClassicRenderer(
 
         // Hora (con segundos fuera del modo de bajo consumo)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
-        val clock = if (ambient) "$h:%02d".format(t.minute) else "$h:%02d:%02d".format(t.minute, t.second)
-        time.textSize = r * (if (ambient) 0.50f else 0.42f)
+        val groups = if (ambient) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), "%02d".format(t.second))
+        time.textSize = r * (if (ambient) 0.52f else 0.44f)
         time.color = ink
         if (lowPower) {
             time.style = Paint.Style.STROKE
             time.strokeWidth = r * 0.008f
         }
-        canvas.drawText(clock, cx, cy + r * 0.15f, time)
+        // Los grupos (hora, minutos, segundos) separados por dos rayitas cuadradas, como el reloj original
+        time.textAlign = Paint.Align.LEFT
+        val gw = groups.map { time.measureText(it) }
+        val sep = time.textSize * 0.42f
+        val totalW = gw.sum() + sep * (groups.size - 1)
+        var gx = cx - totalW / 2
+        val base = cy + r * 0.15f
+        val capTop = base - time.textSize * 0.72f
+        for ((i, g) in groups.withIndex()) {
+            canvas.drawText(g, gx, base, time)
+            gx += gw[i]
+            if (i < groups.size - 1) {
+                fill.color = ink
+                val q = time.textSize * 0.075f
+                val mx = gx + sep / 2
+                for (k in listOf(0.30f, 0.72f)) {
+                    val my = capTop + (base - capTop) * k
+                    if (lowPower) canvas.drawRect(mx - q, my - q, mx + q, my + q, stroke.apply { color = ink; strokeWidth = r * 0.006f })
+                    else canvas.drawRect(mx - q, my - q, mx + q, my + q, fill)
+                }
+                gx += sep
+            }
+        }
+        time.textAlign = Paint.Align.CENTER
         time.style = Paint.Style.FILL
 
         // Fecha: SÁBADO MAR [28] [AM]
@@ -304,13 +375,13 @@ class ClassicRenderer(
         // Arriba: humedad, clima y UV (o lo que elijas); sin dato, el ícono con «--»
         text.textSize = r * 0.07f
         if (empty(HUMIDITY)) {
-            drawDrop(canvas, cx - r * 0.30f, cy - r * 0.77f, r * 0.035f, ink)
-            canvas.drawText("--%", cx - r * 0.30f, cy - r * 0.64f, text)
+            drawDrop(canvas, cx - r * 0.33f, cy - r * 0.77f, r * 0.05f, ink)
+            canvas.drawText("--%", cx - r * 0.33f, cy - r * 0.62f, text)
         }
-        if (empty(WEATHER)) drawSun(canvas, cx, cy - r * 0.72f, r * 0.045f, ink)
+        if (empty(WEATHER)) drawSun(canvas, cx, cy - r * 0.74f, r * 0.065f, ink)
         if (empty(UV)) {
-            canvas.drawText("UV", cx + r * 0.28f, cy - r * 0.74f, text)
-            canvas.drawText("--", cx + r * 0.28f, cy - r * 0.64f, text)
+            canvas.drawText("UV", cx + r * 0.33f, cy - r * 0.74f, text)
+            canvas.drawText("--", cx + r * 0.33f, cy - r * 0.62f, text)
         }
 
         // Temperaturas: mín ▼ actual ▲ máx
@@ -341,10 +412,28 @@ class ClassicRenderer(
         stroke.strokeWidth = r * 0.01f
         canvas.drawRoundRect(ev, r * 0.025f, r * 0.025f, stroke)
         text.textSize = r * 0.07f
-        val event = textOf(EVENT) ?: "SIN EVENTOS"
-        canvas.drawText(event.uppercase(loc).take(26), cx, cy + r * 0.335f, text)
-        drawCalendar(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.04f, t.dayOfMonth, ink, bg)
-        drawMoon(canvas, cx + r * 0.69f, cy + r * 0.31f, r * 0.045f, t, ink, bg)
+        val music = if (playerOn()) PhoneNow.current() else null
+        if (music != null) {
+            // Lo que suena en PulsoMusic / PulsoMedia, con ◄◄ a la izquierda y ►‖ ►| a la derecha
+            val song = if (music.artist.isBlank()) music.title else "${music.title} · ${music.artist}"
+            text.textScaleX = 1f
+            var line = "♪ " + song.uppercase(loc)
+            while (line.length > 4 && text.measureText(line) > r * 1.06f) line = line.dropLast(2) + "…"
+            canvas.drawText(line, cx, cy + r * 0.335f, text)
+            val p = if (music.durationMs > 0) (music.position().toFloat() / music.durationMs).coerceIn(0f, 1f) else 0f
+            if (p > 0f) {
+                fill.color = ink
+                canvas.drawRect(ev.left + r * 0.03f, ev.bottom - r * 0.022f, ev.left + r * 0.03f + (ev.width() - r * 0.06f) * p, ev.bottom - r * 0.012f, fill)
+            }
+            playerIcon(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.035f, 0, music.playing, ink)
+            playerIcon(canvas, cx + r * 0.67f, cy + r * 0.31f, r * 0.035f, 1, music.playing, ink)
+            playerIcon(canvas, cx + r * 0.82f, cy + r * 0.31f, r * 0.035f, 2, music.playing, ink)
+        } else {
+            val event = textOf(EVENT) ?: "SIN EVENTOS"
+            canvas.drawText(event.uppercase(loc).take(26), cx, cy + r * 0.335f, text)
+            drawCalendar(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.04f, t.dayOfMonth, ink, bg)
+            drawMoon(canvas, cx + r * 0.69f, cy + r * 0.31f, r * 0.045f, t, ink, bg)
+        }
 
         // Hora mundial, ritmo y pasos
         val world = textOf(WORLD) ?: "--"
@@ -402,6 +491,30 @@ class ClassicRenderer(
             path.moveTo(x - s, y + s * 0.6f); path.lineTo(x + s, y + s * 0.6f); path.lineTo(x, y - s * 0.8f)
         }
         path.close()
+        canvas.drawPath(path, fill)
+    }
+
+    /** Botones del reproductor: 0 = ◄◄, 1 = ►/‖, 2 = ►| */
+    private fun playerIcon(canvas: Canvas, x: Float, y: Float, s: Float, kind: Int, playing: Boolean, color: Int) {
+        fill.color = color
+        path.reset()
+        when (kind) {
+            0 -> {
+                path.moveTo(x, y - s); path.lineTo(x - s * 1.2f, y); path.lineTo(x, y + s); path.close()
+                path.moveTo(x + s * 1.2f, y - s); path.lineTo(x, y); path.lineTo(x + s * 1.2f, y + s); path.close()
+            }
+            1 -> if (playing) {
+                canvas.drawRect(x - s * 0.8f, y - s, x - s * 0.25f, y + s, fill)
+                canvas.drawRect(x + s * 0.25f, y - s, x + s * 0.8f, y + s, fill)
+                return
+            } else {
+                path.moveTo(x - s * 0.7f, y - s * 1.1f); path.lineTo(x + s, y); path.lineTo(x - s * 0.7f, y + s * 1.1f); path.close()
+            }
+            else -> {
+                path.moveTo(x - s, y - s); path.lineTo(x + s * 0.5f, y); path.lineTo(x - s, y + s); path.close()
+                canvas.drawRect(x + s * 0.55f, y - s, x + s * 0.9f, y + s, fill)
+            }
+        }
         canvas.drawPath(path, fill)
     }
 
