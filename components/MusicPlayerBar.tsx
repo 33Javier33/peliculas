@@ -71,6 +71,16 @@ let audioDownUntil = 0
 /** ¿Las fuentes de audio están fallando todas ahora? */
 const audioSourcesDown = () => Date.now() < audioDownUntil
 
+/** ¿Se puede escuchar sin internet? (descargada, guardada en el teléfono o música local) */
+function playableOffline(t: MusicVideo): boolean {
+  if (t.streamUrl || t.pending) return false
+  if (isLocalTrack(t.id)) return true
+  const items = useOfflineStore.getState().items
+  if (t.audioUrl && items[t.audioUrl]) return true
+  const yt = ytIdOf(t)
+  return !!yt && !!items[`/api/stream?id=${yt}`]
+}
+
 /** Canción convertida de YouTube (/api/stream?id=…): su id de YouTube */
 function convertedYtId(url: string): string | null {
   return url.match(/^\/api\/stream\?id=([A-Za-z0-9_-]{11})/)?.[1] ?? null
@@ -265,7 +275,12 @@ export default function MusicPlayerBar() {
   // Se decide al empezar la canción (si termina de descargarse mientras suena, no se cambia la
   // fuente: empezaría de nuevo)
   const convStartRef = useRef<{ id: string; conv: boolean }>({ id: '', conv: false })
+  const soundingNow = useMusicStore((s) => s.soundingId)
   if (queuedVideo && convStartRef.current.id !== queuedVideo.id) convStartRef.current = { id: queuedVideo.id, conv: convertedNow }
+  // Las descargas se cargan un instante después que la cola (al abrir la app): si aparece la copia
+  // antes de que la canción empiece a sonar, se usa (antes quedaba marcada sin copia y, sin
+  // internet, no sonaba aunque estuviera descargada)
+  else if (queuedVideo && convertedNow && !convStartRef.current.conv && soundingNow !== queuedVideo.id) convStartRef.current = { id: queuedVideo.id, conv: true }
   const hasConverted = convertedNow && convStartRef.current.conv
   const currentVideo = useMemo(
     () => (queuedVideo && hasConverted ? { ...queuedVideo, audioUrl: convertedKey } : queuedVideo),
@@ -822,6 +837,47 @@ export default function MusicPlayerBar() {
   const skipUnplayableRef = useRef(skipUnplayable)
   skipUnplayableRef.current = skipUnplayable
 
+  // ===== Sin conexión =====
+  // Solo suena lo que está en el teléfono (descargado, guardado o música local). Si la canción que
+  // toca no se puede escuchar sin internet, se salta a la siguiente que sí (antes intentaba cargarla
+  // de internet, luego el video, y la música quedaba detenida).
+  const [online, setOnline] = useState(true)
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null)
+  useEffect(() => {
+    const on = () => setOnline(navigator.onLine)
+    on()
+    window.addEventListener('online', on)
+    window.addEventListener('offline', on)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', on)
+    }
+  }, [])
+  const soundingForOffline = useMusicStore((s) => s.soundingId)
+  useEffect(() => {
+    if (online || !currentId || soundingForOffline === currentId) return
+    const t = setTimeout(() => {
+      if (navigator.onLine) return
+      const st = useMusicStore.getState()
+      const cur = st.queue[st.currentIndex]
+      if (!cur || cur.id !== currentId || st.soundingId === cur.id || playableOffline(cur)) return
+      const next = st.queue.findIndex((x, i) => i > st.currentIndex && playableOffline(x))
+      if (next >= 0) {
+        setOfflineNotice(`Sin conexión: suena lo descargado («${st.queue[next].title}»)`)
+        st.playIndex(next)
+      } else {
+        setOfflineNotice('Sin conexión y no quedan canciones descargadas en la cola')
+        st.setIsPlaying(false)
+      }
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [online, currentId, soundingForOffline])
+  useEffect(() => {
+    if (!offlineNotice) return
+    const t = setTimeout(() => setOfflineNotice(null), 5000)
+    return () => clearTimeout(t)
+  }, [offlineNotice])
+
   useEffect(() => {
     if (!skipNotice) return
     const t = setTimeout(() => setSkipNotice(null), 4000)
@@ -864,6 +920,15 @@ export default function MusicPlayerBar() {
   // la pantalla bloqueada (donde YouTube no suena) se pasa a la siguiente para no quedar en silencio.
   const markAudioFailed = useCallback(
     async (id: string) => {
+      // Sin internet: a la siguiente que se pueda escuchar sin conexión (no al video, que no carga)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const st = useMusicStore.getState()
+        if (st.queue[st.currentIndex]?.id !== id) return
+        const next = st.queue.findIndex((x, i) => i > st.currentIndex && playableOffline(x))
+        if (next >= 0) st.playIndex(next)
+        else st.setIsPlaying(false)
+        return
+      }
       const t = useMusicStore.getState().queue.find((x) => x.id === id)
       if (isLocalTrack(id) || t?.audioUrl) return skipUnplayable(id)
       // (Antes se buscaba otra subida de la canción: casi nunca ayudaba y demoraba cada canción)
@@ -2638,10 +2703,10 @@ export default function MusicPlayerBar() {
             />
           </div>
         )}
-        {(skipNotice || needsTap || tvNotice) && !isQueueOpen && (
+        {(skipNotice || needsTap || tvNotice || offlineNotice) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
             <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
-              {tvNotice ?? (needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`)}
+              {tvNotice ?? offlineNotice ?? (needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`)}
             </p>
           </div>
         )}
