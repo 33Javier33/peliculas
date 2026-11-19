@@ -181,10 +181,11 @@ class ClassicRenderer(
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create("sans-serif", Typeface.NORMAL)
     }
+    // Hora: sans-serif condensada de trazo seminegrita (como la foto), con números de igual ancho
     private val time = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
-        textScaleX = 0.82f
+        typeface = Typeface.create(Typeface.create("sans-serif-condensed", Typeface.NORMAL), 600, false)
+        fontFeatureSettings = "tnum"
     }
     private val path = Path()
     private val battery = context.getSystemService(BatteryManager::class.java)
