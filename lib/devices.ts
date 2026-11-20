@@ -10,6 +10,8 @@ import { useMusicStore } from '@/store/musicStore'
 import { isNativeApp, reportAccount } from '@/lib/native'
 import { isMusicApp, appBrand } from '@/lib/app-flavor'
 import type { MusicVideo } from '@/lib/youtube-music'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import { supabasePublic } from '@/lib/supabase-public'
 
 export interface Track {
   id: string
@@ -31,6 +33,7 @@ export interface Device {
 }
 export type CmdType = 'take' | 'pause' | 'play' | 'next' | 'prev'
 interface Cmd {
+  id?: string
   type: CmdType
   payload: { track?: Track; pos?: number; dur?: number } | null
   from: string
@@ -108,7 +111,14 @@ function takeHere(track: Track, pos: number, dur: number) {
   }, 250)
 }
 
+// Cada orden llega dos veces (canal en vivo y aviso al servidor): se aplica solo la primera
+const applied: string[] = []
 function apply(c: Cmd) {
+  if (c.id) {
+    if (applied.includes(c.id)) return
+    applied.push(c.id)
+    if (applied.length > 50) applied.shift()
+  }
   const st = useMusicStore.getState()
   if (c.type === 'take' && c.payload?.track) takeHere(c.payload.track, c.payload.pos ?? 0, c.payload.dur ?? 0)
   else if (c.type === 'pause') st.setIsPlaying(false)
@@ -117,12 +127,57 @@ function apply(c: Cmd) {
   else if (c.type === 'prev') st.playPrev()
 }
 
-/** Un aviso al servidor: manda lo que suena, recibe los otros dispositivos y sus órdenes */
-export async function presenceNow(cmd?: { to: string; type: CmdType; payload?: Cmd['payload'] }): Promise<boolean> {
-  const token = useAccountStore.getState().token
-  if (!token) return false
+// ── Canal en vivo de la cuenta (Supabase Realtime): órdenes y lo que suena llegan al instante ──
+let live: { name: string; ch: RealtimeChannel; ready: boolean } | null = null
+
+function joinLive(name: string | undefined) {
+  if (live?.name === name) return
+  if (live) supabasePublic().removeChannel(live.ch)
+  live = null
+  if (!name) return
+  const ch = supabasePublic().channel(name, { config: { broadcast: { self: false } } })
+  const cur = { name, ch, ready: false }
+  live = cur
+  ch.on('broadcast', { event: 'cmd' }, ({ payload }) => {
+    const p = payload as { to?: string; cmd?: Cmd }
+    if (p?.to === deviceId() && p.cmd) apply(p.cmd)
+  })
+    .on('broadcast', { event: 'state' }, ({ payload }) => {
+      const dev = payload as Device
+      if (!dev?.device || dev.device === deviceId()) return
+      const others = useDevicesStore.getState().others.filter((o) => o.device !== dev.device)
+      useDevicesStore.getState().setOthers([...others, dev])
+    })
+    .subscribe((status) => {
+      cur.ready = status === 'SUBSCRIBED'
+      if (cur.ready) broadcastState()
+    })
+}
+
+/** ¿Conectado al canal en vivo? (entonces los avisos al servidor pueden ser menos seguidos) */
+export const liveReady = () => !!live?.ready
+
+function broadcast(event: 'cmd' | 'state', payload: unknown) {
+  if (live?.ready) live.ch.send({ type: 'broadcast', event, payload }).catch(() => {})
+}
+
+function broadcastState() {
   const local = localState()
-  const r = await callAccount<{ others: Device[]; cmds: Cmd[] }>({
+  broadcast('state', { device: deviceId(), name: deviceName(), app: isMusicApp() ? 'music' : 'media', playing: local.playing, track: local.track, at: Date.now() })
+}
+
+const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
+
+/** Un aviso al servidor: manda lo que suena, recibe los otros dispositivos y sus órdenes */
+export async function presenceNow(cmd?: { id?: string; to: string; type: CmdType; payload?: Cmd['payload'] }): Promise<boolean> {
+  const token = useAccountStore.getState().token
+  if (!token) {
+    joinLive(undefined)
+    return false
+  }
+  const local = localState()
+  broadcastState()
+  const r = await callAccount<{ others: Device[]; cmds: Cmd[]; realtime?: { channel: string } }>({
     action: 'presence',
     token,
     device: deviceId(),
@@ -134,7 +189,15 @@ export async function presenceNow(cmd?: { to: string; type: CmdType; payload?: C
   if (!r?.ok) return false
   useDevicesStore.getState().setOthers(r.others ?? [])
   for (const c of r.cmds ?? []) apply(c)
+  joinLive(r.realtime?.channel)
   return true
+}
+
+/** Orden a otro dispositivo: al instante por el canal en vivo y, de respaldo, por el servidor */
+async function command(to: string, type: CmdType, payload: Cmd['payload'] = null) {
+  const id = newId()
+  broadcast('cmd', { to, cmd: { id, type, payload, from: deviceName(), at: Date.now() } })
+  await presenceNow({ id, to, type, payload })
 }
 
 /** Manda una orden a otro dispositivo (pausa, siguiente… o «pasa la música aquí») */
@@ -145,12 +208,12 @@ export async function sendTo(device: Device, type: CmdType) {
     // Aquí se detiene; el otro lo empieza en el mismo segundo
     const { pos, dur, ...track } = local.track as Track & { pos: number; dur: number }
     useMusicStore.getState().setIsPlaying(false)
-    await presenceNow({ to: device.device, type, payload: { track, pos, dur } })
+    await command(device.device, type, { track, pos, dur })
     return
   }
-  await presenceNow({ to: device.device, type })
-  // El otro dispositivo la recibe en su próximo aviso: se vuelve a preguntar para ver el cambio
-  for (const ms of [3000, 9000]) setTimeout(() => presenceNow(), ms)
+  await command(device.device, type)
+  // Sin canal en vivo, el otro la recibe en su próximo aviso: se vuelve a preguntar para ver el cambio
+  if (!live?.ready) for (const ms of [3000, 9000]) setTimeout(() => presenceNow(), ms)
 }
 
 /** Trae aquí lo que suena en el otro dispositivo (y lo pausa allá) */
@@ -158,7 +221,7 @@ export async function takeFrom(device: Device) {
   if (!device.track) return
   const { pos, dur, ...track } = device.track as Track & { pos: number; dur: number }
   takeHere(track, pos ?? 0, dur ?? 0)
-  await presenceNow({ to: device.device, type: 'pause' })
+  await command(device.device, 'pause')
 }
 
 /** Le da al teléfono la cuenta (y este dispositivo), para que avise lo que suena en segundo plano */

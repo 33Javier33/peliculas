@@ -1,14 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { WatchEntry, MovieDownload } from '@/store/movieStore'
-
-// Proyecto Supabase de socios-comicion-propina (clave anónima pública, como en esa app)
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://teemahksasdougehrcly.supabase.co'
-const KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZW1haGtzYXNkb3VnZWhyY2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTkwNjIsImV4cCI6MjA5Njg3NTA2Mn0.EIQ7gRcwf3zYgvGESKw3s5lnZMABN_EuNWsrJK3L1zk'
-
-let client: SupabaseClient | null = null
-const sb = () => (client ??= createClient(URL, KEY, { auth: { persistSession: false } }))
+import { supabasePublic as sb } from '@/lib/supabase-public'
 
 const DEVICE_KEY = 'cpn-movies-device'
 export function deviceId(): string {

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { Smartphone, Laptop, Play, Pause, SkipBack, SkipForward, ArrowRightLeft, X } from 'lucide-react'
 import { useAccountStore } from '@/store/accountStore'
 import { useMusicStore } from '@/store/musicStore'
-import { useDevicesStore, presenceNow, localState, sendTo, takeFrom, deviceName, syncNativeAccount, type Device, type CmdType } from '@/lib/devices'
+import { useDevicesStore, liveReady, presenceNow, localState, sendTo, takeFrom, deviceName, syncNativeAccount, type Device, type CmdType } from '@/lib/devices'
 import Image from 'next/image'
 
 // Dispositivos de la cuenta: con sesión, el encabezado muestra dónde suena la música (PulsoMedia,
@@ -26,7 +26,7 @@ export default function DevicesPill() {
     if (token) presenceNow()
   }, [token, playingHere, trackId])
 
-  // Aviso periódico: cada 8 s mientras algo suena o hay otros dispositivos; si no, cada 30 s
+  // Aviso periódico: cada 8 s mientras algo suena o hay otros dispositivos, si no cada 15 s; cada 30 s con canal en vivo
   useEffect(() => {
     if (!token) return
     let alive = true
@@ -35,7 +35,8 @@ export default function DevicesPill() {
       if (!alive) return
       if (document.visibilityState === 'visible' || localState().playing) await presenceNow()
       const busy = localState().playing || useDevicesStore.getState().others.some((o) => o.playing || o.track)
-      if (alive) t = setTimeout(tick, busy ? 8000 : 15000)
+      // Con el canal en vivo las órdenes y cambios llegan al instante: el aviso es solo de respaldo
+      if (alive) t = setTimeout(tick, liveReady() ? 30000 : busy ? 8000 : 15000)
     }
     tick()
     return () => {

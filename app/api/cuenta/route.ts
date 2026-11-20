@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash } from 'crypto'
+import { createHash, createHmac } from 'crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/supabase-public'
 
 // /api/cuenta → el login (pedir y verificar código) y la comunidad siguen en el Apps Script de
 // cuentas (Google Sheet). Cargar y guardar el respaldo va a Supabase si está la service_role key
@@ -13,13 +14,22 @@ export const maxDuration = 30
 const GAS_URL =
   process.env.CUENTA_GAS_URL ||
   'https://script.google.com/macros/s/AKfycbyqgT_H1zaJcbMVGK_sieVFe91WsSqSDwU5VygB1SFW5DX-9AhO0DDuAWoxIfrYcGjGEw/exec'
-const SB_URL = process.env.SUPABASE_URL || 'https://teemahksasdougehrcly.supabase.co'
+const SB_URL = process.env.SUPABASE_URL || SUPABASE_URL
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const ACTIONS = new Set(['requestCode', 'verifyCode', 'load', 'save', 'logout', 'publish', 'unpublish', 'community', 'social', 'like', 'comment', 'uncomment', 'presence'])
 
 type Gas = { ok: boolean; error?: string; email?: string; token?: string; data?: string | null; updatedAt?: number }
-type Body = { action: string; token?: string; data?: string }
+type Body = {
+  action: string
+  token?: string
+  data?: string
+  device?: string
+  name?: string
+  app?: string
+  state?: { playing?: boolean; track?: unknown }
+  cmd?: { id?: string; to?: string; type?: string; payload?: unknown }
+}
 
 let client: SupabaseClient | null = null
 const db = () => (SB_KEY ? (client ??= createClient(SB_URL, SB_KEY, { auth: { persistSession: false } })) : null)
@@ -96,6 +106,51 @@ async function save(d: SupabaseClient, b: Body) {
   return json({ ok: true, updatedAt })
 }
 
+const PRESENCE_TTL = 60 * 1000
+const clean = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
+
+// Canal Realtime de la cuenta: su nombre sale de una firma con la clave secreta, así nadie puede
+// adivinarlo a partir del correo. Por ahí viajan al instante las órdenes y lo que suena.
+const channelFor = (email: string) => 'cpn-' + createHmac('sha256', SB_KEY ?? '').update('cuenta:' + email).digest('hex').slice(0, 32)
+
+// Lo que suena en este dispositivo, los otros dispositivos de la cuenta y las órdenes pendientes
+async function presence(d: SupabaseClient, b: Body) {
+  const email = await emailFor(d, b.token)
+  if (!email) return json({ ok: false, error: 'session' })
+  const device = clean(b.device, 60)
+  if (!device) return json({ ok: false, error: 'device' })
+  const now = Date.now()
+  const track = b.state?.track ?? null
+  const row = {
+    email,
+    device,
+    name: clean(b.name, 40),
+    app: clean(b.app, 10) || 'media',
+    playing: !!b.state?.playing,
+    track: JSON.stringify(track).length <= 2000 ? track : null,
+    at: now,
+  }
+  const to = b.cmd ? clean(b.cmd.to, 60) : ''
+  const cmd =
+    b.cmd && to && to !== device
+      ? { id: clean(b.cmd.id, 40) || undefined, type: clean(b.cmd.type, 20), payload: b.cmd.payload ?? null, from: row.name, at: now }
+      : null
+  const [up, mine, others, sent] = await Promise.all([
+    d.from('cuenta_dispositivos').upsert(row),
+    d.from('cuenta_ordenes').delete().eq('email', email).eq('to_device', device).select('cmd, id'),
+    d.from('cuenta_dispositivos').select('device, name, app, playing, track, at').eq('email', email).neq('device', device).gt('at', now - PRESENCE_TTL),
+    cmd ? d.from('cuenta_ordenes').insert({ email, to_device: to, cmd, at: now }) : Promise.resolve({ error: null }),
+  ])
+  for (const r of [up, mine, others, sent]) if (r.error) throw r.error
+  if (Math.random() < 0.02) await d.from('cuenta_ordenes').delete().lt('at', now - 24 * 3600 * 1000)
+  return json({
+    ok: true,
+    others: others.data ?? [],
+    cmds: (mine.data ?? []).sort((a, b) => a.id - b.id).map((r) => r.cmd),
+    realtime: { url: SB_URL, key: SUPABASE_ANON_KEY, channel: channelFor(email) },
+  })
+}
+
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as Body | null
   if (!body?.action || !ACTIONS.has(body.action)) return json({ ok: false, error: 'Acción no válida' }, 400)
@@ -105,6 +160,15 @@ export async function POST(request: NextRequest) {
   try {
     if (d && body.action === 'load') return await load(d, body)
     if (d && body.action === 'save') return await save(d, body)
+    if (d && body.action === 'presence') {
+      try {
+        return await presence(d, body)
+      } catch (e) {
+        // Si la tabla de dispositivos falla, la presencia sigue funcionando por el Apps Script
+        if (e instanceof GasError) throw e
+        console.error('[cuenta] presencia en Supabase:', (e as Error).message)
+      }
+    }
     const r = await gas(raw)
     if (d && body.action === 'verifyCode' && r.ok && r.token && r.email) {
       const { error } = await d.from('cuenta_sesiones').upsert({ token_hash: hash(r.token), email: r.email })
