@@ -272,7 +272,7 @@ class HorizonRenderer(
         }
 
         // ===== Fondo en dos colores (arriba oscuro, abajo el tema) =====
-        val R = r * 0.885f
+        val R = r
         fill.color = dark
         canvas.drawCircle(cx, cy, R, fill)
         canvas.save()
@@ -586,7 +586,7 @@ class HorizonRenderer(
     private fun renderPlayer(canvas: Canvas, cx: Float, cy: Float, r: Float, t: ZonedDateTime, theme: Int) {
         fun X(v: Float) = cx + v * r
         fun Y(v: Float) = cy + v * r
-        val R = r * 0.885f
+        val R = r
         fill.color = dark
         canvas.drawCircle(cx, cy, R, fill)
         canvas.save()
