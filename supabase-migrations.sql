@@ -61,3 +61,31 @@ create table if not exists public.cuenta_respaldos (
 
 alter table public.cuenta_sesiones  enable row level security;
 alter table public.cuenta_respaldos enable row level security;
+
+-- ── Dispositivos (qué suena en cada uno y órdenes entre ellos) ─────
+-- Igual que las tablas de cuenta: RLS sin políticas, solo el servidor (/api/cuenta) accede.
+-- Las órdenes además viajan al instante por un canal Realtime (broadcast) con nombre secreto por
+-- cuenta; esta tabla es el respaldo para el dispositivo que no estaba conectado al canal.
+
+create table if not exists public.cuenta_dispositivos (
+  email   text    not null,
+  device  text    not null,
+  name    text    not null default '',
+  app     text    not null default 'media',
+  playing boolean not null default false,
+  track   jsonb,
+  at      bigint  not null,
+  primary key (email, device)
+);
+
+create table if not exists public.cuenta_ordenes (
+  id        bigserial primary key,
+  email     text   not null,
+  to_device text   not null,
+  cmd       jsonb  not null,
+  at        bigint not null
+);
+create index if not exists cuenta_ordenes_destino on public.cuenta_ordenes (email, to_device);
+
+alter table public.cuenta_dispositivos enable row level security;
+alter table public.cuenta_ordenes      enable row level security;
