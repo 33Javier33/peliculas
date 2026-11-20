@@ -211,6 +211,7 @@ private fun Screens() {
                 RetroMenuScreen(nav = { nav.navigate(it) }, played = toNow, search = search, back = { nav.popBackStack() })
             } else HomeScreen(nav = { nav.navigate(it) }, played = toNow)
         }
+        composable("faces") { FacesScreen() }
         composable("library") { LibraryScreen(nav = { nav.navigate(it) }) }
         composable("search") { SearchScreen(played = toNow) }
         composable("list/{kind}") { e -> ListScreen(kind = e.arguments?.getString("kind") ?: "songs", nav = { nav.navigate(it) }, played = toNow) }
@@ -499,6 +500,8 @@ private fun HomeScreen(nav: (String) -> Unit, played: () -> Unit) {
             item { Entry(icon = R.drawable.ic_radio, title = "Radio por género", sub = "Internet Archive") { nav("list/genres") } }
             item { Entry(icon = R.drawable.ic_radio, title = "NTS Radio", sub = "En vivo y mixtapes") { nav("list/nts") } }
             item { Entry(icon = R.drawable.ic_heart, title = "Radios favoritas", sub = lib?.let { "${it.radios.size}" }) { nav("list/radios") } }
+            item { ListHeader { Text("Reloj") } }
+            item { Entry(icon = R.drawable.ic_watch, title = "Esferas", sub = "Instalar y actualizar") { nav("faces") } }
             // Estilo de la pantalla «Sonando»: Moderno (con la carátula) o Retro LCD
             item { ListHeader { Text("Estilo") } }
             item {
@@ -632,6 +635,66 @@ private fun GroupScreen(kind: String, id: String, played: () -> Unit) {
                     }
                 }
             }
+    }
+}
+
+/** Tienda de esferas: todas las publicadas, con las instaladas, las que tienen versión nueva y las que faltan */
+@Composable
+private fun FacesScreen() {
+    val ctx = LocalContext.current
+    val faces by FaceStore.faces.collectAsState()
+    val error by FaceStore.error.collectAsState()
+    val job by FaceStore.job.collectAsState()
+    val state = rememberScalingLazyListState()
+    // Se revisa seguido qué está instalado (cambia al terminar de instalar una)
+    val tick = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        FaceStore.load()
+        while (true) {
+            delay(2000)
+            tick.longValue++
+        }
+    }
+    val list = faces
+    @Suppress("UNUSED_VARIABLE") val t = tick.longValue
+    val st = list?.associateWith { FaceStore.status(ctx, it) }.orEmpty()
+    ListPage("Esferas", state) {
+        when {
+            list == null -> item { Text(error ?: "Cargando…", color = Grey, textAlign = TextAlign.Center) }
+            else -> {
+                val upd = st.values.count { it == FaceStore.Status.UPDATE }
+                val inst = st.values.count { it != FaceStore.Status.MISSING }
+                item {
+                    Text(
+                        "$inst de ${list.size} instaladas" + if (upd > 0) " · $upd para actualizar" else " · todo al día",
+                        color = Grey, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                // Primero las que hay que actualizar, después las instaladas y al final las que faltan
+                val sorted = list.sortedBy { st[it]?.ordinal?.let { o -> if (o == 1) -1 else o } ?: 9 }
+                items(sorted) { f ->
+                    val s = st[f] ?: FaceStore.Status.MISSING
+                    val j = job?.takeIf { it.file == f.file }
+                    val mb = if (f.size > 0) " · %.1f MB".format(f.size / 1_048_576f) else ""
+                    val sub = when {
+                        j != null && j.failed -> "Error: ${j.msg} (toca para reintentar)"
+                        j != null && !j.done -> "${j.pct}% · ${j.msg}"
+                        s == FaceStore.Status.INSTALLED -> "Instalada ✓"
+                        s == FaceStore.Status.UPDATE -> "Hay versión nueva · toca para actualizar$mb"
+                        else -> "No instalada · toca para instalar$mb"
+                    }
+                    Entry(icon = R.drawable.ic_watch, title = f.name, sub = sub, accent = s == FaceStore.Status.UPDATE) {
+                        when {
+                            // Ya llegó al reloj: abrir la pantalla de instalar
+                            j != null && !j.failed && !j.done && j.pct >= 100 -> FaceStore.installReceived(ctx, f.file)
+                            s == FaceStore.Status.INSTALLED && (j == null || j.done) -> android.widget.Toast.makeText(ctx, "${f.name} ya está al día", android.widget.Toast.LENGTH_SHORT).show()
+                            else -> { FaceStore.clear(); FaceStore.get(ctx, f) }
+                        }
+                    }
+                }
+                item { Text("Para usar una: mantén presionada la esfera actual y desliza hasta ella", color = Grey, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp)) }
+            }
+        }
     }
 }
 

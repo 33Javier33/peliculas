@@ -365,6 +365,7 @@ fun RetroMenuScreen(nav: (String) -> Unit, played: () -> Unit, search: () -> Uni
                 item { Text("PLAYLISTS", color = acc, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) }
                 items(pls.take(6)) { pl -> MenuRow(R.drawable.ic_queue, pl.title, acc, pl.sub) { nav("group/playlist/${android.net.Uri.encode(pl.id)}") } }
             }
+            item { MenuRow(R.drawable.ic_watch, "Esferas", acc, "Instalar y actualizar") { nav("faces") } }
             item { Text("ESTILO", color = acc, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) }
             item { MenuRow(R.drawable.ic_bars, "Pantalla: ${if (style == 1) "Retro LCD" else "Moderna"}", acc, "Toca para cambiar") { AppStyle.setStyle(ctx, if (style == 1) 0 else 1) } }
             item { MenuRow(R.drawable.ic_bars, "Color: ${AppStyle.COLORS[colorIdx].first}", acc, "Toca para cambiar") { AppStyle.nextColor(ctx) } }

@@ -37,7 +37,9 @@ object WatchInstall {
      */
     fun fromWatch(c: Context, node: String, rawName: String) {
         val name = rawName.trim()
-        if (name != "CarlosPNauto-Reloj.apk" && name != "PulsoMusic-Reloj.apk") return
+        // La app del reloj o una esfera (la tienda de esferas de la app del reloj)
+        val face = Regex("Esfera-[A-Za-z0-9]+\\.apk").matches(name)
+        if (name != "CarlosPNauto-Reloj.apk" && name != "PulsoMusic-Reloj.apk" && !face) return
         val app = c.applicationContext
         runCatching { Wearable.getMessageClient(app).sendMessage(node, "/cpn/updateack", name.toByteArray()) }
         if (busy) return
@@ -130,7 +132,7 @@ object WatchInstall {
             var last = -1
             out.use { o ->
                 file.inputStream().use { input ->
-                    val buf = ByteArray(32 * 1024)
+                    val buf = ByteArray(128 * 1024)
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break

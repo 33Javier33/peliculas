@@ -290,8 +290,12 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
                 _link.value = Link.AppClosed
             }
             // Actualización de la app del reloj pedida al teléfono
-            "/cpn/updateack" -> WatchUpdate.onPhoneAck()
-            "/cpn/updateprog" -> WatchUpdate.onPhoneProgress(text)
+            // Pedidos de actualización: de esta app (WatchUpdate) o de una esfera (FaceStore)
+            "/cpn/updateack" -> if (text.trim().startsWith("Esfera")) FaceStore.onAck(text.trim()) else WatchUpdate.onPhoneAck()
+            "/cpn/updateprog" -> {
+                val o = runCatching { org.json.JSONObject(text) }.getOrNull()
+                if (o != null && o.optString("name").startsWith("Esfera")) FaceStore.onProgress(o) else WatchUpdate.onPhoneProgress(text)
+            }
         }
     }
 }

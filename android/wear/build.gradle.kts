@@ -48,7 +48,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Achicada (24 MB → pocos MB): se pasa mucho más rápido del teléfono al reloj
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }

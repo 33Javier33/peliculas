@@ -5,7 +5,12 @@ plugins {
 
 // Esfera de reloj "tactica" (Wear OS).
 // Se publica junto a las apps con el mismo número de versión.
-val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+// Versión según los cambios de la esfera (y de esferas-comun): solo sube si la esfera cambió, así
+// la app del reloj sabe cuáles hay que actualizar. Desde 1000 (antes era el número de compilación).
+val faceChanges = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD", "--", projectDir.absolutePath, rootProject.file("esferas-comun").absolutePath)
+    isIgnoreExitValue = true
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 0
 
 android {
     namespace = "cl.carlospnauto.esfera"
@@ -15,8 +20,8 @@ android {
         applicationId = "cl.carlospnauto.esfera.tactica"
         minSdk = 30
         targetSdk = 34
-        versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        versionCode = 1000 + faceChanges
+        versionName = "2.$faceChanges"
     }
 
     val keystorePath = System.getenv("ANDROID_KEYSTORE_FILE")
@@ -33,7 +38,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), rootProject.file("esferas-comun/proguard-esferas.pro"))
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }

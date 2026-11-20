@@ -53,7 +53,7 @@ object WatchUpdate {
     @Volatile private var appCtx: Context? = null
 
     private fun isMusic(c: Context) = c.packageName.endsWith(".music")
-    private fun apkName(c: Context) = if (isMusic(c)) "PulsoMusic-Reloj.apk" else "CarlosPNauto-Reloj.apk"
+    fun apkName(c: Context) = if (isMusic(c)) "PulsoMusic-Reloj.apk" else "CarlosPNauto-Reloj.apk"
     private fun versionFile(c: Context) = if (isMusic(c)) "version-music.json" else "version.json"
 
     private fun installed(c: Context): Pair<String, Long> = runCatching {
@@ -213,6 +213,16 @@ object WatchUpdate {
         }
         file.delete()
         _state.value = State.Failed(latest, lastError)
+    }
+
+    /**
+     * Llegó un APK del teléfono (ApkService): si es esta app, queda el botón «Instalar» en la pantalla
+     * (antes quedaba en «confirma la instalación» sin botón cuando el sistema no abría la pantalla sola)
+     */
+    fun onReceived(c: Context, file: File) {
+        if (file.name != apkName(c)) return
+        val latest = latestOf() ?: installed(c).first
+        _state.value = State.Ready(latest, file.absolutePath)
     }
 
     /** «Instalar» (la descarga ya está en el reloj) */

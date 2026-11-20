@@ -85,6 +85,26 @@ jobs:
           done
           ls -la Esfera-*.apk
 
+      # Lista de esferas para la app del reloj (marca las instaladas y las que hay que actualizar).
+      # La versión de cada una es la misma que calcula su build.gradle.kts (1000 + sus cambios)
+      - name: Lista de esferas
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, re, glob, os
+          out = []
+          for d in sorted(glob.glob('android/esferas-de-reloj/*/')):
+              n = os.path.basename(d.rstrip('/'))
+              cnt = int(subprocess.check_output(['git', 'rev-list', '--count', 'HEAD', '--', os.path.abspath(d), os.path.abspath('android/esferas-comun')]).strip() or 0)
+              g = open(d + 'build.gradle.kts').read()
+              pkg = re.search(r'applicationId = "([^"]+)"', g).group(1)
+              st = open(d + 'src/main/res/values/strings.xml', encoding='utf-8').read()
+              name = re.search(r'name="face_name">([^<]+)<', st).group(1)
+              f = 'Esfera-' + n[0].upper() + n[1:] + '.apk'
+              out.append({'file': f, 'name': name, 'package': pkg, 'version': 1000 + cnt, 'size': os.path.getsize(f)})
+          json.dump(out, open('esferas.json', 'w'), ensure_ascii=False)
+          PY
+          cat esferas.json
+
       # Enlaces compartidos (WhatsApp…) que abren la app: Android comprueba que la web y la app son
       # del mismo dueño con la huella de la firma (assetlinks.json; la web lo sirve desde el release)
       - name: Huella de la firma para los enlaces
@@ -156,6 +176,7 @@ jobs:
             PulsoMusic.apk
             PulsoMusic-Reloj.apk
             Esfera-*.apk
+            esferas.json
             version.json
             version-music.json
             assetlinks.json
@@ -170,6 +191,7 @@ jobs:
           tag_name: android-latest
           files: |
             Esfera-*.apk
+            esferas.json
           make_latest: true
 
       - uses: actions/upload-artifact@v4

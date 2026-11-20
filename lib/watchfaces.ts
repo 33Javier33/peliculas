@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'vinilo',
+    name: 'Vinilo',
+    file: 'Esfera-Vinilo.apk',
+    description:
+      'Un tocadiscos en tu reloj: la hora con segundos en una pantalla de cristal líquido, batería, clima, luna y AM/PM, la fecha con su interruptor, pasos en un reloj chico y el ritmo cardíaco en la base del brazo. Cuando suena PulsoMusic o PulsoMedia el disco gira, el brazo avanza con la canción y abajo aparece lo que suena. Toca el disco y se abre un mini reproductor retro.',
+    features: ['Digital', 'Disco que gira', 'Mini reproductor', 'Canción sonando', 'Pasos', 'Ritmo cardíaco', 'Calorías', 'Distancia', '7 colores', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-21',
+  },
+  {
     id: 'horizonte',
     name: 'Horizonte',
     file: 'Esfera-Horizonte.apk',
@@ -291,6 +300,20 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       'Mapa con la noche (hora mundial) o solo el mapa',
       'Bajo consumo: esfera completa tenue o mínima',
       'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
+  vinilo: {
+    gallery: 3,
+    long: 'Una esfera con forma de tocadiscos. Arriba el clima y la hora con segundos en una pantalla negra de cristal líquido con borde claro (los segmentos apagados se ven apenas, como en las de verdad); a los lados la batería, la luna y AM/PM. Debajo, la fecha (día y DD - MM) con un interruptor metálico. A la izquierda, los pasos en un reloj chico con aguja roja hacia tu meta. Al centro, un disco de vinilo con surcos y brillo; a la derecha el brazo con su contrapeso y el ritmo cardíaco escrito alrededor de su base. Abajo, las calorías y la distancia. Cuando suena PulsoMusic o PulsoMedia en el teléfono, el disco gira a 33⅓ vueltas, el brazo avanza hacia el centro con la canción y abajo aparece la canción que suena. Toca el disco y se abre un mini reproductor retro con la hora, la batería, la canción, el avance y los botones ◄◄ ►‖ ►►.',
+    customize: [
+      'Centro del disco: rojo, azul, verde, dorado, violeta, naranja o plata',
+      'Números de la pantalla: blanco, cian, ámbar, verde o rojo',
+      'Disco que gira al sonar música o siempre quieto',
+      'Abajo, al sonar música: la canción o siempre calorías y distancia',
+      'Meta de pasos para la aguja: 6.000 a 15.000',
+      'Bajo consumo: esfera completa tenue o solo la hora',
+      'Clima, pasos, ritmo, calorías y distancia: elige el dato en Personalizar',
       ...COMMON,
     ],
   },

@@ -108,6 +108,9 @@ class ApkService : WearableListenerService() {
 
     private fun finish(file: File, node: String, name: String) {
         replyToPhone(this, node, name, "received")
+        // La pantalla de la app muestra «Instalar» aunque el sistema no deje abrir la de instalar sola
+        WatchUpdate.onReceived(this, file)
+        FaceStore.onReceived(name)
         InstallActivity.notify(this, file)
         // Si el sistema lo permite, abre de una vez la pantalla de instalar
         runCatching { startActivity(InstallActivity.intent(this, file).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -240,11 +243,15 @@ class InstallActivity : Activity() {
         }
         started = true
         action.visibility = android.view.View.GONE
-        status.text = "Instalando $label…"
+        // Al actualizarse a sí misma, Android cierra esta app: hay que abrirla de nuevo al terminar
+        val self = f.name == WatchUpdate.apkName(this)
+        status.text = if (self) "Instalando $label…\n\nLa app se cerrará sola al actualizarse; después ábrela de nuevo." else "Instalando $label…"
         thread {
             try {
                 val pi = packageManager.packageInstaller
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+                // Actualizaciones (de esta app o de lo que ella instaló): sin pedir confirmar si Android lo permite
+                if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
                 val id = pi.createSession(params)
                 pi.openSession(id).use { session ->
                     session.openWrite("apk", 0, f.length()).use { out ->
@@ -277,6 +284,7 @@ class InstallActivity : Activity() {
                 status.text = "${apkLabel(name)} instalada ✓" + if (face) "\n\nPara usarla: mantén presionada la esfera y desliza hasta ella." else ""
                 button("Listo") { finish() }
                 replyToPhone(this, null, name, "done")
+                FaceStore.onInstalled(name)
             }
             else -> fail(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "No se pudo instalar ($st)")
         }
