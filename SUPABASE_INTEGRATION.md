@@ -3,12 +3,17 @@
 Respaldo de "Seguir viendo" y del registro de descargas en el proyecto Supabase de
 socios-comicion-propina (`teemahksasdougehrcly`).
 
-## Activar (una sola vez)
+## Estado
 
-1. Abrir el SQL Editor del proyecto:
-   https://supabase.com/dashboard/project/teemahksasdougehrcly/sql/new
-2. Pegar y ejecutar `supabase-migrations.sql`.
-3. Ver las tablas: https://supabase.com/dashboard/project/teemahksasdougehrcly/editor
+Tablas creadas (noviembre 2026) con `supabase-migrations.sql`. Para recrearlas en otro
+proyecto, ejecutarlo en el SQL Editor; es idempotente.
+
+Ver los datos: https://supabase.com/dashboard/project/teemahksasdougehrcly/editor
+
+## Despliegue
+
+Solo Vercel (`peliculas-neon.vercel.app`). La conexión con Cloudflare Workers se quitó: no
+hay configuración para Cloudflare en este repositorio y fallaba en cada commit.
 
 ## Tablas
 
