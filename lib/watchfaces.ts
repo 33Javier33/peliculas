@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'horizonte',
+    name: 'Horizonte',
+    file: 'Esfera-Horizonte.apk',
+    description:
+      'De agujas en dos colores: arriba oscuro y abajo el color del tema, números finos girados, la fecha y tres círculos de datos (batería, pasos y ritmo cardíaco) que puedes cambiar. 10 colores, 4 estilos de agujas y 5 segunderos. Opcional: toca el centro y se abre el reproductor de PulsoMusic o PulsoMedia con la hora y la batería.',
+    features: ['Analógica', '10 colores', '4 agujas', '5 segunderos', 'Reproductor', 'Batería', 'Pasos', 'Ritmo cardíaco', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-20',
+  },
+  {
     id: 'secuencia',
     name: 'Secuencia',
     file: 'Esfera-Secuencia.apk',
@@ -282,6 +291,21 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       'Mapa con la noche (hora mundial) o solo el mapa',
       'Bajo consumo: esfera completa tenue o mínima',
       'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
+  horizonte: {
+    gallery: 3,
+    long: 'Una esfera de agujas partida en dos: la mitad de arriba gris oscuro y la de abajo del color del tema. Números finos y angostos girados en el 12, 2, 4, 8 y 10, líneas en las otras horas y triángulos en el 3, 6 y 9. Bajo el 12 va la fecha (mes, día y día de la semana). Tres círculos de datos: batería con su arco, pasos con el arco hacia tu meta y ritmo cardíaco; los tres se pueden cambiar por otro dato. Agujas en dos tonos con punta y segundero rojo con cola. Si activas el reproductor, toca el centro y se abre una pantalla con la hora, la batería, la canción, el avance y los botones ◄◄ ►‖ ►► de PulsoMusic o PulsoMedia.',
+    customize: [
+      '10 colores del tema: menta, azul, verde, coral, ámbar, lavanda, rosa, celeste, arena y gris',
+      'Agujas: lanza (como la foto), bastón, espada o delgadas; en blanco, plata o del color del tema',
+      'Segundero: rojo con cola, rojo con círculo, del color del tema, blanco o sin segundero',
+      'Segundero suave (continuo) o pulso a pulso',
+      'Reproductor: apagado o se abre tocando el centro',
+      'Meta de pasos para el arco: 6.000 a 15.000',
+      'Bajo consumo: esfera completa tenue o solo agujas y fecha',
+      'Los tres círculos: elige el dato en Personalizar',
       ...COMMON,
     ],
   },

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Esfera Horizonte</string>
+    <string name="face_name">Horizonte</string>
+    <string name="editor_title">Personalizar Horizonte</string>
+    <string name="done">Listo</string>
+</resources>
