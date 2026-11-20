@@ -15,6 +15,24 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'mundo',
+    name: 'LCD Mundo',
+    file: 'Esfera-Mundo.apk',
+    description:
+      'Pantallitas de cristal líquido: clima, próximo evento con la fase de la luna, hora con segundos, fecha, mapa del mundo con la noche según la hora, reloj de agujas, pasos, ritmo cardíaco y batería. Toca el reloj de agujas y se abre el reproductor de lo que suena en PulsoMusic o PulsoMedia.',
+    features: ['Digital', 'LCD', 'Mapa mundial', 'Fase lunar', 'Reproductor', '7 colores', 'Ritmo cardíaco', 'Pasos', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-19',
+  },
+  {
+    id: 'hibrida',
+    name: 'Pulso Híbrida',
+    file: 'Esfera-Hibrida.apk',
+    description:
+      'Agujas y digital a la vez: escala de minutos en el borde, clima, pasos con distancia y meta, próximo evento junto al clima, mini reproductor de PulsoMusic o PulsoMedia siempre a la vista, reloj de agujas con fecha y alarma, hora grande con segundos, mes y días de la semana, batería y ritmo cardíaco con su zona.',
+    features: ['Híbrida', 'Mini reproductor', 'Clima', 'Pasos', 'Eventos', 'Ritmo cardíaco', '6 colores', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-18',
+  },
+  {
     id: 'lumina',
     name: 'Lumina',
     file: 'Esfera-Lumina.apk',
@@ -73,8 +91,8 @@ export const WATCH_FACES: WatchFace[] = [
     name: 'Clásica',
     file: 'Esfera-Clasica.apk',
     description:
-      'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora grande con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. 8 temas y pantalla siempre activa de bajo consumo.',
-    features: ['Digital', '8 temas', 'Bajo consumo', 'Clima', 'Eventos', 'Hora mundial', 'PulsoMedia', 'PulsoMusic'],
+      'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora grande con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Reproductor de PulsoMusic y PulsoMedia en el recuadro del evento. 16 temas y pantalla siempre activa de bajo consumo.',
+    features: ['Digital', '16 temas', 'Reproductor', 'Bajo consumo', 'Clima', 'Eventos', 'Hora mundial', 'PulsoMedia', 'PulsoMusic'],
     added: '2026-11-13',
   },
   {
@@ -215,8 +233,8 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   },
   clasica: {
     gallery: 3,
-    long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos.',
-    customize: ['8 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste)', 'Pantalla siempre activa de bajo consumo o completa', 'Segundero suave o por segundos', ...COMMON],
+    long: 'Limpia y completa: humedad, clima y UV arriba; temperatura mínima, actual y máxima; día, mes, fecha y AM/PM; hora con segundos; próximo evento con fase lunar; hora mundial, ritmo cardíaco, pasos y batería. Un triángulo rojo recorre el borde con los segundos. Cuando suena PulsoMusic o PulsoMedia, el recuadro del evento muestra la canción con su avance y los botones ◄◄ ►‖ ►|.',
+    customize: ['16 temas (negro, blanco, grafito, azul noche, verde militar, arena, rojo vino, celeste, azul eléctrico, morado, menta, naranja, rosa, petróleo, café, gris perla)', 'Reproductor en el evento al sonar PulsoMusic, o apagado', 'Pantalla siempre activa completa (los segundos quedan quietos) o mínima', 'Segundero suave o por segundos', ...COMMON],
   },
   retro: {
     gallery: 3,
@@ -244,6 +262,32 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
     gallery: 2,
     long: 'Toda la esfera es una pantalla de cristal líquido con luz de fondo (tócala y se ilumina más). Fecha en letras de segmentos con año, ALM, SIG y DST que se encienden de verdad (alarma puesta, conexión y horario de verano), caja de batería con forma de pila, hora grande con segundos y celdas de ritmo cardíaco y pasos.',
     customize: ['8 pantallas (claras y en negativo)', '5 colores de luz de fondo', 'Segundos visibles u ocultos', 'Bajo consumo: esfera completa tenue o mínima', ...COMMON],
+  },
+  mundo: {
+    gallery: 3,
+    long: 'Una esfera de pantallitas de cristal líquido: arriba el clima con su ícono y dos accesos (PulsoMedia y PulsoMusic, o lo que elijas), el próximo evento del calendario con la fase de la luna, la hora con segundos sobre sus «8» apagados, la fecha (día, número y mes), un mapa del mundo con la sombra de la noche según la hora y un reloj de agujas. Abajo, los pasos, el ritmo cardíaco y la batería. Toca el reloj de agujas: se abre un reproductor con la hora, la canción que suena en PulsoMusic o PulsoMedia, su avance y los botones ◄◄ ►‖ ►►; toca fuera de los botones para volver.',
+    customize: [
+      '7 colores de pantalla: gris, amarillo, crema, lavanda, lima, celeste y menta',
+      'Fondo: negro, gris oscuro o grafito',
+      'Accesos de arriba visibles u ocultos',
+      'Mapa con la noche (hora mundial) o solo el mapa',
+      'Bajo consumo: esfera completa tenue o mínima',
+      'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
+  hibrida: {
+    gallery: 3,
+    long: 'Una esfera híbrida: un reloj de agujas con fecha y campana de alarma junto a la hora digital grande con segundos. Arriba, el clima y los pasos con la distancia y la meta en 5 tramos de color. Donde va el próximo evento del calendario aparece un mini reproductor cuando suena PulsoMusic o PulsoMedia en el teléfono: título, artista, barra de avance y botones ◄ ►‖ ►|. Abajo, el mes, los días de la semana (el de hoy marcado), la batería y el ritmo cardíaco con su zona (bajo, normal o alto).',
+    customize: [
+      '6 colores: naranja y cian, verde, azul, rojo, violeta y blanco',
+      'Meta de pasos: 6.000, 8.000, 10.000, 12.000 o 15.000',
+      'Reproductor siempre visible (sin música muestra «Sin música») u ocultarlo y ver los eventos ahí',
+      'Segundero suave o por segundos',
+      'Bajo consumo: esfera completa tenue o mínima',
+      'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
   },
   lumina: {
     gallery: 3,

@@ -52,6 +52,7 @@ import { useAlwaysVideo, getAlwaysVideo, setAlwaysVideo } from '@/lib/always-vid
 import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
+import { useDevicesStore } from '@/lib/devices'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,6 +70,16 @@ let audioFailStreak = 0
 let audioDownUntil = 0
 /** ¿Las fuentes de audio están fallando todas ahora? */
 const audioSourcesDown = () => Date.now() < audioDownUntil
+
+/** ¿Se puede escuchar sin internet? (descargada, guardada en el teléfono o música local) */
+function playableOffline(t: MusicVideo): boolean {
+  if (t.streamUrl || t.pending) return false
+  if (isLocalTrack(t.id)) return true
+  const items = useOfflineStore.getState().items
+  if (t.audioUrl && items[t.audioUrl]) return true
+  const yt = ytIdOf(t)
+  return !!yt && !!items[`/api/stream?id=${yt}`]
+}
 
 /** Canción convertida de YouTube (/api/stream?id=…): su id de YouTube */
 function convertedYtId(url: string): string | null {
@@ -264,7 +275,12 @@ export default function MusicPlayerBar() {
   // Se decide al empezar la canción (si termina de descargarse mientras suena, no se cambia la
   // fuente: empezaría de nuevo)
   const convStartRef = useRef<{ id: string; conv: boolean }>({ id: '', conv: false })
+  const soundingNow = useMusicStore((s) => s.soundingId)
   if (queuedVideo && convStartRef.current.id !== queuedVideo.id) convStartRef.current = { id: queuedVideo.id, conv: convertedNow }
+  // Las descargas se cargan un instante después que la cola (al abrir la app): si aparece la copia
+  // antes de que la canción empiece a sonar, se usa (antes quedaba marcada sin copia y, sin
+  // internet, no sonaba aunque estuviera descargada)
+  else if (queuedVideo && convertedNow && !convStartRef.current.conv && soundingNow !== queuedVideo.id) convStartRef.current = { id: queuedVideo.id, conv: true }
   const hasConverted = convertedNow && convStartRef.current.conv
   const currentVideo = useMemo(
     () => (queuedVideo && hasConverted ? { ...queuedVideo, audioUrl: convertedKey } : queuedVideo),
@@ -821,6 +837,47 @@ export default function MusicPlayerBar() {
   const skipUnplayableRef = useRef(skipUnplayable)
   skipUnplayableRef.current = skipUnplayable
 
+  // ===== Sin conexión =====
+  // Solo suena lo que está en el teléfono (descargado, guardado o música local). Si la canción que
+  // toca no se puede escuchar sin internet, se salta a la siguiente que sí (antes intentaba cargarla
+  // de internet, luego el video, y la música quedaba detenida).
+  const [online, setOnline] = useState(true)
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null)
+  useEffect(() => {
+    const on = () => setOnline(navigator.onLine)
+    on()
+    window.addEventListener('online', on)
+    window.addEventListener('offline', on)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', on)
+    }
+  }, [])
+  const soundingForOffline = useMusicStore((s) => s.soundingId)
+  useEffect(() => {
+    if (online || !currentId || soundingForOffline === currentId) return
+    const t = setTimeout(() => {
+      if (navigator.onLine) return
+      const st = useMusicStore.getState()
+      const cur = st.queue[st.currentIndex]
+      if (!cur || cur.id !== currentId || st.soundingId === cur.id || playableOffline(cur)) return
+      const next = st.queue.findIndex((x, i) => i > st.currentIndex && playableOffline(x))
+      if (next >= 0) {
+        setOfflineNotice(`Sin conexión: suena lo descargado («${st.queue[next].title}»)`)
+        st.playIndex(next)
+      } else {
+        setOfflineNotice('Sin conexión y no quedan canciones descargadas en la cola')
+        st.setIsPlaying(false)
+      }
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [online, currentId, soundingForOffline])
+  useEffect(() => {
+    if (!offlineNotice) return
+    const t = setTimeout(() => setOfflineNotice(null), 5000)
+    return () => clearTimeout(t)
+  }, [offlineNotice])
+
   useEffect(() => {
     if (!skipNotice) return
     const t = setTimeout(() => setSkipNotice(null), 4000)
@@ -863,6 +920,15 @@ export default function MusicPlayerBar() {
   // la pantalla bloqueada (donde YouTube no suena) se pasa a la siguiente para no quedar en silencio.
   const markAudioFailed = useCallback(
     async (id: string) => {
+      // Sin internet: a la siguiente que se pueda escuchar sin conexión (no al video, que no carga)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const st = useMusicStore.getState()
+        if (st.queue[st.currentIndex]?.id !== id) return
+        const next = st.queue.findIndex((x, i) => i > st.currentIndex && playableOffline(x))
+        if (next >= 0) st.playIndex(next)
+        else st.setIsPlaying(false)
+        return
+      }
       const t = useMusicStore.getState().queue.find((x) => x.id === id)
       if (isLocalTrack(id) || t?.audioUrl) return skipUnplayable(id)
       // (Antes se buscaba otra subida de la canción: casi nunca ayudaba y demoraba cada canción)
@@ -999,6 +1065,7 @@ export default function MusicPlayerBar() {
   // Precarga rápida: apenas 2s después de que empieza la canción se prepara la siguiente
   // Si el usuario salta seguido, el audio ya está en buffer o descargándose
   const soundingId = useMusicStore((s) => s.soundingId)
+  const remoteMode = useDevicesStore((s) => s.remote)
   const nextKey = nextTrack && !nextTrack.streamUrl && !nextTrack.pending ? `${nextTrack.id}|${nextTrack.audioUrl ?? ''}` : ''
   useEffect(() => {
     if (!nextKey || !currentId || soundingId !== currentId) return
@@ -1072,9 +1139,8 @@ export default function MusicPlayerBar() {
       const native = isNativeApp()
       const fullList = native && nativeListPrefetch()
       // Apps antiguas guardan solo 3 comienzos: ahí se siguen preparando solo los 2 próximos
-      // En el navegador cada tema preparado es un pedido al servidor (Vercel cobra por uso): solo
-      // los 2 próximos. En la app lo hace el teléfono, sin gastar servidor: la lista entera.
-      const limit = !native || !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
+      // Como antes de la pausa de Vercel (plan Pro): en el navegador también se prepara la lista
+      const limit = native && !fullList ? 2 : cellular ? 5 : LIST_PREFETCH
       const offline = useOfflineStore.getState().items
       const items = listKey.split(',').slice(0, limit)
       for (let i = 0; i < items.length; i++) {
@@ -2608,7 +2674,9 @@ export default function MusicPlayerBar() {
       )}
 
       {/* ===== PLAYER BAR ===== */}
-      <div ref={barRef} className="fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col">
+      {/* Con el control remoto activo (suena en otro dispositivo) la barra local se oculta: sigue
+          montada para no cortar nada, y vuelve al tocar «Escuchar aquí» o cerrar el control remoto */}
+      <div ref={barRef} className={`fixed bottom-14 sm:bottom-0 left-0 right-0 z-[80] select-none flex flex-col ${remoteMode && !isPlaying ? 'opacity-0 pointer-events-none' : ''}`}>
         {/* Ventana flotante con el video (sobre la app; al cerrarla la música sigue) */}
         {inline?.place === 'float' && (
           <div
@@ -2635,10 +2703,10 @@ export default function MusicPlayerBar() {
             />
           </div>
         )}
-        {(skipNotice || needsTap || tvNotice) && !isQueueOpen && (
+        {(skipNotice || needsTap || tvNotice || offlineNotice) && !isQueueOpen && (
           <div className="absolute bottom-full left-0 right-0 flex justify-center px-3 pb-2 pointer-events-none">
             <p className="max-w-full truncate bg-surface-2/[0.98] sm:bg-surface-2/95 sm:backdrop-blur-xl border border-white/10 text-slate-200 text-xs font-medium px-4 py-2 rounded-full shadow-lg">
-              {tvNotice ?? (needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`)}
+              {tvNotice ?? offlineNotice ?? (needsTap ? 'Toca la pantalla para continuar la música' : `No disponible, saltando: ${skipNotice}`)}
             </p>
           </div>
         )}
@@ -2794,7 +2862,7 @@ export default function MusicPlayerBar() {
                 ? 'relative w-full aspect-video max-h-[50vh] sm:max-h-[60vh]'
                 : floating
                   ? 'absolute right-2 bottom-[calc(100%+14px)] z-10 w-[62vw] max-w-[360px] aspect-video rounded-xl border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)]'
-                  : 'relative shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] self-start sm:self-stretch'
+                  : 'relative shrink-0 w-[112px] h-[63px] sm:w-[142px] sm:h-[80px] lg:w-[100px] lg:h-[56px] lg:my-2 lg:ml-3 lg:rounded-md self-start sm:self-stretch lg:self-center'
             }`}
           >
             {/* Ventana de video: agrandar, compartir y bajarla a la barra (sigue sonando) */}

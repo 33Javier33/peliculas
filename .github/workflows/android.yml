@@ -55,6 +55,9 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # Receptor propio de Chromecast (opcional): Settings → Secrets and variables → Variables
+          CAST_APP_ID_MEDIA: ${{ vars.CAST_APP_ID_MEDIA }}
+          CAST_APP_ID_MUSIC: ${{ vars.CAST_APP_ID_MUSIC }}
         run: |
           set -o pipefail
           mkdir -p "$ANDROID_USER_HOME"

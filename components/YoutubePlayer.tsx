@@ -344,8 +344,8 @@ export default function YoutubePlayer({
         (id): id is string => !!id && id !== videoId && /^[A-Za-z0-9_-]{11}$/.test(id)
       )
       Array.from(new Set(ids)).forEach((id, i) => {
-        // (Solo en la app: lo hace el teléfono. En el navegador pasaría por el servidor)
         if (isNativeApp()) (i === 0 ? nativePrefetch : nativePrefetchLater)(id)
+        else if (!isDesktop()) cacheYtAudio(id)
       })
     }, 2000)
     return () => clearTimeout(t)

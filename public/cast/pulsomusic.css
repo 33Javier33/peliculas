@@ -1,0 +1,21 @@
+/* Pantalla del Chromecast ("Styled Media Receiver" de Google Cast): logo, fondo y color de avance.
+   Se pega la dirección de este archivo en la consola de Google Cast, en el receptor de la app. */
+.background {
+  background: #0b0c10 center no-repeat url(https://peliculas-neon.vercel.app/brand/splash-poster.webp);
+  background-size: cover;
+}
+.logo {
+  background-image: url(https://peliculas-neon.vercel.app/brand/logo-mark.png);
+  background-size: contain;
+}
+.splash {
+  background-image: url(https://peliculas-neon.vercel.app/brand/logo-mark.png);
+  background-size: 180px 180px;
+}
+.watermark {
+  background-image: url(https://peliculas-neon.vercel.app/brand/logo-mark.png);
+  background-size: 64px 64px;
+}
+.progressBar {
+  background-color: #a78bfa;
+}

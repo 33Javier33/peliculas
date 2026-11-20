@@ -181,42 +181,173 @@ function DevicesPanel({ onClose, playingHere }: { onClose: () => void; playingHe
   )
 }
 
-/** Lo que suena en otro dispositivo de la cuenta, con sus controles y «Escuchar aquí» */
+/**
+ * Control remoto (como Spotify Connect): lo que suena en otro dispositivo de la cuenta (p. ej.
+ * PulsoMusic en el teléfono) se ve y se maneja desde aquí: anterior, pausa/play, siguiente, y la
+ * pantalla grande. No desaparece al pausar. «Escuchar aquí» trae la música a este dispositivo.
+ */
 function NowElsewhere() {
   const others = useDevicesStore((s) => s.others)
   const playingHere = useMusicStore((s) => s.isPlaying)
+  const [target, setTarget] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const d = others.find((o) => o.playing)
+  const [open, setOpen] = useState(false)
+  // Lo que se pidió y aún no confirma el otro dispositivo (se ve al instante)
+  const [optimistic, setOptimistic] = useState<{ playing: boolean; until: number } | null>(null)
+  const [now, setNow] = useState(Date.now())
+  const playingDev = others.find((o) => o.playing && o.track)
+  useEffect(() => {
+    if (playingDev) setTarget(playingDev.device)
+  }, [playingDev?.device]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (playingHere) setTarget(null)
+  }, [playingHere])
+  const d = others.find((o) => o.device === target && o.track)
+  const active = !!d && !playingHere
+  useEffect(() => {
+    useDevicesStore.getState().setRemote(active)
+    return () => useDevicesStore.getState().setRemote(false)
+  }, [active])
+  useEffect(() => {
+    if (!active) return
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [active])
   if (!d || !d.track || playingHere) return null
+
+  const confirmed = optimistic && (now > optimistic.until || optimistic.playing === d.playing) ? null : optimistic
+  const playing = confirmed ? confirmed.playing : d.playing
+  // Avance: lo último que avisó, más lo que pasó desde entonces (si suena)
+  const dur = d.track.dur ?? 0
+  const pos = Math.min(dur || Infinity, (d.track.pos ?? 0) + (d.playing && d.at ? Math.max(0, (now - d.at) / 1000) : 0))
+  const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0
   const run = async (fn: () => Promise<void>) => {
     setBusy(true)
     await fn()
     setBusy(false)
   }
+  const toggle = () => {
+    setOptimistic({ playing: !playing, until: Date.now() + 12000 })
+    run(() => sendTo(d, playing ? 'pause' : 'play'))
+  }
+  const skip = (type: 'next' | 'prev') => run(() => sendTo(d, type))
+  const take = () => run(() => takeFrom(d))
+  const where = d.name.split(' · ')[0]
+  const art = d.track.thumbnail?.startsWith('http') ? d.track.thumbnail : ''
+  const Device = d.app === 'music' || d.name.includes('teléfono') ? Smartphone : Laptop
+
   return (
-    <div className="fixed inset-x-0 bottom-14 sm:bottom-0 z-[81] border-t border-emerald-400/30 bg-surface-1/[0.98] sm:backdrop-blur-xl px-3 py-2 flex items-center gap-3 shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
-      <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-surface-2 shrink-0">
-        {d.track.thumbnail?.startsWith('http') && <Image src={d.track.thumbnail} alt="" fill sizes="44px" className="object-cover" unoptimized />}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-emerald-300 text-[11px] font-semibold truncate flex items-center gap-1">
-          <Smartphone className="w-3 h-3 shrink-0" /> Suena en {d.name}
+    <>
+      <div className="fixed inset-x-0 bottom-14 sm:bottom-0 z-[81] border-t border-emerald-400/30 bg-surface-1/[0.98] sm:backdrop-blur-xl shadow-[0_-8px_24px_rgba(0,0,0,0.45)]">
+        <div className="h-0.5 bg-white/10">
+          <div className="h-full bg-emerald-400 transition-[width] duration-1000 ease-linear" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="px-3 lg:px-4 py-2 flex items-center gap-3">
+          <button onClick={() => setOpen(true)} className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-[30%] text-left" aria-label="Abrir el control remoto">
+            <span className="relative w-11 h-11 lg:w-14 lg:h-14 rounded-md overflow-hidden bg-surface-2 shrink-0">
+              {art && <Image src={art} alt="" fill sizes="56px" className="object-cover" unoptimized />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-white text-sm font-semibold truncate">{d.track.title}</span>
+              <span className="block text-slate-400 text-xs truncate">{d.track.channelTitle}</span>
+            </span>
+          </button>
+          <div className="flex flex-col items-center lg:flex-1">
+            <div className="flex items-center gap-1 lg:gap-3">
+              <button onClick={() => skip('prev')} disabled={busy} className="hidden sm:inline-flex p-2 text-slate-300 hover:text-white disabled:opacity-50" aria-label="Anterior en ese dispositivo">
+                <SkipBack className="w-4 h-4 fill-current" />
+              </button>
+              <button onClick={toggle} className="w-10 h-10 lg:w-9 lg:h-9 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform" aria-label={playing ? 'Pausar en ese dispositivo' : 'Reproducir en ese dispositivo'}>
+                {playing ? <Pause className="w-4 h-4 fill-black" /> : <Play className="w-4 h-4 fill-black ml-0.5" />}
+              </button>
+              <button onClick={() => skip('next')} disabled={busy} className="p-2 text-slate-300 hover:text-white disabled:opacity-50" aria-label="Siguiente en ese dispositivo">
+                <SkipForward className="w-4 h-4 fill-current" />
+              </button>
+            </div>
+            {dur > 0 && (
+              <span className="hidden lg:flex items-center gap-2 mt-1 w-full max-w-xl text-[11px] text-slate-400 tabular-nums">
+                {fmt(pos)}
+                <span className="flex-1 h-1 rounded-full bg-white/15 overflow-hidden">
+                  <span className="block h-full bg-white" style={{ width: `${pct}%` }} />
+                </span>
+                {fmt(dur)}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-2 lg:w-[30%]">
+            <span className="hidden md:inline-flex items-center gap-1 text-emerald-300 text-xs font-semibold truncate max-w-[180px]">
+              <Device className="w-3.5 h-3.5 shrink-0" /> Suena en {where}
+            </span>
+            <button onClick={take} disabled={busy} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-violet-500 text-white disabled:opacity-50">
+              <ArrowRightLeft className="w-3.5 h-3.5" /> Escuchar aquí
+            </button>
+            <button onClick={take} disabled={busy} className="sm:hidden p-2 text-violet-300" aria-label="Escuchar aquí">
+              <ArrowRightLeft className="w-5 h-5" />
+            </button>
+            <button onClick={() => setTarget(null)} className="p-2 text-slate-500 hover:text-white" aria-label="Cerrar el control remoto" title="Cerrar el control remoto (la música sigue allí)">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <p className="md:hidden px-3 pb-1.5 -mt-1 text-emerald-300 text-[11px] font-semibold truncate flex items-center gap-1">
+          <Device className="w-3 h-3 shrink-0" /> Suena en {d.name}
         </p>
-        <p className="text-white text-sm font-semibold truncate">{d.track.title}</p>
-        <p className="text-slate-400 text-xs truncate">{d.track.channelTitle}</p>
       </div>
-      <button onClick={() => run(() => sendTo(d, 'pause'))} disabled={busy} className="p-2 text-white" aria-label="Pausar en ese dispositivo">
-        <Pause className="w-5 h-5" />
-      </button>
-      <button onClick={() => run(() => sendTo(d, 'next'))} disabled={busy} className="p-2 text-slate-200" aria-label="Siguiente en ese dispositivo">
-        <SkipForward className="w-5 h-5" />
-      </button>
-      <button onClick={() => run(() => takeFrom(d))} disabled={busy} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold bg-violet-500 text-white disabled:opacity-50">
-        <ArrowRightLeft className="w-3.5 h-3.5" /> Escuchar aquí
-      </button>
-      <button onClick={() => run(() => takeFrom(d))} disabled={busy} className="sm:hidden p-2 text-violet-300" aria-label="Escuchar aquí">
-        <ArrowRightLeft className="w-5 h-5" />
-      </button>
-    </div>
+
+      {/* Pantalla grande del control remoto */}
+      {open && (
+        <div className="fixed inset-0 z-[120] bg-gradient-to-b from-emerald-950 via-obsidian to-obsidian flex flex-col" role="dialog" aria-label={`Control remoto: ${d.name}`}>
+          <div className="flex items-center justify-between px-4 pt-[max(16px,env(safe-area-inset-top))] pb-2">
+            <button onClick={() => setOpen(false)} className="w-10 h-10 rounded-full flex items-center justify-center text-slate-200" aria-label="Cerrar">
+              <X className="w-5 h-5" />
+            </button>
+            <p className="text-emerald-300 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Device className="w-4 h-4" /> Suena en {where}
+            </p>
+            <span className="w-10" />
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6 max-w-md w-full mx-auto">
+            <div className="relative w-full aspect-square max-w-[360px] rounded-2xl overflow-hidden bg-surface-2 shadow-2xl">
+              {art && <Image src={art} alt="" fill sizes="360px" className="object-cover" unoptimized />}
+            </div>
+            <div className="w-full">
+              <p className="text-white text-2xl font-black truncate">{d.track.title}</p>
+              <p className="text-slate-400 truncate">{d.track.channelTitle}</p>
+            </div>
+            <div className="w-full">
+              <div className="h-1.5 rounded-full bg-white/15 overflow-hidden">
+                <div className="h-full bg-white transition-[width] duration-1000 ease-linear" style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex justify-between text-xs text-slate-400 tabular-nums mt-1.5">
+                <span>{fmt(pos)}</span>
+                <span>{dur ? fmt(dur) : '--:--'}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-8">
+              <button onClick={() => skip('prev')} disabled={busy} className="p-3 text-white disabled:opacity-50" aria-label="Anterior en ese dispositivo">
+                <SkipBack className="w-8 h-8 fill-white" />
+              </button>
+              <button onClick={toggle} className="w-20 h-20 rounded-full bg-white text-black flex items-center justify-center shadow-xl active:scale-95 transition-transform" aria-label={playing ? 'Pausar en ese dispositivo' : 'Reproducir en ese dispositivo'}>
+                {playing ? <Pause className="w-8 h-8 fill-black" /> : <Play className="w-8 h-8 fill-black ml-1" />}
+              </button>
+              <button onClick={() => skip('next')} disabled={busy} className="p-3 text-white disabled:opacity-50" aria-label="Siguiente en ese dispositivo">
+                <SkipForward className="w-8 h-8 fill-white" />
+              </button>
+            </div>
+            <button onClick={() => (setOpen(false), take())} disabled={busy} className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold bg-violet-500 text-white disabled:opacity-50">
+              <ArrowRightLeft className="w-4 h-4" /> Escuchar aquí
+            </button>
+            <p className="text-slate-500 text-xs text-center">Los cambios llegan al otro dispositivo en unos segundos.</p>
+          </div>
+        </div>
+      )}
+    </>
   )
+}
+
+function fmt(t: number) {
+  if (!isFinite(t) || t < 0) t = 0
+  const m = Math.floor(t / 60)
+  const s = Math.floor(t % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
 }

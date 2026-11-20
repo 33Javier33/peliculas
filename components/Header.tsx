@@ -131,10 +131,10 @@ export default function Header() {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
           ? 'bg-obsidian/[0.98] sm:bg-obsidian/95 sm:backdrop-blur-md shadow-lg shadow-black/30 border-b border-white/8'
-          : 'bg-gradient-to-b from-obsidian/80 to-transparent'
+          : 'bg-gradient-to-b from-obsidian/80 to-transparent lg:bg-none lg:bg-obsidian'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl lg:max-w-none mx-auto px-4 sm:px-6 lg:px-5">
         <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           <Link
             href={musicApp ? '/music' : '/'}
@@ -177,7 +177,7 @@ export default function Header() {
 
           <form
             onSubmit={handleSearch}
-            className="hidden md:flex flex-1 max-w-xl items-center"
+            className="hidden md:flex flex-1 max-w-xl lg:max-w-2xl lg:mx-auto items-center"
             role="search"
           >
             <div className="relative w-full">
@@ -263,7 +263,7 @@ export default function Header() {
               href="/"
               title="Inicio"
               aria-label="Inicio"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-surface-1"
+              className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-surface-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -279,7 +279,7 @@ export default function Header() {
               href="/peliculas"
               title="Películas"
               aria-label="Películas"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+              className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <Clapperboard className="w-4 h-4" />
               <span className="hidden xl:inline">Películas</span>
@@ -288,7 +288,7 @@ export default function Header() {
               href="/tube"
               title="PulsoTube"
               aria-label="PulsoTube"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+              className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <MonitorPlay className="w-4 h-4" />
               <span className="hidden xl:inline">PulsoTube</span>
@@ -297,7 +297,7 @@ export default function Header() {
               href="/music"
               title="Music"
               aria-label="Music"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+              className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -309,7 +309,7 @@ export default function Header() {
                 href="/music/feed"
                 title="Videos para ti"
                 aria-label="Videos para ti"
-                className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+                className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
               >
                 <MonitorPlay className="w-4 h-4" />
                 <span className="hidden xl:inline">Videos</span>
@@ -319,7 +319,7 @@ export default function Header() {
               href="/radio"
               title="En vivo"
               aria-label="En vivo"
-              className="hidden sm:inline-flex items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
+              className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-slate-400 hover:text-violet-400 text-sm font-medium transition-colors duration-200 px-3 py-2 rounded-lg hover:bg-violet-500/10"
             >
               <Radio className="w-4 h-4" />
               <span className="hidden xl:inline">En vivo</span>

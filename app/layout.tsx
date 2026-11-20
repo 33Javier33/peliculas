@@ -26,6 +26,7 @@ import AccountSheet from '@/components/AccountSheet'
 import OfflineBanner from '@/components/OfflineBanner'
 import OfflineManager from '@/components/OfflineManager'
 import MusicAppGuard from '@/components/MusicAppGuard'
+import DesktopSidebar from '@/components/DesktopSidebar'
 import HealthMonitor from '@/components/HealthMonitor'
 
 const MusicPlayerBar = dynamic(() => import('@/components/MusicPlayerBar'), { ssr: false })
@@ -198,8 +199,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Header />
           </Suspense>
         </SafeBoundary>
-        <main>{children}</main>
-        <footer className="bg-surface-1 border-t border-white/8 pt-7 pb-6 mt-2">
+        {/* Computador: menú lateral como YouTube (y como Spotify en Música) */}
+        <SafeBoundary name="DesktopSidebar">
+          <DesktopSidebar />
+        </SafeBoundary>
+        <main className="lg:pl-60">{children}</main>
+        <footer className="bg-surface-1 border-t border-white/8 pt-7 pb-6 mt-2 lg:ml-60">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
               <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />

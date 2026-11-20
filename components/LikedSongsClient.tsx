@@ -6,6 +6,7 @@ import { Heart, Play, Shuffle, ArrowLeft, Sparkles, Loader2 } from 'lucide-react
 import BackButton from '@/components/BackButton'
 import { useMusicStore } from '@/store/musicStore'
 import { TrackStateOverlay } from '@/components/TrackState'
+import TrackTable from '@/components/TrackTable'
 import { songArtist } from '@/lib/library-radio'
 import { withoutBlocked, isArtistBlocked, useBlockedVersion } from '@/store/blockStore'
 import { smartShuffle, fisherYates } from '@/lib/smart-shuffle'
@@ -67,17 +68,17 @@ export default function LikedSongsClient() {
   if (!mounted) return <div className="pt-20 min-h-screen bg-obsidian" />
   return (
     <div className="pt-20 bg-obsidian pb-8">
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-3xl lg:max-w-none mx-auto px-4 lg:px-8 py-6">
         <BackButton fallbackHref="/music" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-violet-400 text-xs font-medium">
           <ArrowLeft className="w-3.5 h-3.5" /> Volver
         </BackButton>
-        <div className="mt-4 flex items-end gap-4">
-          <span className="w-28 h-28 rounded-xl bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0 shadow-lg">
-            <Heart className="w-12 h-12 text-white fill-white" />
+        <div className="mt-4 flex items-end gap-4 lg:gap-6 lg:-mx-8 lg:px-8 lg:pt-6 lg:pb-6 lg:bg-gradient-to-b lg:from-violet-700/40 lg:to-transparent">
+          <span className="w-28 h-28 lg:w-56 lg:h-56 rounded-xl lg:rounded-md bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0 shadow-lg lg:shadow-2xl">
+            <Heart className="w-12 h-12 lg:w-24 lg:h-24 text-white fill-white" />
           </span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-violet-300">Playlist</p>
-            <h1 className="text-3xl font-black text-white font-display">Tus me gusta</h1>
+            <h1 className="text-3xl lg:text-7xl font-black text-white font-display lg:tracking-tight lg:my-3">Tus me gusta</h1>
             <p className="text-slate-400 text-sm">{list.length} {list.length === 1 ? 'canción' : 'canciones'}</p>
           </div>
         </div>
@@ -104,7 +105,12 @@ export default function LikedSongsClient() {
         {list.length === 0 ? (
           <p className="mt-10 text-slate-500 text-sm text-center">Toca el ♥ en cualquier canción para guardarla aquí.</p>
         ) : (
-          <ul className="mt-5 divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden">
+          <>
+          {/* Computador: tabla como Spotify (con la fecha en que la agregaste) */}
+          <div className="hidden lg:block mt-6">
+            <TrackTable tracks={list} onPlay={(i) => playAt(i)} dateOf={(t) => t.savedAt} />
+          </div>
+          <ul className="lg:hidden mt-5 divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden">
             {list.map((t, i) => (
               <li key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-white/5">
                 <button onClick={() => playAt(i)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
@@ -123,6 +129,7 @@ export default function LikedSongsClient() {
               </li>
             ))}
           </ul>
+          </>
         )}
       </div>
     </div>

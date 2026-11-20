@@ -29,7 +29,7 @@ export function ytIdFromText(text: string): string | null {
 }
 
 /** Lo que el usuario miró o le gustó (sin tendencias): ids y artistas para pedir recomendaciones */
-function useTaste() {
+export function useTaste() {
   const watched = useTubeStore((s) => s.watched)
   const liked = useVideoStore((s) => s.liked)
   const later = useVideoStore((s) => s.watchLater)

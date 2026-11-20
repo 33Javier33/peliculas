@@ -40,10 +40,15 @@ interface Cmd {
 interface DevicesState {
   others: Device[]
   setOthers: (o: Device[]) => void
+  /** Control remoto activo (como Spotify Connect): la barra maneja otro dispositivo y la local se oculta */
+  remote: boolean
+  setRemote: (v: boolean) => void
 }
 export const useDevicesStore = create<DevicesState>()((set) => ({
   others: [],
   setOthers: (others) => set({ others }),
+  remote: false,
+  setRemote: (remote) => set({ remote }),
 }))
 
 const KEY = 'cpn-device-id'
@@ -144,6 +149,8 @@ export async function sendTo(device: Device, type: CmdType) {
     return
   }
   await presenceNow({ to: device.device, type })
+  // El otro dispositivo la recibe en su próximo aviso: se vuelve a preguntar para ver el cambio
+  for (const ms of [3000, 9000]) setTimeout(() => presenceNow(), ms)
 }
 
 /** Trae aquí lo que suena en el otro dispositivo (y lo pausa allá) */

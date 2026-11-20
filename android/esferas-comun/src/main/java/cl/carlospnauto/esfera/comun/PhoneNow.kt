@@ -63,6 +63,9 @@ object PhoneNow {
         return s.playing || System.currentTimeMillis() - pausedAt < 60_000
     }
 
+    /** Lo que suena ahora (o pausado hace menos de 1 minuto), sin mirar la opción de la esfera */
+    fun current(): State? = state?.takeIf { hasMusic() }
+
     /** Tocar la pantalla: cambia entre la vista normal y la del reproductor. true si cambió */
     fun toggleView(c: Context): Boolean {
         if (!enabled(c) || !hasMusic()) return false
