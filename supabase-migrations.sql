@@ -40,3 +40,24 @@ create policy "peliculas_viendo anon" on public.peliculas_viendo
 drop policy if exists "peliculas_descargas anon" on public.peliculas_descargas;
 create policy "peliculas_descargas anon" on public.peliculas_descargas
   for all to anon using (true) with check (true);
+
+-- ── Cuenta (respaldo de la biblioteca) ─────────────────────────────
+-- El login sigue en el Apps Script; aquí se guarda la sesión (huella del token) y el respaldo.
+-- RLS activo SIN políticas: el rol anon no puede leer ni escribir. Solo /api/cuenta, con la
+-- service_role key (variable SUPABASE_SERVICE_ROLE_KEY en Vercel), accede a estas tablas.
+
+create table if not exists public.cuenta_sesiones (
+  token_hash text primary key,
+  email      text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists cuenta_sesiones_email on public.cuenta_sesiones (email);
+
+create table if not exists public.cuenta_respaldos (
+  email      text primary key,
+  data       text,
+  updated_at bigint not null default 0
+);
+
+alter table public.cuenta_sesiones  enable row level security;
+alter table public.cuenta_respaldos enable row level security;

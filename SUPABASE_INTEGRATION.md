@@ -38,3 +38,20 @@ La app no usa Supabase Auth, así que las políticas RLS permiten al rol `anon` 
 **solo** estas dos tablas. Quien tenga la clave anónima (pública en el JS) podría leer el
 historial de otro usuario si conoce su correo. Es aceptable para historial de películas; para
 algo sensible habría que pasar por una API del servidor con la service key.
+
+## Cuenta (respaldo de la biblioteca)
+
+`app/api/cuenta/route.ts`: el login por código y la comunidad siguen en el Apps Script
+(`backend/cuenta-apps-script.gs`). Cargar y guardar el respaldo va a Supabase:
+
+| Tabla | Clave | Contenido |
+|---|---|---|
+| `cuenta_sesiones` | `token_hash` | sha256 del token de sesión → correo |
+| `cuenta_respaldos` | `email` | respaldo completo (texto JSON) y `updated_at` |
+
+- RLS activo sin políticas: la clave anónima no puede leerlas. Solo el servidor, con
+  `SUPABASE_SERVICE_ROLE_KEY` (variable de entorno en Vercel, nunca en el código).
+- Sin esa variable, todo sigue yendo al Apps Script como antes.
+- Migración automática: la primera vez que un usuario carga o guarda, su respaldo se copia de la
+  Sheet a Supabase. La Sheet queda intacta como respaldo, pero ya no se actualiza.
+- Si Supabase falla, la app recibe un error temporal y reintenta; nunca se cierra la sesión.
