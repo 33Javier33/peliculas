@@ -61,6 +61,9 @@ private const val LEFT = 101
 private const val RIGHT = 102
 private const val BOTTOM = 103
 
+/** La foto tiene la esfera dentro de un aro; aquí llena la pantalla, así que todo se agranda igual */
+private const val ZOOM = 1.13f
+
 private val THEME = Choice(
     "tema", "Color del tema",
     listOf(
@@ -80,11 +83,11 @@ private val AMB = Choice("bajo", "Bajo consumo", listOf("Esfera completa tenue" 
 object Config : FaceConfig {
     override val slots = listOf(LEFT to "Círculo izquierdo (batería)", RIGHT to "Círculo derecho (pasos)", BOTTOM to "Círculo de abajo (ritmo cardíaco)")
     override val spots = listOf(
-        Spot(0f, -0.70f, Action.MEDIA, "Número 12", hit = 0.13f),
-        Spot(0.76f, 0f, Action.MUSIC, "Triángulo del 3", hit = 0.11f),
-        Spot(-0.76f, 0f, Action.ALARMS, "Triángulo del 9", hit = 0.11f),
-        Spot(0f, -0.31f, Action.TIMER, "Fecha", hit = 0.10f),
-        Spot(0f, 0.78f, Action.BATTERY, "Triángulo del 6", hit = 0.09f),
+        Spot(0f, -0.79f, Action.MEDIA, "Número 12", hit = 0.15f),
+        Spot(0.86f, 0f, Action.MUSIC, "Triángulo del 3", hit = 0.12f),
+        Spot(-0.86f, 0f, Action.ALARMS, "Triángulo del 9", hit = 0.12f),
+        Spot(0f, -0.35f, Action.TIMER, "Fecha", hit = 0.11f),
+        Spot(0f, 0.88f, Action.BATTERY, "Triángulo del 6", hit = 0.10f),
     )
     override val choices = listOf(THEME, HANDS, HCOLOR, SECOND, Smooth.CHOICE, GOAL, PLAYER, AMB)
     override val heartRate = true
@@ -98,9 +101,9 @@ class FaceService : WatchFaceService() {
         fun slot(id: Int, policy: DefaultComplicationDataSourcePolicy, b: RectF) =
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, types, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
-            slot(LEFT, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_WATCH_BATTERY, ComplicationType.RANGED_VALUE), RectF(0.195f, 0.38f, 0.435f, 0.62f)),
-            slot(RIGHT, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.565f, 0.38f, 0.805f, 0.62f)),
-            slot(BOTTOM, DefaultComplicationDataSourcePolicy(), RectF(0.38f, 0.60f, 0.62f, 0.84f)),
+            slot(LEFT, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_WATCH_BATTERY, ComplicationType.RANGED_VALUE), RectF(0.156f, 0.366f, 0.425f, 0.634f)),
+            slot(RIGHT, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.575f, 0.366f, 0.844f, 0.634f)),
+            slot(BOTTOM, DefaultComplicationDataSourcePolicy(), RectF(0.366f, 0.614f, 0.634f, 0.883f)),
         )
         return ComplicationSlotsManager(slots, currentUserStyleRepository)
     }
@@ -219,7 +222,7 @@ class HorizonRenderer(
     fun onCenter(x: Int, y: Int): Boolean {
         if (lastBounds.isEmpty || Choices.value(context, PLAYER) != 1) return false
         val (cx, cy, r) = geo()
-        return hypot(x - cx, y - cy) < r * 0.12f || hypot(x - cx, y - (cy - r * 0.17f)) < r * 0.07f
+        return hypot(x - cx, y - cy) < r * 0.13f * ZOOM || hypot(x - cx, y - (cy - r * 0.17f * ZOOM)) < r * 0.08f * ZOOM
     }
 
     fun openPlayer() {
@@ -266,8 +269,11 @@ class HorizonRenderer(
 
         if (ambient && Choices.value(context, AMB) == 1) {
             // Bajo consumo mínimo: solo la fecha y las agujas (en contorno)
+            canvas.save()
+            canvas.scale(ZOOM, ZOOM, cx, cy)
             drawDate(canvas, t, X(0f), Y(-0.31f), r, a(theme, 200))
             drawHands(canvas, cx, cy, r, t, theme, ambient = true)
+            canvas.restore()
             return
         }
 
@@ -280,6 +286,9 @@ class HorizonRenderer(
         fill.color = theme
         canvas.drawCircle(cx, cy, R, fill)
         canvas.restore()
+        // Todo lo de encima, agrandado para que la esfera llene la pantalla (como la foto, sin aro negro)
+        canvas.save()
+        canvas.scale(ZOOM, ZOOM, cx, cy)
 
         // ===== Números girados, líneas y triángulos =====
         val numH = r * 0.235f
@@ -340,6 +349,7 @@ class HorizonRenderer(
 
         // ===== Agujas =====
         drawHands(canvas, cx, cy, r, t, theme, ambient)
+        canvas.restore()
 
         // Siempre activa: la esfera completa, más tenue
         if (ambient) canvas.drawColor(Color.argb(150, 0, 0, 0))
