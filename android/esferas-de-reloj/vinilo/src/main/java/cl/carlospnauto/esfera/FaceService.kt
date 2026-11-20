@@ -397,7 +397,7 @@ class VinylRenderer(
         val m = "%02d".format(t.minute)
         val sc = if (showSeconds) "%02d".format(t.second) else "  "
         val dh = r * 0.235f
-        val dw = r * 0.107f
+        val dw = r * 0.118f
         val gap = r * 0.012f
         val colon = r * 0.035f
         val total = 6 * dw + 3 * gap + 2 * colon
@@ -432,20 +432,30 @@ class VinylRenderer(
         val rr = x + w - t / 2
         val top = y + t / 2
         val bot = y + h - t / 2
-        stroke.strokeCap = Paint.Cap.ROUND
-        stroke.strokeWidth = t
         val lit = SEGS[ch].orEmpty()
-        fun line(k: Char, x0: Float, y0: Float, x1: Float, y1: Float) {
-            stroke.color = if (k in lit) on else ghost
-            canvas.drawLine(x0, y0, x1, y1, stroke)
+        val h2 = t / 2
+        // Segmentos con puntas en bisel (hexágonos finos), como las pantallas de cristal líquido de la foto
+        fun hor(k: Char, x0: Float, x1: Float, yy: Float) {
+            fill.color = if (k in lit) on else ghost
+            path.reset()
+            path.moveTo(x0, yy); path.lineTo(x0 + h2, yy - h2); path.lineTo(x1 - h2, yy - h2)
+            path.lineTo(x1, yy); path.lineTo(x1 - h2, yy + h2); path.lineTo(x0 + h2, yy + h2); path.close()
+            canvas.drawPath(path, fill)
         }
-        line('a', l + g, top, rr - g, top)
-        line('b', rr, top + g, rr, m - g)
-        line('c', rr, m + g, rr, bot - g)
-        line('d', l + g, bot, rr - g, bot)
-        line('e', l, m + g, l, bot - g)
-        line('f', l, top + g, l, m - g)
-        line('g', l + g, m, rr - g, m)
+        fun ver(k: Char, xx: Float, y0: Float, y1: Float) {
+            fill.color = if (k in lit) on else ghost
+            path.reset()
+            path.moveTo(xx, y0); path.lineTo(xx + h2, y0 + h2); path.lineTo(xx + h2, y1 - h2)
+            path.lineTo(xx, y1); path.lineTo(xx - h2, y1 - h2); path.lineTo(xx - h2, y0 + h2); path.close()
+            canvas.drawPath(path, fill)
+        }
+        hor('a', l + g, rr - g, top)
+        ver('b', rr, top + g, m - g)
+        ver('c', rr, m + g, bot - g)
+        hor('d', l + g, rr - g, bot)
+        ver('e', l, m + g, bot - g)
+        ver('f', l, top + g, m - g)
+        hor('g', l + g, rr - g, m)
     }
 
     // ===== Piezas =====
@@ -523,20 +533,28 @@ class VinylRenderer(
         stroke.color = Color.rgb(64, 64, 66)
         stroke.strokeWidth = r * 0.006f
         canvas.drawCircle(x, y, rad, stroke)
-        // Centro de color metálico: gira con el disco
+        // Anillo liso alrededor del centro (sin surcos)
         val lr = rad * 0.335f
+        stroke.color = Color.rgb(38, 38, 40)
+        stroke.strokeWidth = rad * 0.05f
+        canvas.drawCircle(x, y, lr * 1.12f, stroke)
+        // Centro de metal cepillado de color: gira con el disco (los reflejos se mueven)
         canvas.save()
         canvas.rotate(spin, x, y)
-        fill.color = Color.rgb(16, 16, 17)
-        canvas.drawCircle(x, y, lr * 1.12f, fill)
         val (light, darkC) = label
-        fill.shader = SweepGradient(x, y, intArrayOf(darkC, light, darkC, light, darkC, light, darkC), null)
+        fill.shader = SweepGradient(x, y, intArrayOf(darkC, light, darkC, darkC, light, darkC, darkC), floatArrayOf(0f, 0.12f, 0.3f, 0.5f, 0.62f, 0.8f, 1f))
         canvas.drawCircle(x, y, lr, fill)
-        fill.shader = RadialGradient(x, y, lr, intArrayOf(0x00000000, 0x00000000, 0x55000000), floatArrayOf(0f, 0.7f, 1f), Shader.TileMode.CLAMP)
+        // Surcos finos del metal
+        stroke.strokeWidth = r * 0.002f
+        var q = lr * 0.18f
+        while (q < lr * 0.95f) {
+            stroke.color = Color.argb(28, 0, 0, 0)
+            canvas.drawCircle(x, y, q, stroke)
+            q += r * 0.009f
+        }
+        fill.shader = RadialGradient(x, y, lr, intArrayOf(0x00000000, 0x00000000, 0x66000000), floatArrayOf(0f, 0.78f, 1f), Shader.TileMode.CLAMP)
         canvas.drawCircle(x, y, lr, fill)
         fill.shader = null
-        // Marca en el centro (se nota el giro)
-        arcText(canvas, "CARLOS P. NAUTO", x, y, lr * 0.70f, 200f, 140f, r * 0.026f, Color.argb(150, 255, 255, 255))
         canvas.restore()
         // Eje
         fill.shader = RadialGradient(x - r * 0.006f, y - r * 0.006f, r * 0.02f, Color.rgb(240, 240, 240), Color.rgb(120, 120, 124), Shader.TileMode.CLAMP)
