@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'secuencia',
+    name: 'Secuencia',
+    file: 'Esfera-Secuencia.apk',
+    description:
+      'Negra y retro: una franja al centro con la fecha, la hora grande en números cuadrados, los dos puntos que pulsan, los segundos y AM/PM. Arriba y abajo corren las columnas de horas, minutos y segundos (los que vienen y los que pasaron), cada vez más chicos y tenues; los segundos siguen la curva del borde. A la izquierda: notificaciones sin leer, pasos, batería y ritmo cardíaco.',
+    features: ['Digital', 'Secuencia de tiempo', 'Segundos en movimiento', '7 colores', 'Notificaciones', 'Pasos', 'Ritmo cardíaco', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-20',
+  },
+  {
     id: 'mundo',
     name: 'LCD Mundo',
     file: 'Esfera-Mundo.apk',
@@ -273,6 +282,17 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       'Mapa con la noche (hora mundial) o solo el mapa',
       'Bajo consumo: esfera completa tenue o mínima',
       'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
+  secuencia: {
+    gallery: 3,
+    long: 'Una esfera negra donde el tiempo se ve correr. Al centro, una franja gris con la fecha (día, mes y número), la hora grande en números cuadrados, los dos puntos que pulsan cada segundo, los segundos y AM/PM. Sobre y bajo la franja están las columnas de horas, minutos y segundos: arriba los que vienen y abajo los que pasaron, cada vez más pequeños y tenues; la de segundos avanza cada segundo y sigue la curva del borde. A la izquierda, las notificaciones sin leer, los pasos, la batería y el ritmo cardíaco. Toca la hora para abrir PulsoMedia y los segundos para PulsoMusic.',
+    customize: [
+      '7 colores de la hora: blanco, ámbar, cian, verde, rojo, naranja y violeta',
+      'Líneas de la franja: gris y bronce, del color de la hora o grises',
+      'Dos puntos que pulsan o fijos',
+      'Bajo consumo: esfera completa tenue (sin la columna de segundos) o mínima',
       ...COMMON,
     ],
   },
