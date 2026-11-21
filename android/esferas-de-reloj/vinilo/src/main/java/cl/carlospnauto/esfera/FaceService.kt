@@ -90,10 +90,10 @@ private val AMB = Choice("bajo", "Bajo consumo", listOf("Esfera completa tenue" 
 object Config : FaceConfig {
     override val slots = listOf(WEATHER to "Clima (arriba)", STEPS to "Pasos", HEART to "Ritmo cardíaco", CAL to "Calorías (abajo)", DIST to "Distancia (abajo)")
     override val spots = listOf(
-        Spot(-0.12f, -0.64f, Action.MEDIA, "Hora", hit = 0.16f),
+        Spot(0f, -0.64f, Action.MEDIA, "Hora", hit = 0.16f),
         Spot(-0.08f, -0.37f, Action.MUSIC, "Fecha", hit = 0.10f),
-        Spot(-0.68f, -0.60f, Action.BATTERY, "Batería", hit = 0.11f),
-        Spot(0.47f, -0.69f, Action.ALARMS, "Luna y AM/PM", hit = 0.11f),
+        Spot(-0.55f, -0.61f, Action.BATTERY, "Batería", hit = 0.10f),
+        Spot(0.55f, -0.67f, Action.ALARMS, "Luna y AM/PM", hit = 0.10f),
     )
     override val choices = listOf(LABEL, INK, SPIN, SONG, GOAL, AMB)
     override val heartRate = true
@@ -107,7 +107,7 @@ class FaceService : WatchFaceService() {
         fun slot(id: Int, policy: DefaultComplicationDataSourcePolicy, b: RectF) =
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, short, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
-            slot(WEATHER, DefaultComplicationDataSourcePolicy(), RectF(0.38f, 0.02f, 0.58f, 0.09f)),
+            slot(WEATHER, DefaultComplicationDataSourcePolicy(), RectF(0.40f, 0.02f, 0.62f, 0.09f)),
             slot(STEPS, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.07f, 0.43f, 0.21f, 0.63f)),
             slot(HEART, DefaultComplicationDataSourcePolicy(), RectF(0.79f, 0.38f, 0.92f, 0.47f)),
             slot(CAL, DefaultComplicationDataSourcePolicy(), RectF(0.28f, 0.84f, 0.46f, 0.93f)),
@@ -321,16 +321,16 @@ class VinylRenderer(
 
         // ===== Clima =====
         val temp = complications.textOf(WEATHER, context.resources)
-        drawCloud(canvas, X(-0.30f), Y(-0.905f), r * 0.032f, textC)
-        write(canvas, temp ?: "--°", X(-0.06f), Y(-0.875f), r * 0.075f, textC, medium)
+        drawCloud(canvas, X(-0.14f), Y(-0.905f), r * 0.032f, textC)
+        write(canvas, temp ?: "--°", X(0.10f), Y(-0.875f), r * 0.075f, textC, medium)
 
         // ===== Hora, batería, luna y AM/PM =====
         drawLcd(canvas, cx, cy, r, t, is24, ink, showSeconds = !ambient)
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-        drawBattery(canvas, X(-0.68f), Y(-0.665f), r * 0.03f, textC)
-        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.69f), Y(-0.515f), r * 0.078f, textC, medium)
-        drawMoon(canvas, X(0.455f), Y(-0.75f), r * 0.036f, textC)
-        if (!is24) write(canvas, if (t.hour < 12) "AM" else "PM", X(0.50f), Y(-0.615f), r * 0.072f, textC, medium)
+        drawBattery(canvas, X(-0.52f), Y(-0.69f), r * 0.03f, textC)
+        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.565f), Y(-0.53f), r * 0.072f, textC, medium)
+        drawMoon(canvas, X(0.515f), Y(-0.74f), r * 0.036f, textC)
+        if (!is24) write(canvas, if (t.hour < 12) "AM" else "PM", X(0.565f), Y(-0.60f), r * 0.07f, textC, medium)
 
         // ===== Fecha con su interruptor =====
         val loc = Locale.getDefault()
@@ -387,7 +387,7 @@ class VinylRenderer(
     private fun drawLcd(canvas: Canvas, cx: Float, cy: Float, r: Float, t: ZonedDateTime, is24: Boolean, ink: Int, showSeconds: Boolean) {
         fun X(v: Float) = cx + v * r
         fun Y(v: Float) = cy + v * r
-        val box = RectF(X(-0.57f), Y(-0.815f), X(0.38f), Y(-0.465f))
+        val box = RectF(X(-0.43f), Y(-0.80f), X(0.43f), Y(-0.48f))
         fill.color = Color.rgb(8, 8, 9)
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, fill)
         stroke.color = Color.rgb(190, 190, 192)
@@ -396,10 +396,10 @@ class VinylRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
         val sc = if (showSeconds) "%02d".format(t.second) else "  "
-        val dh = r * 0.235f
-        val dw = r * 0.118f
-        val gap = r * 0.012f
-        val colon = r * 0.035f
+        val dh = r * 0.205f
+        val dw = r * 0.099f
+        val gap = r * 0.011f
+        val colon = r * 0.032f
         val total = 6 * dw + 3 * gap + 2 * colon
         var x = box.centerX() - total / 2
         val top = box.centerY() - dh / 2
