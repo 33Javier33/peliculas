@@ -658,7 +658,7 @@ private fun FacesScreen() {
     val list = faces
     @Suppress("UNUSED_VARIABLE") val t = tick.longValue
     val st = list?.associateWith { FaceStore.status(ctx, it) }.orEmpty()
-    ListPage("Esferas", state) {
+    ListPage("Esferas y apps", state) {
         when {
             list == null -> item { Text(error ?: "Cargando…", color = Grey, textAlign = TextAlign.Center) }
             else -> {
@@ -666,7 +666,7 @@ private fun FacesScreen() {
                 val inst = st.values.count { it != FaceStore.Status.MISSING }
                 item {
                     Text(
-                        "$inst de ${list.size} instaladas" + if (upd > 0) " · $upd para actualizar" else " · todo al día",
+                        "$inst de ${list.size} instaladas" + if (upd > 0) " · $upd desactualizadas" else " · todo al día",
                         color = Grey, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -676,14 +676,15 @@ private fun FacesScreen() {
                     val s = st[f] ?: FaceStore.Status.MISSING
                     val j = job?.takeIf { it.file == f.file }
                     val mb = if (f.size > 0) " · %.1f MB".format(f.size / 1_048_576f) else ""
+                    val have = FaceStore.installedLabel(ctx, f)
                     val sub = when {
                         j != null && j.failed -> "Error: ${j.msg} (toca para reintentar)"
                         j != null && !j.done -> "${j.pct}% · ${j.msg}"
-                        s == FaceStore.Status.INSTALLED -> "Instalada ✓"
-                        s == FaceStore.Status.UPDATE -> "Hay versión nueva · toca para actualizar$mb"
-                        else -> "No instalada · toca para instalar$mb"
+                        s == FaceStore.Status.INSTALLED -> "Instalada ✓ · versión ${have ?: f.label}"
+                        s == FaceStore.Status.UPDATE -> "Desactualizada: tienes ${have ?: "una anterior"}, nueva ${f.label} · toca para actualizar$mb"
+                        else -> "No instalada · versión ${f.label} · toca para instalar$mb"
                     }
-                    Entry(icon = R.drawable.ic_watch, title = f.name, sub = sub, accent = s == FaceStore.Status.UPDATE) {
+                    Entry(icon = if (f.app) R.drawable.ic_music else R.drawable.ic_watch, title = f.name, sub = sub, accent = s == FaceStore.Status.UPDATE) {
                         when {
                             // Ya llegó al reloj: abrir la pantalla de instalar
                             j != null && !j.failed && !j.done && j.pct >= 100 -> FaceStore.installReceived(ctx, f.file)

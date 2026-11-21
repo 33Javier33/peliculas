@@ -179,6 +179,8 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
     fun hello(c: Context) {
         cmd(c, "hello") {
             runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull()?.let { put("v", it) }
+            // Lo instalado en el reloj (esferas y las dos apps): el teléfono marca lo desactualizado
+            put("installed", FaceStore.installedReport(c))
         }
         // Si a los 8 s la app del teléfono no respondió, se dice (antes quedaba «Conectando…» sin fin)
         scope.launch {
@@ -291,10 +293,10 @@ object PhoneLink : MessageClient.OnMessageReceivedListener {
             }
             // Actualización de la app del reloj pedida al teléfono
             // Pedidos de actualización: de esta app (WatchUpdate) o de una esfera (FaceStore)
-            "/cpn/updateack" -> if (text.trim().startsWith("Esfera")) FaceStore.onAck(text.trim()) else WatchUpdate.onPhoneAck()
+            "/cpn/updateack" -> if (FaceStore.owns(text.trim())) FaceStore.onAck(text.trim()) else WatchUpdate.onPhoneAck()
             "/cpn/updateprog" -> {
                 val o = runCatching { org.json.JSONObject(text) }.getOrNull()
-                if (o != null && o.optString("name").startsWith("Esfera")) FaceStore.onProgress(o) else WatchUpdate.onPhoneProgress(text)
+                if (o != null && FaceStore.owns(o.optString("name"))) FaceStore.onProgress(o) else WatchUpdate.onPhoneProgress(text)
             }
         }
     }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, AlertTriangle, Watch } from 'lucide-react'
 import { getNative } from '@/lib/native'
 import { appFlavor, brandName, type AppFlavor } from '@/lib/app-flavor'
+import { useWatchInstalled } from '@/lib/watch-installed'
 
 const build = (v: string | null | undefined) => Number(String(v ?? '').split('.').pop()) || 0
 
@@ -15,6 +16,9 @@ export default function WatchVersionStatus({ flavor }: { flavor: AppFlavor }) {
   const [latest, setLatest] = useState<string | null>(null)
   const [wear, setWear] = useState<WearInfo | null>(null)
   const [here, setHere] = useState(false)
+  const [latestBuild, setLatestBuild] = useState(0)
+  // Lo instalado en el reloj (también la app del reloj de la OTRA app, si está)
+  const installed = useWatchInstalled()
 
   useEffect(() => {
     const mine = appFlavor() === flavor
@@ -28,7 +32,10 @@ export default function WatchVersionStatus({ flavor }: { flavor: AppFlavor }) {
     }
     fetch(`/api/apk/version${flavor === 'music' ? '?app=music' : ''}`)
       .then((r) => r.json())
-      .then((d: { version?: string | null }) => setLatest(d.version ?? null))
+      .then((d: { version?: string | null; build?: number }) => {
+        setLatest(d.version ?? null)
+        setLatestBuild(Number(d.build) || 0)
+      })
       .catch(() => {})
   }, [flavor])
 
@@ -54,6 +61,21 @@ export default function WatchVersionStatus({ flavor }: { flavor: AppFlavor }) {
         </p>
       )
     }
+  } else if (!here && installed && latestBuild > 0) {
+    // La app del reloj de la otra app: se sabe su número por lo que informa el reloj
+    const have = installed[flavor === 'music' ? 'cl.carlospnauto.music' : 'cl.carlospnauto.app']
+    if (have !== undefined)
+      status =
+        have >= latestBuild ? (
+          <p className="flex items-center gap-1.5 text-emerald-300 text-xs mt-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" /> Instalada en tu reloj: está al día.
+          </p>
+        ) : (
+          <p className="flex items-start gap-1.5 text-amber-300 text-xs mt-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+            <span>Instalada en tu reloj pero desactualizada. Actualízala desde el reloj: Menú → Esferas y apps.</span>
+          </p>
+        )
   } else if (here && wear) {
     status = (
       <p className="text-slate-400 text-xs mt-2">

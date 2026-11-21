@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Download, LayoutGrid, List } from 'lucide-react'
 import { WATCH_FACES, type WatchFace } from '@/lib/watchfaces'
 import InstallOnWatchButton from '@/components/InstallOnWatchButton'
+import FaceVersionBadge from '@/components/FaceVersionBadge'
 
 type View = 'grid' | 'list'
 const KEY = 'cpn-esferas-vista'
@@ -95,6 +96,7 @@ export default function WatchFaceStore() {
                 {f.name}
               </Link>
               <p className="text-slate-500 text-[11px] leading-tight mt-0.5 line-clamp-2">{f.features.join(' · ')}</p>
+              <FaceVersionBadge file={f.file} />
               <div className="mt-3 w-full space-y-2">
                 <InstallOnWatchButton file={f.file} />
                 <DownloadLink f={f} />
@@ -118,6 +120,7 @@ export default function WatchFaceStore() {
                   {isNew(f) && <span className="rounded-full bg-amber-400 text-black text-[10px] font-bold px-2 py-0.5">Nueva</span>}
                 </Link>
                 <p className="text-slate-400 text-xs mt-1">{f.description}</p>
+                <div className="mt-1 [&>div>span]:justify-start"><FaceVersionBadge file={f.file} compact /></div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <InstallOnWatchButton file={f.file} compact />
                   <DownloadLink f={f} compact />

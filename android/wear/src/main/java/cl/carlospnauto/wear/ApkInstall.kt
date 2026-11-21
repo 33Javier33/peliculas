@@ -285,6 +285,8 @@ class InstallActivity : Activity() {
                 button("Listo") { finish() }
                 replyToPhone(this, null, name, "done")
                 FaceStore.onInstalled(name)
+                // El teléfono actualiza su lista de lo instalado (marca «al día»)
+                PhoneLink.hello(this)
             }
             else -> fail(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "No se pudo instalar ($st)")
         }

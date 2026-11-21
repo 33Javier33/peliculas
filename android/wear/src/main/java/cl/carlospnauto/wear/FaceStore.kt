@@ -28,7 +28,10 @@ import java.util.concurrent.TimeUnit
 object FaceStore {
     private const val BASE = "https://github.com/33Javier33/peliculas/releases/download/android-latest/"
 
-    data class Face(val file: String, val name: String, val pkg: String, val version: Long, val size: Long)
+    data class Face(val file: String, val name: String, val pkg: String, val version: Long, val size: Long, val app: Boolean = false) {
+        /** Versión para mostrar: esferas «2.N» (N = versión − 1000), apps «1.0.N» */
+        val label get() = if (app) "1.0.${if (pkg.endsWith(".music")) (version - 53).coerceAtLeast(1) else version}" else "2.${version - 1000}"
+    }
 
     enum class Status { INSTALLED, UPDATE, MISSING }
 
@@ -65,7 +68,16 @@ object FaceStore {
                     val o: JSONObject = arr.getJSONObject(i)
                     Face(o.optString("file"), o.optString("name"), o.optString("package"), o.optLong("version"), o.optLong("size"))
                 }.filter { it.file.isNotEmpty() && it.pkg.isNotEmpty() }
-                _faces.value = list.sortedBy { it.name.lowercase() }
+                // Las dos apps del reloj (una puede instalar o actualizar la otra): su versión es el número de compilación
+                val apps = runCatching {
+                    val v = JSONObject(open(BASE + "version.json?t=${System.currentTimeMillis() / 60000}").inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
+                    val build = v.optLong("build")
+                    if (build <= 0) emptyList() else listOf(
+                        Face("CarlosPNauto-Reloj.apk", "PulsoMedia (app del reloj)", "cl.carlospnauto.app", build, 0, app = true),
+                        Face("PulsoMusic-Reloj.apk", "PulsoMusic (app del reloj)", "cl.carlospnauto.music", build, 0, app = true),
+                    )
+                }.getOrDefault(emptyList())
+                _faces.value = apps + list.sortedBy { it.name.lowercase() }
             }.onFailure {
                 if (_faces.value == null) _error.value = "No se pudo cargar la lista. Revisa la conexión del reloj"
             }
@@ -77,6 +89,28 @@ object FaceStore {
         val p = c.packageManager.getPackageInfo(pkg, 0)
         if (Build.VERSION.SDK_INT >= 28) p.longVersionCode else @Suppress("DEPRECATION") p.versionCode.toLong()
     }.getOrNull()
+
+    /** ¿Este pedido es de la tienda (y no la actualización de esta misma app desde su aviso)? */
+    fun owns(name: String) = _job.value?.file == name || name.startsWith("Esfera")
+
+    /** Versión instalada para mostrar */
+    fun installedLabel(c: Context, f: Face): String? = runCatching { c.packageManager.getPackageInfo(f.pkg, 0).versionName }.getOrNull()
+
+    /**
+     * Lo instalado en el reloj para el teléfono: { paquete: versión } de las esferas propias y de las
+     * dos apps del reloj
+     */
+    fun installedReport(c: Context): JSONObject {
+        val o = JSONObject()
+        runCatching {
+            val pm = c.packageManager
+            val faces = pm.queryIntentServices(Intent("android.service.wallpaper.WallpaperService"), 0).map { it.serviceInfo.packageName }
+            for (pkg in (faces.filter { it.startsWith("cl.carlospnauto.esfera") } + listOf("cl.carlospnauto.app", "cl.carlospnauto.music")).distinct()) {
+                installedCode(c, pkg)?.let { o.put(pkg, it) }
+            }
+        }
+        return o
+    }
 
     fun status(c: Context, f: Face): Status {
         val code = installedCode(c, f.pkg) ?: return Status.MISSING

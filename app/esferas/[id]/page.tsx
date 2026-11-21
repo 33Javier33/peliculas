@@ -5,6 +5,7 @@ import { ChevronLeft, Check, Sparkles } from 'lucide-react'
 import { WATCH_FACES, WATCH_FACE_DETAILS, watchFaceById } from '@/lib/watchfaces'
 import WatchFaceGallery from '@/components/WatchFaceGallery'
 import InstallOnWatchButton from '@/components/InstallOnWatchButton'
+import FaceVersionBadge from '@/components/FaceVersionBadge'
 import { DownloadLink } from '@/components/WatchFaceStore'
 
 export function generateStaticParams() {
@@ -35,6 +36,7 @@ export default function WatchFacePage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="mt-5 space-y-2">
+          <div className="text-center mb-2"><FaceVersionBadge file={f.file} /></div>
           <InstallOnWatchButton file={f.file} />
           <DownloadLink f={f} />
         </div>

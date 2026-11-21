@@ -11,6 +11,9 @@
 
     <!-- Ver las esferas instaladas (para pasarles lo que suena en el teléfono) -->
     <queries>
+        <!-- Las dos apps del reloj (PulsoMedia y PulsoMusic): una puede instalar o actualizar la otra -->
+        <package android:name="cl.carlospnauto.app" />
+        <package android:name="cl.carlospnauto.music" />
         <intent>
             <action android:name="android.service.wallpaper.WallpaperService" />
         </intent>

@@ -17,6 +17,9 @@ import kotlin.concurrent.thread
  */
 object WatchInstall {
     @Volatile private var busy = false
+    @Volatile private var busySince = 0L
+    /** El reloj avisó que le llegó el archivo ("/cpn/apkresult" received) */
+    @Volatile private var arrived: String? = null
     /** Actualización pedida desde el reloj: el avance también se le cuenta a él ("/cpn/updateprog") */
     @Volatile private var askedBy: String? = null
     @Volatile private var appCtx: Context? = null
@@ -52,8 +55,11 @@ object WatchInstall {
         val app = c.applicationContext
         val safe = name.replace(Regex("[^A-Za-z0-9._-]"), "")
         if (!url.startsWith("https://") || !safe.endsWith(".apk")) return report(name, "error", msg = "Archivo no válido")
-        if (busy) return report(safe, "error", msg = "Ya hay una instalación en curso")
+        // Un envío que se quedó colgado (más de 4 min) no bloquea los siguientes
+        if (busy && System.currentTimeMillis() - busySince < 4 * 60_000) return report(safe, "error", msg = "Ya hay una instalación en curso")
         busy = true
+        busySince = System.currentTimeMillis()
+        arrived = null
         thread(name = "watch-install") {
             val file = File(app.cacheDir, "reloj.apk")
             try {
@@ -95,7 +101,15 @@ object WatchInstall {
                     report(safe, "send", 0, "Reintentando por otra vía…")
                     sendByMessages(app, node, safe, file)
                 }
-                report(safe, "sent", 100, "Confirma la instalación en el reloj")
+                report(safe, "sent", 100, "Esperando al reloj…")
+                // ¿Le llegó? Si la app del reloj de ESTA app no está instalada (por ejemplo, solo tienes la
+                // de la otra app), el archivo no llega a nadie: se avisa en vez de quedar esperando
+                var waited = 0
+                while (arrived != safe && waited < 45) { Thread.sleep(1000); waited++ }
+                if (arrived != safe) throw IOException(
+                    "El reloj no respondió. Abre en el reloj la app de ${BuildConfig.BRAND} " +
+                        "(si no la tienes, instálala desde la otra app del reloj: Menú → Esferas y apps) y vuelve a intentar"
+                )
             } catch (e: Exception) {
                 report(safe, "error", msg = e.message ?: "No se pudo enviar al reloj")
             } finally {
@@ -180,7 +194,7 @@ object WatchInstall {
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return
         val name = o.optString("name")
         when (o.optString("state")) {
-            "received" -> report(name, "sent", 100, "Llegó al reloj: confirma la instalación allí")
+            "received" -> { arrived = name; report(name, "sent", 100, "Llegó al reloj: confirma la instalación allí") }
             "done" -> report(name, "done", 100, "Instalada en el reloj")
             "part" -> {}
             else -> report(name, "error", msg = o.optString("msg", "El reloj no pudo instalarla"))

@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   // ?app=music → la versión de PulsoMusic
-  const file = new URL(request.url).searchParams.get('app') === 'music' ? 'version-music.json' : 'version.json'
+  // ?f=esferas → la lista de esferas con su versión (esferas.json)
+  const q = new URL(request.url).searchParams
+  const file = q.get('f') === 'esferas' ? 'esferas.json' : q.get('app') === 'music' ? 'version-music.json' : 'version.json'
   const headers = { 'Cache-Control': 'public, s-maxage=60' }
   try {
     if (process.env.APK_VERSION_URL && file === 'version.json') {
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
       const r = await fetchAsset(meta)
       if (r.ok) return NextResponse.json(await r.json(), { headers })
     }
+    if (file === 'esferas.json') return NextResponse.json([], { headers })
     if (file !== 'version.json') return NextResponse.json({ version: null }, { headers })
     // Respaldo: el número de compilación que trae la descripción de la versión
     const build = Number(body.match(/Compilación (\d+)/)?.[1])
@@ -34,6 +37,6 @@ export async function GET(request: Request) {
       })
       if (r.ok) return NextResponse.json(await r.json(), { headers })
     } catch {}
-    return NextResponse.json({ version: null }, { headers: { 'Cache-Control': 'public, s-maxage=30' } })
+    return NextResponse.json(file === 'esferas.json' ? [] : { version: null }, { headers: { 'Cache-Control': 'public, s-maxage=30' } })
   }
 }

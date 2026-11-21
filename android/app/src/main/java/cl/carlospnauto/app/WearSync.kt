@@ -25,6 +25,9 @@ object WearSync {
     /** Versión de la app del reloj la última vez que se conectó ("" si no la mandó: reloj antiguo) */
     fun watchVersion(c: Context) = c.getSharedPreferences("wear", Context.MODE_PRIVATE).getString("ver", "") ?: ""
 
+    /** { paquete: versión } de lo instalado en el reloj (lo manda la app del reloj al conectarse) */
+    fun watchInstalled(c: Context) = c.getSharedPreferences("wear", Context.MODE_PRIVATE).getString("installed", "") ?: ""
+
     fun watching() = System.currentTimeMillis() - helloAt < 3 * 60 * 1000
 
     fun send(c: Context, path: String, json: String) = send(c, path, json.toByteArray())
@@ -143,6 +146,11 @@ object WearSync {
                     .putBoolean("app", true)
                     .putString("ver", o.optString("v"))
                     .apply()
+                // Lo instalado en el reloj (esferas y apps del reloj), para marcar lo desactualizado
+                o.optJSONObject("installed")?.let {
+                    c.getSharedPreferences("wear", Context.MODE_PRIVATE).edit().putString("installed", it.toString()).putLong("installedAt", System.currentTimeMillis()).apply()
+                    MainActivity.toWeb("window.__cpnWatchInstalled && window.__cpnWatchInstalled(${it})")
+                }
                 // Que el reloj tenga ya su ícono de «Sonando» (lo que suena ahora)
                 lastNow = ""
                 runCatching { state(c, lastState) }
