@@ -65,15 +65,13 @@ export default function SplashScreen() {
       aria-label="Pulso"
       role="img"
     >
-      {/* PulsoMusic (solo se ve en esa app: html[data-app=music]) */}
-      <div className="cpn-splash-music absolute inset-0 flex-col items-center justify-center gap-5 bg-[radial-gradient(circle_at_50%_40%,#3b0d4f_0%,#0b0a24_60%)]">
+      {/* PulsoMusic (solo se ve en esa app: html[data-app=music]): su imagen de presentación */}
+      <div className="cpn-splash-music absolute inset-0 items-center justify-center bg-[#2a3140]">
+        {/* Fondo difuminado para pantallas anchas */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/logo-mark.png" alt="" className="w-28 h-28 rounded-3xl shadow-[0_0_60px_rgba(217,70,239,0.55)] animate-[cpn-splash-pop_0.9s_cubic-bezier(.2,1.4,.4,1)_both]" />
-        <p className="text-4xl font-black font-display tracking-tight animate-[cpn-splash-rise_0.8s_ease-out_0.35s_both]">
-          <span className="text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.6)]">Pulso</span>
-          <span className="text-white">Music</span>
-        </p>
-        <p className="text-slate-400 text-xs tracking-[0.2em] uppercase animate-[cpn-splash-rise_0.8s_ease-out_0.7s_both]">por Carlos P. Nauto Interactive</p>
+        <img src="/brand/splash-music.webp" alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-110" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/splash-music.webp" alt="PulsoMusic, por Carlos P. Nauto Interactive" className="relative h-full w-full object-contain animate-[cpn-splash-rise_0.7s_ease-out_both]" />
       </div>
       {/* Fondo difuminado para pantallas anchas (computador, tablet) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}

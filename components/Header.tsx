@@ -147,7 +147,16 @@ export default function Header() {
               width={40}
               height={40}
               priority
-              className="w-10 h-10 shrink-0 rounded-xl shadow-md shadow-cyan-400/20 group-hover:scale-105 transition-transform duration-200"
+              className="cpn-logo-media w-10 h-10 shrink-0 rounded-xl shadow-md shadow-cyan-400/20 group-hover:scale-105 transition-transform duration-200"
+            />
+            {/* PulsoMusic: su propio ícono */}
+            <Image
+              src="/brand/logo-music.png"
+              alt="PulsoMusic"
+              width={40}
+              height={40}
+              priority
+              className="cpn-logo-music w-10 h-10 shrink-0 rounded-xl shadow-md shadow-pink-500/25 group-hover:scale-105 transition-transform duration-200"
             />
             <div className="flex flex-col leading-none min-w-0 overflow-hidden">
               <span className="flex items-baseline gap-1.5">

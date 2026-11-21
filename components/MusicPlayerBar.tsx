@@ -604,8 +604,18 @@ export default function MusicPlayerBar() {
     // Si el video nunca avanzó (no cargó), vuelve al segundo en que se abrió
     const at = typeof t === 'number' && t > 0 ? t : inlineTimeRef.current > 0 ? inlineTimeRef.current : inlineOpenedAtRef.current
     const wasPlaying = useMusicStore.getState().isPlaying
+    // ¿El video llegó a tomar el sonido? Si no (video sin imagen o que no cargó), la canción siguió
+    // sonando y ya está donde debe: no se mueve (antes volvía al segundo del video, casi siempre
+    // el comienzo, y la canción empezaba de nuevo)
+    const tookOver = videoOwnsRef.current
     videoOwnsRef.current = false
     const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (!tookOver) {
+      setInline(null)
+      if (el) el.muted = false
+      if (el && wasPlaying && el.paused) el.play()?.catch?.(() => {})
+      return
+    }
     if (el && at > 0) {
       const go = () => {
         if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at + 0.1, el.duration - 1)
@@ -731,6 +741,11 @@ export default function MusicPlayerBar() {
   const closeVideo = useCallback((t?: number) => {
     setVideoModal(null)
     const el = playerRef.current as unknown as HTMLMediaElement | null
+    // La canción siguió sonando (el video no tenía imagen o no cargó): ya está donde debe
+    if (el && !el.paused && !el.muted && el.currentTime > 0) {
+      useMusicStore.getState().setIsPlaying(true)
+      return
+    }
     // Vuelve al segundo que tenía la canción; si el video nunca avanzó, al de cuando se abrió
     const at = typeof t === 'number' && t > 0 ? t : openedAtRef.current
     if (el && at > 0) {

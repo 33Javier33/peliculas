@@ -161,6 +161,9 @@ html[data-app='music'] .cpn-splash-media { display: none; }
 .cpn-brand-music { display: none; }
 html[data-app='music'] .cpn-brand-music { display: inline; }
 html[data-app='music'] .cpn-brand-media { display: none; }
+.cpn-logo-music { display: none; }
+html[data-app='music'] .cpn-logo-music { display: block; }
+html[data-app='music'] .cpn-logo-media { display: none; }
 @keyframes cpn-splash-pop {
   0% { transform: scale(0.4) rotate(-12deg); opacity: 0; }
   100% { transform: scale(1) rotate(0); opacity: 1; }
