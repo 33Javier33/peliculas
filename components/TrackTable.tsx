@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { Heart, Play, Clock3 } from 'lucide-react'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo } from '@/lib/youtube-music'
+import { hoverWarm } from '@/lib/warm'
 
 // Lista de canciones del computador, como Spotify: # · Título (y artista) · Álbum · Fecha en que
 // se agregó · ♥ · duración. La que suena va resaltada con barritas.
@@ -57,6 +58,7 @@ export default function TrackTable<T extends MusicVideo>({
               key={`${t.id}-${i}`}
               role="row"
               onDoubleClick={() => onPlay(i)}
+              {...hoverWarm(t)}
               className={`group ${cols} px-4 py-2 rounded-md hover:bg-white/8 ${current ? 'bg-white/5' : ''}`}
             >
               <span className="relative flex justify-end text-slate-400 tabular-nums">

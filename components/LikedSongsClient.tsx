@@ -7,6 +7,7 @@ import BackButton from '@/components/BackButton'
 import { useMusicStore } from '@/store/musicStore'
 import { TrackStateOverlay } from '@/components/TrackState'
 import TrackTable from '@/components/TrackTable'
+import { hoverWarm } from '@/lib/warm'
 import { songArtist } from '@/lib/library-radio'
 import { withoutBlocked, isArtistBlocked, useBlockedVersion } from '@/store/blockStore'
 import { smartShuffle, fisherYates } from '@/lib/smart-shuffle'
@@ -113,7 +114,7 @@ export default function LikedSongsClient() {
           <ul className="lg:hidden mt-5 divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden">
             {list.map((t, i) => (
               <li key={t.id} className="flex items-center gap-3 px-3 py-2 hover:bg-white/5">
-                <button onClick={() => playAt(i)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                <button {...hoverWarm(t)} onClick={() => playAt(i)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
                   <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2">
                     {t.thumbnail && <Image src={t.thumbnail} alt="" fill sizes="48px" className="object-cover" />}
                     <TrackStateOverlay id={t.id} size="sm" />

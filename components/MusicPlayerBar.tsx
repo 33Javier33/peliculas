@@ -1121,6 +1121,17 @@ export default function MusicPlayerBar() {
     }
   }, [nextKey, currentId, soundingId])
 
+  // Canción a punto de tocarse en una lista (lib/warm): en el navegador se deja lista la dirección
+  // de su audio (queda guardada: al tocarla suena sin esperar esa búsqueda)
+  useEffect(() => {
+    const onWarm = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (typeof id === 'string' && /^[A-Za-z0-9_-]{11}$/.test(id)) loadAudioCandidates(id).catch(() => [])
+    }
+    window.addEventListener('cpn-warm', onWarm)
+    return () => window.removeEventListener('cpn-warm', onWarm)
+  }, [])
+
   // Al abrir la app: la canción que quedó en la barra se prepara ya (al tocar play suena al instante)
   const hydratedForWarm = useMusicStore((s) => s.hasHydrated)
   const warmedRef = useRef(false)

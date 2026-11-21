@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { hoverWarm } from '@/lib/warm'
 import { Play } from 'lucide-react'
 import { TrackStateOverlay } from '@/components/TrackState'
 import { useMusicStore } from '@/store/musicStore'
@@ -33,7 +34,7 @@ export default function TrackTiles({
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {tracks.map((t, i) => (
-          <div key={`${t.id}-${i}`} onClick={() => onPlay(i)} className="group relative cursor-pointer bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30">
+          <div key={`${t.id}-${i}`} {...hoverWarm(t)} onClick={() => onPlay(i)} className="group relative cursor-pointer bg-surface-1 border border-white/8 rounded-xl overflow-hidden hover:border-violet-500/30">
             <div className="relative aspect-square bg-surface-2">
               {t.thumbnail && <Image src={t.thumbnail} alt="" fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />}
               <TrackStateOverlay id={t.id} />
@@ -64,6 +65,7 @@ export default function TrackTiles({
       {tracks.map((t, i) => (
         <li
           key={`${t.id}-${i}`}
+          {...hoverWarm(t)}
           onClick={() => onPlay(i)}
           className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 cursor-pointer hover:bg-white/5 active:bg-white/10 ${t.id === currentId ? 'bg-emerald-500/5' : ''}`}
         >

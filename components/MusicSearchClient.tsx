@@ -19,6 +19,7 @@ import Image from 'next/image'
 import { Search, X, Loader2, AlertCircle, Music2, Library, History, TvMinimalPlay, Radio as RadioIcon, Tv, ChevronLeft, ChevronRight, Play } from 'lucide-react'
 import MusicCard from '@/components/MusicCard'
 import { useSearchSuggestions, rememberSearch } from '@/components/SearchSuggestions'
+import { warmList, hoverWarm } from '@/lib/warm'
 import { useMusicStore } from '@/store/musicStore'
 import type { MusicVideo, ForYouResult } from '@/lib/youtube-music'
 import type { CatalogArtist, CatalogAlbum } from '@/lib/catalog'
@@ -191,6 +192,11 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
     [router]
   )
 
+  // Como Spotify: apenas aparecen los resultados, la app prepara el comienzo de los primeros
+  useEffect(() => {
+    if (isSearchMode && videos.length) warmList(videos, 4)
+  }, [isSearchMode, videos])
+
   // Búsqueda desde la barra superior (/music?q=...)
   const searchParams = useSearchParams()
   const urlQuery = searchParams.get('q') || ''
@@ -356,7 +362,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                       </span>
                     </Link>
                   ) : song ? (
-                    <button onClick={() => play(videos, 0)} className="group w-full flex items-center gap-4 rounded-2xl bg-surface-1 border border-white/8 p-4 text-left hover:bg-surface-2/70 transition-colors">
+                    <button {...hoverWarm(song)} onClick={() => play(videos, 0)} className="group w-full flex items-center gap-4 rounded-2xl bg-surface-1 border border-white/8 p-4 text-left hover:bg-surface-2/70 transition-colors">
                       <span className="relative w-24 h-24 rounded-xl overflow-hidden bg-surface-2 shrink-0 shadow-lg">
                         {song.thumbnail && <Image src={song.thumbnail} alt="" fill sizes="96px" className="object-cover" />}
                         <TrackStateOverlay id={song.id} size="sm" />
@@ -419,7 +425,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                 <ul className="divide-y divide-white/5 border border-white/5 rounded-xl overflow-hidden bg-obsidian">
                   {videos.map((v, i) => (
                     <li key={v.id}>
-                      <button onClick={() => play(videos, i)} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/5 active:bg-white/10">
+                      <button {...hoverWarm(v)} onClick={() => play(videos, i)} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-white/5 active:bg-white/10">
                         <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2">
                           {v.thumbnail && <Image src={v.thumbnail} alt="" fill sizes="48px" className="object-cover" />}
                           <TrackStateOverlay id={v.id} size="sm" />
