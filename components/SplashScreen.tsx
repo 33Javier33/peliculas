@@ -15,6 +15,7 @@ export const SPLASH_SCRIPT = `try{if(/CPNFlavor\\/music/.test(navigator.userAgen
 export default function SplashScreen() {
   const [state, setState] = useState<'show' | 'leaving' | 'gone'>('show')
   const videoRef = useRef<HTMLVideoElement>(null)
+  const musicRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     let seen = false
@@ -29,7 +30,9 @@ export default function SplashScreen() {
     // PulsoMusic: su propia pantalla (logo animado con su nombre), sin el video de PulsoMedia
     if (document.documentElement.dataset.app === 'music') {
       videoRef.current?.pause()
-      const t = setTimeout(() => setState('leaving'), 2400)
+      // La animación (3 s) se cierra sola al terminar; si no arranca, la imagen un momento
+      musicRef.current?.play().catch(() => {})
+      const t = setTimeout(() => setState('leaving'), 4500)
       return () => {
         clearTimeout(t)
         document.body.style.overflow = prev
@@ -66,12 +69,22 @@ export default function SplashScreen() {
       role="img"
     >
       {/* PulsoMusic (solo se ve en esa app: html[data-app=music]): su imagen de presentación */}
-      <div className="cpn-splash-music absolute inset-0 items-center justify-center bg-[#2a3140]">
+      <div className="cpn-splash-music absolute inset-0 items-center justify-center bg-[#1c1d22]">
         {/* Fondo difuminado para pantallas anchas */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/splash-music.webp" alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-110" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/splash-music.webp" alt="PulsoMusic, por Carlos P. Nauto Interactive" className="relative h-full w-full object-contain animate-[cpn-splash-rise_0.7s_ease-out_both]" />
+        {/* Animación de presentación (solo se descarga en PulsoMusic: preload none y play al abrir) */}
+        <video
+          ref={musicRef}
+          src="/brand/splash-music.mp4"
+          poster="/brand/splash-music.webp"
+          muted
+          playsInline
+          preload="none"
+          onEnded={() => setState('leaving')}
+          aria-label="PulsoMusic, por Carlos P. Nauto Interactive"
+          className="relative h-full w-full object-contain"
+        />
       </div>
       {/* Fondo difuminado para pantallas anchas (computador, tablet) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
