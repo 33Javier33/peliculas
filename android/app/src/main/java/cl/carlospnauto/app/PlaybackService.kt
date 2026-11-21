@@ -193,6 +193,8 @@ class PlaybackService : Service() {
         )
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_music)
+            // Color de la app (PulsoMedia morado, PulsoMusic carmesí): tiñe el ícono y el nombre
+            .setColor(androidx.core.content.ContextCompat.getColor(this, R.color.brand_accent))
             .setContentTitle(title.ifBlank { getString(R.string.app_name) })
             .setContentText(artist)
             .setLargeIcon(artwork)

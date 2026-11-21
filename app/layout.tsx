@@ -207,7 +207,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="bg-surface-1 border-t border-white/8 pt-7 pb-6 mt-2 lg:ml-60">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-3">
-              <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="w-9 h-9 rounded-lg" />
+              <Image src="/brand/logo-mark.png" alt="" width={36} height={36} className="cpn-logo-media w-9 h-9 rounded-lg" />
+              {/* PulsoMusic: su propio ícono */}
+              <Image src="/brand/logo-music.png" alt="" width={36} height={36} className="cpn-logo-music w-9 h-9 rounded-lg" />
               <span className="flex flex-col items-start leading-tight">
                 <span className="font-bold bg-gradient-to-r from-cyan-300 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent">
                   Pulso<span className="cpn-brand-media">Media</span>

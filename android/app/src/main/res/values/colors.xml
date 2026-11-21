@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colores de la marca (PulsoMedia: morado). PulsoMusic tiene los suyos en src/music -->
+<resources>
+    <color name="brand_accent">#FF8B5CF6</color>
+    <color name="widget_bg">#F2161824</color>
+    <color name="widget_stroke">#558B5CF6</color>
+</resources>

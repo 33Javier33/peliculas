@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PulsoMusic: carmesí sobre gris carbón (los colores de su logo) -->
+<resources>
+    <color name="brand_accent">#FFD63454</color>
+    <color name="widget_bg">#F21B191C</color>
+    <color name="widget_stroke">#77D63454</color>
+</resources>
