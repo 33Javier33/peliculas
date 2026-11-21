@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from 'react'
 // esta sesión, el script de SPLASH_SCRIPT la esconde antes de que se vea.
 
 const KEY = 'cpn-splash-seen'
+// Bordes de arriba y abajo de la animación de PulsoMusic: se funden con el fondo
+const FADE = 'linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%)'
 
 /** Va en el <head>: esconde la pantalla de inicio si ya se mostró en esta sesión */
 export const SPLASH_SCRIPT = `try{if(/CPNFlavor\\/music/.test(navigator.userAgent))document.documentElement.setAttribute('data-app','music')}catch(e){}try{if(sessionStorage.getItem('${KEY}'))document.documentElement.setAttribute('data-splash','done')}catch(e){}`
@@ -16,6 +18,7 @@ export default function SplashScreen() {
   const [state, setState] = useState<'show' | 'leaving' | 'gone'>('show')
   const videoRef = useRef<HTMLVideoElement>(null)
   const musicRef = useRef<HTMLVideoElement>(null)
+  const musicBgRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     let seen = false
@@ -32,6 +35,7 @@ export default function SplashScreen() {
       videoRef.current?.pause()
       // La animación (3 s) se cierra sola al terminar; si no arranca, la imagen un momento
       musicRef.current?.play().catch(() => {})
+      musicBgRef.current?.play().catch(() => {})
       const t = setTimeout(() => setState('leaving'), 4500)
       return () => {
         clearTimeout(t)
@@ -69,10 +73,21 @@ export default function SplashScreen() {
       role="img"
     >
       {/* PulsoMusic (solo se ve en esa app: html[data-app=music]): su imagen de presentación */}
-      <div className="cpn-splash-music absolute inset-0 items-center justify-center bg-[#1c1d22]">
-        {/* Fondo difuminado para pantallas anchas */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/splash-music.webp" alt="" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-110" />
+      {/* Fondo con los mismos colores de los bordes de la animación (arriba gris, abajo casi negro):
+          no se nota dónde termina el video. (Antes era otra imagen difuminada y cambiaba el color) */}
+      <div className="cpn-splash-music absolute inset-0 items-center justify-center bg-[linear-gradient(180deg,#47494f_0%,#2a2b30_35%,#202025_50%,#151418_70%,#0c0b0e_100%)]">
+        {/* Detrás, la misma animación agrandada y difuminada: rellena los bordes con sus propios
+            colores, cuadro a cuadro (no se nota dónde termina el video) */}
+        <video
+          ref={musicBgRef}
+          src="/brand/splash-music.mp4"
+          poster="/brand/splash-music.webp"
+          muted
+          playsInline
+          preload="none"
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover blur-2xl scale-110"
+        />
         {/* Animación de presentación (solo se descarga en PulsoMusic: preload none y play al abrir) */}
         <video
           ref={musicRef}
@@ -83,7 +98,9 @@ export default function SplashScreen() {
           preload="none"
           onEnded={() => setState('leaving')}
           aria-label="PulsoMusic, por Carlos P. Nauto Interactive"
-          className="relative h-full w-full object-contain"
+          // La caja mide lo mismo que la animación (9:16): el difuminado cae justo en sus bordes
+          style={{ maskImage: FADE, WebkitMaskImage: FADE }}
+          className="relative aspect-[9/16] w-full max-w-[calc(100dvh*9/16)] object-cover"
         />
       </div>
       {/* Fondo difuminado para pantallas anchas (computador, tablet) */}
