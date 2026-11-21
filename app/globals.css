@@ -3,6 +3,41 @@
 @tailwind utilities;
 
 :root {
+  /* Paleta (PulsoMedia). PulsoMusic puede cambiarla en html[data-app='music'] */
+  --bg: 11 12 16;
+  --surface-1: 22 24 31;
+  --surface-2: 31 34 46;
+  --acc-50: 245 243 255;
+  --acc-100: 237 233 254;
+  --acc-200: 221 214 254;
+  --acc-300: 196 181 253;
+  --acc-400: 167 139 250;
+  --acc-500: 139 92 246;
+  --acc-600: 124 58 237;
+  --acc-700: 109 40 217;
+  --acc-800: 91 33 182;
+  --acc-900: 76 29 149;
+  --acc-950: 46 16 101;
+  --acc2-50: 250 245 255;
+  --acc2-100: 243 232 255;
+  --acc2-200: 233 213 255;
+  --acc2-300: 216 180 254;
+  --acc2-400: 192 132 252;
+  --acc2-500: 168 85 247;
+  --acc2-600: 147 51 234;
+  --acc2-700: 126 34 206;
+  --acc2-800: 107 33 168;
+  --acc2-900: 88 28 135;
+  --acc2-950: 59 7 100;
+  --play-a: #22d3ee;
+  --play-b: #8b5cf6;
+  --play-c: #ec4899;
+  --play-glow-a: 236 72 153;
+  --play-glow-b: 34 211 238;
+}
+
+
+:root {
   --background: #0b0c10;
   --foreground: #ffffff;
 }
@@ -184,17 +219,17 @@ svg.lucide-pause {
 /* Botón redondo de play/pausa con los colores del logo (cian → violeta → fucsia) */
 .cpn-play {
   background:
-    radial-gradient(circle at 30% 25%, rgba(139, 92, 246, 0.35), rgba(18, 14, 30, 0.96) 70%) padding-box,
-    linear-gradient(135deg, #22d3ee 0%, #8b5cf6 50%, #ec4899 100%) border-box !important;
+    radial-gradient(circle at 30% 25%, rgb(var(--acc-500) / 0.35), rgba(18, 14, 30, 0.96) 70%) padding-box,
+    linear-gradient(135deg, var(--play-a) 0%, var(--play-b) 50%, var(--play-c) 100%) border-box !important;
   border: 2px solid transparent !important;
   color: #fff !important;
-  box-shadow: 0 0 14px rgba(236, 72, 153, 0.3), 0 0 10px rgba(34, 211, 238, 0.22) !important;
+  box-shadow: 0 0 14px rgb(var(--play-glow-a) / 0.3), 0 0 10px rgb(var(--play-glow-b) / 0.22) !important;
 }
 .cpn-play:hover {
-  box-shadow: 0 0 18px rgba(236, 72, 153, 0.45), 0 0 14px rgba(34, 211, 238, 0.35) !important;
+  box-shadow: 0 0 18px rgb(var(--play-glow-a) / 0.45), 0 0 14px rgb(var(--play-glow-b) / 0.35) !important;
 }
 .cpn-play svg {
   color: #fff !important;
   stroke: #fff !important;
-  filter: drop-shadow(0 0 3px rgba(34, 211, 238, 0.55));
+  filter: drop-shadow(0 0 3px rgb(var(--play-glow-b) / 0.55));
 }
