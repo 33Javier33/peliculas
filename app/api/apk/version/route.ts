@@ -10,7 +10,9 @@ export async function GET(request: Request) {
   // ?app=music → la versión de PulsoMusic
   // ?f=esferas → la lista de esferas con su versión (esferas.json)
   const q = new URL(request.url).searchParams
-  const file = q.get('f') === 'esferas' ? 'esferas.json' : q.get('app') === 'music' ? 'version-music.json' : 'version.json'
+  // ?app=reloj → la app del reloj (version-reloj.json: solo cambia cuando cambia el reloj)
+  const file =
+    q.get('f') === 'esferas' ? 'esferas.json' : q.get('app') === 'reloj' ? 'version-reloj.json' : q.get('app') === 'music' ? 'version-music.json' : 'version.json'
   const headers = { 'Cache-Control': 'public, s-maxage=60' }
   try {
     if (process.env.APK_VERSION_URL && file === 'version.json') {

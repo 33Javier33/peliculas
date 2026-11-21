@@ -118,20 +118,21 @@ jobs:
           JSON
           cat assetlinks.json
 
-      # ¿Cambió la app (teléfono o reloj)? Si solo cambiaron esferas, la app NO se vuelve a publicar
-      # con otro número: así no pide actualizar cada vez que se agrega una esfera a la tienda
-      - name: ¿Cambió la app?
+      # ¿Cambió la app del teléfono? ¿Y la del reloj? Cada una se publica (y pide actualizar) solo si
+      # cambió ella: agregar esferas o cambiar el teléfono ya no hace actualizar el reloj, y al revés
+      - name: ¿Qué cambió?
         run: |
-          APP_COMMIT=$(git log -1 --format=%H -- android/app android/wear android/build.gradle.kts android/gradle.properties android/gradle)
-          PREV=$(curl -sfL "https://github.com/${{ github.repository }}/releases/download/android-latest/app-commit.txt" || true)
+          COMMON="android/build.gradle.kts android/gradle.properties android/gradle"
+          APP_COMMIT=$(git log -1 --format=%H -- android/app $COMMON)
+          WEAR_COMMIT=$(git log -1 --format=%H -- android/wear $COMMON)
+          PREV_APP=$(curl -sfL "https://github.com/${{ github.repository }}/releases/download/android-latest/app-commit.txt" || true)
+          PREV_WEAR=$(curl -sfL "https://github.com/${{ github.repository }}/releases/download/android-latest/wear-commit.txt" || true)
           echo "$APP_COMMIT" > app-commit.txt
-          if [ "$APP_COMMIT" = "$PREV" ] && [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-            echo "APP_CHANGED=false" >> "$GITHUB_ENV"
-            echo "La app no cambió ($APP_COMMIT): solo se publican las esferas"
-          else
-            echo "APP_CHANGED=true" >> "$GITHUB_ENV"
-            echo "La app cambió: $PREV → $APP_COMMIT"
-          fi
+          echo "$WEAR_COMMIT" > wear-commit.txt
+          FORCE=false; [ "${{ github.event_name }}" = "workflow_dispatch" ] && FORCE=true
+          if [ "$APP_COMMIT" = "$PREV_APP" ] && [ "$FORCE" != true ]; then echo "APP_CHANGED=false" >> "$GITHUB_ENV"; else echo "APP_CHANGED=true" >> "$GITHUB_ENV"; fi
+          if [ "$WEAR_COMMIT" = "$PREV_WEAR" ] && [ "$FORCE" != true ]; then echo "WEAR_CHANGED=false" >> "$GITHUB_ENV"; else echo "WEAR_CHANGED=true" >> "$GITHUB_ENV"; fi
+          echo "Teléfono: $PREV_APP → $APP_COMMIT · Reloj: $PREV_WEAR → $WEAR_COMMIT"
 
       # Versión publicada y qué trae: la página avisa a quien tenga una versión anterior
       - name: Datos de la versión
@@ -156,9 +157,17 @@ jobs:
             'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
           }, open('version-music.json', 'w'), ensure_ascii=False)
           PY
-          cat version.json version-music.json
+          # App del reloj: su propia versión (2.N, N = cambios del reloj), igual que en wear/build.gradle.kts
+          python3 - <<'PY'
+          import json, os, subprocess, datetime
+          n = int(subprocess.check_output(['git', 'rev-list', '--count', 'HEAD', '--', os.path.abspath('android/wear')]).strip() or 0)
+          notes = subprocess.check_output(['git', 'log', '-1', '--format=%s', '--', 'android/wear']).decode().strip()
+          json.dump({'version': '2.' + str(n), 'build': 1000 + n, 'notes': notes,
+                     'date': datetime.datetime.utcnow().strftime('%Y-%m-%d')}, open('version-reloj.json', 'w'), ensure_ascii=False)
+          PY
+          cat version.json version-music.json version-reloj.json
 
-      - name: Publicar la app en "android-latest"
+      - name: Publicar la app del teléfono
         if: env.APP_CHANGED == 'true'
         uses: softprops/action-gh-release@v2
         with:
@@ -172,20 +181,28 @@ jobs:
             Compilación ${{ github.run_number }} · ${{ github.sha }}
           files: |
             CarlosPNauto.apk
-            CarlosPNauto-Reloj.apk
             PulsoMusic.apk
-            PulsoMusic-Reloj.apk
-            Esfera-*.apk
-            esferas.json
             version.json
             version-music.json
             assetlinks.json
             app-commit.txt
           make_latest: true
 
-      # Solo esferas: se suben las esferas y la app queda como estaba (misma versión, sin aviso)
-      - name: Publicar solo las esferas
-        if: env.APP_CHANGED != 'true'
+      # La app del reloj: solo si cambió (si no, el reloj no pide actualizar)
+      - name: Publicar la app del reloj
+        if: env.WEAR_CHANGED == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          files: |
+            CarlosPNauto-Reloj.apk
+            PulsoMusic-Reloj.apk
+            version-reloj.json
+            wear-commit.txt
+          make_latest: true
+
+      # Esferas: siempre (cada una tiene su versión según sus cambios; el reloj solo marca las que cambiaron)
+      - name: Publicar las esferas
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest

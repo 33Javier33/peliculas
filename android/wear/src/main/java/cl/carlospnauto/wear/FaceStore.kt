@@ -30,7 +30,7 @@ object FaceStore {
 
     data class Face(val file: String, val name: String, val pkg: String, val version: Long, val size: Long, val app: Boolean = false) {
         /** Versión para mostrar: esferas «2.N» (N = versión − 1000), apps «1.0.N» */
-        val label get() = if (app) "1.0.${if (pkg.endsWith(".music")) (version - 53).coerceAtLeast(1) else version}" else "2.${version - 1000}"
+        val label get() = "2.${version - 1000}"
     }
 
     enum class Status { INSTALLED, UPDATE, MISSING }
@@ -70,7 +70,7 @@ object FaceStore {
                 }.filter { it.file.isNotEmpty() && it.pkg.isNotEmpty() }
                 // Las dos apps del reloj (una puede instalar o actualizar la otra): su versión es el número de compilación
                 val apps = runCatching {
-                    val v = JSONObject(open(BASE + "version.json?t=${System.currentTimeMillis() / 60000}").inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
+                    val v = JSONObject(open(BASE + "version-reloj.json?t=${System.currentTimeMillis() / 60000}").inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
                     val build = v.optLong("build")
                     if (build <= 0) emptyList() else listOf(
                         Face("CarlosPNauto-Reloj.apk", "PulsoMedia (app del reloj)", "cl.carlospnauto.app", build, 0, app = true),

@@ -6,7 +6,12 @@ plugins {
 
 // App para el reloj (Wear OS): controla la música de la app del teléfono y elige qué suena.
 // Mismo identificador y misma firma que la app del teléfono (Wear OS lo exige para que se hablen).
-val buildNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+// Versión según los cambios de la app del reloj (no del teléfono): solo sube, y solo pide actualizar,
+// cuando el reloj de verdad cambió. Desde 1000 (antes era el número de compilación de todo).
+val wearChanges = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD", "--", projectDir.absolutePath)
+    isIgnoreExitValue = true
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 0
 
 android {
     namespace = "cl.carlospnauto.wear"
@@ -16,8 +21,8 @@ android {
         applicationId = "cl.carlospnauto.app"
         minSdk = 28
         targetSdk = 34
-        versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        versionCode = 1000 + wearChanges
+        versionName = "2.$wearChanges"
     }
 
     // Reloj de cada app (mismo identificador que su app del teléfono: Wear OS lo exige)
@@ -30,7 +35,6 @@ android {
         create("music") {
             dimension = "app"
             applicationId = "cl.carlospnauto.music"
-            versionName = "1.0.${(buildNumber - 53).coerceAtLeast(1)}"
         }
     }
 

@@ -30,7 +30,8 @@ export default function WatchVersionStatus({ flavor }: { flavor: AppFlavor }) {
         if (raw) setWear(JSON.parse(raw) as WearInfo)
       } catch {}
     }
-    fetch(`/api/apk/version${flavor === 'music' ? '?app=music' : ''}`)
+    // La app del reloj tiene su propia versión (la misma para PulsoMedia y PulsoMusic)
+    fetch('/api/apk/version?app=reloj')
       .then((r) => r.json())
       .then((d: { version?: string | null; build?: number }) => {
         setLatest(d.version ?? null)

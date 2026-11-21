@@ -54,7 +54,8 @@ object WatchUpdate {
 
     private fun isMusic(c: Context) = c.packageName.endsWith(".music")
     fun apkName(c: Context) = if (isMusic(c)) "PulsoMusic-Reloj.apk" else "CarlosPNauto-Reloj.apk"
-    private fun versionFile(c: Context) = if (isMusic(c)) "version-music.json" else "version.json"
+    /** Versión publicada de la app del reloj (la misma para PulsoMedia y PulsoMusic; solo cambia si cambió el reloj) */
+    @Suppress("UNUSED_PARAMETER") private fun versionFile(c: Context) = "version-reloj.json"
 
     private fun installed(c: Context): Pair<String, Long> = runCatching {
         val p = c.packageManager.getPackageInfo(c.packageName, 0)
