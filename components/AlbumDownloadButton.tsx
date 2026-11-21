@@ -10,7 +10,7 @@ import { downloadCatalogAlbum, albumKey } from '@/lib/yt-convert'
 
 // Descargar un álbum del catálogo (desde YouTube, convertido a audio): queda en tu biblioteca y
 // suena sin internet. Grande (página del álbum) o compacto (sobre una carátula).
-export default function AlbumDownloadButton({
+function AlbumDownloadButtonInner({
   album,
   ready,
   compact = false,
@@ -79,5 +79,14 @@ export default function AlbumDownloadButton({
       {(state === 'progress' || state === 'busy') && <ProgressFill value={progress ? (progress.done + progress.current) / progress.total || null : null} />}
       <span className="relative inline-flex items-center gap-2">{icon} {label}</span>
     </button>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function AlbumDownloadButton(props: React.ComponentProps<typeof AlbumDownloadButtonInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <AlbumDownloadButtonInner {...props} />
+    </span>
   )
 }

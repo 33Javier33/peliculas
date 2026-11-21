@@ -149,7 +149,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
         </BackButton>
 
         <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8">
-          <div className="relative w-56 sm:w-64 aspect-square mx-auto sm:mx-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10 bg-surface-2 shrink-0">
+          <div className="relative w-56 sm:w-64 aspect-square mx-auto sm:mx-0 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 bg-surface-2 shrink-0">
             {album.cover && <Image src={album.cover} alt={album.title} fill sizes="256px" className="object-cover" priority />}
           </div>
           <div className="min-w-0 text-center sm:text-left">
@@ -176,7 +176,7 @@ export default function AlbumClient({ album }: { album: CatalogAlbumDetail }) {
           <button
             onClick={() => playFrom(0)}
             disabled={status !== 'ready'}
-            className="inline-flex items-center gap-2 bg-violet-300 hover:bg-violet-200 disabled:opacity-60 text-violet-950 font-extrabold font-display px-6 py-3 rounded-full shadow-[0_8px_32px_rgba(139,92,246,0.5)] transition-colors"
+            className="inline-flex items-center gap-2 bg-violet-300 hover:bg-violet-200 disabled:opacity-60 text-violet-950 font-extrabold font-display px-6 py-3 rounded-full shadow-[0_8px_32px_rgb(var(--acc-500)_/_0.5)] transition-colors"
           >
             {status === 'loading' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-violet-950" />}
             {status === 'loading' ? 'Preparando…' : 'Reproducir'}

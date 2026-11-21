@@ -73,7 +73,7 @@ export default function LikedSongsClient() {
           <ArrowLeft className="w-3.5 h-3.5" /> Volver
         </BackButton>
         <div className="mt-4 flex items-end gap-4 lg:gap-6 lg:-mx-8 lg:px-8 lg:pt-6 lg:pb-6 lg:bg-gradient-to-b lg:from-violet-700/40 lg:to-transparent">
-          <span className="w-28 h-28 lg:w-56 lg:h-56 rounded-xl lg:rounded-md bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0 shadow-lg lg:shadow-2xl">
+          <span className="w-28 h-28 lg:w-56 lg:h-56 rounded-xl lg:rounded-md cpn-keep bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0 shadow-lg lg:shadow-2xl">
             <Heart className="w-12 h-12 lg:w-24 lg:h-24 text-white fill-white" />
           </span>
           <div className="min-w-0">

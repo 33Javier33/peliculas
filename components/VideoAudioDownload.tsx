@@ -8,7 +8,7 @@ import { convertedTrack, saveConverted, CONVERTED_ALBUM } from '@/lib/yt-convert
 // «Descargar audio» de CUALQUIER video de YouTube (videoclips, conciertos, podcasts, películas…):
 // queda en «Convertidas de YouTube» y suena sin internet y con la pantalla apagada.
 // compact: botón redondo para ponerlo sobre la miniatura de un video.
-export default function VideoAudioDownload({
+function VideoAudioDownloadInner({
   id,
   title,
   channelTitle,
@@ -61,5 +61,14 @@ export default function VideoAudioDownload({
       <span className="relative">{icon}</span>
       <span className="relative hidden sm:inline">{label}</span>
     </button>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function VideoAudioDownload(props: React.ComponentProps<typeof VideoAudioDownloadInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <VideoAudioDownloadInner {...props} />
+    </span>
   )
 }

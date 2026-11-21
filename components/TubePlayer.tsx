@@ -275,7 +275,7 @@ export default function TubePlayer({ video, upNext, onPick, onClose, startAt = 0
                 onChange={(e) => seek(Number(e.target.value))}
                 aria-label="Avance"
                 className="mb-2 h-1.5 w-full cursor-pointer accent-violet-400"
-                style={{ background: `linear-gradient(to right, #a78bfa ${progress}%, rgba(255,255,255,.25) ${progress}%)` }}
+                style={{ background: `linear-gradient(to right, rgb(var(--acc-400)) ${progress}%, rgba(255,255,255,.25) ${progress}%)` }}
               />
               <div className="flex items-center gap-1 text-white">
                 <button onClick={() => skip(-10)} className="rounded-full p-2 hover:bg-white/15" aria-label="Atrasar 10 segundos"><RotateCcw className="h-4 w-4" /></button>

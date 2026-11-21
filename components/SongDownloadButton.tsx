@@ -12,7 +12,7 @@ import ProgressFill, { progressText } from '@/components/ProgressFill'
 
 // Descargar la canción que suena (para escucharla sin internet). Queda en "Descargadas", junto
 // a su disco si es de uno guardado o en "Canciones sueltas"
-export default function SongDownloadButton({ video, className = '', compact = false }: { video: MusicVideo; className?: string; compact?: boolean }) {
+function SongDownloadButtonInner({ video, className = '', compact = false }: { video: MusicVideo; className?: string; compact?: boolean }) {
   // Canción de YouTube: se convierte a audio (sin video) y se guarda como «Convertidas de YouTube»
   const ytId = !video.audioUrl && !video.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(video.id) ? video.id : ''
   const key = video.audioUrl ?? (ytId ? `/api/stream?id=${ytId}` : '')
@@ -99,5 +99,14 @@ export default function SongDownloadButton({ video, className = '', compact = fa
     >
       <Download className={compact ? 'w-5 h-5' : 'w-4 h-4'} />{t(ytId ? 'Descargar audio' : 'Descargar')}
     </button>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function SongDownloadButton(props: React.ComponentProps<typeof SongDownloadButtonInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <SongDownloadButtonInner {...props} />
+    </span>
   )
 }

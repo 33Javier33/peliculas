@@ -315,7 +315,7 @@ export default function NowPlayingSheet({
 
           {/* Portada */}
           <div className="mt-4 mb-6">
-            <div className={`relative w-full mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgba(139,92,246,0.35)] border border-white/10 ${inline ? 'aspect-video' : 'max-w-[min(100%,44vh)] aspect-square'}`}>
+            <div className={`relative w-full mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 ${inline ? 'aspect-video' : 'max-w-[min(100%,44vh)] aspect-square'}`}>
               {inline && inlineTimeRef && (
                 <div className="absolute inset-0 z-[2]">
                   <InlineVideo
@@ -419,7 +419,7 @@ export default function NowPlayingSheet({
                 />
               </div>
               <div
-                className="absolute w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(139,92,246,0.9)] pointer-events-none"
+                className="absolute w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_12px_rgb(var(--acc-500)_/_0.9)] pointer-events-none"
                 style={{ left: `calc(${value * 100}% - 7px)` }}
               />
               <input
@@ -460,7 +460,7 @@ export default function NowPlayingSheet({
             </button>
             <button
               onClick={togglePlay}
-              className="w-20 h-20 rounded-full cpn-play bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgba(139,92,246,0.55)] transition-colors"
+              className="w-20 h-20 rounded-full cpn-play bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgb(var(--acc-500)_/_0.55)] transition-colors"
               aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
               {isAudioLoading && isPlaying ? (

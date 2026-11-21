@@ -36,6 +36,72 @@
   --play-glow-b: 34 211 238;
 }
 
+/* PulsoMusic: «Carmesí sobrio» (colores de su logo: rosado-rojo sobre gris carbón cálido) */
+html[data-app='music'] {
+  --bg: 16 15 17;
+  --surface-1: 27 25 28;
+  --surface-2: 38 35 40;
+  --acc-50: 254 242 243;
+  --acc-100: 253 226 229;
+  --acc-200: 251 199 205;
+  --acc-300: 246 156 167;
+  --acc-400: 236 102 121;
+  --acc-500: 214 52 84;
+  --acc-600: 189 34 66;
+  --acc-700: 158 27 55;
+  --acc-800: 130 24 48;
+  --acc-900: 108 23 44;
+  --acc-950: 60 8 20;
+  --acc2-50: 254 242 243;
+  --acc2-100: 253 226 229;
+  --acc2-200: 251 199 205;
+  --acc2-300: 246 156 167;
+  --acc2-400: 236 102 121;
+  --acc2-500: 214 52 84;
+  --acc2-600: 189 34 66;
+  --acc2-700: 158 27 55;
+  --acc2-800: 130 24 48;
+  --acc2-900: 108 23 44;
+  --acc2-950: 60 8 20;
+  --play-a: #f69ca7;
+  --play-b: #d63454;
+  --play-c: #82182f;
+  --play-glow-a: 214 52 84;
+  --play-glow-b: 246 156 167;
+}
+
+/* Elementos que conservan los colores de siempre (morado → azul) también en PulsoMusic:
+   descargas y Tus me gusta */
+html[data-app='music'] .cpn-keep {
+  --play-a: #22d3ee;
+  --play-b: #8b5cf6;
+  --play-c: #ec4899;
+  --play-glow-a: 236 72 153;
+  --play-glow-b: 34 211 238;
+  --acc-50: 245 243 255;
+  --acc-100: 237 233 254;
+  --acc-200: 221 214 254;
+  --acc-300: 196 181 253;
+  --acc-400: 167 139 250;
+  --acc-500: 139 92 246;
+  --acc-600: 124 58 237;
+  --acc-700: 109 40 217;
+  --acc-800: 91 33 182;
+  --acc-900: 76 29 149;
+  --acc-950: 46 16 101;
+  --acc2-50: 250 245 255;
+  --acc2-100: 243 232 255;
+  --acc2-200: 233 213 255;
+  --acc2-300: 216 180 254;
+  --acc2-400: 192 132 252;
+  --acc2-500: 168 85 247;
+  --acc2-600: 147 51 234;
+  --acc2-700: 126 34 206;
+  --acc2-800: 107 33 168;
+  --acc2-900: 88 28 135;
+  --acc2-950: 59 7 100;
+}
+
 
 :root {
   --background: #0b0c10;

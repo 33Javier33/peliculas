@@ -21,7 +21,7 @@ import { markShuffle, useShuffleOn, SHUFFLE_ON } from '@/lib/shuffle-ui'
 
 // "Descargadas": todo lo que se puede escuchar sin internet (discos, playlists y enlaces
 // descargados), agrupado, con cuánto ocupa y para borrarlo
-export default function DownloadsSection() {
+function DownloadsSectionInner() {
   const brand = brandName(useAppFlavor())
   const shuffleOn = useShuffleOn('downloads')
   const genres = useGenreCache()
@@ -267,5 +267,14 @@ function PhoneRecovery() {
         <span className="block text-slate-400 text-xs">Las descargas quedan en Música/{brand} del teléfono: se recuperan sin volver a descargarlas</span>
       </span>
     </button>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function DownloadsSection() {
+  return (
+    <div className="cpn-keep contents">
+      <DownloadsSectionInner />
+    </div>
   )
 }

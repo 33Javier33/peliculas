@@ -18,7 +18,7 @@ export function songGroup(video: MusicVideo) {
 const btn = 'shrink-0 w-8 h-8 rounded-full flex items-center justify-center'
 
 /** Una canción: ✓ verde si está descargada, ⬇ para descargarla */
-export function TrackDownloadIcon({ track, overlay = false }: { track: MusicVideo; overlay?: boolean }) {
+function TrackDownloadIconInner({ track, overlay = false }: { track: MusicVideo; overlay?: boolean }) {
   // Canción de YouTube: su audio convertido (se descarga como «Convertidas de YouTube»)
   const ytId = !track.audioUrl && !track.streamUrl && /^[A-Za-z0-9_-]{11}$/.test(track.id) ? track.id : ''
   const key = track.audioUrl ?? (ytId ? `/api/stream?id=${ytId}` : '')
@@ -74,7 +74,7 @@ export function useOfflineCount(tracks: MusicVideo[]) {
 }
 
 /** Un grupo (artista, álbum, playlist): ✓ si está todo descargado, avance, o ⬇ para descargar lo que falta */
-export function GroupDownloadIcon({
+function GroupDownloadIconInner({
   group,
   tracks,
   overlay = false,
@@ -138,4 +138,22 @@ export function OfflineCountText({ tracks }: { tracks: MusicVideo[] }) {
   const { done, total } = useOfflineCount(tracks)
   if (!total || !done) return null
   return <span className="text-emerald-400">{done === total ? ' · descargado' : ` · ${done}/${total} descargadas`}</span>
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export function TrackDownloadIcon(props: React.ComponentProps<typeof TrackDownloadIconInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <TrackDownloadIconInner {...props} />
+    </span>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export function GroupDownloadIcon(props: React.ComponentProps<typeof GroupDownloadIconInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <GroupDownloadIconInner {...props} />
+    </span>
+  )
 }

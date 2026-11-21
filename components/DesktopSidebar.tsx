@@ -151,7 +151,7 @@ function MusicSide({ pathname, mounted, musicOnly }: { pathname: string; mounted
           <div className="flex flex-col">
             {show('playlists') && (
               <Link href="/music/me-gusta" className={row(pathname === '/music/me-gusta')}>
-                <span className="w-12 h-12 rounded-md bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0">
+                <span className="w-12 h-12 rounded-md cpn-keep bg-gradient-to-br from-violet-600 to-cyan-300 flex items-center justify-center shrink-0">
                   <Heart className="w-5 h-5 text-white fill-white" />
                 </span>
                 <span className="min-w-0">

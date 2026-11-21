@@ -44,7 +44,7 @@ export default function SharedTrackClient({ video }: { video: MusicVideo }) {
           <span className="w-2 h-2 rounded-full bg-emerald-400" /> Te compartieron una canción
         </p>
 
-        <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 border border-white/10 shadow-[0_20px_60px_rgba(139,92,246,0.35)] mt-5">
+        <div className="relative w-full max-w-[min(100%,44vh)] mx-auto aspect-square rounded-2xl overflow-hidden bg-surface-2 border border-white/10 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] mt-5">
           <Image src={video.thumbnail} alt={video.title} fill sizes="(max-width: 448px) 90vw, 400px" className="object-cover" priority />
         </div>
 
@@ -53,7 +53,7 @@ export default function SharedTrackClient({ video }: { video: MusicVideo }) {
 
         <button
           onClick={handlePlay}
-          className="mt-8 w-full inline-flex items-center justify-center gap-2 bg-violet-300 hover:bg-violet-200 text-violet-950 font-extrabold font-display text-lg py-4 rounded-full shadow-[0_8px_32px_rgba(139,92,246,0.55)] transition-colors"
+          className="mt-8 w-full inline-flex items-center justify-center gap-2 bg-violet-300 hover:bg-violet-200 text-violet-950 font-extrabold font-display text-lg py-4 rounded-full shadow-[0_8px_32px_rgb(var(--acc-500)_/_0.55)] transition-colors"
         >
           <Play className="w-6 h-6 fill-violet-950" /> Reproducir aquí
         </button>

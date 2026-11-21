@@ -107,7 +107,7 @@ export default function QuickAccessGrid() {
         <div key={t.key} className="relative flex items-center bg-surface-2/70 hover:bg-surface-2 rounded-md overflow-hidden min-w-0 h-14 transition-colors">
           {/* La carátula y el nombre abren el disco, la playlist, el artista o Tus me gusta */}
           <Link href={t.href} className="flex items-center gap-2.5 min-w-0 flex-1 h-full active:bg-white/10">
-            <span className={`relative w-14 h-14 shrink-0 flex items-center justify-center ${t.icon === 'heart' ? 'bg-gradient-to-br from-violet-600 to-cyan-300' : 'bg-surface-1'}`}>
+            <span className={`relative w-14 h-14 shrink-0 flex items-center justify-center ${t.icon === 'heart' ? 'cpn-keep bg-gradient-to-br from-violet-600 to-cyan-300' : 'bg-surface-1'}`}>
               {t.icon === 'heart' ? (
                 <Heart className="w-6 h-6 text-white fill-white" />
               ) : t.image ? (

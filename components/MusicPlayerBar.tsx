@@ -2847,7 +2847,7 @@ export default function MusicPlayerBar() {
             className="hidden sm:block absolute inset-x-0 -top-2 -bottom-2 w-full opacity-0 cursor-pointer touch-none disabled:hidden"
           />
           <div
-            className="hidden sm:block absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+            className="hidden sm:block absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_rgb(var(--acc-500)_/_0.8)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ left: `clamp(0px, calc(${progressPercent}% - 6px), calc(100% - 12px))` }}
           />
         </div>
@@ -3108,7 +3108,7 @@ export default function MusicPlayerBar() {
                 onClick={() => {
                   toggleHighQuality()
                 }}
-                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-white bg-violet-500 rounded-full shadow-[0_0_12px_rgba(139,92,246,0.55)]' : 'text-slate-500 hover:text-white'}`}
+                className={`${iconBtn} ${isLive ? 'hidden' : ''} ${audioBoost ? 'text-white bg-violet-500 rounded-full shadow-[0_0_12px_rgb(var(--acc-500)_/_0.55)]' : 'text-slate-500 hover:text-white'}`}
                 title={
                   audioBoost
                     ? `Audio en alta calidad${currentBitrate ? ` (${currentBitrate} kbps)` : ''}`

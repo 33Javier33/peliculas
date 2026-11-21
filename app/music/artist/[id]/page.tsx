@@ -89,7 +89,7 @@ export default async function ArtistPage({ params }: Props) {
         </BackButton>
 
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 sm:gap-8 mb-10">
-          <div className="relative w-40 h-40 sm:w-52 sm:h-52 rounded-full overflow-hidden bg-surface-2 border border-white/10 shadow-[0_20px_60px_rgba(139,92,246,0.35)] shrink-0">
+          <div className="relative w-40 h-40 sm:w-52 sm:h-52 rounded-full overflow-hidden bg-surface-2 border border-white/10 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] shrink-0">
             {artist.picture && <Image src={artist.picture} alt={artist.name} fill sizes="208px" className="object-cover" priority />}
           </div>
           <div className="text-center sm:text-left">

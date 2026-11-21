@@ -9,7 +9,7 @@ import { downloadWholeLibrary, useLibraryJob, stopWholeLibrary } from '@/lib/yt-
 
 // «Descargar toda mi biblioteca»: baja en segundo plano todo lo que falta (discos, álbumes
 // guardados y Me gusta; lo de YouTube convertido a audio) y muestra en qué disco va
-export default function LibraryDownloadAll() {
+function LibraryDownloadAllInner() {
   const job = useLibraryJob()
   const progress = useOfflineStore((s) => s.progress[job.gid])
   const label = !job.running
@@ -30,6 +30,15 @@ export default function LibraryDownloadAll() {
     </button>
     {job.running && <span className="sr-only">Toca para detener</span>}
     <HelpTip className="ml-2 mb-3" title="Descargar toda mi biblioteca" text="Baja todo lo que te falta: discos, álbumes guardados con ♥ y Me gusta (lo de YouTube se convierte a audio). Va un disco tras otro y sigue con la app cerrada o la pantalla bloqueada. Mientras descarga, tócalo para detenerlo. Si varias canciones seguidas no salen, se pausa sola y lo que falta se reintenta más tarde." />
+    </div>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function LibraryDownloadAll() {
+  return (
+    <div className="cpn-keep contents">
+      <LibraryDownloadAllInner />
     </div>
   )
 }

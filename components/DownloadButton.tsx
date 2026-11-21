@@ -9,7 +9,7 @@ import type { MusicVideo } from '@/lib/youtube-music'
 
 // Botón "Descargar" de un disco o playlist: descarga sus audios para escuchar sin conexión,
 // muestra el avance y, una vez descargado, cuánto ocupa (y permite quitar la descarga)
-export default function DownloadButton({
+function DownloadButtonInner({
   group,
   tracks,
   compact = false,
@@ -72,5 +72,14 @@ export default function DownloadButton({
       {have.length ? `Descargar ${missing} más` : compact ? 'Descargar' : `Descargar para escuchar sin internet`}
       {skipped > 0 && !compact && <span className="text-slate-500 font-normal">({skipped} de YouTube no)</span>}
     </button>
+  )
+}
+
+/** Conserva los colores de siempre (morado → azul) también en PulsoMusic */
+export default function DownloadButton(props: React.ComponentProps<typeof DownloadButtonInner>) {
+  return (
+    <span className="cpn-keep contents">
+      <DownloadButtonInner {...props} />
+    </span>
   )
 }
