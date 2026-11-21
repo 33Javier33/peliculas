@@ -108,10 +108,10 @@ class FaceService : WatchFaceService() {
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, short, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
             slot(WEATHER, DefaultComplicationDataSourcePolicy(), RectF(0.40f, 0.02f, 0.62f, 0.09f)),
-            slot(STEPS, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.07f, 0.43f, 0.21f, 0.63f)),
+            slot(STEPS, DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT), RectF(0.07f, 0.42f, 0.22f, 0.64f)),
             slot(HEART, DefaultComplicationDataSourcePolicy(), RectF(0.79f, 0.38f, 0.92f, 0.47f)),
-            slot(CAL, DefaultComplicationDataSourcePolicy(), RectF(0.28f, 0.84f, 0.46f, 0.93f)),
-            slot(DIST, DefaultComplicationDataSourcePolicy(), RectF(0.60f, 0.83f, 0.80f, 0.91f)),
+            slot(CAL, DefaultComplicationDataSourcePolicy(), RectF(0.24f, 0.84f, 0.44f, 0.94f)),
+            slot(DIST, DefaultComplicationDataSourcePolicy(), RectF(0.58f, 0.83f, 0.80f, 0.92f)),
         )
         return ComplicationSlotsManager(slots, currentUserStyleRepository)
     }
@@ -321,16 +321,16 @@ class VinylRenderer(
 
         // ===== Clima =====
         val temp = complications.textOf(WEATHER, context.resources)
-        drawCloud(canvas, X(-0.14f), Y(-0.905f), r * 0.032f, textC)
-        write(canvas, temp ?: "--°", X(0.10f), Y(-0.875f), r * 0.075f, textC, medium)
+        drawCloud(canvas, X(-0.15f), Y(-0.905f), r * 0.046f, textC)
+        write(canvas, temp ?: "--°", X(0.10f), Y(-0.87f), r * 0.088f, textC, medium)
 
         // ===== Hora, batería, luna y AM/PM =====
         drawLcd(canvas, cx, cy, r, t, is24, ink, showSeconds = !ambient)
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-        drawBattery(canvas, X(-0.52f), Y(-0.69f), r * 0.03f, textC)
-        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.565f), Y(-0.53f), r * 0.072f, textC, medium)
-        drawMoon(canvas, X(0.515f), Y(-0.74f), r * 0.036f, textC)
-        if (!is24) write(canvas, if (t.hour < 12) "AM" else "PM", X(0.565f), Y(-0.60f), r * 0.07f, textC, medium)
+        drawBattery(canvas, X(-0.53f), Y(-0.70f), r * 0.045f, textC)
+        write(canvas, if (pct >= 0) "$pct%" else "--", X(-0.575f), Y(-0.525f), r * 0.085f, textC, medium)
+        drawMoon(canvas, X(0.53f), Y(-0.74f), r * 0.052f, textC)
+        if (!is24) write(canvas, if (t.hour < 12) "AM" else "PM", X(0.58f), Y(-0.585f), r * 0.082f, textC, medium)
 
         // ===== Fecha con su interruptor =====
         val loc = Locale.getDefault()
@@ -340,23 +340,23 @@ class VinylRenderer(
         stroke.color = Color.rgb(70, 70, 72)
         stroke.strokeWidth = r * 0.006f
         canvas.drawRoundRect(pill, pill.height() / 2, pill.height() / 2, stroke)
-        write(canvas, plain(t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc)).filter { it.isLetter() }.take(3), X(-0.37f), Y(-0.338f), r * 0.07f, textC, medium)
-        write(canvas, "%02d - %02d".format(t.dayOfMonth, t.monthValue), X(0.20f), Y(-0.338f), r * 0.07f, textC, medium)
+        write(canvas, plain(t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc)).filter { it.isLetter() }.take(3), X(-0.37f), Y(-0.34f), r * 0.08f, textC, medium)
+        write(canvas, "%02d - %02d".format(t.dayOfMonth, t.monthValue), X(0.20f), Y(-0.34f), r * 0.08f, textC, medium)
         drawSwitch(canvas, RectF(X(-0.215f), Y(-0.45f), X(-0.015f), Y(-0.29f)), r)
 
         // ===== Pasos: reloj chico con su aguja =====
         val steps = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() }?.toIntOrNull()
-        drawSteps(canvas, X(-0.73f), Y(0.06f), r, steps)
+        drawSteps(canvas, X(-0.71f), Y(0.06f), r, steps)
 
         // ===== Disco y brazo =====
         val label = LABELS[Choices.index(context, LABEL)].second
         drawRecord(canvas, X(DISC_X), Y(DISC_Y), r * DISC_R, r, label, spin)
         // El brazo avanza hacia el centro con la canción
         val prog = if (music != null && music.durationMs > 0) (music.position().toFloat() / music.durationMs).coerceIn(0f, 1f) else 0f
-        val armDeg = if (playing) 4f + prog * 10f else 0f
+        val armDeg = if (playing) 12f + prog * 10f else 8f
         val hr = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
             ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
-        arcText(canvas, "$hr  RITMO CARDÍACO", X(ARM_X), Y(ARM_Y), r * 0.155f, 168f, 232f, r * 0.058f, textC)
+        arcText(canvas, "$hr  RITMO CARDÍACO", X(ARM_X), Y(ARM_Y), r * 0.172f, 166f, 236f, r * 0.066f, textC)
         drawArm(canvas, X(ARM_X), Y(ARM_Y), r, armDeg)
 
         // ===== Abajo: calorías y distancia, o la canción que suena =====
@@ -367,16 +367,16 @@ class VinylRenderer(
             var s = line
             val maxLen = r * 1.05f
             while (s.length > 4 && text.measureText(s) > maxLen) s = s.dropLast(2) + "…"
-            arcText(canvas, s, cx, cy, r * 0.80f, 140f, -100f, r * 0.062f, textC)
+            arcText(canvas, s, cx, cy, r * 0.82f, 142f, -104f, r * 0.072f, textC)
         } else {
             val cal = complications.textOf(CAL, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: steps?.let { (it * 0.04f).toInt().toString() } ?: "--"
             val dist = complications.textOf(DIST, context.resources)?.takeIf { it.isNotBlank() }
                 ?: steps?.let { "%.2f".format(Locale.ROOT, it * 0.000762f) } ?: "--"
-            drawFlame(canvas, X(-0.33f), Y(0.80f), r * 0.038f, textC)
-            arcText(canvas, cal, cx, cy, r * 0.82f, 113f, -18f, r * 0.075f, textC)
-            arcText(canvas, dist, cx, cy, r * 0.82f, 76f, -18f, r * 0.075f, textC)
-            drawRuler(canvas, X(0.52f), Y(0.655f), r * 0.042f, textC)
+            drawFlame(canvas, X(-0.36f), Y(0.77f), r * 0.052f, textC)
+            arcText(canvas, cal, cx, cy, r * 0.83f, 114f, -22f, r * 0.088f, textC)
+            arcText(canvas, dist, cx, cy, r * 0.83f, 79f, -22f, r * 0.088f, textC)
+            drawRuler(canvas, X(0.56f), Y(0.625f), r * 0.056f, textC)
         }
 
         // Siempre activa: la esfera completa, más tenue
@@ -478,7 +478,7 @@ class VinylRenderer(
     }
 
     private fun drawSteps(canvas: Canvas, x: Float, y: Float, r: Float, steps: Int?) {
-        val rad = r * 0.135f
+        val rad = r * 0.15f
         fill.shader = RadialGradient(x, y - rad * 0.3f, rad * 1.2f, Color.rgb(70, 70, 72), Color.rgb(28, 28, 30), Shader.TileMode.CLAMP)
         canvas.drawCircle(x, y, rad, fill)
         fill.shader = null
@@ -502,8 +502,8 @@ class VinylRenderer(
         stroke.strokeCap = Paint.Cap.ROUND
         fill.color = Color.rgb(228, 40, 44)
         canvas.drawCircle(x, y, r * 0.012f, fill)
-        arcText(canvas, "PASOS", x, y, rad * 1.18f, 222f, 96f, r * 0.066f, textC)
-        arcText(canvas, steps?.toString() ?: "--", x, y, rad * 1.18f + r * 0.055f, 138f, -96f, r * 0.074f, textC)
+        arcText(canvas, "PASOS", x, y, rad * 1.16f, 220f, 100f, r * 0.078f, textC)
+        arcText(canvas, steps?.toString() ?: "--", x, y, rad * 1.16f + r * 0.068f, 140f, -100f, r * 0.088f, textC)
     }
 
     private fun drawRecord(canvas: Canvas, x: Float, y: Float, rad: Float, r: Float, label: Pair<Int, Int>, spin: Float) {
@@ -574,6 +574,7 @@ class VinylRenderer(
         canvas.drawCircle(px, py, r * 0.062f, fill)
         canvas.save()
         canvas.rotate(deg, px, py)
+        canvas.scale(0.9f, 0.9f, px, py)
         fun X(v: Float) = px + v * r
         fun Y(v: Float) = py + v * r
         // Contrapeso (arriba a la derecha)
@@ -767,9 +768,9 @@ class VinylRenderer(
 
     companion object {
         // Disco y base del brazo (fracciones del radio desde el centro)
-        const val DISC_X = 0.01f
-        const val DISC_Y = 0.21f
-        const val DISC_R = 0.52f
+        const val DISC_X = -0.03f
+        const val DISC_Y = 0.25f
+        const val DISC_R = 0.45f
         const val ARM_X = 0.70f
         const val ARM_Y = -0.105f
     }
