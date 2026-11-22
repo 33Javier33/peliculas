@@ -1338,13 +1338,21 @@ export default function MusicPlayerBar() {
       // El audio que saca el teléfono (servidor local) puede tardar más en empezar, sobre todo
       // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
       // (los reintentos, ?r=1 y ?r=2, ya encuentran el audio buscado: 10 s)
-      // (Con la app en segundo plano no se espera tanto: si no arranca en 6 s se pide de nuevo)
-      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 8000 : document.visibilityState === 'hidden' ? 6000 : 20000) : START_MS
+      // Con la app en segundo plano se espera lo mismo (antes 6 s): al tocar una canción y salir
+      // enseguida, el teléfono la busca con menos fuerza y tarda más; se saltaba sin haber fallado
+      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 12000 : 20000) : START_MS
       // La versión de alta calidad de archive.org que no arranca en 8 s se cambia por la de siempre
       // (antes se esperaban 40 s: parecía que los discos no cargaban)
       const hqStart = !!audioUrl?.includes('/api/archive-best') && lastTime <= 0
       const limit = isLive ? LIVE_STALL_MS : hqStart ? 8000 : isLocal ? (lastTime <= 0 ? FILE_START_MS : FILE_STALL_MS) : lastTime <= 0 ? startLimit : STALL_MS
       if (Date.now() - lastProgressRef.current < limit) return
+      // Ya empezó o ya tiene audio para sonar (llegó justo ahora): no se da por perdida (antes se
+      // saltaba una canción que acababa de arrancar)
+      if (el && !el.error && (el.currentTime > 0.2 || el.readyState >= 3)) {
+        lastProgressRef.current = Date.now()
+        if (el.paused && useMusicStore.getState().isPlaying) el.play()?.catch?.(() => {})
+        return
+      }
       lastProgressRef.current = Date.now()
       if (audioUrl) handleAudioErrorRef.current()
       else markAudioFailed(currentId)
@@ -1721,8 +1729,8 @@ export default function MusicPlayerBar() {
               if (!useAudioRef.current && hiddenWantRef.current && el?.paused && document.visibilityState === 'hidden') {
                 if (st.currentIndex < st.queue.length - 1) st.playNext()
               }
-              // (antes se esperan 12 s: si el audio de esta canción llega, se pasa a él sin saltarla)
-            }, 12000)
+              // (antes se esperan 25 s: si el audio de esta canción llega, se pasa a él sin saltarla)
+            }, 25000)
           )
         }
       } else {

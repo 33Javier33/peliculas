@@ -300,10 +300,13 @@ export const useMusicStore = create<MusicStore>()(
         const fresh = videos.filter((v) => !inQueue.has(v.id) && !isBlocked(v) && inQueue.add(v.id))
         if (fresh.length > 0) {
           const { shuffle, currentIndex } = get()
-          // En aleatorio, lo que añade la radio se mezcla con lo que queda por sonar
+          // En aleatorio, lo que añade la radio se mezcla con lo que queda por sonar, pero la que
+          // sigue no cambia: ya se está preparando para sonar al instante (si cambiaba, la nueva
+          // siguiente no estaba lista y tardaba en empezar)
+          const keep = Math.min(queue.length, currentIndex + 2)
           set({
             queue: shuffle
-              ? [...queue.slice(0, currentIndex + 1), ...shuffled([...queue.slice(currentIndex + 1), ...fresh])]
+              ? [...queue.slice(0, keep), ...shuffled([...queue.slice(keep), ...fresh])]
               : [...queue, ...fresh],
           })
         }
