@@ -6,7 +6,7 @@ import { cachedJson } from '@/lib/client-cache'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ExternalLink, Disc3, UserRound, CalendarDays, Tag, ListMusic, Building2, Heart } from 'lucide-react'
+import { ExternalLink, Disc3, UserRound, CalendarDays, Tag, ListMusic, Building2, Heart, BookOpen } from 'lucide-react'
 import FollowArtistButton from '@/components/FollowArtistButton'
 import type { WikiSummary, ArtistFacts } from '@/lib/music-info'
 
@@ -86,11 +86,13 @@ function minutes(seconds: number) {
   return h > 0 ? `${h} h ${m} min` : `${m} min`
 }
 
-function WikiText({ info }: { info: WikiSummary }) {
+function WikiText({ info, historyOf }: { info: WikiSummary; historyOf?: string }) {
   return (
     <div>
       <TranslatableText text={info.extract} className="text-slate-300 text-sm leading-relaxed" />
       <div className="flex items-center gap-4 mt-2">
+        {/* Toda su historia en una página de la app (las canciones que nombra suenan aquí) */}
+        {historyOf && <BioLink name={historyOf} />}
         <a href={info.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs">
           Wikipedia{info.lang === 'en' ? ' (en inglés)' : ''} <ExternalLink className="w-3 h-3" />
         </a>
@@ -191,7 +193,7 @@ export default function MusicInfoPanel({
             <div className="h-3 rounded bg-white/5 w-4/6 animate-pulse" />
           </div>
         ) : info.artist ? (
-          <WikiText info={info.artist} />
+          <WikiText info={info.artist} historyOf={artist.name} />
         ) : info.facts?.note ? (
           <p className="text-slate-400 text-sm first-letter:uppercase">{info.facts.note}</p>
         ) : (
@@ -208,5 +210,22 @@ export default function MusicInfoPanel({
         ) : null}
       </section>
     </div>
+  )
+}
+
+/** «Leer su historia completa»: página propia con toda la biografía del artista */
+export function BioLink({ name, onNavigate }: { name: string; onNavigate?: (href: string) => void }) {
+  const href = `/music/bio?name=${encodeURIComponent(name)}`
+  const cls = 'inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 border border-violet-400/30 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-500/25'
+  if (onNavigate)
+    return (
+      <button type="button" onClick={() => onNavigate(href)} className={cls}>
+        <BookOpen className="w-3.5 h-3.5" /> Leer su historia completa
+      </button>
+    )
+  return (
+    <Link href={href} className={cls}>
+      <BookOpen className="w-3.5 h-3.5" /> Leer su historia completa
+    </Link>
   )
 }

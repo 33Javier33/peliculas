@@ -569,7 +569,7 @@ export default function NowPlayingSheet({
           {!isLive && <SocialPanel item={ytIdOf(video) || video.id} ytId={ytIdOf(video) || undefined} artist={artist} className="mt-6" />}
 
           {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
-          {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" />}
+          {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" onNavigate={onNavigate} />}
         </div>
       </div>
       {lyricsOpen && !isLive && <LyricsSheet artist={artist} title={songTitle} onClose={() => setLyricsOpen(false)} />}

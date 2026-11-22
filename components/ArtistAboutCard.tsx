@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { UserRound, Disc3, ExternalLink } from 'lucide-react'
 import ArtistPlaylistButton from '@/components/ArtistPlaylistButton'
 import TranslatableText from '@/components/TranslatableText'
-import { loadMusicInfo, FactsChips, type MusicInfo } from '@/components/MusicInfoPanel'
+import { loadMusicInfo, FactsChips, BioLink, type MusicInfo } from '@/components/MusicInfoPanel'
 
 // "Sobre el artista" compacto (pantalla del reproductor, biblioteca): biografía de Wikipedia y
 // datos de MusicBrainz (país, años, tipo, géneros) de lo que suene, venga de donde venga.
-export default function ArtistAboutCard({ artist, album, className = '' }: { artist: string; album?: string; className?: string }) {
+export default function ArtistAboutCard({ artist, album, className = '', onNavigate }: { artist: string; album?: string; className?: string; onNavigate?: (href: string) => void }) {
   const [info, setInfo] = useState<MusicInfo | null>(null)
   // Créditos con varios nombres ("Amalia Mendoza;Mariachi Vargas", "Bill Haley and his Comets"): el principal
   const name = artist
@@ -94,9 +94,12 @@ export default function ArtistAboutCard({ artist, album, className = '' }: { art
             </div>
           )}
           {info.artist && (
-            <a href={info.artist.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs">
-              Wikipedia{info.artist.lang === 'en' ? ' (en inglés)' : ''} <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <BioLink name={name} onNavigate={onNavigate} />
+              <a href={info.artist.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-300 text-xs">
+                Wikipedia{info.artist.lang === 'en' ? ' (en inglés)' : ''} <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           )}
           <div className="mt-3">
             <ArtistPlaylistButton name={name} />

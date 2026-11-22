@@ -194,3 +194,117 @@ export async function getArtistFacts(name: string): Promise<ArtistFacts | null> 
   }
   return facts.type || facts.country || facts.begin || genres.length ? facts : null
 }
+
+// ===== Historia completa del artista (página propia en la app) =====
+// El artículo entero de Wikipedia en texto, por secciones. Las canciones, discos y artistas que
+// nombra se marcan para tocarlos dentro de la app (nada se abre afuera).
+
+export type BioPart = string | { k: 'song' | 'album' | 'artist'; v: string }
+export interface BioSection {
+  title: string
+  level: number
+  paras: BioPart[][]
+}
+export interface ArtistArticle {
+  title: string
+  lang: 'es' | 'en'
+  url: string
+  image?: string
+  description?: string
+  sections: BioSection[]
+}
+
+// Secciones que no son la historia (referencias, enlaces…)
+const SKIP_SECTION = /^(referencias|notas|notas y referencias|enlaces externos|bibliograf[ií]a|v[ée]ase tambi[ée]n|fuentes|references|notes|external links|see also|further reading|sources|citations|footnotes)$/i
+
+function classifyLink(t: string): { k: 'song' | 'album' | 'artist'; v: string } | null {
+  const m = t.match(/^(.+?)\s*\(([^)]+)\)$/)
+  if (!m) return null
+  const kind = m[2].toLowerCase()
+  const name = m[1].trim()
+  if (name.length < 2) return null
+  if (/canci[oó]n|song|sencillo|single/.test(kind)) return { k: 'song', v: name }
+  if (/[áa]lbum|disco|\bep\b|recopilatorio|banda sonora|soundtrack/.test(kind)) return { k: 'album', v: name }
+  if (/banda|grupo|m[úu]sico|cantante|band|musician|singer|rapero|rapper|cantautor/.test(kind)) return { k: 'artist', v: name }
+  return null
+}
+
+const STARTS_UPPER = new RegExp('^[\\p{Lu}\\d¿¡]', 'u')
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/** Marca en un párrafo las canciones («entre comillas» o enlazadas), discos y artistas */
+function markParagraph(text: string, known: { k: 'song' | 'album' | 'artist'; v: string }[], knownRe: RegExp | null): BioPart[] {
+  type Hit = { start: number; end: number; part: { k: 'song' | 'album' | 'artist'; v: string }; whole: string }
+  const hits: Hit[] = []
+  // Canciones entre comillas: «La Grange», “Tush”, "Legs" (cortas y con mayúscula, no citas largas)
+  const QUOTE = /«([^»]{2,60})»|“([^”]{2,60})”|"([^"\n]{2,60})"/g
+  for (const m of Array.from(text.matchAll(QUOTE))) {
+    const inner = (m[1] ?? m[2] ?? m[3] ?? '').trim()
+    if (!STARTS_UPPER.test(inner) || inner.split(/\s+/).length > 7 || /[.;:]$/.test(inner)) continue
+    hits.push({ start: m.index!, end: m.index! + m[0].length, part: { k: 'song', v: inner }, whole: m[0] })
+  }
+  if (knownRe) {
+    for (const m of Array.from(text.matchAll(knownRe))) {
+      const found = known.find((x) => x.v.toLowerCase() === m[0].toLowerCase())
+      if (found) hits.push({ start: m.index!, end: m.index! + m[0].length, part: found, whole: m[0] })
+    }
+  }
+  hits.sort((a, b) => a.start - b.start || b.end - a.end)
+  const parts: BioPart[] = []
+  let pos = 0
+  for (const h of hits) {
+    if (h.start < pos) continue
+    if (h.start > pos) parts.push(text.slice(pos, h.start))
+    parts.push(h.part.k === 'song' && /^[«“"]/.test(h.whole) ? { k: 'song', v: h.part.v } : { k: h.part.k, v: h.whole.replace(/^[«“"]|[»”"]$/g, '') })
+    pos = h.end
+  }
+  if (pos < text.length) parts.push(text.slice(pos))
+  return parts
+}
+
+export async function getArtistArticle(name: string): Promise<ArtistArticle | null> {
+  const found = await getArtistInfo(name)
+  if (!found) return null
+  const lang = found.lang
+  const q = (extra: Record<string, string>) =>
+    `${base(lang)}/w/api.php?${new URLSearchParams({ action: 'query', titles: found.title, redirects: '1', format: 'json', formatversion: '2', origin: '*', ...extra })}`
+  const [textRes, linksRes] = await Promise.all([
+    wikiJson<{ query?: { pages?: { extract?: string }[] } }>(q({ prop: 'extracts', explaintext: '1', exsectionformat: 'wiki' })),
+    wikiJson<{ query?: { pages?: { links?: { title: string }[] }[] } }>(q({ prop: 'links', pllimit: 'max', plnamespace: '0' })).catch(() => null),
+  ])
+  const raw = textRes.query?.pages?.[0]?.extract
+  if (!raw) return null
+  const known = (linksRes?.query?.pages?.[0]?.links ?? [])
+    .map((l) => classifyLink(l.title))
+    .filter((x): x is { k: 'song' | 'album' | 'artist'; v: string } => !!x && x.v.toLowerCase() !== found.title.toLowerCase())
+  const uniq = Array.from(new Map(known.map((x) => [x.v.toLowerCase(), x])).values()).sort((a, b) => b.v.length - a.v.length).slice(0, 300)
+  const knownRe = uniq.length ? new RegExp(`(?<![\\p{L}\\d])(${uniq.map((x) => escapeRe(x.v)).join('|')})(?![\\p{L}\\d])`, 'giu') : null
+
+  const sections: BioSection[] = []
+  let cur: BioSection = { title: '', level: 1, paras: [] }
+  let skipping = false
+  for (const line of raw.split('\n')) {
+    const h = line.match(/^(={2,6})\s*(.+?)\s*\1\s*$/)
+    if (h) {
+      const level = h[1].length
+      if (level === 2) skipping = SKIP_SECTION.test(h[2])
+      if (skipping) continue
+      if (cur.title || cur.paras.length) sections.push(cur)
+      cur = { title: h[2], level, paras: [] }
+      continue
+    }
+    if (skipping) continue
+    const t = line.trim()
+    if (!t) continue
+    cur.paras.push(markParagraph(t, uniq, knownRe))
+  }
+  if (cur.title || cur.paras.length) sections.push(cur)
+  return {
+    title: found.title,
+    lang,
+    url: found.url,
+    image: found.image,
+    description: found.description,
+    sections: sections.filter((s) => s.title || s.paras.length),
+  }
+}
