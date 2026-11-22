@@ -373,12 +373,16 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         shown = false
+        shownNow = false
         if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(false)", null)
     }
 
     override fun onStart() {
         super.onStart()
         shown = true
+        shownNow = true
+        // Sonaba con el reproductor del teléfono (play de la notificación): la página sigue desde ahí
+        NativeResume.handOver()
         if (isInPictureInPictureMode) web.evaluateJavascript("window.__cpnPip && window.__cpnPip(true)", null)
     }
 
@@ -495,20 +499,51 @@ class MainActivity : AppCompatActivity() {
          * [fromScreen]: lo pidió una pantalla de la app (widget): la recuperación la hace esa pantalla.
          */
         fun play(c: android.content.Context, fromScreen: Boolean = false) {
+            // Ya suena (o está en pausa) en el reproductor del teléfono: sigue ahí, al instante
+            if (NativeResume.active) {
+                NativeResume.resume()
+                return
+            }
             val a = current?.get()
             if (a == null) {
+                // App cerrada: suena desde el teléfono sin abrirla (si no hay nada guardado, se abre)
+                if (NativeResume.start(c)) return
                 runCatching { c.startActivity(widgetPlayIntent(c)) }
                 return
             }
             val asked = System.currentTimeMillis()
+            // La página dormida no suena al instante: el teléfono sigue la canción desde su segundo
+            val fallback = Runnable {
+                if (soundingSince(asked) || NativeResume.active || current?.get() !== a) return@Runnable
+                if (a.shown) return@Runnable
+                a.web.evaluateJavascript("window.__cpnNativeAction && window.__cpnNativeAction('pause')", null)
+                NativeResume.start(c)
+            }
             main.post {
                 a.web.evaluateJavascript("window.__cpnNativeAction ? (window.__cpnNativeAction('play'), 'ok') : 'none'") { r ->
-                    if (r?.contains("ok") != true && !fromScreen) a.recover()
+                    if (r?.contains("ok") != true) {
+                        main.removeCallbacks(fallback)
+                        if (!a.shown && NativeResume.start(c)) return@evaluateJavascript
+                        if (!fromScreen) a.recover()
+                    }
                 }
             }
-            // La página respondió pero aún no suena: se le da tiempo antes de recargar la app entera (la
-            // recarga sumaba 20-30 s; con la canción ya guardada en el teléfono suena antes de esto)
-            if (!fromScreen) main.postDelayed({ if (!soundingSince(asked) && current?.get() === a) a.recover() }, 15000)
+            if (NativeResume.canResume(c)) main.postDelayed(fallback, 1200)
+            // La página respondió pero aún no suena: se le da tiempo antes de recargar la app entera
+            if (!fromScreen) main.postDelayed({ if (!soundingSince(asked) && !NativeResume.active && current?.get() === a) a.recover() }, 15000)
+        }
+
+        /** ¿La app está a la vista? */
+        @Volatile var shownNow = false
+        fun isShown() = shownNow
+
+        /** Ejecuta código en la página; [done] dice si respondió «ok» (false si no hay página) */
+        fun runOnPage(js: String, done: (Boolean) -> Unit) {
+            main.post {
+                val a = current?.get()
+                if (a == null) done(false)
+                else a.web.evaluateJavascript(js) { r -> done(r?.contains("ok") == true) }
+            }
         }
 
         /** Trae la app adelante para que la página suene (y vuelva sola al fondo) */

@@ -183,6 +183,32 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/** Las próximas canciones de la lista (el teléfono las toca solo si la página está dormida) */
+function upcomingForPhone() {
+  const st = useMusicStore.getState()
+  const out: { id: string; title: string; artist: string; artwork?: string; duration?: number }[] = []
+  for (let i = st.currentIndex + 1; i < st.queue.length && out.length < 15; i++) {
+    const v = st.queue[i]
+    const id = v.id.replace(/^yta-/, '')
+    if (v.streamUrl || !/^[A-Za-z0-9_-]{11}$/.test(id)) continue
+    out.push({
+      id: v.id,
+      title: v.title.replace(/^[^-–]+[-–]\s*/, '') || v.title,
+      artist: v.channelTitle || '',
+      artwork: v.thumbnail?.startsWith('http') ? v.thumbnail : undefined,
+      duration: clockSeconds((v as { duration?: string }).duration),
+    })
+  }
+  return out
+}
+
+const clockSeconds = (d?: string) => {
+  if (!d) return undefined
+  const p = d.split(':').map(Number)
+  if (p.some((n) => !isFinite(n))) return undefined
+  return p.reduce((a, n) => a * 60 + n, 0)
+}
+
 export default function MusicPlayerBar() {
   const playerRef = useRef<HTMLVideoElement>(null)
   const [isSeeking, setIsSeeking] = useState(false)
@@ -2252,6 +2278,7 @@ export default function MusicPlayerBar() {
         duration: isLive ? undefined : time?.d,
         liked: isCurrentSaved,
         id: currentVideo?.id ?? '',
+        upcoming: upcomingForPhone(),
       })
     }
     send()
@@ -2305,6 +2332,22 @@ export default function MusicPlayerBar() {
             el.play()?.catch?.(() => {})
           } catch {}
         }, 3000)
+      } else if (a.startsWith('resume:')) {
+        // La app se abrió mientras sonaba el reproductor del teléfono: se sigue desde la canción y el
+        // segundo en que iba (resume:ID:ms:sonando)
+        const [, id, msS, on] = a.split(':')
+        const sec = Math.max(0, Number(msS) / 1000 || 0)
+        const idx = st.queue.findIndex((v) => v.id === id || v.id.replace(/^yta-/, '') === id)
+        if (idx >= 0 && idx !== st.currentIndex) {
+          st.playIndex(idx)
+          useMusicStore.setState({ resumeAt: sec, isPlaying: on === '1' })
+          return
+        }
+        const el = playerRef.current as unknown as HTMLMediaElement | null
+        try {
+          if (el && sec > 0) el.currentTime = sec
+        } catch {}
+        st.setIsPlaying(on === '1')
       } else if (a === 'pause') st.setIsPlaying(false)
       else if (a === 'next') st.playNext()
       else if (a === 'prev') st.playPrev()

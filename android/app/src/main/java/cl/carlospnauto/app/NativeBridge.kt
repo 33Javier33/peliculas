@@ -47,6 +47,7 @@ class NativeBridge(private val context: Context) {
             putExtra("id", o.optString("id"))
             if (o.has("position")) putExtra("position", o.optDouble("position", -1.0))
             if (o.has("duration")) putExtra("duration", o.optDouble("duration", 0.0))
+            o.optJSONArray("upcoming")?.let { putExtra("upcoming", it.toString()) }
         }
         // Android 12+ puede no dejar iniciar el servicio desde atrás: entonces se le avisa al que ya corre
         if (o.optBoolean("visible", true)) runCatching { ContextCompat.startForegroundService(context, intent) }.onFailure { runCatching { context.startService(intent) } }
@@ -80,6 +81,7 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun sounding() {
         MainActivity.lastSoundAt = System.currentTimeMillis()
+        NativeResume.webSounding()
     }
 
     @JavascriptInterface

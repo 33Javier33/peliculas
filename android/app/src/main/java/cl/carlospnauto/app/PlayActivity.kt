@@ -12,7 +12,9 @@ import android.view.WindowManager
  * no se puede tocar (los toques pasan a lo que está debajo): mientras está abierta la app cuenta
  * como «en uso», así Android la despierta aunque lleve horas en pausa y la deja sonar al instante.
  * - App abierta: le pide que suene y se cierra apenas suena de verdad.
- * - Si a los 3 s no suena (el teléfono cerró la página): trae la app un momento para que la página
+ * - Si la página no suena al instante, sigue el reproductor del teléfono (NativeResume) desde el
+ *   segundo en que quedó, sin traer la app adelante.
+ * - Si eso no se puede y a los 3 s no suena (el teléfono cerró la página): trae la app un momento para que la página
  *   cargue y suene (Android no deja empezar audio en una página que cargó escondida) y la app
  *   vuelve sola al fondo.
  * - App cerrada del todo: la abre igual, suena y vuelve al fondo.
@@ -27,6 +29,12 @@ class PlayActivity : Activity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) setShowWhenLocked(true)
         @Suppress("DEPRECATION") overridePendingTransition(0, 0)
         asked = System.currentTimeMillis()
+        // Ya sonaba en el teléfono, o la app está cerrada y se retoma desde el teléfono: al instante
+        if (NativeResume.active || (!MainActivity.isOpen() && NativeResume.start(this))) {
+            NativeResume.start(this)
+            finish()
+            return
+        }
         if (!MainActivity.isOpen()) {
             runCatching { startActivity(MainActivity.widgetPlayIntent(this)) }
             finish()

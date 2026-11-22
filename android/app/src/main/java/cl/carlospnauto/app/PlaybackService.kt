@@ -57,15 +57,15 @@ class PlaybackService : Service() {
                     update()
                     MainActivity.play(this@PlaybackService)
                 }
-                override fun onPause() = MainActivity.sendAction("pause")
-                override fun onSkipToNext() = MainActivity.sendAction("next")
-                override fun onSkipToPrevious() = MainActivity.sendAction("prev")
-                override fun onStop() = MainActivity.sendAction("pause")
+                override fun onPause() = doPause()
+                override fun onSkipToNext() = doNext()
+                override fun onSkipToPrevious() = doPrev()
+                override fun onStop() = doPause()
                 // Barra de avance de la notificación y de la pantalla bloqueada
                 override fun onSeekTo(pos: Long) {
                     positionMs = pos
                     positionAt = android.os.SystemClock.elapsedRealtime()
-                    MainActivity.sendAction("seek:$pos")
+                    if (NativeResume.active) NativeResume.seek(pos) else MainActivity.sendAction("seek:$pos")
                     update()
                 }
                 override fun onCustomAction(action: String?, extras: android.os.Bundle?) {
@@ -85,14 +85,17 @@ class PlaybackService : Service() {
                 positionAt = android.os.SystemClock.elapsedRealtime()
                 MainActivity.play(this)
             }
-            ACTION_PAUSE -> MainActivity.sendAction("pause")
-            ACTION_NEXT -> MainActivity.sendAction("next")
-            ACTION_PREV -> MainActivity.sendAction("prev")
+            ACTION_PAUSE -> doPause()
+            ACTION_NEXT -> doNext()
+            ACTION_PREV -> doPrev()
             ACTION_LIKE -> {
                 toggleLike()
                 return START_NOT_STICKY
             }
             ACTION_STATE -> {
+                val fromPhone = intent.getBooleanExtra("native", false)
+                // Suena el reproductor del teléfono: lo que diga la página (en pausa) no cuenta
+                if (!fromPhone && NativeResume.active) return START_NOT_STICKY
                 if (!intent.getBooleanExtra("visible", true)) {
                     stopEverything()
                     return START_NOT_STICKY
@@ -108,6 +111,13 @@ class PlaybackService : Service() {
                 positionMs = if (pos >= 0) (pos * 1000).toLong() else -1L
                 durationMs = if (dur > 0 && dur.isFinite()) (dur * 1000).toLong() else 0L
                 positionAt = android.os.SystemClock.elapsedRealtime()
+                // Se guarda lo que suena: el play de la notificación lo retoma al instante aunque
+                // Android haya cerrado la página
+                if (!fromPhone && trackId.isNotEmpty()) NativeResume.save(this, org.json.JSONObject()
+                    .put("id", trackId).put("title", title).put("artist", artist).put("album", album)
+                    .put("artwork", intent.getStringExtra("artwork").orEmpty()).put("liked", liked)
+                    .put("playing", playing).put("position", if (pos >= 0) pos else 0.0).put("duration", if (dur > 0 && dur.isFinite()) dur else 0.0)
+                    .put("upcoming", runCatching { org.json.JSONArray(intent.getStringExtra("upcoming") ?: "[]") }.getOrDefault(org.json.JSONArray())))
                 val art = intent.getStringExtra("artwork") ?: ""
                 if (art != artworkUrl) {
                     artworkUrl = art
@@ -234,6 +244,19 @@ class PlaybackService : Service() {
         )
     }
 
+    // Pausa, siguiente y anterior: al reproductor del teléfono si es el que suena, si no a la página
+    private fun doPause() {
+        if (NativeResume.active) NativeResume.pause() else MainActivity.sendAction("pause")
+    }
+    private fun doNext() {
+        if (NativeResume.active && NativeResume.next()) return
+        if (NativeResume.active) NativeResume.stop()
+        MainActivity.sendAction("next")
+    }
+    private fun doPrev() {
+        if (NativeResume.active) NativeResume.prev() else MainActivity.sendAction("prev")
+    }
+
     /** ♥ al momento (sin esperar a la web) y la web guarda o quita la canción */
     private fun toggleLike() {
         liked = !liked
@@ -262,6 +285,7 @@ class PlaybackService : Service() {
     }
 
     private fun stopEverything() {
+        NativeResume.stop()
         Presence.stop()
         releaseLocks()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)

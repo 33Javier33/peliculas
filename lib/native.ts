@@ -53,6 +53,8 @@ export function reportMediaState(state: {
   liked?: boolean
   /** Id del video (para que otros dispositivos de la cuenta lo puedan poner) */
   id?: string
+  /** Lo que viene en la lista: el teléfono sigue con esto si suena por su cuenta (play de la notificación) */
+  upcoming?: { id: string; title: string; artist: string; artwork?: string; duration?: number }[]
 }) {
   const n = getNative()
   if (!n) return
