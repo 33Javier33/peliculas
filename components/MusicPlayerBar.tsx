@@ -1806,11 +1806,45 @@ export default function MusicPlayerBar() {
     if (i >= q.length - 1 && (isRadioLoadingRef.current || q[i]?.archiveRadio)) waitingForRadioRef.current = true
     playNext()
   }, [playNext, reconnectLive])
+  // ===== Seguir después de una pausa larga =====
+  // Al pausar, la conexión con la que llegaba la canción queda abierta; si pasa un rato, el servidor
+  // la corta sin avisar y al dar play el reproductor esperaba en vano (30 s o más). Tras más de
+  // 10 s en pausa, el play pide la canción de nuevo desde el segundo en que iba (conexión nueva:
+  // con lo guardado en el teléfono, al instante)
+  const pausedAtRef = useRef(0)
+  const resumeReloadRef = useRef(false)
   const handlePlay = useCallback(() => {
     interruptedAtRef.current = 0
     setIsPlaying(true)
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    const since = pausedAtRef.current ? Date.now() - pausedAtRef.current : 0
+    pausedAtRef.current = 0
+    if (!el || since < 10000 || resumeReloadRef.current || el.ended) return
+    const src = el.currentSrc || el.src || ''
+    const t = el.currentTime
+    if (!/^https?:/.test(src) || !(t > 1) || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl) return
+    resumeReloadRef.current = true
+    const done = () => {
+      resumeReloadRef.current = false
+    }
+    el.addEventListener(
+      'loadedmetadata',
+      () => {
+        try {
+          el.currentTime = t
+        } catch {}
+        el.play()?.catch?.(() => {})
+        setTimeout(done, 500)
+      },
+      { once: true }
+    )
+    setTimeout(done, 15000)
+    el.load()
   }, [setIsPlaying])
   const handlePause = useCallback((e?: React.SyntheticEvent<HTMLMediaElement>) => {
+    // (La pausa del propio «pedir de nuevo» no cuenta)
+    if (resumeReloadRef.current) return
+    pausedAtRef.current = Date.now()
     // Al terminar una canción también llega "pause": lo gestiona onEnded
     if (e?.currentTarget?.ended) return
     // La pausa la hizo la app porque suena el video del reproductor

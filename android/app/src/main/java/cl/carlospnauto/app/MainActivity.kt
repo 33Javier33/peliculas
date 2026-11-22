@@ -298,7 +298,7 @@ class MainActivity : AppCompatActivity() {
                     reloadingAt = 0L
                     reloadToPlay()
                 }
-            }, 2500)
+            }, 6000)
             backWhenSounding(since)
             return
         }
@@ -506,7 +506,9 @@ class MainActivity : AppCompatActivity() {
                     if (r?.contains("ok") != true && !fromScreen) a.recover()
                 }
             }
-            if (!fromScreen) main.postDelayed({ if (!soundingSince(asked) && current?.get() === a) a.recover() }, 6000)
+            // La página respondió pero aún no suena: se le da tiempo antes de recargar la app entera (la
+            // recarga sumaba 20-30 s; con la canción ya guardada en el teléfono suena antes de esto)
+            if (!fromScreen) main.postDelayed({ if (!soundingSince(asked) && current?.get() === a) a.recover() }, 15000)
         }
 
         /** Trae la app adelante para que la página suene (y vuelva sola al fondo) */
