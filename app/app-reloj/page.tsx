@@ -140,6 +140,12 @@ export default function WatchAppPage() {
           </li>
           <li>Listo: vuelve a tocar <b>Instalar en el reloj</b> y confirma en el reloj. No hay que repetirlo.</li>
         </ol>
+        <p className="mt-4 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <b>Relojes con Android 11</b> (por ejemplo <b>TicWatch Pro 3</b> con Wear OS 3): aunque des el permiso, el reloj no trae la
+          pantalla para confirmar instalaciones y muestra «Wear no admite las acciones de instalación». En esos relojes, cada
+          actualización de la app del reloj o esfera se instala con <b>Wear Installer 2</b> o <b>Bugjaeger</b> (pasos 1 a 5 de
+          arriba). Desde Android 12 (Wear OS 4) se instala directo desde la app.
+        </p>
 
         <div className="mt-10 rounded-2xl bg-surface-1 border border-white/8 p-4 text-sm text-slate-400 space-y-2">
           <p className="flex items-start gap-2">

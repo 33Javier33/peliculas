@@ -276,6 +276,17 @@ class InstallActivity : Activity() {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+                // Relojes con Android 11 o anterior (TicWatch Pro 3, Wear OS 3): no traen la pantalla de
+                // confirmar la instalación («Wear no admite las acciones de instalación»). Ahí solo se
+                // puede instalar por depuración: se explican los pasos en vez de mostrar ese error
+                if (Build.VERSION.SDK_INT < 31) {
+                    started = false
+                    replyToPhone(this, null, name, "error", "Este reloj no permite instalar desde una app: instálala con Bugjaeger (pasos en App para el reloj)")
+                    status.text = "Este reloj (Android 11) no permite que una app instale otra.\n\nInstálala desde el teléfono con Bugjaeger:\n1. Reloj: Ajustes → Sistema → Acerca de → toca 7 veces «Número de compilación».\n2. Opciones de desarrollador → activa «Depuración ADB» y «Depurar por Wi-Fi».\n3. Teléfono: en Bugjaeger conéctate a la dirección del reloj e instala el APK (${apkLabel(name)})."
+                    button("Intentar igual") { if (confirm != null) runCatching { startActivity(confirm) } }
+                    second("Cerrar") { finish() }
+                    return
+                }
                 if (confirm != null) runCatching { startActivity(confirm) }
             }
             PackageInstaller.STATUS_SUCCESS -> {
