@@ -8,6 +8,7 @@ import java.time.ZonedDateTime
 import java.time.ZoneOffset
 import kotlin.math.PI
 import kotlin.math.asin
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -51,39 +52,93 @@ object WorldMap {
 
     private val path = Path()
 
-    fun draw(canvas: Canvas, rect: RectF, land: Int, night: Int, t: ZonedDateTime, paint: Paint) {
+    fun px(rect: RectF, lon: Float) = rect.left + (((lon + 180f) % 360f + 360f) % 360f) / 360f * rect.width()
+    fun py(rect: RectF, lat: Float) = rect.top + (TOP - lat.coerceIn(BOTTOM, TOP)) / (TOP - BOTTOM) * rect.height()
+
+    private fun days(t: ZonedDateTime) = (t.toEpochSecond() - 946728000L) / 86400.0 // desde J2000
+
+    /** Declinación del sol (grados) y longitud donde está a pleno mediodía */
+    fun sun(t: ZonedDateTime): Pair<Double, Double> {
+        val u = t.withZoneSameInstant(ZoneOffset.UTC)
+        val hours = u.hour + u.minute / 60.0 + u.second / 3600.0
+        val decl = 23.44 * sin(2 * PI * (284 + u.dayOfYear) / 365.0)
+        // Ecuación del tiempo (min): el mediodía solar no cae justo a las 12
+        val b = 2 * PI * (u.dayOfYear - 81) / 364.0
+        val eot = 9.87 * sin(2 * b) - 7.53 * cos(b) - 1.5 * sin(b)
+        val lon = (12.0 - hours - eot / 60.0) * 15.0
+        return decl to (((lon + 540) % 360) - 180)
+    }
+
+    /** Punto de la Tierra que tiene la luna justo encima: (latitud, longitud) aproximadas */
+    fun moon(t: ZonedDateTime): Pair<Double, Double> {
+        val d = days(t)
+        val l = Math.toRadians(218.316 + 13.176396 * d)
+        val m = Math.toRadians(134.963 + 13.064993 * d)
+        val f = Math.toRadians(93.272 + 13.229350 * d)
+        val lam = l + Math.toRadians(6.289) * sin(m)
+        val bet = Math.toRadians(5.128) * sin(f)
+        val e = Math.toRadians(23.44)
+        val ra = atan2(sin(lam) * cos(e) - kotlin.math.tan(bet) * sin(e), cos(lam))
+        val dec = asin(sin(bet) * cos(e) + cos(bet) * sin(e) * sin(lam))
+        val gmst = 280.46061837 + 360.98564736629 * d
+        val lon = Math.toDegrees(ra) - gmst
+        return Math.toDegrees(dec) to (((lon % 360) + 540) % 360 - 180)
+    }
+
+    /** Altura del sol (grados) en un lugar */
+    fun elevation(lat: Double, lon: Double, decl: Double, sunLon: Double): Double {
+        val la = Math.toRadians(lat)
+        val dr = Math.toRadians(decl)
+        val h = Math.toRadians(lon - sunLon)
+        return Math.toDegrees(asin(sin(la) * sin(dr) + cos(la) * cos(dr) * cos(h)))
+    }
+
+    /** Salida y puesta del sol (horas UTC) para un lugar; null si es día o noche polar */
+    fun sunTimes(t: ZonedDateTime, lat: Double, lon: Double): Pair<Double, Double>? {
+        val (decl, _) = sun(t.withHour(12))
+        val u = t.withZoneSameInstant(ZoneOffset.UTC)
+        val b = 2 * PI * (u.dayOfYear - 81) / 364.0
+        val eot = 9.87 * sin(2 * b) - 7.53 * cos(b) - 1.5 * sin(b)
+        val la = Math.toRadians(lat)
+        val dr = Math.toRadians(decl)
+        val c = (sin(Math.toRadians(-0.833)) - sin(la) * sin(dr)) / (cos(la) * cos(dr))
+        if (c < -1 || c > 1) return null
+        val h0 = Math.toDegrees(kotlin.math.acos(c)) / 15.0
+        val noon = 12.0 - lon / 15.0 - eot / 60.0
+        return (noon - h0) to (noon + h0)
+    }
+
+    /** Continentes; night: sombra de la noche (0 = sin ella); dusk: la del crepúsculo (0 = sin ella) */
+    fun draw(canvas: Canvas, rect: RectF, land: Int, night: Int, t: ZonedDateTime, paint: Paint, dusk: Int = 0) {
         canvas.save()
         canvas.clipRect(rect)
-        fun px(lon: Float) = rect.left + (lon + 180f) / 360f * rect.width()
-        fun py(lat: Float) = rect.top + (TOP - lat) / (TOP - BOTTOM) * rect.height()
         paint.style = Paint.Style.FILL
         paint.color = land
         for (s in SHAPES) {
             path.reset()
-            path.moveTo(px(s[0]), py(s[1]))
+            path.moveTo(px(rect, s[0]), py(rect, s[1]))
             var i = 2
-            while (i < s.size) { path.lineTo(px(s[i]), py(s[i + 1])); i += 2 }
+            while (i < s.size) { path.lineTo(px(rect, s[i]), py(rect, s[i + 1])); i += 2 }
             path.close()
             canvas.drawPath(path, paint)
         }
-        // La noche: donde el sol está bajo el horizonte (hora mundial)
-        if (night != 0) {
-            val u = t.withZoneSameInstant(ZoneOffset.UTC)
-            val hours = u.hour + u.minute / 60f
-            val sunLon = (12f - hours) * 15f
-            val decl = (23.44f * sin(2 * PI * (284 + u.dayOfYear) / 365.0)).toFloat()
-            val dRad = Math.toRadians(decl.toDouble())
+        // La noche: donde el sol está bajo el horizonte (y el crepúsculo, entre 0 y -6°)
+        if (night != 0 || dusk != 0) {
+            val (decl, sunLon) = sun(t)
             val cols = 72
             val rows = 28
-            paint.color = night
             for (cI in 0 until cols) {
-                val lon = -180f + (cI + 0.5f) * 360f / cols
+                val lon = -180.0 + (cI + 0.5) * 360.0 / cols
                 for (rI in 0 until rows) {
-                    val lat = TOP - (rI + 0.5f) * (TOP - BOTTOM) / rows
-                    val la = Math.toRadians(lat.toDouble())
-                    val h = Math.toRadians((lon - sunLon).toDouble())
-                    val elev = asin(sin(la) * sin(dRad) + cos(la) * cos(dRad) * cos(h))
-                    if (elev < 0) {
+                    val lat = TOP - (rI + 0.5) * (TOP - BOTTOM) / rows
+                    val elev = elevation(lat, lon, decl, sunLon)
+                    val c = when {
+                        elev < -6 -> night
+                        elev < 0 -> if (dusk != 0) dusk else night
+                        else -> 0
+                    }
+                    if (c != 0) {
+                        paint.color = c
                         val x0 = rect.left + cI * rect.width() / cols
                         val y0 = rect.top + rI * rect.height() / rows
                         canvas.drawRect(x0, y0, x0 + rect.width() / cols + 0.5f, y0 + rect.height() / rows + 0.5f, paint)

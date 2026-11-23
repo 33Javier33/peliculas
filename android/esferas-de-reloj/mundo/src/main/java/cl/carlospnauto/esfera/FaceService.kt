@@ -131,6 +131,8 @@ class FaceService : WatchFaceService() {
                 if (complicationSlot != null) return
                 // Tocar el reloj de agujas abre el reproductor de PulsoMusic / PulsoMedia
                 if (renderer.onDial(tapEvent.xPos, tapEvent.yPos)) return renderer.openPlayer()
+                // Tocar el mapa cambia lo que muestra (noche, sol y luna, ciudades, tu día)
+                if (renderer.onMap(tapEvent.xPos, tapEvent.yPos)) return renderer.mapTap()
                 val i = Shortcuts.hit(Config.spots, renderer.lastBounds, tapEvent.xPos, tapEvent.yPos)
                 if (i >= 0) Shortcuts.open(this@FaceService, i, Config.spots[i])
             }
@@ -206,10 +208,21 @@ class WorldRenderer(
         text.textScaleX = 1f
     }
 
+    /** Rótulo vertical en su pestaña (PASOS, FC, LPM…), como la foto */
     private fun vertical(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int) {
         canvas.save()
         canvas.rotate(-90f, x, y)
-        write(canvas, s, x, y + size * 0.35f, size, color, condensed, Paint.Align.CENTER)
+        val big = size * 1.2f
+        text.typeface = condensed
+        text.textSize = big
+        val w = text.measureText(s) + big * 0.9f
+        val tab = RectF(x - w / 2, y - big * 0.78f, x + w / 2, y + big * 0.78f)
+        fill.color = Color.rgb(52, 52, 56)
+        canvas.drawRoundRect(tab, big * 0.45f, big * 0.45f, fill)
+        stroke.color = Color.rgb(100, 100, 106)
+        stroke.strokeWidth = big * 0.08f
+        canvas.drawRoundRect(tab, big * 0.45f, big * 0.45f, stroke)
+        write(canvas, s, x, y + big * 0.35f, big, Color.rgb(215, 215, 220), condensed, Paint.Align.CENTER)
         canvas.restore()
     }
 
@@ -295,6 +308,9 @@ class WorldRenderer(
         val t = zonedDateTime
         val loc = Locale.getDefault()
         val sc = SCREENS[Choices.index(context, SCREEN)].second
+        lcdBg = sc.top
+        // El punto «estás aquí» late suave: se redibuja más seguido solo mientras se mira
+        interactiveDrawModeUpdateDelayMillis = if (playerOpen) 1000L else 200L
         val ink = sc.ink
         val ghost = a(ink, 22)
         val grey = Color.rgb(150, 150, 155)
@@ -358,15 +374,18 @@ class WorldRenderer(
 
         // ===== Panel central: hora, fecha, mapa y reloj de agujas =====
         panel(canvas, RectF(X(-0.88f), Y(-0.47f), X(0.85f), Y(0.39f)), r * 0.07f, r, Color.rgb(14, 14, 15))
-        val ls = r * 0.042f
-        write(canvas, "H", X(-0.69f), Y(-0.385f), ls, grey, condensed, Paint.Align.CENTER)
-        write(canvas, "MIN", X(-0.37f), Y(-0.385f), ls, grey, condensed, Paint.Align.CENTER)
-        write(canvas, "SEG", X(-0.04f), Y(-0.385f), ls, grey, condensed, Paint.Align.CENTER)
-        write(canvas, "DÍA - DD - MES", X(0.495f), Y(-0.385f), ls, grey, condensed, Paint.Align.CENTER)
+        // Rótulos (bien visibles, como la foto)
+        val ls = r * 0.05f
+        val label = Color.rgb(210, 210, 214)
+        write(canvas, "H", X(-0.69f), Y(-0.378f), ls, label, condensed, Paint.Align.CENTER)
+        write(canvas, "MIN", X(-0.37f), Y(-0.378f), ls, label, condensed, Paint.Align.CENTER)
+        write(canvas, "SEG", X(-0.04f), Y(-0.378f), ls, label, condensed, Paint.Align.CENTER)
+        write(canvas, "DÍA - DD - MES", X(0.495f), Y(-0.378f), ls, label, condensed, Paint.Align.CENTER)
         // Hora con segundos
         val tBox = RectF(X(-0.82f), Y(-0.355f), X(0.14f), Y(-0.11f))
         lcd(canvas, tBox, r, sc, false)
-        val sec = if (ambient) "  " else "%02d".format(t.second)
+        // En bajo consumo los segundos quedan quietos (no se borran) y vuelven a correr al encender
+        val sec = "%02d".format(t.second)
         // En pares (HH · MM · SS), como en la foto: juntos dentro del par y más aire en los dos puntos
         val dw = r * 0.095f
         val dh = r * 0.19f
@@ -380,7 +399,7 @@ class WorldRenderer(
             Lcd.digit(canvas, pair[1], dx + dw + inGap, dy, dw, dh, ink, ghost)
             dx += 2 * dw + inGap
             if (i < 2) {
-                if (i == 0 || !ambient) Lcd.colon(canvas, dx + colonGap / 2, dy, dh, r * 0.016f, ink)
+                Lcd.colon(canvas, dx + colonGap / 2, dy, dh, r * 0.016f, ink)
                 dx += colonGap
             }
         }
@@ -397,7 +416,7 @@ class WorldRenderer(
         val mBox = RectF(X(-0.82f), Y(-0.045f), X(0.14f), Y(0.35f))
         lcd(canvas, mBox, r, sc, false)
         val inner = RectF(mBox.left + r * 0.03f, mBox.top + r * 0.025f, mBox.right - r * 0.03f, mBox.bottom - r * 0.025f)
-        WorldMap.draw(canvas, inner, a(ink, 150), if (Choices.value(context, NIGHT) == 0) a(ink, 38) else 0, t, fill)
+        drawMap(canvas, inner, r, t, ink, ambient)
         // Reloj de agujas (tocarlo abre el reproductor)
         drawDial(canvas, X(0.495f), Y(0.085f), r * 0.265f, r, t, ambient)
 
@@ -434,6 +453,140 @@ class WorldRenderer(
         // Siempre activa: la esfera completa, más tenue
         if (ambient) canvas.drawColor(Color.argb(165, 0, 0, 0))
     }
+
+    // ===== Mapa: tocarlo cambia lo que muestra =====
+    private val MAP_MODES = listOf("NOCHE", "SOL Y LUNA", "CIUDADES", "TU DÍA")
+    private fun mapMode() = context.getSharedPreferences("mundo_lugar", Context.MODE_PRIVATE).getInt("modo", 0).coerceIn(0, MAP_MODES.size - 1)
+    private var mapShownAt = 0L
+
+    private fun mapBox(b: Rect): RectF {
+        val r = min(b.width(), b.height()) / 2f
+        val cx = b.exactCenterX()
+        val cy = b.exactCenterY()
+        return RectF(cx - 0.82f * r, cy - 0.045f * r, cx + 0.14f * r, cy + 0.35f * r)
+    }
+
+    fun onMap(x: Int, y: Int) = !lastBounds.isEmpty && mapBox(lastBounds).contains(x.toFloat(), y.toFloat())
+
+    fun mapTap() {
+        // La primera vez se pide la ubicación (para el punto «estás aquí»); después cambia de mapa
+        if (!Here.allowed(context) && !Here.asked(context)) {
+            Here.markAsked(context)
+            runCatching { context.startActivity(android.content.Intent(context, AskLocationActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            return
+        }
+        val p = context.getSharedPreferences("mundo_lugar", Context.MODE_PRIVATE)
+        p.edit().putInt("modo", (mapMode() + 1) % MAP_MODES.size).apply()
+        mapShownAt = System.currentTimeMillis()
+        invalidate()
+    }
+
+    private fun drawMap(canvas: Canvas, box: RectF, r: Float, t: ZonedDateTime, ink: Int, ambient: Boolean) {
+        val mode = mapMode()
+        val land = a(ink, 150)
+        val showNight = Choices.value(context, NIGHT) == 0
+        when (mode) {
+            1 -> WorldMap.draw(canvas, box, land, a(ink, 46), t, fill, dusk = a(ink, 22))
+            2 -> WorldMap.draw(canvas, box, a(ink, 110), if (showNight) a(ink, 26) else 0, t, fill)
+            3 -> WorldMap.draw(canvas, box, a(ink, 90), if (showNight) a(ink, 26) else 0, t, fill)
+            else -> WorldMap.draw(canvas, box, land, if (showNight) a(ink, 38) else 0, t, fill)
+        }
+        canvas.save()
+        canvas.clipRect(box)
+        val (lat, lon, real) = Here.where(context, t)
+        val hx = WorldMap.px(box, lon.toFloat())
+        val hy = WorldMap.py(box, lat.toFloat())
+        val small = r * 0.042f
+        when (mode) {
+            1 -> {
+                // Sol (donde está a pleno mediodía) y luna (donde está justo encima)
+                val (decl, sunLon) = WorldMap.sun(t)
+                val sx = WorldMap.px(box, sunLon.toFloat())
+                val sy = WorldMap.py(box, decl.toFloat())
+                stroke.color = ink
+                stroke.strokeWidth = r * 0.007f
+                for (k in 0 until 8) {
+                    val an = Math.toRadians(k * 45.0).toFloat()
+                    canvas.drawLine(sx + cos(an) * r * 0.028f, sy + sin(an) * r * 0.028f, sx + cos(an) * r * 0.042f, sy + sin(an) * r * 0.042f, stroke)
+                }
+                fill.color = ink
+                canvas.drawCircle(sx, sy, r * 0.02f, fill)
+                val (mLat, mLon) = WorldMap.moon(t)
+                val mx = WorldMap.px(box, mLon.toFloat())
+                val my = WorldMap.py(box, mLat.toFloat())
+                path.reset()
+                path.addCircle(mx, my, r * 0.024f, Path.Direction.CW)
+                path.op(Path().apply { addCircle(mx + r * 0.012f, my - r * 0.008f, r * 0.022f, Path.Direction.CW) }, Path.Op.DIFFERENCE)
+                canvas.drawPath(path, fill)
+            }
+            2 -> {
+                // Reloj mundial: la hora en otras ciudades
+                for ((name, la, lo, zone, place) in CITIES) {
+                    val cx = WorldMap.px(box, lo)
+                    val cy = WorldMap.py(box, la)
+                    fill.color = ink
+                    canvas.drawCircle(cx, cy, r * 0.011f, fill)
+                    val local = t.withZoneSameInstant(java.time.ZoneId.of(zone))
+                    val hh = if (DateFormat.is24HourFormat(context)) "%02d".format(local.hour) else (if (local.hour % 12 == 0) 12 else local.hour % 12).toString()
+                    // Cada rótulo a un lado fijo para que no se tapen
+                    val left = place[0] == 'L'
+                    val ly = when (place[1]) { 'U' -> cy - r * 0.022f; 'D' -> cy + r * 0.05f; else -> cy + small * 0.35f }
+                    write(canvas, "$name $hh:${"%02d".format(local.minute)}", if (left) cx - r * 0.02f else cx + r * 0.02f, ly, small, ink, bold, if (left) Paint.Align.RIGHT else Paint.Align.LEFT)
+                }
+            }
+            3 -> {
+                // Tu día: salida y puesta del sol donde estás, y cuánta luz queda
+                val times = WorldMap.sunTimes(t, lat, lon)
+                val zone = t.zone
+                fun hm(h: Double): String {
+                    val base = t.withZoneSameInstant(java.time.ZoneOffset.UTC).toLocalDate().atStartOfDay(java.time.ZoneOffset.UTC)
+                    val z = base.plusSeconds((h * 3600).toLong()).withZoneSameInstant(zone)
+                    return "%02d:%02d".format(z.hour, z.minute)
+                }
+                val cxm = box.centerX()
+                fill.color = Color.argb(170, Color.red(lcdBg), Color.green(lcdBg), Color.blue(lcdBg))
+                canvas.drawRoundRect(RectF(box.left + r * 0.04f, box.top + r * 0.035f, box.right - r * 0.04f, box.top + r * 0.20f), r * 0.03f, r * 0.03f, fill)
+                if (times != null) {
+                    val (rise, set) = times
+                    write(canvas, "SALE ${hm(rise)} · SE PONE ${hm(set)}", cxm, box.top + r * 0.095f, r * 0.055f, ink, bold, Paint.Align.CENTER)
+                    val len = set - rise
+                    val nowUtc = t.withZoneSameInstant(java.time.ZoneOffset.UTC).let { it.hour + it.minute / 60.0 }
+                    val left = ((set - nowUtc) % 24 + 24) % 24
+                    val info = if (nowUtc in rise..set || left < len) "LUZ ${"%dh %02dm".format(len.toInt(), ((len % 1) * 60).toInt())} · QUEDAN ${"%dh %02dm".format(left.toInt(), ((left % 1) * 60).toInt())}"
+                        else "LUZ ${"%dh %02dm".format(len.toInt(), ((len % 1) * 60).toInt())} · ES DE NOCHE"
+                    write(canvas, info, cxm, box.top + r * 0.165f, r * 0.042f, a(ink, 210), medium, Paint.Align.CENTER, maxW = box.width() - r * 0.1f)
+                } else write(canvas, "SOL TODO EL DÍA O TODA LA NOCHE", cxm, box.top + r * 0.12f, r * 0.042f, ink, bold, Paint.Align.CENTER)
+            }
+        }
+        // Estás aquí: punto que late suave (en bajo consumo, quieto)
+        val phase = if (ambient) 0f else (System.currentTimeMillis() % 2000L) / 2000f
+        if (!ambient) {
+            stroke.color = a(ink, (150 * (1f - phase)).toInt())
+            stroke.strokeWidth = r * 0.006f
+            canvas.drawCircle(hx, hy, r * (0.014f + phase * 0.035f), stroke)
+        }
+        fill.color = ink
+        canvas.drawCircle(hx, hy, r * 0.013f, fill)
+        fill.color = lcdBg
+        canvas.drawCircle(hx, hy, r * 0.005f, fill)
+        canvas.restore()
+        // Qué muestra (abajo a la izquierda del mapa) y si el punto es la ubicación real o tu zona horaria
+        val tag = MAP_MODES[mode] + if (!real && mode != 2) " · ZONA" else ""
+        write(canvas, tag, box.left + r * 0.01f, box.bottom - r * 0.012f, r * 0.036f, a(ink, 200), bold, Paint.Align.LEFT)
+    }
+
+    /** Color de fondo de las pantallitas (para el centro del punto) */
+    private var lcdBg = Color.WHITE
+
+    /** Ciudad del reloj mundial; place: lado del rótulo (L/R izquierda o derecha, U/D/M arriba, abajo o al medio) */
+    private data class City(val name: String, val lat: Float, val lon: Float, val zone: String, val place: String)
+    private val CITIES = listOf(
+        City("LA", 34.0f, -118.2f, "America/Los_Angeles", "RD"),
+        City("NY", 40.7f, -74.0f, "America/New_York", "LU"),
+        City("LON", 51.5f, -0.1f, "Europe/London", "RU"),
+        City("TYO", 35.7f, 139.7f, "Asia/Tokyo", "LD"),
+        City("SYD", -33.9f, 151.2f, "Australia/Sydney", "LM"),
+    )
 
     /** Pantalla del reproductor: hora, lo que suena, avance y botones ◄◄ ►‖ ►► (otro toque cierra) */
     private fun renderPlayer(canvas: Canvas, cx: Float, cy: Float, r: Float, t: ZonedDateTime, h: String, sc: Screen) {
