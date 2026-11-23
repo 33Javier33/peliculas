@@ -69,6 +69,12 @@ const QUALITY_HEIGHT: Record<string, number> = { highres: 9999, hd1080: 1080, hd
 // Si YouTube no confirma que el reproductor cargó en este tiempo, se ofrece otra fuente
 const LOAD_TIMEOUT_MS = 12000
 
+// Pantalla completa que sobrevive al cambio de video: se pone a pantalla completa la página entera
+// (que nunca se reemplaza) y el video se estira a toda la pantalla. Antes se ponía el cuadro del
+// video, que se arma de nuevo con cada video: al pasar al siguiente se salía de pantalla completa
+let fsWanted = false
+let playersMounted = 0
+
 /**
  * Reproductor de la sección Videos. Usa el reproductor de YouTube y, si el video no se
  * puede ver insertado (el dueño lo bloqueó fuera de YouTube, restricción por país…),
@@ -610,13 +616,50 @@ export default function YoutubePlayer({
   const fullscreen = () => {
     const el = boxRef.current
     if (!el) return
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    else el.requestFullscreen?.().catch(() => {})
+    if (document.fullscreenElement) {
+      fsWanted = false
+      document.exitFullscreen().catch(() => {})
+      return
+    }
+    fsWanted = true
+    const page = document.documentElement
+    if (!page.requestFullscreen) {
+      fsWanted = false
+      return
+    }
+    page
+      .requestFullscreen()
+      .then(() => setPageFs(true))
+      .catch(() => {
+        fsWanted = false
+        el.requestFullscreen?.().catch(() => {})
+      })
   }
 
   // Ventana flotante: el video sale del navegador y queda sobre el escritorio (Chrome o Edge para
   // videos de YouTube; cualquier navegador para el video alternativo en MP4). La ventana vive aparte
   // del reproductor: cerrar este video no la cierra.
+  const [pageFs, setPageFs] = useState(() => typeof document !== 'undefined' && fsWanted && document.fullscreenElement === document.documentElement)
+  useEffect(() => {
+    playersMounted++
+    const onChange = () => {
+      if (!document.fullscreenElement) fsWanted = false
+      setPageFs(fsWanted && document.fullscreenElement === document.documentElement)
+    }
+    onChange()
+    document.addEventListener('fullscreenchange', onChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange)
+      playersMounted--
+      // Se cerró el video (y no vino otro): sale de pantalla completa
+      setTimeout(() => {
+        if (playersMounted > 0 || !fsWanted) return
+        fsWanted = false
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+      }, 600)
+    }
+  }, [])
+
   const [floating, setFloating] = useState(false)
   const [canFloat, setCanFloat] = useState(false)
   useEffect(() => {
@@ -714,7 +757,7 @@ export default function YoutubePlayer({
           )}
           <div
             ref={boxRef}
-            className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black"
+            className={pageFs ? 'fixed inset-0 z-[9999] w-screen h-[100dvh] overflow-hidden bg-black' : 'relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl shadow-black bg-black'}
             data-cpn-video={mode === 'youtube' && ytPlaying ? 'playing' : ''}
           >
             {castHere && (
