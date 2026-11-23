@@ -424,3 +424,78 @@ html[data-theme='oceano'] .cpn-keep {
   --play-glow-a: 14 152 233;
   --play-glow-b: 125 211 252;
 }
+
+/* Ámbar: dorado cálido sobre café oscuro */
+html[data-theme='ambar'],
+html[data-theme='ambar'] .cpn-keep {
+  --bg: 18 14 10;
+  --surface-1: 31 25 19;
+  --surface-2: 44 36 27;
+  --acc-50: 255 251 235;
+  --acc-100: 254 243 199;
+  --acc-200: 253 230 138;
+  --acc-300: 252 211 77;
+  --acc-400: 251 191 36;
+  --acc-500: 245 158 11;
+  --acc-600: 217 119 6;
+  --acc-700: 180 83 9;
+  --acc-800: 146 64 14;
+  --acc-900: 120 53 15;
+  --acc-950: 69 26 3;
+  --acc2-50: 255 247 237;
+  --acc2-100: 255 237 213;
+  --acc2-200: 254 215 170;
+  --acc2-300: 253 186 116;
+  --acc2-400: 251 146 60;
+  --acc2-500: 249 115 22;
+  --acc2-600: 234 88 12;
+  --acc2-700: 194 65 12;
+  --acc2-800: 154 52 18;
+  --acc2-900: 124 45 18;
+  --acc2-950: 67 20 7;
+  --play-a: #fde68a;
+  --play-b: #f59e0b;
+  --play-c: #c2410c;
+  --play-glow-a: 245 158 11;
+  --play-glow-b: 253 230 138;
+}
+/* Ámbar: los botones llenos llevan texto oscuro (el dorado es claro) */
+html[data-theme='ambar'] :is(.bg-violet-400, .bg-violet-500, [class~='bg-violet-500/90']),
+html[data-theme='ambar'] :is(.bg-violet-400, .bg-violet-500, [class~='bg-violet-500/90']) :is(.text-white, svg) {
+  color: #1c1306 !important;
+}
+
+/* Rosa: rosa neón sobre negro violáceo */
+html[data-theme='rosa'],
+html[data-theme='rosa'] .cpn-keep {
+  --bg: 15 10 15;
+  --surface-1: 28 20 28;
+  --surface-2: 41 30 41;
+  --acc-50: 253 242 248;
+  --acc-100: 252 231 243;
+  --acc-200: 251 207 232;
+  --acc-300: 249 168 212;
+  --acc-400: 244 114 182;
+  --acc-500: 236 72 153;
+  --acc-600: 219 39 119;
+  --acc-700: 190 24 93;
+  --acc-800: 157 23 77;
+  --acc-900: 131 24 67;
+  --acc-950: 80 7 36;
+  --acc2-50: 253 244 255;
+  --acc2-100: 250 232 255;
+  --acc2-200: 245 208 254;
+  --acc2-300: 240 171 252;
+  --acc2-400: 232 121 249;
+  --acc2-500: 217 70 239;
+  --acc2-600: 192 38 211;
+  --acc2-700: 162 28 175;
+  --acc2-800: 134 25 143;
+  --acc2-900: 112 26 117;
+  --acc2-950: 74 4 78;
+  --play-a: #f9a8d4;
+  --play-b: #ec4899;
+  --play-c: #a21caf;
+  --play-glow-a: 236 72 153;
+  --play-glow-b: 249 168 212;
+}

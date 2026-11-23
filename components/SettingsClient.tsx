@@ -34,6 +34,7 @@ import ViewToggle from '@/components/ViewToggle'
 import { useHelpTips, setHelpTips } from '@/components/HelpTip'
 import { importSiblingLibrary, otherAppName } from '@/lib/sibling-library'
 import ShareAppButton from '@/components/ShareAppButton'
+import { THEMES, getTheme, setTheme, type ThemeId } from '@/lib/theme'
 
 // Configuración: todo lo que se puede ajustar en la app, en un solo lugar.
 
@@ -118,6 +119,10 @@ export default function SettingsClient() {
       </h1>
 
       <div className="space-y-7">
+        <Section title="Tema">
+          <ThemePicker />
+        </Section>
+
         <Section title="Sonido">
           <Row
             icon={<SlidersHorizontal className="w-4 h-4" />}
@@ -300,6 +305,48 @@ export default function SettingsClient() {
 }
 
 /** «No me interesa»: lo ocultado, con «Mostrar de nuevo» */
+/** Tema de colores: se aplica al instante y queda guardado en este teléfono o computador */
+function ThemePicker() {
+  const [cur, setCur] = useState<ThemeId>('original')
+  const [isMusic, setIsMusic] = useState(false)
+  useEffect(() => {
+    setCur(getTheme())
+    setIsMusic(document.documentElement.getAttribute('data-app') === 'music')
+  }, [])
+  return (
+    <div className="grid grid-cols-3 gap-2 p-3">
+      {THEMES.map((t) => {
+        const on = cur === t.id
+        // El original de PulsoMusic es carmesí; el de PulsoMedia y la web, violeta
+        const [a, b, bg] = t.id === 'original' && isMusic ? ['#d63454', '#f69ca7', '#100f11'] : t.colors
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => {
+              setTheme(t.id)
+              setCur(t.id)
+            }}
+            aria-pressed={on}
+            className={`rounded-xl p-2 text-left border transition-colors ${on ? 'border-white/70 bg-white/8' : 'border-white/10 hover:border-white/25'}`}
+          >
+            <span className="relative block h-14 rounded-lg overflow-hidden" style={{ background: bg }}>
+              <span className="absolute left-2 top-2 h-1.5 w-10 rounded-full" style={{ background: a }} />
+              <span className="absolute left-2 top-5 h-1.5 w-6 rounded-full opacity-60" style={{ background: b }} />
+              <span className="absolute right-2 bottom-2 w-6 h-6 rounded-full" style={{ background: a, boxShadow: `0 0 10px ${a}88` }} />
+            </span>
+            <span className="mt-1.5 flex items-center gap-1 text-[13px] font-semibold text-white">
+              {t.name}
+              {on && <span className="ml-auto w-2 h-2 rounded-full bg-white" aria-hidden />}
+            </span>
+            <span className="block text-[11px] text-slate-400 leading-tight">{t.desc}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function HiddenSection() {
   const songs = useBlockStore((s) => s.songs)
   const artists = useBlockStore((s) => s.artists)
