@@ -1362,11 +1362,11 @@ export default function MusicPlayerBar() {
       // Una fuente de YouTube que no arranca en 7 s se cambia por la siguiente (hay varias). Un
       // archivo (disco de archive.org, MP3, música del teléfono) tiene una sola: se le da más tiempo
       // El audio que saca el teléfono (servidor local) puede tardar más en empezar, sobre todo
-      // mientras se descargan otras canciones: se le dan 20 s antes de pasar al video
-      // (los reintentos, ?r=1 y ?r=2, ya encuentran el audio buscado: 10 s)
-      // Con la app en segundo plano se espera lo mismo (antes 6 s): al tocar una canción y salir
-      // enseguida, el teléfono la busca con menos fuerza y tarda más; se saltaba sin haber fallado
-      const startLimit = isNativeSrc ? (audioUrl?.includes('?r=') ? 12000 : 20000) : START_MS
+      // mientras se descargan otras canciones: se le dan 12 s antes de pedirla otra vez (el teléfono
+      // ya deja de lado lo que prepara en segundo plano y cambia de servidor si uno no contesta).
+      // Con la app en segundo plano, 20 s: al tocar una canción y salir enseguida, el teléfono la
+      // busca con menos fuerza y tarda más; se saltaba sin haber fallado
+      const startLimit = isNativeSrc ? (document.visibilityState === 'hidden' ? 20000 : 12000) : START_MS
       // La versión de alta calidad de archive.org que no arranca en 8 s se cambia por la de siempre
       // (antes se esperaban 40 s: parecía que los discos no cargaban)
       const hqStart = !!audioUrl?.includes('/api/archive-best') && lastTime <= 0

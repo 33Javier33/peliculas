@@ -529,20 +529,41 @@ object AudioServer {
 
     private val urgentPending: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+    // Lista vigente: cada vez que suena otra canción la página manda su lista nueva (la que sigue
+    // primero). Lo que quedó en fila de listas anteriores ya no se prepara (al adelantar varias
+    // seguidas se juntaban decenas y le quitaban internet a la canción que se quería escuchar)
+    @Volatile private var listGen = 0
+    private val wantedGen = ConcurrentHashMap<String, Int>()
+
+    // Canciones que se piden para sonar YA y aún no tienen su comienzo: mientras tanto, la fila
+    // de segundo plano espera (toda la conexión para la que se quiere escuchar)
+    private val foreground = java.util.concurrent.atomic.AtomicInteger(0)
+
     private fun fresh(key: String): Boolean = headOf(key) != null
 
     private fun prefetchYt(id: String, urgent: Boolean) {
-        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id) || fresh(id)) return
+        if (!Regex("^[A-Za-z0-9_-]{11}$").matches(id)) return
+        if (urgent) listGen++ else wantedGen[id] = listGen
+        if (fresh(id)) return
         val work = Runnable {
             if (fresh(id)) return@Runnable
-            if (!urgent) android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            if (!urgent) {
+                // De una lista que ya no corre: se omite
+                if (wantedGen[id] != listGen) return@Runnable
+                var waited = 0
+                while (foreground.get() > 0 && waited < 20_000) {
+                    Thread.sleep(200)
+                    waited += 200
+                }
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            }
             runCatching {
                 val r = resolve(id, background = !urgent)
                 val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
                     setRequestProperty("User-Agent", r.userAgent)
                     setRequestProperty("Range", "bytes=0-${HEAD_BYTES - 1}")
-                    connectTimeout = 15000
-                    readTimeout = 30000
+                    connectTimeout = 8000
+                    readTimeout = 15000
                 }
                 if (conn.responseCode == 200 || conn.responseCode == 206) {
                     val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
@@ -657,6 +678,16 @@ object AudioServer {
         // Comienzo ya descargado: se entrega al instante desde la memoria
         val head = if (video || watch || castPart.isNotEmpty()) null else headOf(id)
         if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
+        val plainAudio = !(video || watch || castPart.isNotEmpty() || background)
+        if (plainAudio) foreground.incrementAndGet()
+        try {
+            return streamNet(id, start, reqEnd, rangeHeader, retry, background, video, watch, castPart)
+        } finally {
+            if (plainAudio) foreground.decrementAndGet()
+        }
+    }
+
+    private fun streamNet(id: String, start: Long, reqEnd: Long?, rangeHeader: String?, retry: Boolean, background: Boolean, video: Boolean, watch: Boolean, castPart: String): NanoHTTPD.Response {
 
         val r = if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }
             else if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
@@ -666,8 +697,10 @@ object AudioServer {
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
             setRequestProperty("User-Agent", r.userAgent)
             setRequestProperty("Range", "bytes=$start-$end")
-            connectTimeout = 12000
-            readTimeout = 30000
+            // Un servidor de YouTube que no contesta se deja pronto y se pide otra dirección (antes
+            // se esperaban hasta 30 s y la canción quedaba cargando)
+            connectTimeout = 6000
+            readTimeout = 10000
         }
         // Sin conexión con ese servidor de YouTube (se tardó o se cortó): se pide otra dirección del
         // audio (suele ser otro servidor) y se intenta otra vez
@@ -677,7 +710,7 @@ object AudioServer {
             conn.disconnect()
             if (!retry) throw e
             if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
-            Thread.sleep(1500)
+            Thread.sleep(300)
             return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch, castPart = castPart)
         }
         if ((code == 403 || code == 410) && retry) {
