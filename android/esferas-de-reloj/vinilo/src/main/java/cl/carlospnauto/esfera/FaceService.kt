@@ -391,7 +391,7 @@ class VinylRenderer(
         fill.color = Color.rgb(8, 8, 9)
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, fill)
         stroke.color = Color.rgb(190, 190, 192)
-        stroke.strokeWidth = r * 0.009f
+        stroke.strokeWidth = r * 0.016f
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, stroke)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
@@ -425,8 +425,8 @@ class VinylRenderer(
 
     /** Un número de 7 segmentos finos (como la foto), con los segmentos apagados apenas visibles */
     private fun seg(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
-        val t = w * 0.15f
-        val g = t * 0.35f
+        val t = w * 0.23f
+        val g = t * 0.22f
         val m = y + h / 2
         val l = x + t / 2
         val rr = x + w - t / 2
@@ -690,7 +690,7 @@ class VinylRenderer(
         fill.color = Color.rgb(8, 8, 9)
         canvas.drawRoundRect(box, r * 0.08f, r * 0.08f, fill)
         stroke.color = Color.rgb(190, 190, 192)
-        stroke.strokeWidth = r * 0.009f
+        stroke.strokeWidth = r * 0.016f
         canvas.drawRoundRect(box, r * 0.08f, r * 0.08f, stroke)
         // Reproductor, batería y hora
         val app = if (PhoneNow.state?.from == "cl.carlospnauto.app") "PULSOMEDIA" else "PULSOMUSIC"
