@@ -264,7 +264,11 @@ object NativeResume {
     }
 
     private fun webSoundingNow() {
-        if (active && !handingOver && System.currentTimeMillis() - startedAt > 3000 && MainActivity.isShown()) stop()
+        if (!active || handingOver) return
+        // Nunca dos a la vez (dos copias desfasadas de la misma canción suenan «chicharreadas»):
+        // con la app a la vista manda la página; escondida, sigue el teléfono y la página se pausa
+        if (MainActivity.isShown() && System.currentTimeMillis() - startedAt > 3000) stop()
+        else if (playing) MainActivity.sendAction("pause")
     }
 
     private var failedAt = 0L

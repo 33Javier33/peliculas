@@ -65,6 +65,14 @@ object NativeEq {
         // Lo mismo que ya está puesto: no se toca nada (cada reconfiguración se oía como un chasquido)
         val key = "$on|${gains.joinToString(",")}|$leveler"
         if (key == lastKey && lastResult == "ok") return "ok"
+        // Apagado: se sueltan del todo los procesadores del teléfono. Aunque estén «desactivados»,
+        // en algunos teléfonos seguir enganchados al sonido general lo ensucia (chicharreo)
+        if (!on) {
+            release()
+            lastKey = key
+            lastResult = "ok"
+            return "ok"
+        }
         return try {
             val r = applySoft(on, gains, leveler)
             lastKey = key
