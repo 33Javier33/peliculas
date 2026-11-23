@@ -299,3 +299,128 @@ svg.lucide-pause {
   stroke: #fff !important;
   filter: drop-shadow(0 0 3px rgb(var(--play-glow-b) / 0.55));
 }
+
+/* ===== Temas (Configuración → Tema). Van al final para ganarle al color de cada app ===== */
+/* Hi-Fi: negro profundo y blanco, como un equipo de alta fidelidad */
+html[data-theme='hifi'],
+html[data-theme='hifi'] .cpn-keep {
+  --bg: 5 5 5;
+  --surface-1: 20 20 20;
+  --surface-2: 36 36 36;
+  --acc-50: 255 255 255;
+  --acc-100: 250 250 250;
+  --acc-200: 240 240 240;
+  --acc-300: 235 235 235;
+  --acc-400: 215 215 215;
+  --acc-500: 245 245 245;
+  --acc-600: 225 225 225;
+  --acc-700: 190 190 190;
+  --acc-800: 150 150 150;
+  --acc-900: 110 110 110;
+  --acc-950: 60 60 60;
+  --acc2-50: 255 255 255;
+  --acc2-100: 250 250 250;
+  --acc2-200: 240 240 240;
+  --acc2-300: 225 225 225;
+  --acc2-400: 200 200 200;
+  --acc2-500: 235 235 235;
+  --acc2-600: 215 215 215;
+  --acc2-700: 180 180 180;
+  --acc2-800: 140 140 140;
+  --acc2-900: 100 100 100;
+  --acc2-950: 55 55 55;
+  --play-a: #ffffff;
+  --play-b: #ffffff;
+  --play-c: #ffffff;
+  --play-glow-a: 255 255 255;
+  --play-glow-b: 255 255 255;
+}
+/* Botones de color lleno: con fondo blanco, el texto y los íconos van oscuros */
+html[data-theme='hifi'] :is(.bg-violet-300, .bg-violet-400, .bg-violet-500, .bg-violet-600, .bg-purple-500, .bg-purple-600, [class~='bg-violet-500/90'], [class~='bg-violet-500/80'], [class~='bg-violet-600/90']),
+html[data-theme='hifi'] :is(.bg-violet-300, .bg-violet-400, .bg-violet-500, .bg-violet-600, .bg-purple-500, .bg-purple-600, [class~='bg-violet-500/90'], [class~='bg-violet-500/80'], [class~='bg-violet-600/90']) :is(.text-white, svg, span) {
+  color: #121212 !important;
+}
+html[data-theme='hifi'] :is(.bg-violet-500, .bg-violet-600, [class~='bg-violet-500/90']) .fill-white {
+  fill: #121212 !important;
+}
+html[data-theme='hifi'] .cpn-play {
+  background: #ffffff !important;
+  border: 1px solid #ffffff !important;
+  color: #121212 !important;
+  box-shadow: 0 0 22px rgb(255 255 255 / 0.3), 0 6px 16px rgb(0 0 0 / 0.6) !important;
+}
+html[data-theme='hifi'] .cpn-play svg {
+  color: #121212 !important;
+  stroke: #121212 !important;
+  filter: none;
+}
+
+/* Esmeralda: verde intenso sobre gris carbón */
+html[data-theme='esmeralda'],
+html[data-theme='esmeralda'] .cpn-keep {
+  --bg: 19 19 19;
+  --surface-1: 32 31 31;
+  --surface-2: 44 44 44;
+  --acc-50: 240 253 244;
+  --acc-100: 220 252 231;
+  --acc-200: 187 247 208;
+  --acc-300: 114 254 143;
+  --acc-400: 83 224 118;
+  --acc-500: 34 177 84;
+  --acc-600: 22 150 68;
+  --acc-700: 21 118 56;
+  --acc-800: 22 92 47;
+  --acc-900: 20 75 40;
+  --acc-950: 5 46 22;
+  --acc2-50: 240 253 244;
+  --acc2-100: 220 252 231;
+  --acc2-200: 187 247 208;
+  --acc2-300: 134 239 172;
+  --acc2-400: 74 222 128;
+  --acc2-500: 34 197 94;
+  --acc2-600: 22 163 74;
+  --acc2-700: 21 128 61;
+  --acc2-800: 22 101 52;
+  --acc2-900: 20 83 45;
+  --acc2-950: 5 46 22;
+  --play-a: #72fe8f;
+  --play-b: #22b154;
+  --play-c: #157638;
+  --play-glow-a: 34 177 84;
+  --play-glow-b: 114 254 143;
+}
+
+/* Océano: azul profundo */
+html[data-theme='oceano'],
+html[data-theme='oceano'] .cpn-keep {
+  --bg: 8 13 22;
+  --surface-1: 17 25 38;
+  --surface-2: 27 38 56;
+  --acc-50: 240 249 255;
+  --acc-100: 224 242 254;
+  --acc-200: 186 230 253;
+  --acc-300: 125 211 252;
+  --acc-400: 56 189 248;
+  --acc-500: 14 152 233;
+  --acc-600: 2 125 200;
+  --acc-700: 3 105 161;
+  --acc-800: 7 89 133;
+  --acc-900: 12 74 110;
+  --acc-950: 8 47 73;
+  --acc2-50: 238 242 255;
+  --acc2-100: 224 231 255;
+  --acc2-200: 199 210 254;
+  --acc2-300: 165 180 252;
+  --acc2-400: 129 140 248;
+  --acc2-500: 99 102 241;
+  --acc2-600: 79 70 229;
+  --acc2-700: 67 56 202;
+  --acc2-800: 55 48 163;
+  --acc2-900: 49 46 129;
+  --acc2-950: 30 27 75;
+  --play-a: #7dd3fc;
+  --play-b: #0e98e9;
+  --play-c: #4f46e5;
+  --play-glow-a: 14 152 233;
+  --play-glow-b: 125 211 252;
+}

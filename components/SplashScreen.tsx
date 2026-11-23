@@ -12,7 +12,7 @@ const KEY = 'cpn-splash-seen'
 const FADE = 'linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%)'
 
 /** Va en el <head>: esconde la pantalla de inicio si ya se mostró en esta sesión */
-export const SPLASH_SCRIPT = `try{if(/CPNFlavor\\/music/.test(navigator.userAgent))document.documentElement.setAttribute('data-app','music')}catch(e){}try{if(sessionStorage.getItem('${KEY}'))document.documentElement.setAttribute('data-splash','done')}catch(e){}`
+export const SPLASH_SCRIPT = `try{var th=localStorage.getItem('cpn-theme');if(th&&th!=='original')document.documentElement.setAttribute('data-theme',th)}catch(e){}try{if(/CPNFlavor\\/music/.test(navigator.userAgent))document.documentElement.setAttribute('data-app','music')}catch(e){}try{if(sessionStorage.getItem('${KEY}'))document.documentElement.setAttribute('data-splash','done')}catch(e){}`
 
 export default function SplashScreen() {
   const [state, setState] = useState<'show' | 'leaving' | 'gone'>('show')
