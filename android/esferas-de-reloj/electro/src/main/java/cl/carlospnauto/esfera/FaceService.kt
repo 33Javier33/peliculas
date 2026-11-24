@@ -306,9 +306,15 @@ class ElectroRenderer(
             fill.shader = RadialGradient(cx, cy, r, Color.rgb(26, 26, 28), Color.rgb(6, 6, 7), Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, r, fill)
             fill.shader = null
+            // Doble borde: aro de color afuera, banda oscura y otro aro fino adentro
+            stroke.color = Color.rgb(30, 30, 33)
+            stroke.strokeWidth = r * 0.05f
+            canvas.drawCircle(cx, cy, r * 0.957f, stroke)
             stroke.color = acc.ring
-            stroke.strokeWidth = r * 0.011f
-            canvas.drawCircle(cx, cy, r * 0.955f, stroke)
+            stroke.strokeWidth = r * 0.01f
+            canvas.drawCircle(cx, cy, r * 0.984f, stroke)
+            stroke.strokeWidth = r * 0.007f
+            canvas.drawCircle(cx, cy, r * 0.93f, stroke)
             // Lucecita roja del costado
             fill.color = Color.rgb(236, 64, 44)
             canvas.drawCircle(X(-0.955f), cy, r * 0.022f, fill)
