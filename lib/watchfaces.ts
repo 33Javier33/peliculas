@@ -390,6 +390,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       '11 pantallas: clásica de cristal líquido, gris, naranja, verde menta, rojo, amarillo, beige y negativas amarilla, cian, granate y magenta',
       '7 colores de frente: rojo y azul, verde, dorado, rosa, azul, plata y negro',
       'Segundos visibles u ocultos',
+      'Los cuatro datos de arriba y abajo (ritmo, su estado, pasos y distancia) se pueden cambiar por otros en Personalizar',
       'Distancia en kilómetros o millas',
       'Bajo consumo: esfera completa tenue o mínima',
       ...COMMON,

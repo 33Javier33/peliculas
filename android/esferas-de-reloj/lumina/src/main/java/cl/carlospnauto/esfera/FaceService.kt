@@ -46,6 +46,7 @@ import cl.carlospnauto.esfera.comun.PlayerScreen
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import cl.carlospnauto.esfera.comun.textOf
+import cl.carlospnauto.esfera.comun.titleOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +60,8 @@ import kotlin.math.min
 
 private const val HEART = 101
 private const val STEPS = 102
+private const val TOP_RIGHT = 103
+private const val BOTTOM_RIGHT = 104
 
 /** Pantalla de cristal líquido: fondo (arriba/abajo), dígitos encendidos y si es «negativa» (fondo oscuro) */
 private data class Screen(val top: Int, val bottom: Int, val ink: Int, val dark: Boolean)
@@ -97,7 +100,10 @@ private val DISTANCE = Choice("distancia", "Distancia", listOf("Kilómetros" to 
 private val AMB = Choice("bajo", "Bajo consumo", listOf("Pantalla completa tenue" to 0, "Mínimo" to 1))
 
 object Config : FaceConfig {
-    override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
+    override val slots = listOf(
+        HEART to "Arriba a la izquierda (ritmo)", TOP_RIGHT to "Arriba a la derecha (estado del ritmo)",
+        STEPS to "Abajo a la izquierda (pasos)", BOTTOM_RIGHT to "Abajo a la derecha (distancia)",
+    )
     override val spots = listOf(
         Spot(-0.765f, 0f, Action.MEDIA, "APP 1 (izquierda)", hit = 0.12f),
         Spot(0.765f, 0f, Action.MUSIC, "APP 2 (derecha)", hit = 0.12f),
@@ -122,6 +128,9 @@ class FaceService : WatchFaceService() {
                 DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT),
                 ComplicationSlotBounds(RectF(0.20f, 0.71f, 0.45f, 0.78f)),
             ).build(),
+            // A la derecha: sin elegir, el estado del ritmo y la distancia; se puede poner cualquier dato
+            ComplicationSlot.createRoundRectComplicationSlotBuilder(TOP_RIGHT, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.58f, 0.22f, 0.82f, 0.29f))).build(),
+            ComplicationSlot.createRoundRectComplicationSlotBuilder(BOTTOM_RIGHT, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.58f, 0.71f, 0.82f, 0.78f))).build(),
         )
         return ComplicationSlotsManager(slots, currentUserStyleRepository)
     }
@@ -413,11 +422,23 @@ class LuminaRenderer(
             val hrTxt = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString()
             val hr = hrTxt?.toIntOrNull() ?: 0
-            val ls = r * 0.056f
-            fill.color = th.frame
-            canvas.drawCircle(X(-0.54f), Y(-0.495f), r * 0.014f, fill)
-            write(canvas, "HR:", X(-0.51f), Y(-0.475f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.36f), Y(-0.475f), ls, th.value, mono, Paint.Align.LEFT)
+            // Datos de arriba y abajo: grandes y en negrita para que se lean bien (y se pueden cambiar)
+            val ls = r * 0.074f
+            fun item(label: String?, value: String, x: Float, base: Float, valueColor: Int) {
+                fill.color = th.frame
+                canvas.drawCircle(x - r * 0.035f, base - ls * 0.36f, r * 0.017f, fill)
+                var vx = x
+                if (label != null) {
+                    write(canvas, label, x, base, ls, th.label, bold, Paint.Align.LEFT)
+                    text.typeface = bold
+                    text.textSize = ls
+                    vx = x + text.measureText(label) + ls * 0.3f
+                }
+                write(canvas, value, vx, base, ls, valueColor, bold, Paint.Align.LEFT)
+            }
+            val topY = Y(-0.452f)
+            val botY = Y(0.538f)
+            item(complications.titleOf(HEART, context.resources)?.let { "$it:" } ?: "HR:", "${hrTxt ?: "--"} bpm", X(-0.50f), topY, th.value)
             val status = when {
                 hr <= 0 -> "--"
                 hr < 60 -> "Bajo"
@@ -425,19 +446,19 @@ class LuminaRenderer(
                 else -> "Alto"
             }
             val stColor = when (status) { "Normal" -> Color.rgb(60, 220, 110); "Bajo" -> Color.rgb(90, 180, 255); "Alto" -> Color.rgb(255, 90, 80); else -> Color.GRAY }
-            canvas.drawCircle(X(0.22f), Y(-0.495f), r * 0.014f, fill)
-            write(canvas, status, X(0.25f), Y(-0.475f), ls, stColor, bold, Paint.Align.LEFT)
+            val tr = complications.textOf(TOP_RIGHT, context.resources)
+            if (tr != null) item(complications.titleOf(TOP_RIGHT, context.resources)?.let { "$it:" }, tr, X(0.20f), topY, th.value)
+            else item(null, status, X(0.20f), topY, stColor)
 
             // Pasos y distancia
             val stepsTxt = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() } ?: ""
             val steps = stepsTxt.toLongOrNull() ?: 0L
             val km = steps * 0.00075
             val dist = if (Choices.value(context, DISTANCE) == 1) "%.2f mi".format(loc, km * 0.621371) else "%.2f km".format(loc, km)
-            canvas.drawCircle(X(-0.54f), Y(0.495f), r * 0.014f, fill)
-            write(canvas, "SC:", X(-0.51f), Y(0.515f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.36f), Y(0.515f), ls, th.value, mono, Paint.Align.LEFT)
-            canvas.drawCircle(X(0.22f), Y(0.495f), r * 0.014f, fill)
-            write(canvas, dist, X(0.25f), Y(0.515f), ls, th.brand, mono, Paint.Align.LEFT)
+            item(complications.titleOf(STEPS, context.resources)?.let { "$it:" } ?: "SC:", stepsTxt.ifEmpty { "--" }, X(-0.50f), botY, th.value)
+            val brr = complications.textOf(BOTTOM_RIGHT, context.resources)
+            if (brr != null) item(complications.titleOf(BOTTOM_RIGHT, context.resources)?.let { "$it:" }, brr, X(0.20f), botY, th.value)
+            else item(null, dist, X(0.20f), botY, th.brand)
 
             // WATER 50 RESIST y triángulos abajo (rectos)
             val ws = r * 0.062f
