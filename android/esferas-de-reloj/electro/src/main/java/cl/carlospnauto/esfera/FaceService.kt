@@ -302,9 +302,11 @@ class ElectroRenderer(
             // ===== Arriba: nombre, línea, batería y pasos =====
             write(canvas, "ELECTRO", X(-0.535f), Y(-0.60f), r * 0.068f, white, bold, Paint.Align.LEFT, 1.12f)
             write(canvas, "LUMINESCENCE", X(-0.535f), Y(-0.528f), r * 0.068f, white, bold, Paint.Align.LEFT, 1.12f)
-            bar(canvas, X(-0.655f), X(0.52f), Y(-0.495f), r, acc.bars)
-            dash(canvas, X(-0.70f), Y(-0.44f), r, acc.dashes)
-            dash(canvas, X(0.635f), Y(-0.44f), r, acc.dashes)
+            // Barra de borde a borde (hasta el aro)
+            bar(canvas, X(-0.80f), X(0.80f), Y(-0.495f), r, acc.bars)
+            // Rayitas en las esquinas de la pantalla
+            dash(canvas, X(-0.78f), Y(-0.432f), r, acc.dashes)
+            dash(canvas, X(0.695f), Y(-0.432f), r, acc.dashes)
             val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
             write(canvas, "BATTERY ${if (pct >= 0) "$pct%" else "--"}", X(-0.31f), Y(-0.42f), r * 0.056f, white, bold, Paint.Align.CENTER, 1.05f)
             val steps = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() }?.toIntOrNull()
@@ -318,12 +320,12 @@ class ElectroRenderer(
             // ===== Abajo: ritmo, mes, día y la marca =====
             val hr = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
-            dash(canvas, X(-0.70f), Y(0.425f), r, acc.dashes)
-            dash(canvas, X(0.635f), Y(0.425f), r, acc.dashes)
+            dash(canvas, X(-0.78f), Y(0.405f), r, acc.dashes)
+            dash(canvas, X(0.695f), Y(0.405f), r, acc.dashes)
             write(canvas, "HR  $hr", X(-0.40f), Y(0.445f), r * 0.058f, white, bold, Paint.Align.CENTER, 1.05f)
             write(canvas, "ALARM CHRONOGRAPH", X(0.25f), Y(0.44f), r * 0.04f, acc.label, medium, Paint.Align.CENTER, 1.04f)
-            bar(canvas, X(-0.655f), X(-0.235f), Y(0.50f), r, acc.bars)
-            bar(canvas, X(0.235f), X(0.655f), Y(0.50f), r, acc.bars)
+            bar(canvas, X(-0.81f), X(-0.235f), Y(0.50f), r, acc.bars)
+            bar(canvas, X(0.235f), X(0.81f), Y(0.50f), r, acc.bars)
             // Cajita del día
             path.reset()
             path.moveTo(X(-0.21f), Y(0.49f))
@@ -534,7 +536,7 @@ class ElectroRenderer(
 
     private fun dash(canvas: Canvas, x: Float, y: Float, r: Float, color: Int) {
         fill.color = color
-        canvas.drawRect(x, y - r * 0.007f, x + r * 0.065f, y + r * 0.007f, fill)
+        canvas.drawRect(x, y - r * 0.008f, x + r * 0.085f, y + r * 0.008f, fill)
     }
 
     private fun drawShoe(canvas: Canvas, x: Float, y: Float, s: Float, color: Int) {
