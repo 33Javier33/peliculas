@@ -89,9 +89,11 @@ object NativeResume {
         return true
     }
 
-    private fun playTrack(t: JSONObject, fromMs: Long) {
+    private fun playTrack(t: JSONObject, fromMs: Long, keepRetries: Boolean = false) {
         val c = app ?: return
         release()
+        if (!keepRetries) cutRetries = 0
+        lastPosMs = fromMs
         prepared = false
         fromMs0 = fromMs
         cur = t
@@ -116,10 +118,14 @@ object NativeResume {
                 }
                 report()
             }
-            mp.setOnCompletionListener { if (player === mp) next() }
+            mp.setOnCompletionListener { if (player === mp) ended(t, mp) }
             mp.setOnErrorListener { _, _, _ ->
-                // No se pudo con esta: la siguiente (y si no hay, que lo intente la página)
-                if (player === mp) main.post { if (!next()) giveUpToWeb() }
+                // Se cortó: se retoma la misma desde donde iba; si ni empezó, la siguiente (y si no
+                // hay, que lo intente la página)
+                if (player === mp) main.post {
+                    if (lastPosMs > 1000 && cutRetries < 8) retrySame(t, lastPosMs)
+                    else if (!next()) giveUpToWeb()
+                }
                 true
             }
             mp.prepareAsync()
@@ -152,6 +158,24 @@ object NativeResume {
         runCatching { app?.getSystemService(android.media.AudioManager::class.java)?.abandonAudioFocusRequest(req) }
     }
 
+    // Se cortan a mitad (la red se pausa en segundo plano, o el audio llegó incompleto): se retoma
+    // desde el mismo segundo en vez de pasar a la siguiente
+    private var cutRetries = 0
+    @Volatile private var lastPosMs = 0L
+
+    private fun ended(t: JSONObject, mp: MediaPlayer) {
+        val pos = runCatching { mp.currentPosition.toLong() }.getOrDefault(lastPosMs).coerceAtLeast(lastPosMs)
+        val known = (t.optDouble("duration", 0.0) * 1000).toLong()
+        if (known > 0 && pos < known - 5000 && cutRetries < 8) return retrySame(t, pos)
+        next()
+    }
+
+    private fun retrySame(t: JSONObject, pos: Long) {
+        cutRetries++
+        val n = cutRetries
+        main.postDelayed({ if (active && cur === t) playTrack(t, pos, keepRetries = true) }, (1000L * n).coerceAtMost(6000L))
+    }
+
     // Mientras suena: avisa al teléfono que hay sonido (así nada lo trae adelante)
     private fun tick() {
         main.removeCallbacks(ticker)
@@ -160,7 +184,10 @@ object NativeResume {
     private val ticker = object : Runnable {
         override fun run() {
             val mp = player ?: return
-            if (runCatching { mp.isPlaying }.getOrDefault(false)) MainActivity.lastSoundAt = System.currentTimeMillis()
+            if (runCatching { mp.isPlaying }.getOrDefault(false)) {
+                MainActivity.lastSoundAt = System.currentTimeMillis()
+                lastPosMs = runCatching { mp.currentPosition.toLong() }.getOrDefault(lastPosMs)
+            }
             if (active) main.postDelayed(this, 1000)
         }
     }

@@ -630,6 +630,89 @@ object AudioServer {
         }
     }
 
+    /**
+     * El resto de una canción desde YouTube, de [from] al final, pedido de a tramos de 8 MB (YouTube
+     * no entrega pedazos más grandes) y recién cuando se llega a leerlo.
+     */
+    private class NetRest(val id: String, var pos: Long, val total: Long, val background: Boolean) : java.io.InputStream() {
+        private var inner: java.io.InputStream? = null
+        private var conn: HttpURLConnection? = null
+        private var chunkEnd = -1L
+        private var emptyReopens = 0
+
+        private fun current(): java.io.InputStream? {
+            if (pos >= total) return null
+            if (inner != null && pos <= chunkEnd) return inner
+            close()
+            val end = minOf(total - 1, pos + AudioServer.CHUNK - 1)
+            for (attempt in 0..1) {
+                val r = runCatching { AudioServer.resolve(id, fresh = attempt > 0, background = background) }.getOrNull() ?: continue
+                val c = runCatching {
+                    (URL(r.url).openConnection() as HttpURLConnection).apply {
+                        setRequestProperty("User-Agent", r.userAgent)
+                        setRequestProperty("Range", "bytes=$pos-$end")
+                        connectTimeout = 8000
+                        readTimeout = 30000
+                    }
+                }.getOrNull() ?: continue
+                val code = runCatching { c.responseCode }.getOrDefault(-1)
+                if (code == 200 || code == 206) {
+                    conn = c
+                    inner = c.inputStream
+                    chunkEnd = end
+                    return inner
+                }
+                c.disconnect()
+                AudioServer.cache.remove(id)
+            }
+            throw java.io.IOException("sin audio")
+        }
+
+        override fun read(): Int {
+            val b = ByteArray(1)
+            return if (read(b, 0, 1) <= 0) -1 else b[0].toInt() and 0xff
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            while (true) {
+                val s = current() ?: return -1
+                val max = minOf(len.toLong(), chunkEnd - pos + 1).toInt()
+                val n = s.read(b, off, max)
+                if (n > 0) {
+                    pos += n
+                    emptyReopens = 0
+                    return n
+                }
+                // Tramo terminado antes de tiempo: se pide de nuevo desde donde quedó (pocas veces)
+                if (pos <= chunkEnd) {
+                    if (++emptyReopens > 3) throw java.io.IOException("audio cortado")
+                    chunkEnd = pos - 1
+                }
+            }
+        }
+
+        override fun close() {
+            runCatching { inner?.close() }
+            runCatching { conn?.disconnect() }
+            inner = null
+            conn = null
+        }
+    }
+
+    /** El comienzo guardado y después el resto de la canción desde YouTube (se pide al llegar ahí) */
+    private fun serveHeadThenNet(id: String, head: Head, start: Long, ranged: Boolean, background: Boolean): NanoHTTPD.Response {
+        val from = head.bytes.size.toLong()
+        val rest = NetRest(id, from, head.total, background)
+        val first = java.io.ByteArrayInputStream(head.bytes, start.toInt(), (head.bytes.size - start).toInt())
+        val len = head.total - start
+        val res = NanoHTTPD.newFixedLengthResponse(
+            if (ranged) NanoHTTPD.Response.Status.PARTIAL_CONTENT else NanoHTTPD.Response.Status.OK,
+            head.mime, java.io.SequenceInputStream(first, rest), len
+        )
+        if (ranged) res.addHeader("Content-Range", "bytes $start-${head.total - 1}/${head.total}")
+        return cors(res)
+    }
+
     private fun serveHead(head: Head, start: Long, reqEnd: Long?): NanoHTTPD.Response {
         val last = minOf(reqEnd ?: Long.MAX_VALUE, head.bytes.size.toLong() - 1)
         val slice = head.bytes.copyOfRange(start.toInt(), (last + 1).toInt())
@@ -677,7 +760,14 @@ object AudioServer {
 
         // Comienzo ya descargado: se entrega al instante desde la memoria
         val head = if (video || watch || castPart.isNotEmpty()) null else headOf(id)
-        if (head != null && start < head.bytes.size && head.total > 0) return serveHead(head, start, reqEnd)
+        if (head != null && start < head.bytes.size && head.total > 0) {
+            // Pedido hasta el final (o sin rango, como el reproductor del teléfono): se entrega el
+            // comienzo guardado y, pegado, el resto desde YouTube. Antes se entregaba solo el
+            // comienzo (~30 s) y el reproductor del teléfono creía que la canción terminaba ahí
+            // y saltaba a la siguiente
+            if (reqEnd == null && head.total > head.bytes.size) return serveHeadThenNet(id, head, start, rangeHeader != null, background)
+            return serveHead(head, start, reqEnd)
+        }
         val plainAudio = !(video || watch || castPart.isNotEmpty() || background)
         if (plainAudio) foreground.incrementAndGet()
         try {
@@ -692,6 +782,9 @@ object AudioServer {
         val r = if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }
             else if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
             else if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
+        // Pedido hasta el final: la canción entera (de a tramos de 8 MB por dentro). El reproductor
+        // del teléfono creía que la canción terminaba al final del primer tramo
+        val whole = reqEnd == null && !video && !watch && castPart.isEmpty()
         val end = minOf(reqEnd ?: Long.MAX_VALUE, start + CHUNK - 1)
 
         val conn = (URL(r.url).openConnection() as HttpURLConnection).apply {
@@ -726,6 +819,14 @@ object AudioServer {
         }
         val length = conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
         val total = conn.getHeaderField("Content-Range")?.substringAfter('/')?.toLongOrNull()
+        // Hasta el final: este tramo y, pegado, el resto (el reproductor del teléfono no pide más)
+        if (whole && total != null && length > 0 && start + length < total) {
+            val all = java.io.SequenceInputStream(conn.inputStream, NetRest(id, start + length, total, background))
+            val res = NanoHTTPD.newFixedLengthResponse(if (rangeHeader == null) NanoHTTPD.Response.Status.OK else NanoHTTPD.Response.Status.PARTIAL_CONTENT, r.mime, all, total - start)
+            if (rangeHeader != null) res.addHeader("Content-Range", "bytes $start-${total - 1}/$total")
+            return cors(res)
+        }
+        if (whole && rangeHeader == null) return cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK, r.mime, conn.inputStream, length))
         val res = NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.PARTIAL_CONTENT, r.mime, conn.inputStream, length)
         if (length >= 0) res.addHeader("Content-Range", "bytes $start-${start + length - 1}/${total ?: "*"}")
         return cors(res)
