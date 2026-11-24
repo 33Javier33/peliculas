@@ -318,7 +318,7 @@ class ClassicRenderer(
         // Hora (con segundos fuera del modo de bajo consumo)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         // Los segundos siempre se ven; con la pantalla siempre activa quedan quietos (menos en la mínima)
-        val groups = if (lowPower) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), "%02d".format(t.second))
+        val groups = if (lowPower) listOf(h.padStart(2, ' '), "%02d".format(t.minute)) else listOf(h.padStart(2, ' '), "%02d".format(t.minute), if (ambient) "00" else "%02d".format(t.second))
         // Los grupos (hora, minutos, segundos) con números de trazo delgado (dibujados a mano) y dos
         // rayitas cuadradas entre ellos, como el reloj original
         val dh = r * (if (lowPower) 0.36f else 0.31f)

@@ -250,10 +250,11 @@ class LcdProRenderer(
         if (dw > r * 0.40f) text.textSize *= r * 0.40f / dw
         canvas.drawText(day, cx - r * 0.62f, cy + r * 0.17f, text)
         Lcd.number(canvas, "%02d-%02d".format(t.dayOfMonth, t.monthValue), cx + r * 0.30f, cy + r * 0.03f, r * 0.065f, r * 0.14f, r * 0.02f, 5, on, ghost)
-        if (!ambient) {
+        run {
+            // En bajo consumo los segundos quedan en 00 (no se borran)
             text.textSize = r * 0.045f
             canvas.drawText("SEG", cx + r * 0.33f, cy + r * 0.17f, text)
-            Lcd.number(canvas, "%02d".format(t.second), cx + r * 0.66f, cy + r * 0.03f, r * 0.065f, r * 0.14f, r * 0.02f, 2, on, ghost)
+            Lcd.number(canvas, if (ambient) "00" else "%02d".format(t.second), cx + r * 0.66f, cy + r * 0.03f, r * 0.065f, r * 0.14f, r * 0.02f, 2, on, ghost)
         }
         text.textAlign = Paint.Align.CENTER
 

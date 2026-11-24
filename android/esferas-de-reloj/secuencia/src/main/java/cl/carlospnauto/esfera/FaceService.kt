@@ -278,9 +278,10 @@ class SequenceRenderer(
         val d = r * 0.022f
         for (k in listOf(-0.035f, 0.035f)) canvas.drawRect(X(0.222f) - d, Y(k) - d, X(0.222f) + d, Y(k) + d, fill)
         // Segundos y AM/PM
-        if (!ambient) {
+        if (!(ambient && Choices.value(context, AMB) == 1)) {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
             val sh = r * 0.12f
-            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.70f), Y(-0.075f), sh * 0.78f, sh, sh * 0.2f, sh * 0.12f, accent, alignRight = false)
+            SquareDigits.draw(canvas, if (ambient) "00" else "%02d".format(t.second), X(0.70f), Y(-0.075f), sh * 0.78f, sh, sh * 0.2f, sh * 0.12f, accent, alignRight = false)
         }
         if (!is24) label(canvas, if (t.hour < 12) "AM" else "PM", X(0.81f), Y(0.115f), r * 0.045f, grey(170))
 

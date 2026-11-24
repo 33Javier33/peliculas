@@ -543,8 +543,9 @@ class LuminaRenderer(
         Lcd.colon(canvas, x + dw * 0.18f, top, dh, r * 0.022f, ink); x += dw * 0.5f
         Lcd.digit(canvas, m[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, m[1], x, top, dw, dh, ink, ghost)
-        if (!ambient && Choices.value(context, SECONDS) == 0) {
-            val s = "%02d".format(t.second)
+        if (!(ambient && Choices.value(context, AMB) == 1) && Choices.value(context, SECONDS) == 0) {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+            val s = if (ambient) "00" else "%02d".format(t.second)
             val sw = r * 0.11f
             val sh = r * 0.20f
             Lcd.digit(canvas, s[0], X(0.42f), top + dh - sh, sw, sh, ink, ghost)

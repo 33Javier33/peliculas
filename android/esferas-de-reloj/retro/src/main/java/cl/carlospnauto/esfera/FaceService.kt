@@ -455,8 +455,9 @@ class RetroRenderer(
         val m = "%02d".format(t.minute)
         Lcd.digit(canvas, m[0], x0 + dw * 2.75f, y3, dw, dh, on, ghost)
         Lcd.digit(canvas, m[1], x0 + dw * 3.95f, y3, dw, dh, on, ghost)
-        if (!ambient) {
-            val s = "%02d".format(t.second)
+        run {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+            val s = if (ambient) "00" else "%02d".format(t.second)
             val sw = r * 0.085f
             val sh = r * 0.16f
             Lcd.digit(canvas, s[0], cx + r * 0.33f, y3 + dh - sh, sw, sh, on, ghost)
@@ -683,7 +684,7 @@ class RetroRenderer(
         val is24 = DateFormat.is24HourFormat(context)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
-        val sec = if (ambient) "  " else "%02d".format(t.second)
+        val sec = if (ambient) "00" else "%02d".format(t.second)
         val dw = r * 0.115f
         val dh = r * 0.235f
         val y3 = cy + r * 0.045f

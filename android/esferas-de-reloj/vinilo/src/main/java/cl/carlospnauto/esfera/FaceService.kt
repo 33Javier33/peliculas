@@ -395,7 +395,7 @@ class VinylRenderer(
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, stroke)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
-        val sc = if (showSeconds) "%02d".format(t.second) else "  "
+        val sc = if (showSeconds) "%02d".format(t.second) else "00"
         val dh = r * 0.205f
         val dw = r * 0.099f
         val gap = r * 0.011f
@@ -408,7 +408,7 @@ class VinylRenderer(
             seg(canvas, pair[0], x, top, dw, dh, ink, ghost); x += dw + gap
             seg(canvas, pair[1], x, top, dw, dh, ink, ghost); x += dw
             if (i < 2) {
-                fill.color = if (i == 1 && !showSeconds) ghost else ink
+                fill.color = ink
                 val d = r * 0.011f
                 canvas.drawRect(x + colon / 2 - d, top + dh * 0.30f - d, x + colon / 2 + d, top + dh * 0.30f + d, fill)
                 canvas.drawRect(x + colon / 2 - d, top + dh * 0.70f - d, x + colon / 2 + d, top + dh * 0.70f + d, fill)
