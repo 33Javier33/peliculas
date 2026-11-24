@@ -46,6 +46,7 @@ import cl.carlospnauto.esfera.comun.PlayerScreen
 import cl.carlospnauto.esfera.comun.Shortcuts
 import cl.carlospnauto.esfera.comun.Spot
 import cl.carlospnauto.esfera.comun.textOf
+import cl.carlospnauto.esfera.comun.titleOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +60,8 @@ import kotlin.math.min
 
 private const val HEART = 101
 private const val STEPS = 102
+private const val TOP_RIGHT = 103
+private const val BOTTOM_RIGHT = 104
 
 /** Pantalla de cristal líquido: fondo (arriba/abajo), dígitos encendidos y si es «negativa» (fondo oscuro) */
 private data class Screen(val top: Int, val bottom: Int, val ink: Int, val dark: Boolean)
@@ -80,16 +83,16 @@ private val SCREENS = listOf(
 private val SCREEN = Choice("pantalla", "Pantalla", SCREENS.map { it.first to (if (it.second.dark) it.second.ink else it.second.top) })
 
 /** Colores del frente: marco del panel, triángulos, nombre y rótulos */
-private data class Theme(val frame: Int, val chevron: Int, val brand: Int, val label: Int, val value: Int)
+private data class Theme(val frame: Int, val chevron: Int, val brand: Int, val label: Int, val value: Int, val panel: Int)
 
 private val THEMES = listOf(
-    "Rojo y azul" to Theme(Color.rgb(230, 40, 50), Color.rgb(220, 40, 50), Color.rgb(255, 200, 40), Color.rgb(70, 160, 255), Color.WHITE),
-    "Verde" to Theme(Color.rgb(40, 150, 70), Color.rgb(40, 170, 80), Color.rgb(250, 220, 90), Color.rgb(130, 200, 140), Color.WHITE),
-    "Dorado" to Theme(Color.rgb(200, 160, 90), Color.rgb(180, 140, 80), Color.rgb(230, 200, 140), Color.rgb(210, 180, 120), Color.rgb(240, 230, 210)),
-    "Rosa" to Theme(Color.rgb(230, 170, 160), Color.rgb(200, 150, 150), Color.rgb(240, 240, 240), Color.rgb(250, 190, 180), Color.WHITE),
-    "Azul" to Theme(Color.rgb(60, 130, 240), Color.rgb(60, 130, 240), Color.rgb(120, 220, 255), Color.rgb(120, 190, 255), Color.WHITE),
-    "Plata" to Theme(Color.rgb(170, 175, 185), Color.rgb(150, 155, 165), Color.rgb(230, 232, 236), Color.rgb(190, 195, 205), Color.WHITE),
-    "Negro" to Theme(Color.rgb(46, 48, 52), Color.rgb(70, 72, 76), Color.rgb(200, 200, 200), Color.rgb(160, 160, 165), Color.rgb(220, 220, 220)),
+    "Rojo y azul" to Theme(Color.rgb(230, 40, 50), Color.rgb(220, 40, 50), Color.rgb(255, 200, 40), Color.rgb(70, 160, 255), Color.WHITE, Color.rgb(16, 24, 56)),
+    "Verde" to Theme(Color.rgb(40, 150, 70), Color.rgb(40, 170, 80), Color.rgb(250, 220, 90), Color.rgb(130, 200, 140), Color.WHITE, Color.rgb(10, 42, 24)),
+    "Dorado" to Theme(Color.rgb(200, 160, 90), Color.rgb(180, 140, 80), Color.rgb(230, 200, 140), Color.rgb(210, 180, 120), Color.rgb(240, 230, 210), Color.rgb(42, 32, 16)),
+    "Rosa" to Theme(Color.rgb(230, 170, 160), Color.rgb(200, 150, 150), Color.rgb(240, 240, 240), Color.rgb(250, 190, 180), Color.WHITE, Color.rgb(48, 22, 32)),
+    "Azul" to Theme(Color.rgb(60, 130, 240), Color.rgb(60, 130, 240), Color.rgb(120, 220, 255), Color.rgb(120, 190, 255), Color.WHITE, Color.rgb(12, 26, 58)),
+    "Plata" to Theme(Color.rgb(170, 175, 185), Color.rgb(150, 155, 165), Color.rgb(230, 232, 236), Color.rgb(190, 195, 205), Color.WHITE, Color.rgb(32, 34, 40)),
+    "Negro" to Theme(Color.rgb(46, 48, 52), Color.rgb(70, 72, 76), Color.rgb(200, 200, 200), Color.rgb(160, 160, 165), Color.rgb(220, 220, 220), Color.rgb(14, 14, 16)),
 )
 private val THEME = Choice("tema", "Colores del frente", THEMES.map { it.first to it.second.frame })
 private val SECONDS = Choice("segundos", "Segundos", listOf("Visibles" to 0, "Ocultos" to 1))
@@ -97,7 +100,10 @@ private val DISTANCE = Choice("distancia", "Distancia", listOf("Kilómetros" to 
 private val AMB = Choice("bajo", "Bajo consumo", listOf("Pantalla completa tenue" to 0, "Mínimo" to 1))
 
 object Config : FaceConfig {
-    override val slots = listOf(HEART to "Ritmo cardíaco", STEPS to "Pasos")
+    override val slots = listOf(
+        HEART to "Arriba a la izquierda (ritmo)", TOP_RIGHT to "Arriba a la derecha (estado del ritmo)",
+        STEPS to "Abajo a la izquierda (pasos)", BOTTOM_RIGHT to "Abajo a la derecha (distancia)",
+    )
     override val spots = listOf(
         Spot(-0.765f, 0f, Action.MEDIA, "APP 1 (izquierda)", hit = 0.12f),
         Spot(0.765f, 0f, Action.MUSIC, "APP 2 (derecha)", hit = 0.12f),
@@ -122,6 +128,9 @@ class FaceService : WatchFaceService() {
                 DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_STEP_COUNT, ComplicationType.SHORT_TEXT),
                 ComplicationSlotBounds(RectF(0.20f, 0.71f, 0.45f, 0.78f)),
             ).build(),
+            // A la derecha: sin elegir, el estado del ritmo y la distancia; se puede poner cualquier dato
+            ComplicationSlot.createRoundRectComplicationSlotBuilder(TOP_RIGHT, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.58f, 0.22f, 0.82f, 0.29f))).build(),
+            ComplicationSlot.createRoundRectComplicationSlotBuilder(BOTTOM_RIGHT, factory, types, DefaultComplicationDataSourcePolicy(), ComplicationSlotBounds(RectF(0.58f, 0.71f, 0.82f, 0.78f))).build(),
         )
         return ComplicationSlotsManager(slots, currentUserStyleRepository)
     }
@@ -235,14 +244,16 @@ class LuminaRenderer(
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
 
-    private fun write(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, align: Paint.Align, skew: Float = 0f) {
+    private fun write(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, align: Paint.Align, skew: Float = 0f, scaleX: Float = 1f) {
         text.typeface = face
         text.textSize = size
         text.color = color
         text.textAlign = align
         text.textSkewX = skew
+        text.textScaleX = scaleX
         canvas.drawText(s, x, y, text)
         text.textSkewX = 0f
+        text.textScaleX = 1f
     }
 
     private fun width(s: String, size: Float, face: Typeface): Float {
@@ -391,7 +402,8 @@ class LuminaRenderer(
 
             // Panel con la forma de la foto (costados curvos como la esfera), doble línea de color
             panelPath(cx, cy, r, 1f)
-            fill.color = Color.rgb(16, 22, 34)
+            // Fondo del panel del color del frente (azul marino, verde, dorado oscuro…)
+            fill.color = th.panel
             canvas.drawPath(path, fill)
             stroke.color = th.frame
             stroke.strokeWidth = r * 0.02f
@@ -413,11 +425,24 @@ class LuminaRenderer(
             val hrTxt = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString()
             val hr = hrTxt?.toIntOrNull() ?: 0
-            val ls = r * 0.056f
-            fill.color = th.frame
-            canvas.drawCircle(X(-0.54f), Y(-0.495f), r * 0.014f, fill)
-            write(canvas, "HR:", X(-0.51f), Y(-0.475f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, "${hrTxt ?: "--"} bpm", X(-0.36f), Y(-0.475f), ls, th.value, mono, Paint.Align.LEFT)
+            // Datos de arriba y abajo: grandes y en negrita para que se lean bien (y se pueden cambiar)
+            val ls = r * 0.08f
+            fun item(label: String?, value: String, x: Float, base: Float, valueColor: Int) {
+                fill.color = th.frame
+                canvas.drawCircle(x - r * 0.035f, base - ls * 0.36f, r * 0.017f, fill)
+                var vx = x
+                if (label != null) {
+                    write(canvas, label, x, base, ls, th.label, bold, Paint.Align.LEFT)
+                    text.typeface = bold
+                    text.textSize = ls
+                    vx = x + text.measureText(label) + ls * 0.3f
+                }
+                write(canvas, value, vx, base, ls, valueColor, bold, Paint.Align.LEFT)
+            }
+            // Centrados en su franja (entre el marco y la pantalla), arriba igual que abajo
+            val topY = Y(-0.488f)
+            val botY = Y(0.534f)
+            item(complications.titleOf(HEART, context.resources)?.let { "$it:" } ?: "HR:", "${hrTxt ?: "--"} bpm", X(-0.50f), topY, th.value)
             val status = when {
                 hr <= 0 -> "--"
                 hr < 60 -> "Bajo"
@@ -425,25 +450,26 @@ class LuminaRenderer(
                 else -> "Alto"
             }
             val stColor = when (status) { "Normal" -> Color.rgb(60, 220, 110); "Bajo" -> Color.rgb(90, 180, 255); "Alto" -> Color.rgb(255, 90, 80); else -> Color.GRAY }
-            canvas.drawCircle(X(0.22f), Y(-0.495f), r * 0.014f, fill)
-            write(canvas, status, X(0.25f), Y(-0.475f), ls, stColor, bold, Paint.Align.LEFT)
+            val tr = complications.textOf(TOP_RIGHT, context.resources)
+            if (tr != null) item(complications.titleOf(TOP_RIGHT, context.resources)?.let { "$it:" }, tr, X(0.20f), topY, th.value)
+            else item(null, status, X(0.20f), topY, stColor)
 
             // Pasos y distancia
             val stepsTxt = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() } ?: ""
             val steps = stepsTxt.toLongOrNull() ?: 0L
             val km = steps * 0.00075
             val dist = if (Choices.value(context, DISTANCE) == 1) "%.2f mi".format(loc, km * 0.621371) else "%.2f km".format(loc, km)
-            canvas.drawCircle(X(-0.54f), Y(0.495f), r * 0.014f, fill)
-            write(canvas, "SC:", X(-0.51f), Y(0.515f), ls, th.label, mono, Paint.Align.LEFT)
-            write(canvas, stepsTxt.ifEmpty { "--" }, X(-0.36f), Y(0.515f), ls, th.value, mono, Paint.Align.LEFT)
-            canvas.drawCircle(X(0.22f), Y(0.495f), r * 0.014f, fill)
-            write(canvas, dist, X(0.25f), Y(0.515f), ls, th.brand, mono, Paint.Align.LEFT)
+            item(complications.titleOf(STEPS, context.resources)?.let { "$it:" } ?: "SC:", stepsTxt.ifEmpty { "--" }, X(-0.50f), botY, th.value)
+            val brr = complications.textOf(BOTTOM_RIGHT, context.resources)
+            if (brr != null) item(complications.titleOf(BOTTOM_RIGHT, context.resources)?.let { "$it:" }, brr, X(0.20f), botY, th.value)
+            else item(null, dist, X(0.20f), botY, th.brand)
 
             // WATER 50 RESIST y triángulos abajo (rectos)
-            val ws = r * 0.062f
-            write(canvas, "WATER", X(-0.11f), Y(0.765f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f)
-            write(canvas, "50", cx, Y(0.775f), r * 0.115f, th.brand, black, Paint.Align.CENTER, -0.3f)
-            write(canvas, "RESIST", X(0.11f), Y(0.765f), ws, th.label, bold, Paint.Align.LEFT, -0.2f)
+            // Casi todo el ancho, con los colores del frente
+            val ws = r * 0.08f
+            write(canvas, "WATER", X(-0.115f), Y(0.77f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f, 1.22f)
+            write(canvas, "50", cx, Y(0.782f), r * 0.14f, th.brand, black, Paint.Align.CENTER, -0.3f)
+            write(canvas, "RESIST", X(0.115f), Y(0.77f), ws, th.label, bold, Paint.Align.LEFT, -0.2f, 1.22f)
             chevrons(canvas, cx, Y(0.855f), r, th.chevron, top = false)
 
             // Bisel: marco metálico oscuro alrededor de la pantalla, con un filo de luz arriba
@@ -522,8 +548,9 @@ class LuminaRenderer(
         Lcd.colon(canvas, x + dw * 0.18f, top, dh, r * 0.022f, ink); x += dw * 0.5f
         Lcd.digit(canvas, m[0], x, top, dw, dh, ink, ghost); x += dw * 1.22f
         Lcd.digit(canvas, m[1], x, top, dw, dh, ink, ghost)
-        if (!ambient && Choices.value(context, SECONDS) == 0) {
-            val s = "%02d".format(t.second)
+        if (!(ambient && Choices.value(context, AMB) == 1) && Choices.value(context, SECONDS) == 0) {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+            val s = if (ambient) "00" else "%02d".format(t.second)
             val sw = r * 0.11f
             val sh = r * 0.20f
             Lcd.digit(canvas, s[0], X(0.42f), top + dh - sh, sw, sh, ink, ghost)

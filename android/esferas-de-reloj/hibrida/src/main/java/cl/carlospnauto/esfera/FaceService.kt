@@ -481,11 +481,11 @@ class HybridRenderer(
         canvas.drawCircle(X(0.40f), Y(0.165f), r * 0.024f, fill)
         canvas.drawCircle(X(0.40f), Y(0.325f), r * 0.024f, fill)
         SquareDigits.draw(canvas, "%02d".format(t.minute), X(0.44f), Y(0.075f), r * 0.17f, r * 0.20f, r * 0.046f, r * 0.03f, white, alignRight = false)
-        if (!ambient) {
+        if (!(ambient && Choices.value(context, AMB) == 1)) {
             fill.color = Color.rgb(16, 16, 17)
             canvas.drawRect(X(0.44f), Y(0.30f), X(0.74f), Y(0.47f), fill)
-            // Segundos debajo de los minutos
-            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.71f), Y(0.335f), r * 0.085f, r * 0.11f, r * 0.026f, r * 0.02f, white, alignRight = true)
+            // Segundos debajo de los minutos (en bajo consumo quedan en 00)
+            SquareDigits.draw(canvas, if (ambient) "00" else "%02d".format(t.second), X(0.71f), Y(0.335f), r * 0.085f, r * 0.11f, r * 0.026f, r * 0.02f, white, alignRight = true)
         }
 
         // ===== Mes y días de la semana =====

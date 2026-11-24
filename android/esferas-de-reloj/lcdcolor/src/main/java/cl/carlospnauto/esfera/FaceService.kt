@@ -216,6 +216,8 @@ class LcdColorRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString()
         Lcd.number(canvas, "$h:%02d".format(t.minute), cx + r * 0.33f, cy - r * 0.11f, r * 0.18f, r * 0.34f, r * 0.055f, 4, on, ghost)
 
+        // Segundos: en bajo consumo quedan en 00 (no se borran)
+        if (ambient) Lcd.number(canvas, "00", cx + r * 0.55f, cy + r * 0.09f, r * 0.08f, r * 0.14f, r * 0.02f, 2, on, ghost)
         if (!ambient) {
             // Segundos chicos y su barrita (corre suave)
             Lcd.number(canvas, "%02d".format(t.second), cx + r * 0.55f, cy + r * 0.09f, r * 0.08f, r * 0.14f, r * 0.02f, 2, on, ghost)

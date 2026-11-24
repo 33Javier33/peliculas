@@ -475,8 +475,9 @@ class RetroRenderer(
         val m = "%02d".format(t.minute)
         Lcd.digit(canvas, m[0], x0 + dw * 2.75f, y3, dw, dh, on, ghost)
         Lcd.digit(canvas, m[1], x0 + dw * 3.95f, y3, dw, dh, on, ghost)
-        if (!ambient) {
-            val s = "%02d".format(t.second)
+        run {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+            val s = if (ambient) "00" else "%02d".format(t.second)
             val sw = r * 0.085f
             val sh = r * 0.16f
             Lcd.digit(canvas, s[0], cx + r * 0.33f, y3 + dh - sh, sw, sh, on, ghost)
@@ -836,7 +837,7 @@ class RetroRenderer(
             label.textAlign = Paint.Align.LEFT
             label.textSize = r * 0.045f
             label.color = on
-            if (!ambient) canvas.drawText("%02d".format(t.second), X(-0.53f), Y(-0.105f), label)
+            canvas.drawText(if (ambient) "00" else "%02d".format(t.second), X(-0.53f), Y(-0.105f), label)
             label.color = if (is24 || t.hour >= 12) on else ghost
             canvas.drawText(if (is24) "24H" else "PM", X(-0.40f), Y(-0.105f), label)
         }

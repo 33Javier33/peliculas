@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'reflejo',
+    name: 'Reflejo',
+    file: 'Esfera-Reflejo.apk',
+    description:
+      'Como la pantalla de bajo consumo de los relojes con doble pantalla, pero con más: fecha con las notificaciones, día de la semana, la hora grande en números de segmentos con segundos, un mini reproductor de PulsoMusic o PulsoMedia con sus botones (o el próximo evento o el clima), pasos, ritmo cardíaco y la batería en un anillo. 8 pantallas, de la gris reflectiva a las negativas.',
+    features: ['Digital', 'LCD', 'Mini reproductor', 'Notificaciones', '8 pantallas', 'Eventos', 'Clima', 'Pasos', 'Ritmo cardíaco', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-24',
+  },
+  {
     id: 'electro',
     name: 'Electro',
     file: 'Esfera-Electro.apk',
@@ -315,6 +324,21 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       ...COMMON,
     ],
   },
+  reflejo: {
+    gallery: 3,
+    long: 'Inspirada en la pantalla de bajo consumo de los relojes con doble pantalla. Arriba la fecha y la campana con las notificaciones sin leer; el día de la semana en su cajita; la hora grande en números de segmentos (gruesos o delgados) con los segundos arriba a la derecha (en bajo consumo quedan en 00); cuatro esquinas que enmarcan la hora y el recuadro de abajo. En el recuadro, el mini reproductor de lo que suena en PulsoMusic o PulsoMedia: el nombre de la app, la canción, la barra de avance y los botones ◄◄ ►‖ ►► que controlan el teléfono. Sin música muestra el próximo evento o el clima. Abajo, los pasos, el ritmo cardíaco y la batería en un anillo.',
+    customize: [
+      '8 pantallas: gris claro reflectiva, oscura, verde LCD, ámbar, celeste y negativas azul, roja y verde',
+      'Números de la hora gruesos o delgados',
+      'Mini reproductor: al sonar música, siempre visible u oculto',
+      'Recuadro sin música: próximo evento, clima o vacío',
+      'Segundos visibles u ocultos',
+      'Esquinas visibles u ocultas',
+      'Bajo consumo: esfera completa oscura (segundos en 00) o solo la hora',
+      'Notificaciones, pasos, ritmo, evento y clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
   electro: {
     gallery: 3,
     long: 'Un reloj digital clásico de pantalla de cristal líquido. Arriba ELECTRO LUMINESCENCE con su línea de color, la batería y los pasos (SC). En la pantalla: los pasos con tu meta (o el próximo evento del calendario), el clima en grados, la fecha (día sobre mes), AM/PM, el corazón con el ritmo en LPM y la hora grande con segundos, con los segmentos apagados apenas visibles como en las pantallas de verdad (en bajo consumo se ve todo y los segundos quedan en 00). Abajo HR con el ritmo, ALARM CHRONOGRAPH, el mes, el día en su cajita y el día de la semana, y la marca. A los costados, Water Resist 50m y Start / Stop On-Off siguiendo la curva. Toca la pantalla y se ilumina 3 segundos.',
@@ -390,6 +414,7 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       '11 pantallas: clásica de cristal líquido, gris, naranja, verde menta, rojo, amarillo, beige y negativas amarilla, cian, granate y magenta',
       '7 colores de frente: rojo y azul, verde, dorado, rosa, azul, plata y negro',
       'Segundos visibles u ocultos',
+      'Los cuatro datos de arriba y abajo (ritmo, su estado, pasos y distancia) se pueden cambiar por otros en Personalizar',
       'Distancia en kilómetros o millas',
       'Bajo consumo: esfera completa tenue o mínima',
       ...COMMON,

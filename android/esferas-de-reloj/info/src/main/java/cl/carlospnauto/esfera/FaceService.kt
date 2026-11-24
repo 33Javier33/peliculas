@@ -307,7 +307,7 @@ class InfoRenderer(
         // Segundos, zona horaria y AM/PM
         text.textSize = r * 0.17f
         text.color = accent
-        canvas.drawText("%02d".format(t.second), cx + r * 0.73f, cy - r * 0.03f, text)
+        canvas.drawText(if (ambient) "00" else "%02d".format(t.second), cx + r * 0.73f, cy - r * 0.03f, text)
         text.textSize = r * 0.075f
         text.color = Color.WHITE
         canvas.drawText(t.format(DateTimeFormatter.ofPattern("zzz", loc)).take(5), cx + r * 0.73f, cy + r * 0.07f, text)

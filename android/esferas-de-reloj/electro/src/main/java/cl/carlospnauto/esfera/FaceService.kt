@@ -228,7 +228,7 @@ class ElectroRenderer(
         val r = min(b.width(), b.height()) / 2f
         val cx = b.exactCenterX()
         val cy = b.exactCenterY()
-        return RectF(cx - 0.725f * r, cy - 0.37f * r, cx + 0.725f * r, cy + 0.32f * r)
+        return RectF(cx - 0.78f * r, cy - 0.39f * r, cx + 0.78f * r, cy + 0.36f * r)
     }
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
@@ -243,6 +243,28 @@ class ElectroRenderer(
         text.textScaleX = scaleX
         canvas.drawText(s, x, y, text)
         text.textScaleX = 1f
+    }
+
+    /** Letra ancha de la foto (Michroma, licencia libre OFL) */
+    private val wideFace: Typeface = runCatching { context.resources.getFont(R.font.michroma) }.getOrDefault(Typeface.DEFAULT_BOLD)
+
+    private fun wide(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, align: Paint.Align = Paint.Align.CENTER, bold: Boolean = true) {
+        // Trazo más grueso (como la letra de la foto)
+        if (bold) {
+            text.style = Paint.Style.FILL_AND_STROKE
+            text.strokeWidth = size * 0.05f
+        }
+        write(canvas, s, x, y, size, color, wideFace, align)
+        text.style = Paint.Style.FILL
+        text.strokeWidth = 0f
+    }
+
+    /** Texto recto girado (deg −90: se lee de abajo hacia arriba; 90: de arriba hacia abajo) */
+    private fun vertical(canvas: Canvas, s: String, x: Float, y: Float, deg: Float, size: Float, color: Int) {
+        canvas.save()
+        canvas.rotate(deg, x, y)
+        write(canvas, s, x, y + size * 0.35f, size, color, wideFace, Paint.Align.CENTER)
+        canvas.restore()
     }
 
     private fun arcText(canvas: Canvas, s: String, cx: Float, cy: Float, rad: Float, start: Float, sweep: Float, size: Float, color: Int) {
@@ -284,55 +306,68 @@ class ElectroRenderer(
             fill.shader = RadialGradient(cx, cy, r, Color.rgb(26, 26, 28), Color.rgb(6, 6, 7), Shader.TileMode.CLAMP)
             canvas.drawCircle(cx, cy, r, fill)
             fill.shader = null
+            // Doble borde: aro de color en la orilla y, muy cerca por dentro, un aro fino blanco (fijo)
             stroke.color = acc.ring
-            stroke.strokeWidth = r * 0.011f
-            canvas.drawCircle(cx, cy, r * 0.955f, stroke)
-            // Lucecita roja del costado
-            fill.color = Color.rgb(236, 64, 44)
-            canvas.drawCircle(X(-0.955f), cy, r * 0.022f, fill)
+            stroke.strokeWidth = r * 0.018f
+            canvas.drawCircle(cx, cy, r * 0.975f, stroke)
+            stroke.color = Color.rgb(232, 232, 232)
+            stroke.strokeWidth = r * 0.006f
+            canvas.drawCircle(cx, cy, r * 0.947f, stroke)
 
-            // ===== Arriba: nombre, línea, batería y pasos =====
-            write(canvas, "ELECTRO", X(-0.535f), Y(-0.60f), r * 0.068f, white, bold, Paint.Align.LEFT, 1.12f)
-            write(canvas, "LUMINESCENCE", X(-0.535f), Y(-0.528f), r * 0.068f, white, bold, Paint.Align.LEFT, 1.12f)
-            bar(canvas, X(-0.655f), X(0.52f), Y(-0.495f), r, acc.bars)
-            dash(canvas, X(-0.70f), Y(-0.44f), r, acc.dashes)
-            dash(canvas, X(0.635f), Y(-0.44f), r, acc.dashes)
+            // ===== Arriba: nombre, barra, batería y pasos (medidas de la foto) =====
+            wide(canvas, "ELECTRO", X(-0.55f), Y(-0.625f), r * 0.057f, white, Paint.Align.LEFT)
+            wide(canvas, "LUMINESCENCE", X(-0.55f), Y(-0.555f), r * 0.057f, white, Paint.Align.LEFT)
+            // Barra de rayita a rayita
+            bar(canvas, X(-0.74f), X(0.74f), Y(-0.515f), r, acc.bars)
+            // Rayitas en las esquinas, a la altura del texto
+            dash(canvas, X(-0.74f), Y(-0.452f), r, acc.dashes)
+            dash(canvas, X(0.655f), Y(-0.452f), r, acc.dashes)
             val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-            write(canvas, "BATTERY ${if (pct >= 0) "$pct%" else "--"}", X(-0.31f), Y(-0.42f), r * 0.056f, white, bold, Paint.Align.CENTER, 1.05f)
+            wide(canvas, "BATTERY ${if (pct >= 0) "$pct%" else "--"}", X(-0.31f), Y(-0.437f), r * 0.044f, white)
             val steps = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() }?.toIntOrNull()
-            write(canvas, "SC ${steps ?: "--"}", X(0.29f), Y(-0.42f), r * 0.056f, white, bold, Paint.Align.CENTER, 1.05f)
+            wide(canvas, "SC ${steps ?: "--"}", X(0.31f), Y(-0.437f), r * 0.044f, white)
 
-            // Textos de los costados (siguen la curva)
-            arcText(canvas, "Water Resist 50m", cx, cy, r * 0.86f, 145f, 70f, r * 0.042f, white)
-            arcText(canvas, "Start / Stop On-Off", cx, cy, r * 0.86f, -35f, 70f, r * 0.042f, white)
+            // Textos de los costados, rectos (como la foto)
+            vertical(canvas, "Water Resist 50m", X(-0.855f), cy, -90f, r * 0.037f, white)
+            vertical(canvas, "Start / Stop On-Off", X(0.855f), cy, 90f, r * 0.037f, white)
 
             // ===== Abajo: ritmo, mes, día y la marca =====
             val hr = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
-            dash(canvas, X(-0.70f), Y(0.425f), r, acc.dashes)
-            dash(canvas, X(0.635f), Y(0.425f), r, acc.dashes)
-            write(canvas, "HR  $hr", X(-0.40f), Y(0.445f), r * 0.058f, white, bold, Paint.Align.CENTER, 1.05f)
-            write(canvas, "ALARM CHRONOGRAPH", X(0.25f), Y(0.44f), r * 0.04f, acc.label, medium, Paint.Align.CENTER, 1.04f)
-            bar(canvas, X(-0.655f), X(-0.235f), Y(0.50f), r, acc.bars)
-            bar(canvas, X(0.235f), X(0.655f), Y(0.50f), r, acc.bars)
-            // Cajita del día
+            dash(canvas, X(-0.74f), Y(0.452f), r, acc.dashes)
+            dash(canvas, X(0.655f), Y(0.452f), r, acc.dashes)
+            wide(canvas, "HR  $hr", X(-0.615f), Y(0.47f), r * 0.047f, white, Paint.Align.LEFT)
+            wide(canvas, "ALARM CHRONOGRAPH", X(0.62f), Y(0.466f), r * 0.031f, acc.label, Paint.Align.RIGHT, bold = false)
+            bar(canvas, X(-0.74f), X(-0.235f), Y(0.525f), r, acc.bars)
+            bar(canvas, X(0.235f), X(0.74f), Y(0.525f), r, acc.bars)
+            // Cajita del día (bordes redondeados y esquinas de abajo en bisel)
+            val bt = Y(0.50f)
+            val bb = Y(0.655f)
+            val bl = X(-0.225f)
+            val br = X(0.225f)
+            val k = r * 0.03f
             path.reset()
-            path.moveTo(X(-0.21f), Y(0.49f))
-            path.lineTo(X(0.21f), Y(0.49f))
-            path.lineTo(X(0.21f), Y(0.56f))
-            path.lineTo(X(0.17f), Y(0.625f))
-            path.lineTo(X(-0.17f), Y(0.625f))
-            path.lineTo(X(-0.21f), Y(0.56f))
+            path.moveTo(bl + k, bt)
+            path.lineTo(br - k, bt)
+            path.quadTo(br, bt, br, bt + k)
+            path.lineTo(br, bb - k * 1.6f)
+            path.lineTo(br - k * 1.6f, bb)
+            path.lineTo(bl + k * 1.6f, bb)
+            path.lineTo(bl, bb - k * 1.6f)
+            path.lineTo(bl, bt + k)
+            path.quadTo(bl, bt, bl + k, bt)
             path.close()
+            fill.color = Color.rgb(8, 8, 9)
+            canvas.drawPath(path, fill)
             stroke.color = acc.bars
-            stroke.strokeWidth = r * 0.012f
+            stroke.strokeWidth = r * 0.011f
             canvas.drawPath(path, stroke)
-            write(canvas, t.dayOfMonth.toString(), cx, Y(0.595f), r * 0.095f, white, bold)
+            wide(canvas, t.dayOfMonth.toString(), cx, Y(0.612f), r * 0.07f, white)
             val mon = t.month.getDisplayName(TextStyle.SHORT, loc).replace(".", "").replaceFirstChar { it.titlecase(loc) }.take(3)
             val dow = t.dayOfWeek.getDisplayName(TextStyle.SHORT, loc).replace(".", "").replaceFirstChar { it.titlecase(loc) }.take(3)
-            write(canvas, mon, X(-0.43f), Y(0.60f), r * 0.088f, white, bold, Paint.Align.CENTER, 1.05f)
-            write(canvas, dow, X(0.43f), Y(0.60f), r * 0.088f, white, bold, Paint.Align.CENTER, 1.05f)
-            write(canvas, "CARLOS P. NAUTO", cx, Y(0.725f), r * 0.05f, white, bold, Paint.Align.CENTER, 1.05f)
+            wide(canvas, mon, X(-0.47f), Y(0.628f), r * 0.068f, white)
+            wide(canvas, dow, X(0.47f), Y(0.628f), r * 0.068f, white)
+            wide(canvas, "CARLOS P. NAUTO", cx, Y(0.765f), r * 0.038f, white)
         }
 
         // ===== Pantalla de cristal líquido =====
@@ -388,12 +423,12 @@ class ElectroRenderer(
         if (!simple) {
             // Línea de arriba: pasos con la meta, o el próximo evento
             if (Choices.value(context, TOPLINE) == 0) {
-                drawShoe(canvas, X(-0.62f), Y(0.075f), r * 0.03f, ink)
+                drawShoe(canvas, X(-0.675f), Y(0.085f), r * 0.03f, ink)
                 val steps = complications.textOf(STEPS, context.resources)?.filter { it.isDigit() } ?: "--"
                 val goal = Choices.value(context, GOAL).toString()
-                digits(canvas, "$steps/$goal", X(-0.655f), Y(0.135f), r * 0.042f, r * 0.075f, ink, ghost)
+                digits(canvas, "$steps/$goal", X(-0.71f), Y(0.145f), r * 0.046f, r * 0.08f, ink, ghost)
             } else {
-                drawCalendar(canvas, X(-0.62f), Y(0.075f), r * 0.03f, ink)
+                drawCalendar(canvas, X(-0.675f), Y(0.085f), r * 0.03f, ink)
                 val ev = complications.textOf(EVENT, context.resources)
                 val title = complications.titleOf(EVENT, context.resources)
                 val line = plain(when {
@@ -401,49 +436,49 @@ class ElectroRenderer(
                     title != null -> "$title $ev"
                     else -> ev
                 }).filter { it.isLetterOrDigit() || it == ' ' || it == ':' || it == '-' }.take(15)
-                Lcd.text14(canvas, line, X(-0.655f), Y(0.135f), r * 0.034f, r * 0.068f, r * 0.008f, ink, ghost)
+                Lcd.text14(canvas, line, X(-0.71f), Y(0.145f), r * 0.037f, r * 0.074f, r * 0.008f, ink, ghost)
             }
             // Clima y fecha a la derecha
             val temp = complications.textOf(WEATHER, context.resources)?.filter { it.isDigit() || it == '-' }?.takeIf { it.isNotEmpty() } ?: "--"
-            digits(canvas, temp.takeLast(3), X(0.235f), Y(0.075f), r * 0.052f, r * 0.10f, ink, ghost)
-            val tw = digitsWidth(temp.takeLast(3), r * 0.052f)
+            digits(canvas, temp.takeLast(3), X(0.27f), Y(0.08f), r * 0.056f, r * 0.11f, ink, ghost)
+            val tw = digitsWidth(temp.takeLast(3), r * 0.056f)
             stroke.color = ink
             stroke.strokeWidth = r * 0.008f
-            canvas.drawCircle(X(0.235f) + tw + r * 0.022f, Y(0.088f), r * 0.012f, stroke)
-            Lcd.text14(canvas, "C", X(0.235f) + tw + r * 0.04f, Y(0.075f), r * 0.03f, r * 0.05f, 0f, ink, 0)
+            canvas.drawCircle(X(0.27f) + tw + r * 0.022f, Y(0.095f), r * 0.012f, stroke)
+            Lcd.text14(canvas, "C", X(0.27f) + tw + r * 0.04f, Y(0.08f), r * 0.03f, r * 0.05f, 0f, ink, 0)
             val dd = "%02d".format(t.dayOfMonth)
             val mm = "%02d".format(t.monthValue)
-            digits(canvas, dd, X(0.545f), Y(0.07f), r * 0.03f, r * 0.05f, ink, ghost)
+            digits(canvas, dd, X(0.60f), Y(0.075f), r * 0.032f, r * 0.054f, ink, ghost)
             fill.color = ink
-            canvas.drawRect(X(0.535f), Y(0.128f), X(0.64f), Y(0.134f), fill)
-            digits(canvas, mm, X(0.545f), Y(0.142f), r * 0.03f, r * 0.05f, ink, ghost)
+            canvas.drawRect(X(0.59f), Y(0.137f), X(0.70f), Y(0.143f), fill)
+            digits(canvas, mm, X(0.60f), Y(0.152f), r * 0.032f, r * 0.054f, ink, ghost)
 
             // Segunda línea: AM/PM, corazón y ritmo
-            if (!is24) Lcd.text14(canvas, if (t.hour < 12) "AM" else "PM", X(-0.655f), Y(0.22f), r * 0.04f, r * 0.072f, r * 0.01f, ink, ghost)
-            drawHeart(canvas, X(-0.47f), Y(0.258f), r * 0.03f, ink)
+            if (!is24) Lcd.text14(canvas, if (t.hour < 12) "AM" else "PM", X(-0.71f), Y(0.24f), r * 0.043f, r * 0.076f, r * 0.01f, ink, ghost)
+            drawHeart(canvas, X(-0.515f), Y(0.278f), r * 0.032f, ink)
             val hr = complications.textOf(HEART, context.resources)?.filter { it.isDigit() }?.takeIf { it.isNotEmpty() }
                 ?: heart.bpm.takeIf { it > 0 }?.toString() ?: "--"
-            digits(canvas, hr, X(-0.42f), Y(0.222f), r * 0.038f, r * 0.068f, ink, ghost)
-            Lcd.text14(canvas, "LPM", X(-0.42f) + digitsWidth(hr, r * 0.038f) + r * 0.03f, Y(0.222f), r * 0.032f, r * 0.068f, r * 0.008f, ink, ghost)
+            digits(canvas, hr, X(-0.46f), Y(0.242f), r * 0.04f, r * 0.072f, ink, ghost)
+            Lcd.text14(canvas, "LPM", X(-0.46f) + digitsWidth(hr, r * 0.04f) + r * 0.03f, Y(0.242f), r * 0.034f, r * 0.072f, r * 0.008f, ink, ghost)
         }
 
         // Hora grande con segundos
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).let { "%02d".format(it) }
         val m = "%02d".format(t.minute)
-        val dh = r * 0.30f
-        val dw = r * 0.215f
-        val gap = r * 0.03f
-        val colon = r * 0.075f
-        val top = Y(0.37f)
-        var x = X(-0.665f)
+        val dh = r * 0.32f
+        val dw = r * 0.235f
+        val gap = r * 0.032f
+        val colon = r * 0.08f
+        val top = Y(0.395f)
+        var x = X(-0.715f)
         seg(canvas, h[0], x, top, dw, dh, ink, ghost); x += dw + gap
         seg(canvas, h[1], x, top, dw, dh, ink, ghost); x += dw
         colonDots(canvas, x + colon / 2, top, dh, r * 0.02f, ink); x += colon
         seg(canvas, m[0], x, top, dw, dh, ink, ghost); x += dw + gap
         seg(canvas, m[1], x, top, dw, dh, ink, ghost); x += dw
         // Segundos: en bajo consumo quedan en 00 y vuelven a correr al encender la pantalla
-        val sh = r * 0.17f
-        val sw = r * 0.11f
+        val sh = r * 0.18f
+        val sw = r * 0.12f
         val sTop = top + dh - sh
         colonDots(canvas, x + r * 0.035f, sTop, sh, r * 0.013f, ink)
         x += r * 0.07f
@@ -525,7 +560,7 @@ class ElectroRenderer(
 
     private fun dash(canvas: Canvas, x: Float, y: Float, r: Float, color: Int) {
         fill.color = color
-        canvas.drawRect(x, y - r * 0.007f, x + r * 0.065f, y + r * 0.007f, fill)
+        canvas.drawRect(x, y - r * 0.008f, x + r * 0.085f, y + r * 0.008f, fill)
     }
 
     private fun drawShoe(canvas: Canvas, x: Float, y: Float, s: Float, color: Int) {

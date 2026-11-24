@@ -384,8 +384,8 @@ class WorldRenderer(
         // Hora con segundos
         val tBox = RectF(X(-0.82f), Y(-0.355f), X(0.14f), Y(-0.11f))
         lcd(canvas, tBox, r, sc, false)
-        // En bajo consumo los segundos quedan quietos (no se borran) y vuelven a correr al encender
-        val sec = "%02d".format(t.second)
+        // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+        val sec = if (ambient) "00" else "%02d".format(t.second)
         // En pares (HH · MM · SS), como en la foto: juntos dentro del par y más aire en los dos puntos
         val dw = r * 0.095f
         val dh = r * 0.19f

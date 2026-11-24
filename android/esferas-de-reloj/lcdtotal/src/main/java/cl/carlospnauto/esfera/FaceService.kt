@@ -274,9 +274,10 @@ class LcdTotalRenderer(
         val cs = r * 0.06f
         canvas.drawRoundRect(RectF(X(-0.135f), Y(-0.07f), X(-0.135f) + cs, Y(-0.07f) + cs), r * 0.012f, r * 0.012f, fill)
         canvas.drawRoundRect(RectF(X(-0.135f), Y(0.09f), X(-0.135f) + cs, Y(0.09f) + cs), r * 0.012f, r * 0.012f, fill)
-        val showSec = !ambient && Choices.value(context, SECONDS) == 0
+        val showSec = !(ambient && Choices.value(context, AMB) == 1) && Choices.value(context, SECONDS) == 0
         if (showSec) {
-            val s2 = "%02d".format(t.second)
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
+            val s2 = if (ambient) "00" else "%02d".format(t.second)
             Lcd.digit(canvas, s2[0], X(0.48f), Y(0.01f), r * 0.13f, r * 0.24f, on, ghost)
             Lcd.digit(canvas, s2[1], X(0.635f), Y(0.01f), r * 0.13f, r * 0.24f, on, ghost)
         }
@@ -321,7 +322,7 @@ class LcdTotalRenderer(
         text.textSize = r * 0.07f
         text.color = if (!is24 && t.hour >= 12) on else if (!is24) on else ghost
         canvas.drawText(if (t.hour < 12) "AM" else "PM", X(-0.16f), Y(-0.205f), text)
-        if (!ambient) Lcd.number(canvas, "%02d".format(t.second), X(0.165f), Y(-0.31f), r * 0.065f, r * 0.115f, r * 0.02f, 2, on, ghost)
+        if (!(ambient && Choices.value(context, AMB) == 1)) Lcd.number(canvas, if (ambient) "00" else "%02d".format(t.second), X(0.165f), Y(-0.31f), r * 0.065f, r * 0.115f, r * 0.02f, 2, on, ghost)
 
         // Caja de batería con forma de pila (punta a la derecha): «85%» y pila vertical
         stroke.color = on

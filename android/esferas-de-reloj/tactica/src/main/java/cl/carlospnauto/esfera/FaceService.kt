@@ -354,11 +354,12 @@ class TacticRenderer(
         }
 
         // Segundos y AM/PM
-        if (!ambient && Choices.value(context, SECONDS) == 0) {
+        if (!(ambient && Choices.value(context, AMB) == 1) && Choices.value(context, SECONDS) == 0) {
+            // En bajo consumo los segundos quedan en 00 (no se borran) y vuelven a correr al encender
             val sH = r * 0.17f
             val sW = r * 0.075f
             val sG = r * 0.016f
-            SquareDigits.draw(canvas, "%02d".format(t.second), X(0.485f) - sW - sG / 2, Y(-0.05f) - sH, sW, sH, r * 0.026f, sG, accent, alignRight = false)
+            SquareDigits.draw(canvas, if (ambient) "00" else "%02d".format(t.second), X(0.485f) - sW - sG / 2, Y(-0.05f) - sH, sW, sH, r * 0.026f, sG, accent, alignRight = false)
         }
         if (!is24) {
             val pm = RectF(X(0.40f), Y(0.10f), X(0.56f), Y(0.205f))
