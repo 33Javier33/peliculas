@@ -184,6 +184,8 @@ class ElectroRenderer(
 
     private val redraw: () -> Unit = { invalidate() }
     private var playerLcd: RectF? = null
+    /** ¿Pantalla en bajo consumo? (para los segundos) */
+    private var amb = false
 
     init {
         scope.launch {
@@ -256,6 +258,7 @@ class ElectroRenderer(
 
     override fun render(canvas: Canvas, bounds: Rect, zonedDateTime: ZonedDateTime, sharedAssets: ElectroAssets) {
         val ambient = renderParameters.drawMode == DrawMode.AMBIENT
+        amb = ambient
         val simple = ambient && Choices.value(context, AMB) == 1
         lastBounds = Rect(bounds)
         val cx = bounds.exactCenterX()
@@ -438,13 +441,13 @@ class ElectroRenderer(
         colonDots(canvas, x + colon / 2, top, dh, r * 0.02f, ink); x += colon
         seg(canvas, m[0], x, top, dw, dh, ink, ghost); x += dw + gap
         seg(canvas, m[1], x, top, dw, dh, ink, ghost); x += dw
-        // Segundos (quedan quietos en bajo consumo)
+        // Segundos: en bajo consumo quedan en 00 y vuelven a correr al encender la pantalla
         val sh = r * 0.17f
         val sw = r * 0.095f
         val sTop = top + dh - sh
         colonDots(canvas, x + r * 0.035f, sTop, sh, r * 0.013f, ink)
         x += r * 0.07f
-        val s = "%02d".format(t.second)
+        val s = if (amb) "00" else "%02d".format(t.second)
         seg(canvas, s[0], x, sTop, sw, sh, ink, ghost); x += sw + r * 0.02f
         seg(canvas, s[1], x, sTop, sw, sh, ink, ghost)
     }

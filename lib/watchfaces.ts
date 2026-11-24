@@ -317,14 +317,14 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
   },
   electro: {
     gallery: 3,
-    long: 'Un reloj digital clásico de pantalla de cristal líquido. Arriba ELECTRO LUMINESCENCE con su línea de color, la batería y los pasos (SC). En la pantalla: los pasos con tu meta (o el próximo evento del calendario), el clima en grados, la fecha (día sobre mes), AM/PM, el corazón con el ritmo en LPM y la hora grande con segundos, con los segmentos apagados apenas visibles como en las pantallas de verdad (en bajo consumo los segundos quedan quietos). Abajo HR con el ritmo, ALARM CHRONOGRAPH, el mes, el día en su cajita y el día de la semana, y la marca. A los costados, Water Resist 50m y Start / Stop On-Off siguiendo la curva. Toca la pantalla y se ilumina 3 segundos.',
+    long: 'Un reloj digital clásico de pantalla de cristal líquido. Arriba ELECTRO LUMINESCENCE con su línea de color, la batería y los pasos (SC). En la pantalla: los pasos con tu meta (o el próximo evento del calendario), el clima en grados, la fecha (día sobre mes), AM/PM, el corazón con el ritmo en LPM y la hora grande con segundos, con los segmentos apagados apenas visibles como en las pantallas de verdad (en bajo consumo se ve todo y los segundos quedan en 00). Abajo HR con el ritmo, ALARM CHRONOGRAPH, el mes, el día en su cajita y el día de la semana, y la marca. A los costados, Water Resist 50m y Start / Stop On-Off siguiendo la curva. Toca la pantalla y se ilumina 3 segundos.',
     customize: [
       '10 pantallas: calculadora clásica, electroluminiscente, verde menta, ámbar, celeste, gris, naranja y negativas azul, roja y verde',
       'Aro y líneas: naranja y celeste, azul y amarillo, rojo y blanco, verde y amarillo, violeta y cian',
       'Línea de arriba de la pantalla: pasos con la meta o el próximo evento',
       'Meta de pasos: 6.000 a 15.000',
       'Modo reproductor (opcional): al sonar PulsoMusic la pantalla muestra la canción con sus botones',
-      'Bajo consumo: esfera completa tenue o solo la hora',
+      'Bajo consumo: esfera completa tenue (todo a la vista, los segundos quedan en 00 y vuelven a correr al encender) o solo la hora',
       'Pasos, ritmo, clima y eventos: elige el dato en Personalizar',
       ...COMMON,
     ],
