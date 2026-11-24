@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Ritmo cardíaco del sensor (se permite en Personalizar) -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <!-- Punto «estás aquí» en el mapa (ubicación aproximada; se pide al tocar el mapa) -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Ritmo cardíaco y pasos de los círculos de datos del sistema -->
     <uses-permission android:name="com.google.android.wearable.permission.RECEIVE_COMPLICATION_DATA" />
 
@@ -34,6 +36,12 @@
         </service>
 
         <!-- Personalizar (mantener presionada la esfera → engranaje): qué dato muestra cada círculo -->
+        <activity
+            android:name=".AskLocationActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <activity
             android:name=".EditorActivity"
             android:exported="true"

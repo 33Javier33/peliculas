@@ -391,7 +391,7 @@ class VinylRenderer(
         fill.color = Color.rgb(8, 8, 9)
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, fill)
         stroke.color = Color.rgb(190, 190, 192)
-        stroke.strokeWidth = r * 0.009f
+        stroke.strokeWidth = r * 0.016f
         canvas.drawRoundRect(box, r * 0.055f, r * 0.055f, stroke)
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).toString().padStart(2, ' ')
         val m = "%02d".format(t.minute)
@@ -423,39 +423,35 @@ class VinylRenderer(
         '6' to "afgedc", '7' to "abc", '8' to "abcdefg", '9' to "abcdfg",
     )
 
-    /** Un número de 7 segmentos finos (como la foto), con los segmentos apagados apenas visibles */
+    /**
+     * Un número de 7 segmentos como las pantallas de cristal líquido de la foto: segmentos con las
+     * puntas cortadas en diagonal que se juntan en las esquinas (números cuadrados) y los apagados
+     * apenas visibles
+     */
     private fun seg(canvas: Canvas, ch: Char, x: Float, y: Float, w: Float, h: Float, on: Int, ghost: Int) {
-        val t = w * 0.15f
-        val g = t * 0.35f
+        val t = w * 0.18f
+        val gp = t * 0.10f
         val m = y + h / 2
-        val l = x + t / 2
-        val rr = x + w - t / 2
-        val top = y + t / 2
-        val bot = y + h - t / 2
+        val ht = t / 2
         val lit = SEGS[ch].orEmpty()
-        val h2 = t / 2
-        // Segmentos con puntas en bisel (hexágonos finos), como las pantallas de cristal líquido de la foto
-        fun hor(k: Char, x0: Float, x1: Float, yy: Float) {
+        fun poly(k: Char, vararg p: Float) {
             fill.color = if (k in lit) on else ghost
             path.reset()
-            path.moveTo(x0, yy); path.lineTo(x0 + h2, yy - h2); path.lineTo(x1 - h2, yy - h2)
-            path.lineTo(x1, yy); path.lineTo(x1 - h2, yy + h2); path.lineTo(x0 + h2, yy + h2); path.close()
+            path.moveTo(p[0], p[1])
+            var i = 2
+            while (i < p.size) { path.lineTo(p[i], p[i + 1]); i += 2 }
+            path.close()
             canvas.drawPath(path, fill)
         }
-        fun ver(k: Char, xx: Float, y0: Float, y1: Float) {
-            fill.color = if (k in lit) on else ghost
-            path.reset()
-            path.moveTo(xx, y0); path.lineTo(xx + h2, y0 + h2); path.lineTo(xx + h2, y1 - h2)
-            path.lineTo(xx, y1); path.lineTo(xx - h2, y1 - h2); path.lineTo(xx - h2, y0 + h2); path.close()
-            canvas.drawPath(path, fill)
-        }
-        hor('a', l + g, rr - g, top)
-        ver('b', rr, top + g, m - g)
-        ver('c', rr, m + g, bot - g)
-        hor('d', l + g, rr - g, bot)
-        ver('e', l, m + g, bot - g)
-        ver('f', l, top + g, m - g)
-        hor('g', l + g, rr - g, m)
+        val r = x + w
+        val b = y + h
+        poly('a', x + gp, y, r - gp, y, r - t - gp, y + t, x + t + gp, y + t)
+        poly('d', x + gp, b, r - gp, b, r - t - gp, b - t, x + t + gp, b - t)
+        poly('f', x, y + gp, x + t, y + t + gp, x + t, m - ht - gp, x, m - gp)
+        poly('b', r, y + gp, r - t, y + t + gp, r - t, m - ht - gp, r, m - gp)
+        poly('e', x, m + gp, x + t, m + ht + gp, x + t, b - t - gp, x, b - gp)
+        poly('c', r, m + gp, r - t, m + ht + gp, r - t, b - t - gp, r, b - gp)
+        poly('g', x + gp, m, x + t + gp, m - ht, r - t - gp, m - ht, r - gp, m, r - t - gp, m + ht, x + t + gp, m + ht)
     }
 
     // ===== Piezas =====
@@ -690,7 +686,7 @@ class VinylRenderer(
         fill.color = Color.rgb(8, 8, 9)
         canvas.drawRoundRect(box, r * 0.08f, r * 0.08f, fill)
         stroke.color = Color.rgb(190, 190, 192)
-        stroke.strokeWidth = r * 0.009f
+        stroke.strokeWidth = r * 0.016f
         canvas.drawRoundRect(box, r * 0.08f, r * 0.08f, stroke)
         // Reproductor, batería y hora
         val app = if (PhoneNow.state?.from == "cl.carlospnauto.app") "PULSOMEDIA" else "PULSOMUSIC"
