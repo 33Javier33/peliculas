@@ -83,16 +83,16 @@ private val SCREENS = listOf(
 private val SCREEN = Choice("pantalla", "Pantalla", SCREENS.map { it.first to (if (it.second.dark) it.second.ink else it.second.top) })
 
 /** Colores del frente: marco del panel, triángulos, nombre y rótulos */
-private data class Theme(val frame: Int, val chevron: Int, val brand: Int, val label: Int, val value: Int)
+private data class Theme(val frame: Int, val chevron: Int, val brand: Int, val label: Int, val value: Int, val panel: Int)
 
 private val THEMES = listOf(
-    "Rojo y azul" to Theme(Color.rgb(230, 40, 50), Color.rgb(220, 40, 50), Color.rgb(255, 200, 40), Color.rgb(70, 160, 255), Color.WHITE),
-    "Verde" to Theme(Color.rgb(40, 150, 70), Color.rgb(40, 170, 80), Color.rgb(250, 220, 90), Color.rgb(130, 200, 140), Color.WHITE),
-    "Dorado" to Theme(Color.rgb(200, 160, 90), Color.rgb(180, 140, 80), Color.rgb(230, 200, 140), Color.rgb(210, 180, 120), Color.rgb(240, 230, 210)),
-    "Rosa" to Theme(Color.rgb(230, 170, 160), Color.rgb(200, 150, 150), Color.rgb(240, 240, 240), Color.rgb(250, 190, 180), Color.WHITE),
-    "Azul" to Theme(Color.rgb(60, 130, 240), Color.rgb(60, 130, 240), Color.rgb(120, 220, 255), Color.rgb(120, 190, 255), Color.WHITE),
-    "Plata" to Theme(Color.rgb(170, 175, 185), Color.rgb(150, 155, 165), Color.rgb(230, 232, 236), Color.rgb(190, 195, 205), Color.WHITE),
-    "Negro" to Theme(Color.rgb(46, 48, 52), Color.rgb(70, 72, 76), Color.rgb(200, 200, 200), Color.rgb(160, 160, 165), Color.rgb(220, 220, 220)),
+    "Rojo y azul" to Theme(Color.rgb(230, 40, 50), Color.rgb(220, 40, 50), Color.rgb(255, 200, 40), Color.rgb(70, 160, 255), Color.WHITE, Color.rgb(16, 24, 56)),
+    "Verde" to Theme(Color.rgb(40, 150, 70), Color.rgb(40, 170, 80), Color.rgb(250, 220, 90), Color.rgb(130, 200, 140), Color.WHITE, Color.rgb(10, 42, 24)),
+    "Dorado" to Theme(Color.rgb(200, 160, 90), Color.rgb(180, 140, 80), Color.rgb(230, 200, 140), Color.rgb(210, 180, 120), Color.rgb(240, 230, 210), Color.rgb(42, 32, 16)),
+    "Rosa" to Theme(Color.rgb(230, 170, 160), Color.rgb(200, 150, 150), Color.rgb(240, 240, 240), Color.rgb(250, 190, 180), Color.WHITE, Color.rgb(48, 22, 32)),
+    "Azul" to Theme(Color.rgb(60, 130, 240), Color.rgb(60, 130, 240), Color.rgb(120, 220, 255), Color.rgb(120, 190, 255), Color.WHITE, Color.rgb(12, 26, 58)),
+    "Plata" to Theme(Color.rgb(170, 175, 185), Color.rgb(150, 155, 165), Color.rgb(230, 232, 236), Color.rgb(190, 195, 205), Color.WHITE, Color.rgb(32, 34, 40)),
+    "Negro" to Theme(Color.rgb(46, 48, 52), Color.rgb(70, 72, 76), Color.rgb(200, 200, 200), Color.rgb(160, 160, 165), Color.rgb(220, 220, 220), Color.rgb(14, 14, 16)),
 )
 private val THEME = Choice("tema", "Colores del frente", THEMES.map { it.first to it.second.frame })
 private val SECONDS = Choice("segundos", "Segundos", listOf("Visibles" to 0, "Ocultos" to 1))
@@ -244,14 +244,16 @@ class LuminaRenderer(
 
     private fun a(c: Int, alpha: Int) = Color.argb(alpha, Color.red(c), Color.green(c), Color.blue(c))
 
-    private fun write(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, align: Paint.Align, skew: Float = 0f) {
+    private fun write(canvas: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, align: Paint.Align, skew: Float = 0f, scaleX: Float = 1f) {
         text.typeface = face
         text.textSize = size
         text.color = color
         text.textAlign = align
         text.textSkewX = skew
+        text.textScaleX = scaleX
         canvas.drawText(s, x, y, text)
         text.textSkewX = 0f
+        text.textScaleX = 1f
     }
 
     private fun width(s: String, size: Float, face: Typeface): Float {
@@ -400,7 +402,8 @@ class LuminaRenderer(
 
             // Panel con la forma de la foto (costados curvos como la esfera), doble línea de color
             panelPath(cx, cy, r, 1f)
-            fill.color = Color.rgb(16, 22, 34)
+            // Fondo del panel del color del frente (azul marino, verde, dorado oscuro…)
+            fill.color = th.panel
             canvas.drawPath(path, fill)
             stroke.color = th.frame
             stroke.strokeWidth = r * 0.02f
@@ -423,7 +426,7 @@ class LuminaRenderer(
                 ?: heart.bpm.takeIf { it > 0 }?.toString()
             val hr = hrTxt?.toIntOrNull() ?: 0
             // Datos de arriba y abajo: grandes y en negrita para que se lean bien (y se pueden cambiar)
-            val ls = r * 0.074f
+            val ls = r * 0.08f
             fun item(label: String?, value: String, x: Float, base: Float, valueColor: Int) {
                 fill.color = th.frame
                 canvas.drawCircle(x - r * 0.035f, base - ls * 0.36f, r * 0.017f, fill)
@@ -436,8 +439,9 @@ class LuminaRenderer(
                 }
                 write(canvas, value, vx, base, ls, valueColor, bold, Paint.Align.LEFT)
             }
-            val topY = Y(-0.452f)
-            val botY = Y(0.538f)
+            // Centrados en su franja (entre el marco y la pantalla), arriba igual que abajo
+            val topY = Y(-0.488f)
+            val botY = Y(0.534f)
             item(complications.titleOf(HEART, context.resources)?.let { "$it:" } ?: "HR:", "${hrTxt ?: "--"} bpm", X(-0.50f), topY, th.value)
             val status = when {
                 hr <= 0 -> "--"
@@ -461,10 +465,11 @@ class LuminaRenderer(
             else item(null, dist, X(0.20f), botY, th.brand)
 
             // WATER 50 RESIST y triángulos abajo (rectos)
-            val ws = r * 0.062f
-            write(canvas, "WATER", X(-0.11f), Y(0.765f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f)
-            write(canvas, "50", cx, Y(0.775f), r * 0.115f, th.brand, black, Paint.Align.CENTER, -0.3f)
-            write(canvas, "RESIST", X(0.11f), Y(0.765f), ws, th.label, bold, Paint.Align.LEFT, -0.2f)
+            // Casi todo el ancho, con los colores del frente
+            val ws = r * 0.08f
+            write(canvas, "WATER", X(-0.115f), Y(0.77f), ws, th.label, bold, Paint.Align.RIGHT, -0.2f, 1.22f)
+            write(canvas, "50", cx, Y(0.782f), r * 0.14f, th.brand, black, Paint.Align.CENTER, -0.3f)
+            write(canvas, "RESIST", X(0.115f), Y(0.77f), ws, th.label, bold, Paint.Align.LEFT, -0.2f, 1.22f)
             chevrons(canvas, cx, Y(0.855f), r, th.chevron, top = false)
 
             // Bisel: marco metálico oscuro alrededor de la pantalla, con un filo de luz arriba
