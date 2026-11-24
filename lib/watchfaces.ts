@@ -15,6 +15,15 @@ export interface WatchFace {
 
 export const WATCH_FACES: WatchFace[] = [
   {
+    id: 'reflejo',
+    name: 'Reflejo',
+    file: 'Esfera-Reflejo.apk',
+    description:
+      'Como la pantalla de bajo consumo de los relojes con doble pantalla, pero con más: fecha con las notificaciones, día de la semana, la hora grande en números de segmentos con segundos, un mini reproductor de PulsoMusic o PulsoMedia con sus botones (o el próximo evento o el clima), pasos, ritmo cardíaco y la batería en un anillo. 8 pantallas, de la gris reflectiva a las negativas.',
+    features: ['Digital', 'LCD', 'Mini reproductor', 'Notificaciones', '8 pantallas', 'Eventos', 'Clima', 'Pasos', 'Ritmo cardíaco', 'PulsoMusic', 'PulsoMedia'],
+    added: '2026-11-24',
+  },
+  {
     id: 'electro',
     name: 'Electro',
     file: 'Esfera-Electro.apk',
@@ -312,6 +321,21 @@ export const WATCH_FACE_DETAILS: Record<string, WatchFaceDetail> = {
       'Mapa con la noche (hora mundial) o solo el mapa',
       'Bajo consumo: esfera completa tenue o mínima',
       'Clima: elige el dato en Personalizar',
+      ...COMMON,
+    ],
+  },
+  reflejo: {
+    gallery: 3,
+    long: 'Inspirada en la pantalla de bajo consumo de los relojes con doble pantalla. Arriba la fecha y la campana con las notificaciones sin leer; el día de la semana en su cajita; la hora grande en números de segmentos (gruesos o delgados) con los segundos arriba a la derecha (en bajo consumo quedan en 00); cuatro esquinas que enmarcan la hora y el recuadro de abajo. En el recuadro, el mini reproductor de lo que suena en PulsoMusic o PulsoMedia: el nombre de la app, la canción, la barra de avance y los botones ◄◄ ►‖ ►► que controlan el teléfono. Sin música muestra el próximo evento o el clima. Abajo, los pasos, el ritmo cardíaco y la batería en un anillo.',
+    customize: [
+      '8 pantallas: gris claro reflectiva, oscura, verde LCD, ámbar, celeste y negativas azul, roja y verde',
+      'Números de la hora gruesos o delgados',
+      'Mini reproductor: al sonar música, siempre visible u oculto',
+      'Recuadro sin música: próximo evento, clima o vacío',
+      'Segundos visibles u ocultos',
+      'Esquinas visibles u ocultas',
+      'Bajo consumo: esfera completa oscura (segundos en 00) o solo la hora',
+      'Notificaciones, pasos, ritmo, evento y clima: elige el dato en Personalizar',
       ...COMMON,
     ],
   },
