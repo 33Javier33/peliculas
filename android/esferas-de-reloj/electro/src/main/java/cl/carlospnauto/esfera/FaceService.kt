@@ -431,11 +431,11 @@ class ElectroRenderer(
         val h = if (is24) "%02d".format(t.hour) else (if (t.hour % 12 == 0) 12 else t.hour % 12).let { "%02d".format(it) }
         val m = "%02d".format(t.minute)
         val dh = r * 0.30f
-        val dw = r * 0.19f
+        val dw = r * 0.215f
         val gap = r * 0.03f
         val colon = r * 0.075f
         val top = Y(0.37f)
-        var x = X(-0.655f)
+        var x = X(-0.665f)
         seg(canvas, h[0], x, top, dw, dh, ink, ghost); x += dw + gap
         seg(canvas, h[1], x, top, dw, dh, ink, ghost); x += dw
         colonDots(canvas, x + colon / 2, top, dh, r * 0.02f, ink); x += colon
@@ -443,7 +443,7 @@ class ElectroRenderer(
         seg(canvas, m[1], x, top, dw, dh, ink, ghost); x += dw
         // Segundos: en bajo consumo quedan en 00 y vuelven a correr al encender la pantalla
         val sh = r * 0.17f
-        val sw = r * 0.095f
+        val sw = r * 0.11f
         val sTop = top + dh - sh
         colonDots(canvas, x + r * 0.035f, sTop, sh, r * 0.013f, ink)
         x += r * 0.07f
