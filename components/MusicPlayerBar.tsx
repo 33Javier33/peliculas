@@ -1257,7 +1257,49 @@ export default function MusicPlayerBar() {
     }, wait)
   }, [currentVideo?.streamUrl])
 
+  // Canción del teléfono que se corta a mitad (la conexión con YouTube se cayó un momento, algo
+  // común en segundo plano): se vuelve a pedir desde el mismo segundo, varias veces, en vez de
+  // darla por perdida y saltar a la siguiente (sonaba un rato y saltaba)
+  const midRetryRef = useRef<{ id: string; n: number; at: number; pos: number }>({ id: '', n: 0, at: 0, pos: 0 })
+  const retryMidSong = useCallback((): boolean => {
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (!el || !currentId || !isNativeSrc || isLive) return false
+    const src = el.currentSrc || el.src || ''
+    if (!/^http:\/\/127\.0\.0\.1:\d+\/yt\//.test(src)) return false
+    const r = midRetryRef.current
+    // (Si sonó bien un buen rato desde el último corte, se vuelve a contar desde cero)
+    if (r.id !== currentId || Date.now() - r.at > 120000) midRetryRef.current = { id: currentId, n: 0, at: 0, pos: 0 }
+    const cur = midRetryRef.current
+    // Segundo en que iba (tras un reintento fallido el reproductor queda en 0: se usa el guardado)
+    const at = el.currentTime > 1 ? el.currentTime : cur.pos
+    if (!(at > 1)) return false
+    // Hasta ~1 minuto sin conexión: la canción espera en vez de saltar
+    if (cur.n >= 12) return false
+    cur.n++
+    cur.at = Date.now()
+    cur.pos = at
+    const n = cur.n
+    lastProgressRef.current = Date.now()
+    setTimeout(() => {
+      const st = useMusicStore.getState()
+      if (st.queue[st.currentIndex]?.id !== currentId) return
+      try {
+        el.src = src.replace(/\?.*$/, '') + `?r=m${n}`
+        const seek = () => {
+          el.removeEventListener('loadedmetadata', seek)
+          try {
+            el.currentTime = at
+          } catch {}
+        }
+        el.addEventListener('loadedmetadata', seek)
+        if (st.isPlaying) el.play()?.catch?.(() => {})
+      } catch {}
+    }, n === 1 ? 0 : Math.min(6000, 1000 * n))
+    return true
+  }, [currentId, isNativeSrc, isLive])
+
   const handleAudioError = useCallback(() => {
+    if (retryMidSong()) return
     // La app de Android no dejó pasar su audio de YouTube por el ecualizador: se sigue sin él
     if (eqActive && isNativeSrc && !currentVideo?.audioUrl) {
       pendingSeekRef.current = useMusicStore.getState().played
@@ -1298,7 +1340,7 @@ export default function MusicPlayerBar() {
       audioCache.delete(audioSrc.id)
       markAudioFailed(audioSrc.id)
     }
-  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteIndex, remoteCandidates, currentVideo?.audioUrl, eqActive, isNativeSrc])
+  }, [audioSrc, currentId, markAudioFailed, isLive, isLocal, skipUnplayable, reconnectLive, remoteIndex, remoteCandidates, currentVideo?.audioUrl, eqActive, isNativeSrc, retryMidSong])
 
   // Vigilante: si el audio no avanza en 15 s (fuente caída o que no carga), probar otra o saltar
   const lastProgressRef = useRef(Date.now())

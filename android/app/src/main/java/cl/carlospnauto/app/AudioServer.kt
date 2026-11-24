@@ -700,7 +700,9 @@ object AudioServer {
             // Un servidor de YouTube que no contesta se deja pronto y se pide otra dirección (antes
             // se esperaban hasta 30 s y la canción quedaba cargando)
             connectTimeout = 6000
-            readTimeout = 10000
+            // (La espera de lectura no se acorta: en segundo plano la red se pausa unos segundos y
+            // con 10 s la canción se cortaba a mitad)
+            readTimeout = 30000
         }
         // Sin conexión con ese servidor de YouTube (se tardó o se cortó): se pide otra dirección del
         // audio (suele ser otro servidor) y se intenta otra vez
