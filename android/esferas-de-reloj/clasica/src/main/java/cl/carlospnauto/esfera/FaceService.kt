@@ -385,7 +385,7 @@ class ClassicRenderer(
             canvas.drawText("--", cx + r * 0.33f, cy - r * 0.62f, text)
         }
 
-        // Temperaturas: mín ▼ actual ▲ máx
+        // Temperaturas: mín ▼ actual ▲ máx (las tres se eligen en Personalizar)
         // Cada una se elige en Personalizar. Si la del centro trae «máx/mín» (como «17°/8°»), se
         // reparte a los lados y al centro queda la temperatura actual del clima
         val tr = data(TEMP) as? RangedValueComplicationData
