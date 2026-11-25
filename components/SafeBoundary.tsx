@@ -1,5 +1,6 @@
 'use client'
 
+import { reportError } from '@/lib/usage'
 import { Component, type ReactNode } from 'react'
 
 // Si una pieza de la app falla (por ejemplo, sin conexión), solo esa se oculta: el resto sigue
@@ -9,6 +10,7 @@ export function noteError(where: string, err: unknown) {
     const e = err as Error
     localStorage.setItem('cpn-last-error', JSON.stringify({ where, msg: String(e?.message || err).slice(0, 300), at: Date.now(), online: navigator.onLine }))
   } catch {}
+  reportError(where, err)
 }
 
 export default class SafeBoundary extends Component<{ name: string; children: ReactNode; fallback?: ReactNode }, { failed: boolean }> {

@@ -1,5 +1,6 @@
 'use client'
 
+import { reportError } from '@/lib/usage'
 import { useEffect } from 'react'
 
 // Pantalla cuando algo falla: en vez de dejar la app en negro, ofrece ir a la Biblioteca (que
@@ -8,6 +9,7 @@ export default function ErrorScreen({ error, reset }: { error: Error & { digest?
   const chunk = /ChunkLoad|Loading chunk|Failed to fetch dynamically|importing a module script/i.test(`${error?.name} ${error?.message}`)
   useEffect(() => {
     console.error('[PulsoMedia]', error)
+    reportError('pantalla', error)
     try {
       localStorage.setItem('cpn-last-error', JSON.stringify({ where: 'pantalla', msg: String(error?.message || error).slice(0, 300), at: Date.now(), online: navigator.onLine }))
       // Faltaba una parte de la app (se publicó una versión nueva): con internet se recarga sola una vez

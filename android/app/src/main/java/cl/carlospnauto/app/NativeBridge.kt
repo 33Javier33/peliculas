@@ -88,6 +88,15 @@ class NativeBridge(private val context: Context) {
     @JavascriptInterface
     fun takeOver(): Long = NativeResume.takeOver()
 
+    /** El error con que se cerró la app la vez anterior (y se borra), o vacío */
+    @JavascriptInterface
+    fun takeCrash(): String {
+        val p = context.getSharedPreferences("cpn-crash", android.content.Context.MODE_PRIVATE)
+        val s = p.getString("last", "") ?: ""
+        if (s.isNotEmpty()) p.edit().remove("last").apply()
+        return s
+    }
+
     @JavascriptInterface
     fun inPip(): Boolean = MainActivity.pipOn
 

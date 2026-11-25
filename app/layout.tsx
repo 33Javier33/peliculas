@@ -17,6 +17,7 @@ import AddToPlaylistSheet from '@/components/AddToPlaylistSheet'
 import EqualizerSheet from '@/components/EqualizerSheet'
 import ScrollTopButton from '@/components/ScrollTopButton'
 import VersionWatcher from '@/components/VersionWatcher'
+import UsageReporter from '@/components/UsageReporter'
 import WearBridge from '@/components/WearBridge'
 import FocusIntoView from '@/components/FocusIntoView'
 import AppUpdateBanner from '@/components/AppUpdateBanner'
@@ -159,6 +160,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </SafeBoundary>
         <SafeBoundary name="ScrollTopButton">
           <ScrollTopButton />
+        </SafeBoundary>
+        <SafeBoundary name="UsageReporter">
+          <UsageReporter />
         </SafeBoundary>
         <SafeBoundary name="VersionWatcher">
           <VersionWatcher />

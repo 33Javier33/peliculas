@@ -53,6 +53,7 @@ import SheetHandle from '@/components/SheetHandle'
 import { songArtist, mainArtistName, genreOfArtist, classifyArtists } from '@/lib/library-radio'
 import { precacheUpcoming, precachedUrl, precacheEnabled } from '@/lib/audio-precache'
 import { useDevicesStore } from '@/lib/devices'
+import { reportError } from '@/lib/usage'
 import { attachEqualizer, updateEqualizer, resumeEqualizer, resetEqualizer, equalizerStalled, eqSafeUrl } from '@/lib/equalizer'
 // react-player v3 — ref is HTMLVideoElement, props use native HTML video API
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -869,6 +870,8 @@ export default function MusicPlayerBar() {
     const st = useMusicStore.getState()
     const cur = st.queue[st.currentIndex]
     if (!cur || cur.id !== id) return
+    // Para el panel de administración: canciones que no se pudieron escuchar
+    reportError(`audio ${id}`.slice(0, 60), `Canción que no se pudo reproducir (se saltó)${document.visibilityState === 'hidden' ? ' · app en segundo plano' : ''}`)
     pendingSeekRef.current = -1
     setSkipNotice(cur.title)
     if (st.currentIndex < st.queue.length - 1) st.playNext()
