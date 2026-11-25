@@ -106,7 +106,8 @@ async function save(d: SupabaseClient, b: Body) {
   return json({ ok: true, updatedAt })
 }
 
-const PRESENCE_TTL = 60 * 1000
+// Los dispositivos avisan cada 5 min de respaldo (los cambios van al instante por el canal en vivo)
+const PRESENCE_TTL = 6 * 60 * 1000
 const clean = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
 
 // Canal Realtime de la cuenta: su nombre sale de una firma con la clave secreta, así nadie puede

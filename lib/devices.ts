@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import { callAccount } from '@/lib/account-sync'
 import { useAccountStore } from '@/store/accountStore'
 import { useMusicStore } from '@/store/musicStore'
-import { isNativeApp, reportAccount } from '@/lib/native'
+import { isNativeApp, reportAccount, getNative } from '@/lib/native'
 import { isMusicApp, appBrand } from '@/lib/app-flavor'
 import type { MusicVideo } from '@/lib/youtube-music'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -225,8 +225,23 @@ export async function takeFrom(device: Device) {
 }
 
 /** Le da al teléfono la cuenta (y este dispositivo), para que avise lo que suena en segundo plano */
+/**
+ * ¿La app del teléfono avisa «qué suena» con mesura? (PulsoMedia 1.0.167+ / PulsoMusic 1.0.114+:
+ * solo al cambiar y cada 5 min). Las versiones anteriores avisaban cada 10-30 s aunque estuviera en
+ * pausa: a esas no se les da la cuenta (dejan de avisar) y avisa la página, con mesura.
+ */
+export function nativeHandlesPresence(): boolean {
+  if (!isNativeApp()) return false
+  try {
+    const n = Number(String(getNative()?.version?.() ?? '').split('.')[2])
+    return isFinite(n) && n >= (isMusicApp() ? 114 : 167)
+  } catch {
+    return false
+  }
+}
+
 export function syncNativeAccount() {
-  const token = useAccountStore.getState().token
+  const token = nativeHandlesPresence() ? useAccountStore.getState().token : ''
   reportAccount(JSON.stringify({ token: token ?? '', device: deviceId(), name: deviceName(), app: isMusicApp() ? 'music' : 'media' }))
 }
 

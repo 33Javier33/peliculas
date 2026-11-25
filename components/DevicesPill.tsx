@@ -1,12 +1,11 @@
 'use client'
 
-import { isNativeApp } from '@/lib/native'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Smartphone, Laptop, Play, Pause, SkipBack, SkipForward, ArrowRightLeft, X } from 'lucide-react'
 import { useAccountStore } from '@/store/accountStore'
 import { useMusicStore } from '@/store/musicStore'
-import { useDevicesStore, liveReady, presenceNow, localState, sendTo, takeFrom, deviceName, syncNativeAccount, type Device, type CmdType } from '@/lib/devices'
+import { useDevicesStore, liveReady, presenceNow, localState, sendTo, takeFrom, deviceName, syncNativeAccount, nativeHandlesPresence, type Device, type CmdType } from '@/lib/devices'
 import Image from 'next/image'
 
 // Dispositivos de la cuenta: con sesión, el encabezado muestra dónde suena la música (PulsoMedia,
@@ -30,7 +29,7 @@ export default function DevicesPill() {
   // Aviso periódico de respaldo (cada aviso es una llamada al servidor, que se cobra en Vercel):
   // - Con el canal en vivo (lo normal) las órdenes y cambios llegan al instante: cada 5 min
   // - Sin canal en vivo: cada 1 min mientras suena o se ve la página; escondida y en pausa, nada
-  // - En la app de Android el teléfono ya avisa por su cuenta: la página no repite el aviso
+  // - En la app de Android nueva el teléfono ya avisa por su cuenta: la página no repite el aviso
   // (Antes cada 8-30 s, y en la app dos veces: la página y el teléfono)
   useEffect(() => {
     if (!token) return
@@ -38,7 +37,7 @@ export default function DevicesPill() {
     let t: ReturnType<typeof setTimeout>
     const tick = async () => {
       if (!alive) return
-      const want = !isNativeApp() && (document.visibilityState === 'visible' || localState().playing)
+      const want = !nativeHandlesPresence() && (document.visibilityState === 'visible' || localState().playing)
       if (want) await presenceNow()
       if (alive) t = setTimeout(tick, liveReady() ? 5 * 60000 : 60000)
     }
