@@ -5,7 +5,9 @@ import HelpTip from '@/components/HelpTip'
 import { useEffect, useState } from 'react'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import SheetHandle from '@/components/SheetHandle'
-import { X, Mail, Loader2, CheckCircle2, Cloud, LogOut, RefreshCw, AlertCircle } from 'lucide-react'
+import { X, Mail, Loader2, CheckCircle2, Cloud, LogOut, RefreshCw, AlertCircle, ShieldCheck, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { ADMIN_KEY } from '@/lib/admin-session'
 import { useAccountStore } from '@/store/accountStore'
 import { callAccount } from '@/lib/account-sync'
 
@@ -148,7 +150,38 @@ export default function AccountSheet() {
           </form>
         )}
         {error && <p className="mt-3 text-amber-300 text-sm">{error}</p>}
+
+        {/* Segunda cuenta: la de administrador (aparte de la personal, no la cierra) */}
+        <AdminAccountRow onGo={() => setOpen(false)} />
       </div>
+    </div>
+  )
+}
+
+function AdminAccountRow({ onGo }: { onGo: () => void }) {
+  const [admin, setAdmin] = useState<{ email: string } | null>(null)
+  useEffect(() => {
+    try {
+      setAdmin(JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null'))
+    } catch {}
+  }, [])
+  return (
+    <div className="mt-5 pt-4 border-t border-white/8">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Cuenta de administrador</p>
+      {admin ? (
+        <Link href="/admin" onClick={onGo} className="flex items-center gap-3 rounded-2xl bg-surface-2/70 border border-white/10 px-3 py-2.5">
+          <ShieldCheck className="w-5 h-5 text-violet-300 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-white truncate">{admin.email}</span>
+            <span className="block text-xs text-slate-400">Abrir el panel de administración</span>
+          </span>
+          <ChevronRight className="w-4 h-4 text-slate-500" />
+        </Link>
+      ) : (
+        <Link href="/admin" onClick={onGo} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white">
+          <ShieldCheck className="w-4 h-4" /> Entrar como administrador (sin cerrar tu cuenta)
+        </Link>
+      )}
     </div>
   )
 }
