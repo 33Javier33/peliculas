@@ -1,8 +1,82 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ShieldCheck, Users, Smartphone, Music2, Bug, RefreshCw, Loader2, CheckCircle2, RotateCcw, Database, UserRound } from 'lucide-react'
-import { useAccountStore } from '@/store/accountStore'
+import { ShieldCheck, Users, Smartphone, Music2, Bug, RefreshCw, Loader2, CheckCircle2, RotateCcw, Database, UserRound, LogOut } from 'lucide-react'
+import { callAccount } from '@/lib/account-sync'
+
+// Sesión de administrador: aparte de la cuenta personal (no la cierra ni la reemplaza) y guardada en
+// este dispositivo hasta cerrarla aquí. Así se pasa de una a otra sin pedir otro código.
+import { ADMIN_KEY } from '@/lib/admin-session'
+type AdminSession = { email: string; token: string }
+function readAdmin(): AdminSession | null {
+  try {
+    const s = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null') as AdminSession | null
+    return s?.token ? s : null
+  } catch {
+    return null
+  }
+}
+
+function AdminLogin({ onDone }: { onDone: (s: AdminSession) => void }) {
+  const [step, setStep] = useState<'email' | 'code'>('email')
+  const [mail, setMail] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const request = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    const r = await callAccount({ action: 'requestCode', email: mail.trim() }).catch(() => null)
+    setBusy(false)
+    if (r?.ok) setStep('code')
+    else setError(r?.error || 'No se pudo enviar el código.')
+  }
+  const verify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    const r = await callAccount<{ token?: string; email?: string }>({ action: 'verifyCode', email: mail.trim(), code, device: 'Administración' }).catch(() => null)
+    setBusy(false)
+    if (r?.ok && r.token && r.email) {
+      const s = { email: r.email, token: r.token }
+      try {
+        localStorage.setItem(ADMIN_KEY, JSON.stringify(s))
+      } catch {}
+      onDone(s)
+    } else setError(r?.error || 'No se pudo verificar el código.')
+  }
+  const input = 'w-full bg-surface-2 border border-white/10 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-violet-500'
+  return (
+    <div className="pt-28 px-4 max-w-sm mx-auto">
+      <ShieldCheck className="w-10 h-10 text-violet-300 mx-auto mb-3" />
+      <h1 className="text-white text-xl font-bold text-center">Administración</h1>
+      <p className="text-slate-400 text-sm mt-2 text-center">
+        Entra con la cuenta de administrador. Es aparte de tu cuenta personal: esa sigue abierta, y esta queda guardada en este dispositivo.
+      </p>
+      {step === 'email' ? (
+        <form onSubmit={request} className="mt-5 space-y-3">
+          <input type="email" required value={mail} onChange={(e) => setMail(e.target.value)} placeholder="Correo de administrador" className={input} autoComplete="email" />
+          <button disabled={busy} className="w-full py-3 rounded-xl bg-violet-500 text-white font-bold disabled:opacity-60">
+            {busy ? 'Enviando…' : 'Enviar código'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={verify} className="mt-5 space-y-3">
+          <p className="text-slate-300 text-sm text-center">Código enviado a {mail}</p>
+          <input inputMode="numeric" required value={code} onChange={(e) => setCode(e.target.value)} placeholder="Código" className={input} autoComplete="one-time-code" />
+          <button disabled={busy} className="w-full py-3 rounded-xl bg-violet-500 text-white font-bold disabled:opacity-60">
+            {busy ? 'Verificando…' : 'Entrar'}
+          </button>
+          <button type="button" onClick={() => setStep('email')} className="w-full text-slate-400 text-sm">
+            Cambiar correo
+          </button>
+        </form>
+      )}
+      {error && <p className="mt-3 text-red-300 text-sm text-center">{error}</p>}
+    </div>
+  )
+}
 
 // Panel de administración: dispositivos activos (con y sin cuenta), cuentas de respaldo, canciones
 // más escuchadas y errores que reportan las apps (con su causa y cómo se soluciona).
@@ -75,14 +149,26 @@ const byApp = (a?: Activos) =>
     : ''
 
 export default function AdminClient() {
-  const token = useAccountStore((s) => s.token)
-  const email = useAccountStore((s) => s.email)
+  const [session, setSession] = useState<AdminSession | null>(null)
+  const token = session?.token ?? null
+  const email = session?.email ?? ''
   const [mounted, setMounted] = useState(false)
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
   const [songsRange, setSongsRange] = useState<'semana' | 'mes'>('semana')
   const [notes, setNotes] = useState<Record<string, string>>({})
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    setSession(readAdmin())
+    setMounted(true)
+  }, [])
+  const logoutAdmin = () => {
+    if (token) callAccount({ action: 'logout', token }).catch(() => {})
+    try {
+      localStorage.removeItem(ADMIN_KEY)
+    } catch {}
+    setSession(null)
+    setData(null)
+  }
 
   const load = useCallback(async () => {
     if (!token) return
@@ -104,17 +190,7 @@ export default function AdminClient() {
 
   if (!mounted) return <div className="pt-24 min-h-screen" />
 
-  if (!token)
-    return (
-      <div className="pt-28 px-4 max-w-md mx-auto text-center">
-        <ShieldCheck className="w-10 h-10 text-violet-300 mx-auto mb-3" />
-        <h1 className="text-white text-xl font-bold">Administración</h1>
-        <p className="text-slate-400 text-sm mt-2">Inicia sesión con la cuenta de administrador para ver el panel.</p>
-        <button onClick={() => useAccountStore.getState().setOpen(true)} className="mt-5 px-5 py-2.5 rounded-full bg-violet-500 text-white text-sm font-bold">
-          Iniciar sesión
-        </button>
-      </div>
-    )
+  if (!token) return <AdminLogin onDone={setSession} />
 
   if (data && !data.ok && data.error === 'admin')
     return (
@@ -122,6 +198,9 @@ export default function AdminClient() {
         <ShieldCheck className="w-10 h-10 text-slate-500 mx-auto mb-3" />
         <h1 className="text-white text-xl font-bold">Sin acceso</h1>
         <p className="text-slate-400 text-sm mt-2">La cuenta {email} no es administradora.</p>
+        <button onClick={logoutAdmin} className="mt-5 px-5 py-2.5 rounded-full bg-surface-2 border border-white/10 text-white text-sm font-bold">
+          Entrar con otra cuenta
+        </button>
       </div>
     )
 
@@ -139,7 +218,11 @@ export default function AdminClient() {
         <button onClick={load} disabled={loading} className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-surface-2 border border-white/10 text-slate-200">
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Actualizar
         </button>
+        <button onClick={logoutAdmin} title={`Cerrar sesión de administrador (${email})`} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-surface-2 border border-white/10 text-slate-300">
+          <LogOut className="w-3.5 h-3.5" /> Salir
+        </button>
       </div>
+      <p className="-mt-4 mb-5 text-xs text-slate-500">Administrador: {email} · tu cuenta personal sigue abierta aparte</p>
 
       {data && !data.ok && <p className="rounded-xl bg-red-500/10 border border-red-400/30 text-red-200 text-sm p-3 mb-4">{data.error}</p>}
 

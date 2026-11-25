@@ -3,7 +3,9 @@ import { getAlwaysVideo, setAlwaysVideo } from '@/lib/always-video'
 import RepairAppButton from '@/components/RepairAppButton'
 import { getDownloadQuality, setDownloadQuality } from '@/lib/audio-quality'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ADMIN_KEY } from '@/lib/admin-session'
 import Link from 'next/link'
 import {
   RefreshCw,
@@ -20,7 +22,7 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users, AudioLines, HardDriveDownload, TvMinimalPlay, EyeOff } from 'lucide-react'
+  Users, AudioLines, HardDriveDownload, TvMinimalPlay, EyeOff, ShieldCheck } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useBlockStore } from '@/store/blockStore'
@@ -78,6 +80,14 @@ const formatSize = (b: number) => (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${M
 
 export default function SettingsClient() {
   const [mounted, setMounted] = useState(false)
+  const router = useRouter()
+  const tapsRef = useRef({ n: 0, at: 0 })
+  const [hasAdmin, setHasAdmin] = useState(false)
+  useEffect(() => {
+    try {
+      setHasAdmin(!!localStorage.getItem(ADMIN_KEY))
+    } catch {}
+  }, [])
   // Último error anotado (para enviarlo si algo falla, por ejemplo sin conexión)
   const [lastError, setLastError] = useState<{ where: string; msg: string; at: number; online: boolean } | null>(null)
   useEffect(() => {
@@ -114,7 +124,16 @@ export default function SettingsClient() {
 
   return (
     <div className="pt-24 pb-8 px-4 max-w-2xl mx-auto">
-      <h1 className="flex items-center gap-3 text-2xl font-bold text-white font-display mb-6">
+      {/* (5 toques seguidos al título abren la administración; con sesión de administrador en este
+          dispositivo además aparece abajo) */}
+      <h1
+        onClick={() => {
+          const now = Date.now()
+          tapsRef.current = now - tapsRef.current.at < 1500 ? { n: tapsRef.current.n + 1, at: now } : { n: 1, at: now }
+          if (tapsRef.current.n >= 5) router.push('/admin')
+        }}
+        className="flex items-center gap-3 text-2xl font-bold text-white font-display mb-6 select-none"
+      >
         <Settings className="w-6 h-6 text-violet-300" /> Configuración
       </h1>
 
@@ -274,6 +293,13 @@ export default function SettingsClient() {
             </Row>
           </Link>
           <RepairAppButton />
+          {hasAdmin && (
+            <Link href="/admin" className="block">
+              <Row icon={<ShieldCheck className="w-4 h-4" />} title="Administración" desc="Panel con tu cuenta de administrador (aparte de tu cuenta personal)">
+                <ChevronRight className="w-4 h-4 text-slate-500" />
+              </Row>
+            </Link>
+          )}
           <Link href="/novedades" className="block">
             <Row icon={<Info className="w-4 h-4" />} title="Novedades" desc={`Versión ${process.env.NEXT_PUBLIC_APP_VERSION}`}>
               <ChevronRight className="w-4 h-4 text-slate-500" />
