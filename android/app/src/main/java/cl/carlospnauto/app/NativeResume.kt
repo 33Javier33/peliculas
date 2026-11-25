@@ -261,7 +261,18 @@ object NativeResume {
             handingOver = false
             return
         }
-        MainActivity.runOnPage("window.__cpnNativeAction ? (window.__cpnNativeAction('resume:$id:$ms:${if (wasPlaying) 1 else 0}'), 'ok') : 'none'") { ok ->
+        // La canción completa (id original de la página, nombre y carátula): si la página no la tiene
+        // en su lista, la agrega en vez de quedarse en la anterior
+        val t = cur
+        val info = JSONObject()
+            .put("id", t?.optString("id")?.takeIf { it.isNotEmpty() } ?: id)
+            .put("ms", ms).put("playing", wasPlaying)
+            .put("title", t?.optString("title").orEmpty())
+            .put("artist", t?.optString("artist").orEmpty())
+            .put("artwork", t?.optString("artwork").orEmpty())
+        val js = "window.__cpnResume ? (window.__cpnResume($info), 'ok') : " +
+            "(window.__cpnNativeAction ? (window.__cpnNativeAction('resume:$id:$ms:${if (wasPlaying) 1 else 0}'), 'ok') : 'none')"
+        MainActivity.runOnPage(js) { ok ->
             if (!ok) {
                 // La página aún carga: se reintenta (sigue sonando aquí mientras tanto)
                 if (n < 40) main.postDelayed({ tryHandOver(id, position(), playing, since, n + 1) }, 500) else handingOver = false
@@ -281,7 +292,7 @@ object NativeResume {
                     MainActivity.sendAction("pause")
                     resume()
                 }
-            }, 5000)
+            }, 8000)
         }
     }
 

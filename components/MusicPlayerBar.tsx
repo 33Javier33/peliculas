@@ -2339,6 +2339,50 @@ export default function MusicPlayerBar() {
   }, [currentVideo, isPlaying, isVisible, isLive, isCurrentSaved, audioUrl])
   useEffect(() => {
     if (!isNativeApp()) return
+    // La app se abrió mientras sonaba el reproductor del teléfono (app dormida): la página sigue con
+    // ESA canción y en ese segundo. Si la canción no está en la lista de la página, se agrega
+    // después de la actual (antes se quedaba en la anterior, la que ya había terminado, y la
+    // ponía en el segundo de la otra)
+    const resumeFromPhone = (t: { id: string; ms: number; playing: boolean; title?: string; artist?: string; artwork?: string }) => {
+      const st = useMusicStore.getState()
+      const bare = t.id.replace(/^yta-/, '')
+      const sec = Math.max(0, (Number(t.ms) || 0) / 1000)
+      const at = sec > 1 ? sec : undefined
+      const cur = st.queue[st.currentIndex]
+      if (cur && cur.id.replace(/^yta-/, '') === bare) {
+        const el = playerRef.current as unknown as HTMLMediaElement | null
+        try {
+          if (el && at) el.currentTime = at
+        } catch {}
+        st.setIsPlaying(t.playing)
+        return
+      }
+      let idx = st.queue.findIndex((v) => v.id.replace(/^yta-/, '') === bare)
+      let queue = st.queue
+      if (idx < 0) {
+        if (!t.title) {
+          // Sin datos de la canción (app antigua): no se toca lo que suena
+          st.setIsPlaying(t.playing)
+          return
+        }
+        const song = {
+          id: t.id,
+          title: t.artist ? `${t.artist} - ${t.title}` : t.title,
+          channelTitle: t.artist || '',
+          thumbnail: t.artwork || `https://i.ytimg.com/vi/${bare}/hqdefault.jpg`,
+          publishedAt: '',
+          description: '',
+        }
+        queue = [...queue.slice(0, st.currentIndex + 1), song, ...queue.slice(st.currentIndex + 1)]
+        idx = st.currentIndex + 1
+      }
+      // Empieza en el segundo en que iba el teléfono (startAt: segundos)
+      queue = queue.map((v, i) => (i === idx ? { ...v, startAt: at } : v))
+      useMusicStore.setState({ queue })
+      useMusicStore.getState().playIndex(idx)
+      useMusicStore.setState({ isPlaying: t.playing })
+    }
+    ;(window as unknown as { __cpnResume?: (t: { id: string; ms: number; playing: boolean }) => void }).__cpnResume = resumeFromPhone
     ;(window as unknown as { __cpnNativeAction?: (a: string) => void }).__cpnNativeAction = (a: string) => {
       const st = useMusicStore.getState()
       if (a === 'play') {
@@ -2375,21 +2419,9 @@ export default function MusicPlayerBar() {
           } catch {}
         }, 3000)
       } else if (a.startsWith('resume:')) {
-        // La app se abrió mientras sonaba el reproductor del teléfono: se sigue desde la canción y el
-        // segundo en que iba (resume:ID:ms:sonando)
+        // (Apps antiguas: resume:ID:ms:sonando)
         const [, id, msS, on] = a.split(':')
-        const sec = Math.max(0, Number(msS) / 1000 || 0)
-        const idx = st.queue.findIndex((v) => v.id === id || v.id.replace(/^yta-/, '') === id)
-        if (idx >= 0 && idx !== st.currentIndex) {
-          st.playIndex(idx)
-          useMusicStore.setState({ resumeAt: sec, isPlaying: on === '1' })
-          return
-        }
-        const el = playerRef.current as unknown as HTMLMediaElement | null
-        try {
-          if (el && sec > 0) el.currentTime = sec
-        } catch {}
-        st.setIsPlaying(on === '1')
+        resumeFromPhone({ id, ms: Number(msS), playing: on === '1' })
       } else if (a === 'pause') st.setIsPlaying(false)
       else if (a === 'next') st.playNext()
       else if (a === 'prev') st.playPrev()
