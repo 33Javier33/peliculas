@@ -66,6 +66,8 @@ private const val EVENT = 105
 private const val WORLD = 106
 private const val HEART = 107
 private const val STEPS = 108
+private const val LOW = 109
+private const val HIGH = 110
 
 /** 16 temas: fondo y tinta (el número del día va en una caja de tinta) */
 private val THEMES = listOf(
@@ -100,7 +102,8 @@ private val PLAYER = Choice("reproductor", "Reproductor (en el evento)", listOf(
 object Config : FaceConfig {
     override val slots = listOf(
         HUMIDITY to "Arriba a la izquierda (humedad)", WEATHER to "Arriba al centro (clima)", UV to "Arriba a la derecha (UV)",
-        TEMP to "Temperatura (mín. / actual / máx.)", EVENT to "Evento", WORLD to "Hora mundial", HEART to "Ritmo cardíaco", STEPS to "Pasos",
+        LOW to "Temperatura mínima (izquierda)", TEMP to "Temperatura actual (centro)", HIGH to "Temperatura máxima (derecha)",
+        EVENT to "Evento", WORLD to "Hora mundial", HEART to "Ritmo cardíaco", STEPS to "Pasos",
     )
     override val spots = listOf(
         Spot(-0.45f, 0.0f, Action.MEDIA, "Toque en la hora", hit = 0.24f),
@@ -128,10 +131,13 @@ class FaceService : WatchFaceService() {
             ComplicationSlot.createRoundRectComplicationSlotBuilder(id, factory, types, policy, ComplicationSlotBounds(b)).build()
         val slots = listOf(
             // El clima (humedad, estado, UV, temperaturas) lo dan Samsung o Google: se elige en Personalizar
-            slot(HUMIDITY, short, none, RectF(0.245f, 0.065f, 0.415f, 0.215f)),
-            slot(WEATHER, short, none, RectF(0.415f, 0.05f, 0.585f, 0.21f)),
-            slot(UV, short, none, RectF(0.585f, 0.065f, 0.755f, 0.215f)),
-            slot(TEMP, listOf(ComplicationType.RANGED_VALUE, ComplicationType.SHORT_TEXT), none, RectF(0.25f, 0.21f, 0.75f, 0.27f)),
+            // Más altos: los íconos del clima, la humedad y el UV se ven más grandes
+            slot(HUMIDITY, short, none, RectF(0.22f, 0.045f, 0.40f, 0.235f)),
+            slot(WEATHER, short, none, RectF(0.40f, 0.03f, 0.60f, 0.23f)),
+            slot(UV, short, none, RectF(0.60f, 0.045f, 0.78f, 0.235f)),
+            slot(LOW, listOf(ComplicationType.SHORT_TEXT, ComplicationType.RANGED_VALUE), none, RectF(0.19f, 0.215f, 0.34f, 0.275f)),
+            slot(TEMP, listOf(ComplicationType.RANGED_VALUE, ComplicationType.SHORT_TEXT), none, RectF(0.37f, 0.215f, 0.63f, 0.275f)),
+            slot(HIGH, listOf(ComplicationType.SHORT_TEXT, ComplicationType.RANGED_VALUE), none, RectF(0.66f, 0.215f, 0.81f, 0.275f)),
             slot(EVENT, listOf(ComplicationType.LONG_TEXT, ComplicationType.SHORT_TEXT), DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_NEXT_EVENT, ComplicationType.LONG_TEXT), RectF(0.21f, 0.625f, 0.79f, 0.685f)),
             slot(WORLD, listOf(ComplicationType.SHORT_TEXT), DefaultComplicationDataSourcePolicy(SystemDataSources.DATA_SOURCE_WORLD_CLOCK, ComplicationType.SHORT_TEXT), RectF(0.24f, 0.70f, 0.36f, 0.81f)),
             slot(HEART, listOf(ComplicationType.SHORT_TEXT, ComplicationType.RANGED_VALUE), none, RectF(0.44f, 0.70f, 0.56f, 0.81f)),
@@ -277,7 +283,7 @@ class ClassicRenderer(
         for ((_, slot) in complications.complicationSlots) {
             val d = (slot.renderer as? CanvasComplicationDrawable)?.drawable ?: continue
             for (s in listOf(d.activeStyle, d.ambientStyle)) {
-                val ts = r * 0.075f
+                val ts = r * 0.085f
                 if (s.textSize != ts.toInt()) {
                     s.textSize = ts.toInt()
                     s.titleSize = (r * 0.06f).toInt()
@@ -370,26 +376,41 @@ class ClassicRenderer(
         // Arriba: humedad, clima y UV (o lo que elijas); sin dato, el ícono con «--»
         text.textSize = r * 0.07f
         if (empty(HUMIDITY)) {
-            drawDrop(canvas, cx - r * 0.33f, cy - r * 0.77f, r * 0.05f, ink)
+            drawDrop(canvas, cx - r * 0.33f, cy - r * 0.78f, r * 0.066f, ink)
             canvas.drawText("--%", cx - r * 0.33f, cy - r * 0.62f, text)
         }
-        if (empty(WEATHER)) drawSun(canvas, cx, cy - r * 0.74f, r * 0.065f, ink)
+        if (empty(WEATHER)) drawSun(canvas, cx, cy - r * 0.75f, r * 0.082f, ink)
         if (empty(UV)) {
             canvas.drawText("UV", cx + r * 0.33f, cy - r * 0.74f, text)
             canvas.drawText("--", cx + r * 0.33f, cy - r * 0.62f, text)
         }
 
-        // Temperaturas: mín ▼ actual ▲ máx
+        // Temperaturas: mín ▼ actual ▲ máx (las tres se eligen en Personalizar)
+        // Cada una se elige en Personalizar. Si la del centro trae «máx/mín» (como «17°/8°»), se
+        // reparte a los lados y al centro queda la temperatura actual del clima
         val tr = data(TEMP) as? RangedValueComplicationData
-        val cur = textOf(TEMP) ?: "--"
-        val lo = tr?.let { "${it.min.toInt()}°" } ?: "--°"
-        val hi = tr?.let { "${it.max.toInt()}°" } ?: "--°"
+        var cur = textOf(TEMP) ?: "--"
+        var pLo: String? = null
+        var pHi: String? = null
+        if (cur.contains('/')) {
+            val parts = cur.split('/').map { p -> p.trim().filter { it.isDigit() || it == '-' } }.filter { it.isNotEmpty() }
+            if (parts.size == 2) {
+                val a = parts[0].toIntOrNull() ?: 0
+                val b = parts[1].toIntOrNull() ?: 0
+                pHi = "${maxOf(a, b)}°"
+                pLo = "${minOf(a, b)}°"
+                cur = textOf(WEATHER)?.filter { it.isDigit() || it == '-' }?.takeIf { it.isNotEmpty() }?.let { "$it°" } ?: "--°"
+            }
+        }
+        fun deg(s: String) = s.filter { it.isDigit() || it == '-' }.takeIf { it.isNotEmpty() }?.let { "$it°" }
+        val lo = textOf(LOW)?.let { deg(it) } ?: tr?.let { "${it.min.toInt()}°" } ?: pLo ?: "--°"
+        val hi = textOf(HIGH)?.let { deg(it) } ?: tr?.let { "${it.max.toInt()}°" } ?: pHi ?: "--°"
         text.textSize = r * 0.09f
         canvas.drawText(lo, cx - r * 0.44f, cy - r * 0.48f, text)
         canvas.drawText(cur, cx, cy - r * 0.48f, text)
         canvas.drawText(hi, cx + r * 0.44f, cy - r * 0.48f, text)
-        triangle(canvas, cx - r * 0.24f, cy - r * 0.51f, r * 0.025f, down = true, color = ink)
-        triangle(canvas, cx + r * 0.24f, cy - r * 0.51f, r * 0.025f, down = false, color = ink)
+        triangle(canvas, cx - r * 0.24f, cy - r * 0.51f, r * 0.032f, down = true, color = ink)
+        triangle(canvas, cx + r * 0.24f, cy - r * 0.51f, r * 0.032f, down = false, color = ink)
 
         // Línea fina bajo la fecha
         stroke.color = Color.argb(70, Color.red(ink), Color.green(ink), Color.blue(ink))
@@ -418,14 +439,14 @@ class ClassicRenderer(
                 fill.color = ink
                 canvas.drawRect(ev.left + r * 0.03f, ev.bottom - r * 0.022f, ev.left + r * 0.03f + (ev.width() - r * 0.06f) * p, ev.bottom - r * 0.012f, fill)
             }
-            playerIcon(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.035f, 0, music.playing, ink)
-            playerIcon(canvas, cx + r * 0.67f, cy + r * 0.31f, r * 0.035f, 1, music.playing, ink)
-            playerIcon(canvas, cx + r * 0.82f, cy + r * 0.31f, r * 0.035f, 2, music.playing, ink)
+            playerIcon(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.045f, 0, music.playing, ink)
+            playerIcon(canvas, cx + r * 0.67f, cy + r * 0.31f, r * 0.045f, 1, music.playing, ink)
+            playerIcon(canvas, cx + r * 0.82f, cy + r * 0.31f, r * 0.045f, 2, music.playing, ink)
         } else {
             val event = textOf(EVENT) ?: "SIN EVENTOS"
             canvas.drawText(event.uppercase(loc).take(26), cx, cy + r * 0.335f, text)
-            drawCalendar(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.04f, t.dayOfMonth, ink, bg)
-            drawMoon(canvas, cx + r * 0.69f, cy + r * 0.31f, r * 0.045f, t, ink, bg)
+            drawCalendar(canvas, cx - r * 0.69f, cy + r * 0.31f, r * 0.052f, t.dayOfMonth, ink, bg)
+            drawMoon(canvas, cx + r * 0.69f, cy + r * 0.31f, r * 0.058f, t, ink, bg)
         }
 
         // Hora mundial, ritmo y pasos
@@ -437,9 +458,9 @@ class ClassicRenderer(
         canvas.drawText(world, cx - r * 0.40f, cy + r * 0.49f, text)
         canvas.drawText(hr, cx, cy + r * 0.49f, text)
         canvas.drawText(steps, cx + r * 0.38f, cy + r * 0.49f, text)
-        text.textSize = r * 0.06f
+        text.textSize = r * 0.066f
         canvas.drawText(city.uppercase(loc).take(6), cx - r * 0.40f, cy + r * 0.60f, text)
-        drawHeart(canvas, cx, cy + r * 0.575f, r * 0.03f, ink)
+        drawHeart(canvas, cx, cy + r * 0.575f, r * 0.042f, ink)
         canvas.drawText("PASOS", cx + r * 0.38f, cy + r * 0.60f, text)
 
         stroke.color = Color.argb(70, Color.red(ink), Color.green(ink), Color.blue(ink))
@@ -449,10 +470,10 @@ class ClassicRenderer(
         // Batería
         val pct = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
         fill.color = ink
-        val bx = cx - r * 0.10f
+        val bx = cx - r * 0.12f
         val by = cy + r * 0.79f
-        canvas.drawRoundRect(RectF(bx - r * 0.02f, by - r * 0.05f, bx + r * 0.02f, by + r * 0.01f), r * 0.006f, r * 0.006f, fill)
-        canvas.drawRect(bx - r * 0.008f, by - r * 0.058f, bx + r * 0.008f, by - r * 0.05f, fill)
+        canvas.drawRoundRect(RectF(bx - r * 0.028f, by - r * 0.07f, bx + r * 0.028f, by + r * 0.012f), r * 0.008f, r * 0.008f, fill)
+        canvas.drawRect(bx - r * 0.011f, by - r * 0.082f, bx + r * 0.011f, by - r * 0.07f, fill)
         text.textSize = r * 0.08f
         canvas.drawText(if (pct >= 0) "$pct%" else "--", cx + r * 0.05f, by + r * 0.01f, text)
 
