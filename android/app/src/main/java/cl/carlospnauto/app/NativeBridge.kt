@@ -84,6 +84,10 @@ class NativeBridge(private val context: Context) {
         NativeResume.webSounding()
     }
 
+    /** La página ya suena y toma la canción del reproductor del teléfono: su segundo (ms) o -1 */
+    @JavascriptInterface
+    fun takeOver(): Long = NativeResume.takeOver()
+
     @JavascriptInterface
     fun inPip(): Boolean = MainActivity.pipOn
 

@@ -1659,9 +1659,14 @@ export default function MusicPlayerBar() {
     }
   }, [useAudio, audioUrl, isPlaying, handleAutoplayBlocked, eqActive, eqEpoch])
 
+  // Paso del reproductor del teléfono a la página sin cortes: la página carga y empieza en silencio
+  // mientras el teléfono sigue sonando; cuando ya avanza, toma el segundo exacto del teléfono, este
+  // se apaga y la página sube el volumen (antes el teléfono se pausaba y había un silencio)
+  const silentRef = useRef<{ id: string; until: number; t0: number } | null>(null)
+  const silentOn = () => !!silentRef.current && Date.now() < silentRef.current.until
   useEffect(() => {
     const el = playerRef.current
-    if (useAudio && el) el.volume = isMuted ? 0 : volume
+    if (useAudio && el) el.volume = silentOn() || isMuted ? 0 : volume
   }, [useAudio, audioUrl, volume, isMuted, eqActive, eqEpoch])
 
   // Segundo exacto y duración de lo que suena (la letra karaoke los lee varias veces por segundo)
@@ -1721,6 +1726,22 @@ export default function MusicPlayerBar() {
       if (!el.paused && !el.muted) markSounding(el.currentTime)
       const st = useMusicStore.getState()
       const cur = st.queue[st.currentIndex]
+      // Paso desde el teléfono: la página ya avanza en silencio → toma el segundo del teléfono
+      const sh = silentRef.current
+      if (sh && cur && cur.id.replace(/^yta-/, '') === sh.id && !el.paused) {
+        if (sh.t0 < 0) sh.t0 = el.currentTime
+        else if (el.currentTime > sh.t0 + 0.3) {
+          silentRef.current = null
+          let ms = -1
+          try {
+            ms = Number((getNative() as unknown as { takeOver?: () => number } | null)?.takeOver?.() ?? -1)
+          } catch {}
+          try {
+            if (ms > 0 && isFinite(el.duration) && ms / 1000 < el.duration - 1) el.currentTime = ms / 1000 + 0.1
+          } catch {}
+          el.volume = st.isMuted ? 0 : st.volume
+        }
+      }
       // Ya suena: la tarjeta tocada deja de mostrar "cargando"
       if (el.currentTime > 0.2 && cur && st.soundingId !== cur.id) st.setSoundingId(cur.id)
       const live = !!cur?.streamUrl
@@ -2343,9 +2364,23 @@ export default function MusicPlayerBar() {
     // ESA canción y en ese segundo. Si la canción no está en la lista de la página, se agrega
     // después de la actual (antes se quedaba en la anterior, la que ya había terminado, y la
     // ponía en el segundo de la otra)
-    const resumeFromPhone = (t: { id: string; ms: number; playing: boolean; title?: string; artist?: string; artwork?: string }) => {
+    const resumeFromPhone = (t: { id: string; ms: number; playing: boolean; title?: string; artist?: string; artwork?: string; silent?: boolean }) => {
       const st = useMusicStore.getState()
       const bare = t.id.replace(/^yta-/, '')
+      if (t.silent && t.playing) {
+        silentRef.current = { id: bare, until: Date.now() + 15000, t0: -1 }
+        const el0 = playerRef.current as unknown as HTMLMediaElement | null
+        if (el0) el0.volume = 0
+        // No logró sonar en 15 s: sigue el teléfono (la página se pausa y recupera su volumen)
+        setTimeout(() => {
+          if (silentRef.current?.id !== bare) return
+          silentRef.current = null
+          const el = playerRef.current as unknown as HTMLMediaElement | null
+          const s2 = useMusicStore.getState()
+          s2.setIsPlaying(false)
+          if (el) el.volume = s2.isMuted ? 0 : s2.volume
+        }, 15000)
+      }
       const sec = Math.max(0, (Number(t.ms) || 0) / 1000)
       const at = sec > 1 ? sec : undefined
       const cur = st.queue[st.currentIndex]
@@ -2382,7 +2417,8 @@ export default function MusicPlayerBar() {
       useMusicStore.getState().playIndex(idx)
       useMusicStore.setState({ isPlaying: t.playing })
     }
-    ;(window as unknown as { __cpnResume?: (t: { id: string; ms: number; playing: boolean }) => void }).__cpnResume = resumeFromPhone
+    // (v2: sabe hacer el paso en silencio)
+    ;(window as unknown as { __cpnResume?: unknown }).__cpnResume = Object.assign(resumeFromPhone, { v: 2 })
     ;(window as unknown as { __cpnNativeAction?: (a: string) => void }).__cpnNativeAction = (a: string) => {
       const st = useMusicStore.getState()
       if (a === 'play') {

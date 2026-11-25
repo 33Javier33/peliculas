@@ -270,17 +270,27 @@ object NativeResume {
             .put("title", t?.optString("title").orEmpty())
             .put("artist", t?.optString("artist").orEmpty())
             .put("artwork", t?.optString("artwork").orEmpty())
-        val js = "window.__cpnResume ? (window.__cpnResume($info), 'ok') : " +
+        // Página nueva (v2): carga en silencio mientras esto sigue sonando y luego toma el segundo
+        // exacto (takeOver), sin silencio entre medio
+        if (wasPlaying) info.put("silent", true)
+        val js = "window.__cpnResume && window.__cpnResume.v >= 2 ? (window.__cpnResume($info), 'silent') : " +
+            "window.__cpnResume ? (window.__cpnResume($info), 'ok') : " +
             "(window.__cpnNativeAction ? (window.__cpnNativeAction('resume:$id:$ms:${if (wasPlaying) 1 else 0}'), 'ok') : 'none')"
-        MainActivity.runOnPage(js) { ok ->
-            if (!ok) {
+        MainActivity.evalOnPage(js) { r ->
+            val res = r.orEmpty()
+            if (!res.contains("ok") && !res.contains("silent")) {
                 // La página aún carga: se reintenta (sigue sonando aquí mientras tanto)
                 if (n < 40) main.postDelayed({ tryHandOver(id, position(), playing, since, n + 1) }, 500) else handingOver = false
-                return@runOnPage
+                return@evalOnPage
             }
             if (!wasPlaying) {
                 stop()
-                return@runOnPage
+                return@evalOnPage
+            }
+            if (res.contains("silent")) {
+                // Sigue sonando aquí hasta que la página lo tome; si en 16 s no lo tomó, sigue aquí
+                main.postDelayed({ if (active) handingOver = false }, 16000)
+                return@evalOnPage
             }
             if (prepared) runCatching { player?.pause() }
             main.postDelayed({
@@ -294,6 +304,14 @@ object NativeResume {
                 }
             }, 8000)
         }
+    }
+
+    /** La página ya suena (en silencio): toma el segundo en que va este reproductor, que se apaga */
+    fun takeOver(): Long {
+        if (!active) return -1L
+        val p = position()
+        main.post { stop() }
+        return p
     }
 
     /** La página está sonando con la app a la vista: este reproductor sobra */

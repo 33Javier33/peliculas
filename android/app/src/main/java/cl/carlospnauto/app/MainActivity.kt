@@ -537,6 +537,15 @@ class MainActivity : AppCompatActivity() {
         @Volatile var shownNow = false
         fun isShown() = shownNow
 
+        /** Ejecuta código en la página y entrega lo que respondió (null si no hay página) */
+        fun evalOnPage(js: String, done: (String?) -> Unit) {
+            main.post {
+                val a = current?.get()
+                if (a == null) done(null)
+                else a.web.evaluateJavascript(js) { r -> done(r) }
+            }
+        }
+
         /** Ejecuta código en la página; [done] dice si respondió «ok» (false si no hay página) */
         fun runOnPage(js: String, done: (Boolean) -> Unit) {
             main.post {
