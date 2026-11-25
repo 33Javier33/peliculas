@@ -26,8 +26,13 @@ export default function VersionWatcher() {
 
   useEffect(() => {
     let cancelled = false
-    const check = () =>
-      fetch('/api/version', { cache: 'no-store' })
+    // Como mucho una consulta cada 15 min (antes se consultaba al volver a la app y en cada cambio
+    // de sección: muchas llamadas al servidor)
+    let lastCheck = 0
+    const check = () => {
+      if (Date.now() - lastCheck < 15 * 60 * 1000) return
+      lastCheck = Date.now()
+      return fetch('/api/version', { cache: 'no-store' })
         .then((r) => r.json())
         .then((d: { version?: string }) => {
           if (cancelled || !d.version || d.version === CURRENT) return
@@ -35,8 +40,9 @@ export default function VersionWatcher() {
           if (document.hidden) reloadIfQuiet()
         })
         .catch(() => {})
+    }
     const t0 = setTimeout(check, 20000)
-    const iv = setInterval(check, 10 * 60 * 1000)
+    const iv = setInterval(check, 30 * 60 * 1000)
     // Al salir de la app o volver: se revisa (y si quedó en segundo plano en pausa, se carga ya)
     const onVis = () => {
       if (document.hidden && stale.current) reloadIfQuiet()

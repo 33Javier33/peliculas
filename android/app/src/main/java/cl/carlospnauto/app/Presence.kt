@@ -40,9 +40,16 @@ object Presence {
                 looping = false
                 return
             }
+            // En pausa no se avisa nada periódicamente (cada aviso es una llamada al servidor, que
+            // se cobra en Vercel): el cambio a pausa ya se avisó al momento
+            if (!state.optBoolean("playing")) {
+                looping = false
+                return
+            }
             send()
-            // Con el canal en vivo conectado, el aviso al servidor es solo de respaldo
-            main.postDelayed(this, if (Live.isJoined()) 30_000 else 10_000)
+            // Con el canal en vivo conectado, el aviso al servidor es solo de respaldo: cada 5 min
+            // (sin él, cada 1 min). Antes cada 10-30 s, también en pausa
+            main.postDelayed(this, if (Live.isJoined()) 5 * 60_000L else 60_000L)
         }
     }
 
@@ -61,19 +68,21 @@ object Presence {
     fun update(c: Context, playing: Boolean, track: JSONObject?) {
         ctx = c.applicationContext
         state = JSONObject().put("playing", playing).put("track", track ?: JSONObject.NULL)
-        if (!looping) {
+        if (!looping && playing) {
             looping = true
-            main.post(tick)
+            main.postDelayed(tick, 60_000)
         }
         // Al canal en vivo: al cambiar de canción o play/pausa, y si no cada 5 s (la posición avanza sola)
         val k = "$playing|${track?.optString("id") ?: ""}"
         val now = System.currentTimeMillis()
-        if (k != liveKey || now - liveAt > 5000) {
+        val changed = k != liveKey
+        if (changed || now - liveAt > 5000) {
             liveKey = k
             liveAt = now
             Live.state(myState())
         }
-        if (now - lastSent > 1500) send()
+        // Al servidor solo cuando cambia la canción o play/pausa (la posición va por el canal en vivo)
+        if (changed && now - lastSent > 1500) send()
     }
 
     /** Se detuvo la música: se avisa que ya no suena y se para el aviso periódico */

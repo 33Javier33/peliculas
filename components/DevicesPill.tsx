@@ -1,5 +1,6 @@
 'use client'
 
+import { isNativeApp } from '@/lib/native'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Smartphone, Laptop, Play, Pause, SkipBack, SkipForward, ArrowRightLeft, X } from 'lucide-react'
@@ -26,19 +27,22 @@ export default function DevicesPill() {
     if (token) presenceNow()
   }, [token, playingHere, trackId])
 
-  // Aviso periódico: cada 8 s mientras algo suena o hay otros dispositivos, si no cada 15 s; cada 30 s con canal en vivo
+  // Aviso periódico de respaldo (cada aviso es una llamada al servidor, que se cobra en Vercel):
+  // - Con el canal en vivo (lo normal) las órdenes y cambios llegan al instante: cada 5 min
+  // - Sin canal en vivo: cada 1 min mientras suena o se ve la página; escondida y en pausa, nada
+  // - En la app de Android el teléfono ya avisa por su cuenta: la página no repite el aviso
+  // (Antes cada 8-30 s, y en la app dos veces: la página y el teléfono)
   useEffect(() => {
     if (!token) return
     let alive = true
     let t: ReturnType<typeof setTimeout>
     const tick = async () => {
       if (!alive) return
-      if (document.visibilityState === 'visible' || localState().playing) await presenceNow()
-      const busy = localState().playing || useDevicesStore.getState().others.some((o) => o.playing || o.track)
-      // Con el canal en vivo las órdenes y cambios llegan al instante: el aviso es solo de respaldo
-      if (alive) t = setTimeout(tick, liveReady() ? 30000 : busy ? 8000 : 15000)
+      const want = !isNativeApp() && (document.visibilityState === 'visible' || localState().playing)
+      if (want) await presenceNow()
+      if (alive) t = setTimeout(tick, liveReady() ? 5 * 60000 : 60000)
     }
-    tick()
+    t = setTimeout(tick, 1000)
     return () => {
       alive = false
       clearTimeout(t)
