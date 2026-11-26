@@ -26,11 +26,11 @@ export default function VersionWatcher() {
 
   useEffect(() => {
     let cancelled = false
-    // Como mucho una consulta cada 15 min (antes se consultaba al volver a la app y en cada cambio
-    // de sección: muchas llamadas al servidor)
+    // Como mucho una consulta cada 2 min (la respuesta la guarda el CDN de Vercel: casi no gasta). Antes se consultaba al volver a la app y en cada cambio
+    // de sección: muchas llamadas al servidor.
     let lastCheck = 0
     const check = () => {
-      if (Date.now() - lastCheck < 15 * 60 * 1000) return
+      if (Date.now() - lastCheck < 2 * 60 * 1000) return
       lastCheck = Date.now()
       return fetch('/api/version', { cache: 'no-store' })
         .then((r) => r.json())

@@ -808,6 +808,25 @@ export default function MusicPlayerBar() {
       ? audioSrc.candidates[audioSrc.index]?.url
       : undefined
   const isAudioLoading = useAudio && !audioUrl
+  // Canción que el reproductor tiene cargada de verdad. Al pasar a otra canción, mientras se busca
+  // su audio, la anterior se descarga del reproductor: si no, algo podía volver a darle play y
+  // sonaba una canción vieja con la pantalla mostrando la nueva
+  const srcIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (audioUrl) {
+      srcIdRef.current = currentId ?? null
+      return
+    }
+    if (!useAudio || !srcIdRef.current || srcIdRef.current === currentId) return
+    srcIdRef.current = null
+    const el = playerRef.current as unknown as HTMLMediaElement | null
+    if (!el) return
+    try {
+      el.pause()
+      el.removeAttribute('src')
+      el.load()
+    } catch {}
+  }, [audioUrl, currentId, useAudio])
   // ¿Suena desde otra fuente que no sea la copia descargada (internet o la pre-descarga)? Se recuerda
   // para no cambiarle la fuente si se descarga mientras suena (empezaba de nuevo)
   if (currentId && audioUrl && audioUrl !== offlineUrl?.url) streamingIdRef.current = currentId
@@ -1734,13 +1753,16 @@ export default function MusicPlayerBar() {
       const sh = silentRef.current
       // La página terminó en otra canción (no pudo con la del teléfono y pasó a la siguiente): manda
       // la página, el teléfono se apaga y todo muestra lo mismo
-      if (sh && cur && cur.id.replace(/^yta-/, '') !== sh.id && !el.paused && el.currentTime > 0.3) {
+      // (Se mira la canción que el reproductor tiene CARGADA, no la que muestra la pantalla: mientras
+      // carga la nueva, el reproductor aún puede tener la anterior)
+      const loaded = srcIdRef.current?.replace(/^yta-/, '') ?? ''
+      if (sh && cur && loaded === cur.id.replace(/^yta-/, '') && loaded !== sh.id && !el.paused && el.currentTime > 0.3) {
         silentRef.current = null
         try {
           ;(getNative() as unknown as { takeOver?: () => number } | null)?.takeOver?.()
         } catch {}
         el.volume = st.isMuted ? 0 : st.volume
-      } else if (sh && cur && cur.id.replace(/^yta-/, '') === sh.id && !el.paused) {
+      } else if (sh && cur && cur.id.replace(/^yta-/, '') === sh.id && loaded === sh.id && !el.paused) {
         if (sh.t0 < 0) sh.t0 = el.currentTime
         else if (el.currentTime > sh.t0 + 0.3) {
           silentRef.current = null
@@ -2420,6 +2442,18 @@ export default function MusicPlayerBar() {
         st.setIsPlaying(t.playing)
         return
       }
+      // Otra canción: la que tenga cargada el reproductor se detiene y se descarga YA (así nunca
+      // puede volver a sonar una canción vieja mientras carga la del teléfono)
+      const old = playerRef.current as unknown as HTMLMediaElement | null
+      if (old) {
+        try {
+          old.pause()
+          old.removeAttribute('src')
+          old.load()
+        } catch {}
+        if (t.silent && t.playing) old.volume = 0
+      }
+      srcIdRef.current = null
       let idx = st.queue.findIndex((v) => v.id.replace(/^yta-/, '') === bare)
       let queue = st.queue
       if (idx < 0) {
