@@ -22,7 +22,12 @@ export default function UsageReporter() {
       if (t && !t.streamUrl) reportPlay(t)
     })
     const onError = (e: ErrorEvent) => reportError('js', e.error ?? e.message)
-    const onReject = (e: PromiseRejectionEvent) => reportError('promesa', e.reason)
+    const onReject = (e: PromiseRejectionEvent) => {
+      // Un archivo externo que no cargó (llega como «evento»): se anota y no se trata como error
+      // grave de la página
+      if (typeof Event !== 'undefined' && e.reason instanceof Event) e.preventDefault()
+      reportError('promesa', e.reason)
+    }
     window.addEventListener('error', onError)
     window.addEventListener('unhandledrejection', onReject)
     // La app del teléfono se cerró por un error la vez anterior (APK nuevas): se reporta

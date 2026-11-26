@@ -29,7 +29,7 @@ async function adminEmail(d: SupabaseClient, token: string | undefined): Promise
   return email && ADMINS.includes(email) ? email : null
 }
 
-type Err = { mensaje: string; veces: number; dispositivos: number; ultima: string; donde: string[] | null; paginas: string[] | null; versiones: string[] | null; sinInternet: number }
+type Err = { mensaje: string; veces: number; dispositivos: number; primera?: string; ultima: string; casos?: unknown[] | null; donde: string[] | null; paginas: string[] | null; versiones: string[] | null; sinInternet: number }
 type Resumen = { errores: Err[]; resueltos: { mensaje: string; nota: string; at: string }[] } & Record<string, unknown>
 
 async function summary(d: SupabaseClient) {
@@ -56,9 +56,21 @@ async function summary(d: SupabaseClient) {
       }
     })
     .sort((a, b) => Number(!!a.resuelto) - Number(!!b.resuelto) || b.dispositivos - a.dispositivos || b.veces - a.veces)
+  // Versiones: cuál es la más nueva de cada app (las demás están desactualizadas)
+  type V = { app: string; version: string; dispositivos: number; ultimaVez: string }
+  const num = (v: string) => v.split('.').map((x) => parseInt(x, 10) || 0)
+  const newer = (a: string, b: string) => {
+    const x = num(a), y = num(b)
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0)
+    return false
+  }
+  const latest: Record<string, string> = {}
+  for (const v of (r.versiones as V[] | undefined) ?? []) if (!latest[v.app] || newer(v.version, latest[v.app])) latest[v.app] = v.version
+  const versiones = ((r.versiones as V[] | undefined) ?? []).map((v) => ({ ...v, ultima: v.version === latest[v.app] }))
   const { resueltos: _r, ...rest } = r
   void _r
-  return { ok: true, faltaSql: false, ...rest, errores }
+  // (Sin «diario» es el SQL de la primera versión: hay que volver a ejecutarlo)
+  return { ok: true, faltaSql: false, sqlViejo: !('diario' in r), ...rest, versiones, errores }
 }
 
 export async function POST(request: NextRequest) {

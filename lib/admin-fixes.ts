@@ -5,6 +5,16 @@ export type Fix = { causa: string; solucion: string; grave: boolean }
 
 const RULES: { test: RegExp; where?: RegExp; fix: Fix }[] = [
   {
+    test: /No se pudo cargar un recurso externo|\[object Event\]/i,
+    fix: {
+      causa:
+        'Un archivo de otro sitio no se pudo cargar (por ejemplo el reproductor de YouTube, una carátula o la conexión en vivo entre dispositivos), casi siempre por falta de conexión o porque la red lo bloqueó. Los que dicen «[object Event]» son de antes: ahora el mensaje dice cuál archivo fue.',
+      solucion:
+        'Si pasa de vez en cuando, nada: la app sigue funcionando y lo reintenta. Si se repite mucho con el mismo sitio, revisar ese servicio. Desde esta versión el aviso dice qué archivo y de qué sitio era.',
+      grave: false,
+    },
+  },
+  {
     test: /ChunkLoad|Loading chunk|Failed to fetch dynamically|importing a module script/i,
     fix: {
       causa: 'Se publicó una versión nueva de la web mientras la app estaba abierta y faltó una parte de la anterior.',

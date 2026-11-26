@@ -4,6 +4,16 @@
 import { supabasePublic } from '@/lib/supabase-public'
 import { getNative, isNativeApp } from '@/lib/native'
 import { isMusicApp } from '@/lib/app-flavor'
+import { useAccountStore } from '@/store/accountStore'
+
+/** Correo de la cuenta personal (si hay sesión): el panel muestra a quién le pasa cada cosa */
+const email = () => {
+  try {
+    return useAccountStore.getState().email ?? ''
+  } catch {
+    return ''
+  }
+}
 
 const DEVICE_KEY = 'cpn-uso-device'
 
@@ -49,7 +59,7 @@ export function pingDaily(hasAccount: boolean) {
   } catch {
     return
   }
-  rpc('uso_ping', { p_device: device(), p_app: usageApp(), p_version: usageVersion(), p_cuenta: hasAccount })
+  rpc('uso_ping', { p_device: device(), p_app: usageApp(), p_version: usageVersion(), p_cuenta: hasAccount, p_email: hasAccount ? email() : '' })
 }
 
 let lastPlay = ''
@@ -59,17 +69,36 @@ export function reportPlay(t: { id: string; title: string; channelTitle?: string
   lastPlay = t.id
   const title = t.title.replace(/^[^-–]+[-–]\s*/, '') || t.title
   const artist = (/ [-–] /.test(t.title) ? t.title.split(/ [-–] /)[0] : '') || t.channelTitle || ''
-  rpc('uso_play', { p_track: t.id.replace(/^yta-/, ''), p_titulo: title, p_artista: artist })
+  rpc('uso_play', { p_track: t.id.replace(/^yta-/, ''), p_titulo: title, p_artista: artist, p_device: device() })
 }
 
 // Errores que no dicen nada útil (o que no son de la app)
 const NOISE = /ResizeObserver loop|^Script error\.?$|AbortError|The play\(\) request was interrupted|NotAllowedError|cancelled|Load failed$|top\.GLOBALS|chrome-extension:/i
 
+/**
+ * El texto del error. Algunos llegan como un «evento» del navegador (salía «[object Event]»): casi
+ * siempre es un archivo externo que no se pudo cargar (sin conexión o bloqueado); se dice cuál.
+ */
+function describe(err: unknown): string {
+  if (typeof err === 'string') return err
+  if (typeof Event !== 'undefined' && err instanceof Event) {
+    const t = err.target as (Element & { src?: string; href?: string; url?: string; currentSrc?: string }) | null
+    const tag = t && 'tagName' in t ? t.tagName.toLowerCase() : t && 'url' in t ? 'conexión en vivo' : 'recurso'
+    let where = ''
+    try {
+      const u = new URL(String(t?.currentSrc || t?.src || t?.href || t?.url || ''), location.href)
+      where = ` ${u.hostname}${u.pathname.slice(0, 60)}`
+    } catch {}
+    return `No se pudo cargar un recurso externo (${tag}${where}) · evento «${err.type}»`
+  }
+  const e = err as { message?: string; name?: string } | null
+  return String(e?.message || e?.name || err || '')
+}
+
 /** Un error de la app (como mucho una vez cada 6 h el mismo, por dispositivo) */
 export function reportError(where: string, err: unknown) {
   try {
-    const e = err as { message?: string; name?: string } | string
-    let msg = typeof e === 'string' ? e : String(e?.message || e?.name || e || '')
+    let msg = describe(err)
     msg = msg.trim().slice(0, 500)
     if (!msg || NOISE.test(msg)) return
     const key = 'cpn-uso-err'
@@ -89,6 +118,7 @@ export function reportError(where: string, err: unknown) {
       p_mensaje: msg,
       p_online: typeof navigator === 'undefined' ? true : navigator.onLine,
       p_pagina: typeof location === 'undefined' ? '' : location.pathname.slice(0, 200),
+      p_email: email(),
     })
   } catch {}
 }
