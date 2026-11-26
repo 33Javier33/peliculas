@@ -320,11 +320,13 @@ object NativeResume {
     }
 
     private fun webSoundingNow() {
-        if (!active || handingOver) return
-        // Nunca dos a la vez (dos copias desfasadas de la misma canción suenan «chicharreadas»):
-        // con la app a la vista manda la página; escondida, sigue el teléfono y la página se pausa
-        if (MainActivity.isShown() && System.currentTimeMillis() - startedAt > 3000) stop()
-        else if (playing) MainActivity.sendAction("pause")
+        if (!active) return
+        // Nunca dos a la vez. Con la app a la vista y la página sonando de verdad (con volumen), manda
+        // la página: este se apaga y la notificación y el widget pasan a mostrar lo de la página
+        // (antes, si el paso fallaba, el widget seguía con la canción de aquí y la app con otra)
+        if (MainActivity.isShown()) return stop()
+        // Escondida: sigue el teléfono y la página se pausa
+        if (!handingOver && playing) MainActivity.sendAction("pause")
     }
 
     private var failedAt = 0L
@@ -344,6 +346,8 @@ object NativeResume {
         main.removeCallbacks(ticker)
         release()
         dropFocus()
+        // La notificación y el widget vuelven a mostrar lo de la página
+        MainActivity.toWeb("window.__cpnReportState && window.__cpnReportState()")
     }
 
     private fun release() {

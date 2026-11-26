@@ -1726,12 +1726,21 @@ export default function MusicPlayerBar() {
   const handleTimeUpdate = useCallback(
     (e: React.SyntheticEvent<HTMLMediaElement>) => {
       const el = e.currentTarget
-      if (!el.paused && !el.muted) markSounding(el.currentTime)
+      // (En silencio, mientras recibe la canción del teléfono, no cuenta como «sonando»)
+      if (!el.paused && !el.muted && !silentRef.current) markSounding(el.currentTime)
       const st = useMusicStore.getState()
       const cur = st.queue[st.currentIndex]
       // Paso desde el teléfono: la página ya avanza en silencio → toma el segundo del teléfono
       const sh = silentRef.current
-      if (sh && cur && cur.id.replace(/^yta-/, '') === sh.id && !el.paused) {
+      // La página terminó en otra canción (no pudo con la del teléfono y pasó a la siguiente): manda
+      // la página, el teléfono se apaga y todo muestra lo mismo
+      if (sh && cur && cur.id.replace(/^yta-/, '') !== sh.id && !el.paused && el.currentTime > 0.3) {
+        silentRef.current = null
+        try {
+          ;(getNative() as unknown as { takeOver?: () => number } | null)?.takeOver?.()
+        } catch {}
+        el.volume = st.isMuted ? 0 : st.volume
+      } else if (sh && cur && cur.id.replace(/^yta-/, '') === sh.id && !el.paused) {
         if (sh.t0 < 0) sh.t0 = el.currentTime
         else if (el.currentTime > sh.t0 + 0.3) {
           silentRef.current = null
@@ -2348,6 +2357,9 @@ export default function MusicPlayerBar() {
       })
     }
     send()
+    // El teléfono pide el estado (al apagar su reproductor: el widget y la notificación muestran
+    // al instante lo que suena en la página)
+    ;(window as unknown as { __cpnReportState?: () => void }).__cpnReportState = send
     // La notificación avanza sola; se corrige cada tanto (y al cargar la duración de la canción)
     const t1 = setTimeout(send, 1500)
     const iv = isPlaying ? setInterval(send, 15000) : undefined
