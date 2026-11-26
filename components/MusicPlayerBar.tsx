@@ -1914,6 +1914,8 @@ export default function MusicPlayerBar() {
   // con lo guardado en el teléfono, al instante)
   const pausedAtRef = useRef(0)
   const resumeReloadRef = useRef(false)
+  // Canción (dirección) que quedó en pausa
+  const pausedSrcRef = useRef('')
   const handlePlay = useCallback(() => {
     interruptedAtRef.current = 0
     setIsPlaying(true)
@@ -1923,7 +1925,11 @@ export default function MusicPlayerBar() {
     if (!el || since < 10000 || resumeReloadRef.current || el.ended) return
     const src = el.currentSrc || el.src || ''
     const t = el.currentTime
-    if (!/^https?:/.test(src) || !(t > 1) || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl) return
+    // Solo si es la MISMA canción que quedó en pausa: si entretanto cambió (por ejemplo al abrir la
+    // app mientras sonaba el teléfono), el segundo era de otra canción y la nueva saltaba al final
+    // y pasaba a la siguiente
+    const same = !!pausedSrcRef.current && src.replace(/\?.*$/, '') === pausedSrcRef.current.replace(/\?.*$/, '')
+    if (!same || !/^https?:/.test(src) || !(t > 1) || useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.streamUrl) return
     resumeReloadRef.current = true
     const done = () => {
       resumeReloadRef.current = false
@@ -1932,7 +1938,7 @@ export default function MusicPlayerBar() {
       'loadedmetadata',
       () => {
         try {
-          el.currentTime = t
+          if (!isFinite(el.duration) || t < el.duration - 1) el.currentTime = t
         } catch {}
         el.play()?.catch?.(() => {})
         setTimeout(done, 500)
@@ -1946,6 +1952,10 @@ export default function MusicPlayerBar() {
     // (La pausa del propio «pedir de nuevo» no cuenta)
     if (resumeReloadRef.current) return
     pausedAtRef.current = Date.now()
+    try {
+      const pe = e?.currentTarget ?? (playerRef.current as unknown as HTMLMediaElement | null)
+      pausedSrcRef.current = pe?.currentSrc || pe?.src || ''
+    } catch {}
     // Al terminar una canción también llega "pause": lo gestiona onEnded
     if (e?.currentTarget?.ended) return
     // La pausa la hizo la app porque suena el video del reproductor
@@ -2382,6 +2392,9 @@ export default function MusicPlayerBar() {
     const resumeFromPhone = (t: { id: string; ms: number; playing: boolean; title?: string; artist?: string; artwork?: string; silent?: boolean }) => {
       const st = useMusicStore.getState()
       const bare = t.id.replace(/^yta-/, '')
+      // Lo que sigue es otra canción (la del teléfono): no se «retoma la pausa» de la anterior
+      pausedAtRef.current = 0
+      pausedSrcRef.current = ''
       if (t.silent && t.playing) {
         silentRef.current = { id: bare, until: Date.now() + 15000, t0: -1 }
         const el0 = playerRef.current as unknown as HTMLMediaElement | null
@@ -2443,9 +2456,16 @@ export default function MusicPlayerBar() {
         // avanza, se vuelve a pedir el audio desde el mismo segundo.
         const el0 = playerRef.current as unknown as HTMLMediaElement | null
         const t0 = el0?.currentTime ?? 0
+        const id0 = st.queue[st.currentIndex]?.id
+        const src0 = (el0?.currentSrc || '').replace(/\?.*$/, '')
         setTimeout(() => {
           const el = playerRef.current as unknown as HTMLMediaElement | null
           if (!useMusicStore.getState().isPlaying || !el) return
+          // Entretanto cambió la canción (al abrir la app sigue la del teléfono, o se pasó a otra):
+          // este respaldo era para la anterior. Antes se aplicaba igual y llevaba la canción nueva
+          // al segundo de la anterior (si era más corta, terminaba y pasaba a la siguiente)
+          const s2 = useMusicStore.getState()
+          if (s2.queue[s2.currentIndex]?.id !== id0 || (el.currentSrc || '').replace(/\?.*$/, '') !== src0) return
           // Música en la TV: el teléfono no vuelve a sonar por la notificación
           if (castKind() === 'music' && useCastStore.getState().device) return
           if (!el.paused && el.currentTime > t0 + 0.5) return
