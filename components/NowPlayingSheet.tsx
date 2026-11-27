@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import LiveArtwork from '@/components/LiveArtwork'
 import InlineVideo from '@/components/InlineVideo'
+import SyncedVideo from '@/components/SyncedVideo'
 import FollowByName from '@/components/FollowByName'
 import TrackMenu from '@/components/TrackMenu'
 import LyricsSheet from '@/components/LyricsSheet'
@@ -77,7 +78,9 @@ interface NowPlayingSheetProps {
   /** Pasar de ese video a solo la canción (audio), desde el mismo segundo */
   onSongOnly?: () => void
   /** Video de la canción dentro del reproductor (en el lugar de la carátula) */
-  inline?: { id: string; start: number } | null
+  inline?: { id: string; start: number; native?: boolean } | null
+  /** El video «solo imagen» del teléfono no cargó */
+  onInlineNativeFail?: () => void
   inlineTimeRef?: React.MutableRefObject<number>
   onInlinePlaying?: () => void
   onInlineEnded?: () => void
@@ -108,6 +111,7 @@ export default function NowPlayingSheet({
   onInlinePlaying,
   onInlineEnded,
   onInlineUnavailable,
+  onInlineNativeFail,
   onInlineExpand,
   onInlineState,
   inlineControlRef,
@@ -340,6 +344,14 @@ export default function NowPlayingSheet({
             >
               {inline && inlineTimeRef && (
                 <div className="absolute inset-0 z-[2]">
+                  {inline.native ? (
+                    <SyncedVideo
+                      key={`${inline.id}-${(inline as { key?: number }).key ?? 0}`}
+                      videoId={inline.id}
+                      onFail={() => onInlineNativeFail?.()}
+                      onFloat={onInlineFloat}
+                    />
+                  ) : (
                   <InlineVideo
                     key={`${inline.id}-${(inline as { key?: number }).key ?? 0}`}
                     videoId={inline.id}
@@ -354,6 +366,7 @@ export default function NowPlayingSheet({
                     onFloat={onInlineFloat}
                     onUnavailable={onInlineUnavailable}
                   />
+                  )}
                 </div>
               )}
               {isLive ? (

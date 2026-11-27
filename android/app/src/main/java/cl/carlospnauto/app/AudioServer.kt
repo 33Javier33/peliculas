@@ -197,7 +197,10 @@ object AudioServer {
         }
         Regex("^/c([va])/([A-Za-z0-9_-]{11})$").find(path)?.let { cm ->
             return try {
-                stream(cm.groupValues[2], session.headers["range"], retry = true, castPart = cm.groupValues[1])
+                // ?h=480: la imagen para mostrar en el teléfono (más liviana que la de la TV)
+                val h = session.parameters["h"]?.firstOrNull()?.toIntOrNull()
+                val part = if (cm.groupValues[1] == "v" && h != null) "m${h.coerceIn(144, 1080)}" else cm.groupValues[1]
+                stream(cm.groupValues[2], session.headers["range"], retry = true, castPart = part)
             } catch (e: Exception) {
                 Log.w(TAG, "Sin parte ${cm.groupValues[1]} para ${cm.groupValues[2]}: ${e.message}")
                 cors(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR, "text/plain", e.message ?: "error"))
@@ -352,6 +355,35 @@ object AudioServer {
     private class CastPart(val r: Resolved, val codec: String, val bitrate: Int, val initS: Int, val initE: Int, val idxS: Int, val idxE: Int, val w: Int, val h: Int, val fps: Int)
     private class CastDash(val video: CastPart, val audio: CastPart, val duration: Long, val at: Long)
     private val dcache = ConcurrentHashMap<String, CastDash>()
+
+    // ===== Imagen del video para verla en el teléfono (sin sonido; el sonido es el de la canción) =====
+    private val pcache = ConcurrentHashMap<String, Resolved>()
+
+    /** Solo la imagen (MP4 H.264, sin sonido) hasta [maxH] de alto: liviana para el teléfono */
+    private fun resolvePhoneVideo(id: String, maxH: Int, fresh: Boolean): Resolved {
+        val key = "$id@$maxH"
+        val hit = pcache[key]
+        if (!fresh && hit != null && System.currentTimeMillis() - hit.at < 3 * 60 * 60 * 1000) return hit
+        val lock = locks.getOrPut("p:$key") { Any() }
+        synchronized(lock) {
+            pcache[key]?.let { if (!fresh || System.currentTimeMillis() - it.at < 20_000) if (System.currentTimeMillis() - it.at < 3 * 60 * 60 * 1000) return it }
+            val info = StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id")
+            fun height(v: org.schabi.newpipe.extractor.stream.VideoStream) = v.height.takeIf { it > 0 } ?: (v.resolution.filter { it.isDigit() }.take(4).toIntOrNull() ?: 0)
+            val vids = info.videoOnlyStreams.filter {
+                it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.MPEG_4 && (it.codec ?: "").startsWith("avc1")
+            }
+            val v = vids.filter { height(it) in 1..maxH }.maxByOrNull { height(it) * 1000 - it.fps }
+                ?: vids.minByOrNull { height(it) }
+                ?: throw IllegalStateException("YouTube no entregó imagen")
+            val loc: Localization? = null
+            val ua = if (YoutubeParsingHelper.isVisionOsStreamingUrl(v.content)) YoutubeParsingHelper.getVisionOsUserAgent(loc) else OkDownloader.USER_AGENT
+            Log.i(TAG, "Imagen $id: itag ${v.itag} ${height(v)}p ${v.codec}")
+            val r = Resolved(v.content, "video/mp4", ua, System.currentTimeMillis())
+            pcache[key] = r
+            if (pcache.size > 40) pcache.entries.minByOrNull { it.value.at }?.let { pcache.remove(it.key) }
+            return r
+        }
+    }
 
     private fun resolveCast(id: String, fresh: Boolean): CastDash {
         val hit = dcache[id]
@@ -779,7 +811,8 @@ object AudioServer {
 
     private fun streamNet(id: String, start: Long, reqEnd: Long?, rangeHeader: String?, retry: Boolean, background: Boolean, video: Boolean, watch: Boolean, castPart: String): NanoHTTPD.Response {
 
-        val r = if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }
+        val r = if (castPart.startsWith("m")) resolvePhoneVideo(id, castPart.drop(1).toIntOrNull() ?: 480, fresh = !retry)
+            else if (castPart.isNotEmpty()) resolveCast(id, fresh = !retry).let { if (castPart == "v") it.video.r else it.audio.r }
             else if (watch) resolveWatch(id, fresh = !retry).first.let { if (it.mime == "muxed") Resolved(it.url, "video/mp4", it.userAgent, it.at) else it }
             else if (video) resolveVideo(id, fresh = !retry) else resolve(id, fresh = !retry, background = background)
         // Pedido hasta el final: la canción entera (de a tramos de 8 MB por dentro). El reproductor
@@ -804,13 +837,13 @@ object AudioServer {
         } catch (e: java.io.IOException) {
             conn.disconnect()
             if (!retry) throw e
-            if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
+            if (castPart.startsWith("m")) pcache.keys.filter { it.startsWith("$id@") }.forEach { pcache.remove(it) } else if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
             Thread.sleep(300)
             return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch, castPart = castPart)
         }
         if ((code == 403 || code == 410) && retry) {
             conn.disconnect()
-            if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
+            if (castPart.startsWith("m")) pcache.keys.filter { it.startsWith("$id@") }.forEach { pcache.remove(it) } else if (castPart.isNotEmpty()) dcache.remove(id) else if (watch) wcache.remove(id) else if (video) vcache.remove(id) else cache.remove(id)
             return stream(id, rangeHeader, retry = false, background = background, video = video, watch = watch, castPart = castPart)
         }
         if (code != 200 && code != 206) {

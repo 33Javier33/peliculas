@@ -62,6 +62,7 @@ import { cachedYtAudio, cacheYtAudio, isDesktop } from '@/lib/yt-audio-cache'
 import { tvSyncPos, nativeCast, nativeCastAvailable, nativeCastStop, nativeCastControl, castKind, openMirroring, canOpenMirroring, tvSync, castPosition } from '@/lib/native-cast'
 import { useCastStore } from '@/components/CastButton'
 import InlineVideo from '@/components/InlineVideo'
+import SyncedVideo, { syncedVideoUrl } from '@/components/SyncedVideo'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
@@ -605,7 +606,8 @@ export default function MusicPlayerBar() {
   const [videoModal, setVideoModal] = useState<{ id: string; title: string; channelTitle: string; startTime: number } | null>(null)
   // ===== Video dentro del reproductor grande (en el lugar de la carátula) =====
   // place: dentro del reproductor grande o en ventana flotante sobre la app
-  const [inline, setInline] = useState<{ id: string; start: number; place?: 'sheet' | 'float'; key?: number } | null>(null)
+  // native: el video es solo la imagen, pegada a la canción (que suena siempre): como YouTube Music
+  const [inline, setInline] = useState<{ id: string; start: number; place?: 'sheet' | 'float'; key?: number; native?: boolean } | null>(null)
   const inlineRef = useRef(inline)
   inlineRef.current = inline
   const inlineTimeRef = useRef(0)
@@ -624,7 +626,17 @@ export default function MusicPlayerBar() {
     const el = playerRef.current as unknown as HTMLMediaElement | null
     const start = el && isFinite(el.currentTime) ? el.currentTime : 0
     inlineOpenedAtRef.current = start
-    setInline({ id, start })
+    // App de Android: la imagen del video la da el teléfono y la canción sigue sonando tal cual
+    // (sin traspaso de sonido: nunca hay corte). Si no carga, el video de YouTube de siempre
+    setInline({ id, start, native: !!syncedVideoUrl(id) && useAudioRef.current })
+  }, [])
+  /** La imagen del teléfono no cargó: el video de YouTube (con el traspaso de sonido de antes) */
+  const nativeVideoFailed = useCallback(() => {
+    setInline((cur) => (cur && cur.native ? { ...cur, native: false, start: (playerRef.current as unknown as HTMLMediaElement | null)?.currentTime ?? cur.start, key: Date.now() } : cur))
+  }, [])
+  // El video «solo imagen» se pega al audio de la canción
+  useEffect(() => {
+    ;(window as unknown as { __cpnAudioEl?: () => HTMLMediaElement | null }).__cpnAudioEl = () => playerRef.current as unknown as HTMLMediaElement | null
   }, [])
   /** Del video a la canción, desde el mismo segundo (sin salir del reproductor) */
   const backToSong = useCallback((t?: number) => {
@@ -764,7 +776,7 @@ export default function MusicPlayerBar() {
       el.muted = false
       if (useMusicStore.getState().isPlaying) el.play()?.catch?.(() => {})
     }
-    setInline({ id: cur.id, start: at, place, key: Date.now() })
+    setInline({ id: cur.id, start: at, place, key: Date.now(), native: cur.native })
   }, [])
 
   // Ver el video desde donde va la canción (y al cerrarlo, la canción sigue desde donde quedó el video)
@@ -2283,7 +2295,7 @@ export default function MusicPlayerBar() {
     // Otra canción: suena su audio hasta que su video arranque
     videoOwnsRef.current = false
     if (!id) return setInline(null)
-    setInline({ id, start: 0, place: inlineRef.current.place })
+    setInline({ id, start: 0, place: inlineRef.current.place, native: !!syncedVideoUrl(id) && useAudioRef.current })
   }, [currentId]) // eslint-disable-line react-hooks/exhaustive-deps
   // Al minimizar el reproductor con el video puesto: el video no se pierde. Si se ve en la TV, se
   // abre la ventana de videos (lo que va en la TV, su tiempo y los que siguen en la cola); si se ve
@@ -2313,6 +2325,8 @@ export default function MusicPlayerBar() {
     const onVis = () => {
       if (appHidden()) {
         if (!inlineRef.current) return
+        // Video «solo imagen»: la canción nunca dejó de sonar; al bloquear solo deja de verse la imagen
+        if (inlineRef.current.native) return
         resume = { id: inlineRef.current.id, place: inlineRef.current.place }
         backToSong()
       } else if (resume) {
@@ -2887,6 +2901,7 @@ export default function MusicPlayerBar() {
         }}
         onWatchVideo={canWatchVideo ? (castingMusic ? () => castTrack(tvSyncPos(), true) : showInline) : undefined}
         inline={isFullOpen && inline?.place !== 'float' ? inline : null}
+        onInlineNativeFail={nativeVideoFailed}
         onInlineFloat={() => {
           // A la ventana flotante: se cierra el reproductor y el video sigue flotando sobre la app
           moveInline('float')
@@ -3012,6 +3027,18 @@ export default function MusicPlayerBar() {
             data-cpn-video={isPlaying ? 'playing' : 'paused'}
             className="absolute right-2 bottom-[calc(100%+12px)] z-10 w-[62vw] max-w-[360px] aspect-video rounded-xl overflow-hidden border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)] bg-black"
           >
+            {inline.native ? (
+              <SyncedVideo
+                key={`${inline.id}-${inline.key ?? 0}`}
+                videoId={inline.id}
+                onFail={nativeVideoFailed}
+                onExpand={() => {
+                  moveInline('sheet')
+                  openFull()
+                }}
+                onCloseFloat={() => backToSong()}
+              />
+            ) : (
             <InlineVideo
               key={`${inline.id}-${inline.key ?? 0}`}
               videoId={inline.id}
@@ -3030,6 +3057,7 @@ export default function MusicPlayerBar() {
               }}
               onCloseFloat={() => backToSong()}
             />
+            )}
           </div>
         )}
         {(skipNotice || needsTap || tvNotice || offlineNotice) && !isQueueOpen && (
