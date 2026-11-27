@@ -14,6 +14,8 @@ import LyricsSheet from '@/components/LyricsSheet'
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import SocialPanel from '@/components/SocialPanel'
+import { useSwipeDown } from '@/lib/use-swipe-down'
+import SheetHandle from '@/components/SheetHandle'
 import { ytIdOf } from '@/lib/pip'
 import { useEqStore } from '@/store/eqStore'
 import { trackShareUrl } from '@/lib/share'
@@ -38,6 +40,9 @@ import {
   Mic2,
   SlidersHorizontal,
   Check,
+  Info,
+  ChevronUp,
+  X,
 } from 'lucide-react'
 import { useMusicStore, parseTrackMeta } from '@/store/musicStore'
 import { useLiveStore } from '@/store/liveStore'
@@ -171,6 +176,17 @@ export default function NowPlayingSheet({
     setDragValue(null)
   }, [video?.id, open])
   const rootRef = useRef<HTMLDivElement>(null)
+  const [infoOpen, setInfoOpen] = useState(false)
+  // Lado de la portada: lo que quepa en el espacio libre (ancho y alto), para que nada se corte
+  const coverBoxRef = useRef<HTMLDivElement>(null)
+  const [coverSize, setCoverSize] = useState(0)
+  useEffect(() => {
+    const el = coverBoxRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setCoverSize(Math.floor(Math.min(el.clientWidth, el.clientHeight))))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [open, !!inline, !!video]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cerrado: fuera del foco y de los lectores de pantalla
   useEffect(() => {
@@ -260,7 +276,9 @@ export default function NowPlayingSheet({
         </div>
       </div>
       <div className="relative h-full overflow-y-auto">
-        <div className="max-w-md mx-auto min-h-full flex flex-col px-5 pt-[max(env(safe-area-inset-top),12px)] pb-[max(env(safe-area-inset-bottom),20px)]">
+        {/* Todo el reproductor cabe en la pantalla (sin bajar): la portada se achica lo necesario.
+            Sobre el artista y los comentarios van en una ventana aparte */}
+        <div className="max-w-md mx-auto h-full min-h-[560px] flex flex-col px-5 pt-[max(env(safe-area-inset-top),12px)] pb-[max(env(safe-area-inset-bottom),12px)]">
           {/* Barra superior (el botón de cerrar flota encima, en este lugar) */}
           <div className="flex items-center justify-between py-2">
             <span className="w-11 h-11 shrink-0" aria-hidden />
@@ -313,9 +331,12 @@ export default function NowPlayingSheet({
             </div>
           )}
 
-          {/* Portada */}
-          <div className="mt-4 mb-6">
-            <div className={`relative w-full mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 ${inline ? 'aspect-video' : 'max-w-[min(100%,44vh)] aspect-square'}`}>
+          {/* Portada: cuadrada y del tamaño que quepa (el resto del reproductor siempre a la vista) */}
+          <div ref={coverBoxRef} className="mt-3 mb-3 flex-1 min-h-[96px] flex items-center justify-center">
+            <div
+              className={`relative mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 ${inline ? 'w-full aspect-video' : 'aspect-square'}`}
+              style={inline ? undefined : { width: coverSize || '100%', height: coverSize || undefined }}
+            >
               {inline && inlineTimeRef && (
                 <div className="absolute inset-0 z-[2]">
                   <InlineVideo
@@ -342,11 +363,11 @@ export default function NowPlayingSheet({
                 )
               )}
               {isLive ? (
-                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
+                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 whitespace-nowrap bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En vivo
                 </span>
               ) : audioMode && (
-                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
+                <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 whitespace-nowrap bg-black/60 backdrop-blur-md text-emerald-400 text-[10px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full font-display">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Modo audio
                 </span>
               )}
@@ -389,7 +410,7 @@ export default function NowPlayingSheet({
           </div>
 
           {/* Visualizador */}
-          <div className="flex items-end justify-between gap-1 h-10 mt-6" aria-hidden>
+          <div className="flex items-end justify-between gap-1 h-8 mt-3" aria-hidden>
             {BARS.map((h, i) => (
               <span
                 key={i}
@@ -450,7 +471,7 @@ export default function NowPlayingSheet({
           )}
 
           {/* Controles */}
-          <div className="flex items-center justify-between mt-5">
+          <div className="flex items-center justify-between mt-2">
             <button onClick={toggleShuffle} className={sideBtn(shuffle)} aria-label="Mezclar" aria-pressed={shuffle}>
               <Shuffle className="w-5 h-5" />
               
@@ -533,7 +554,7 @@ export default function NowPlayingSheet({
           ) : null}
 
           {/* Acciones: solo íconos, en una fila (el nombre aparece al mantener o en el lector de pantalla) */}
-          <div className={`${castDevice ? 'mt-4' : 'mt-6'} flex items-center justify-between gap-2`}>
+          <div className={`${castDevice ? 'mt-3' : 'mt-4'} flex items-center justify-between gap-2`}>
             {onCast && (
               <IconAction label={castDevice ? `Sonando en ${castDevice}` : 'Escuchar en la TV'} onClick={onCast} active={!!castDevice}>
                 <Cast className="w-5 h-5" />
@@ -565,17 +586,63 @@ export default function NowPlayingSheet({
             )}
           </div>
 
-          {/* Me gusta y comentarios: los de la app (todos los ven) y, para mostrar, los de YouTube y Deezer */}
-          {!isLive && <SocialPanel item={ytIdOf(video) || video.id} ytId={ytIdOf(video) || undefined} artist={artist} className="mt-6" />}
-
-          {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
-          {!isLive && <ArtistAboutCard artist={artist} album={video.album} className="mt-4" onNavigate={onNavigate} />}
+          {/* Sobre el artista y comentarios: en una ventana aparte (el reproductor queda entero a la vista) */}
+          {!isLive && artist && (
+            <button
+              onClick={() => setInfoOpen(true)}
+              className="mt-3 w-full h-11 shrink-0 flex items-center gap-2 rounded-2xl bg-surface-1/80 border border-white/8 px-4 text-left text-sm text-slate-200"
+            >
+              <Info className="w-4 h-4 text-violet-300 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                Sobre <b className="text-white font-semibold">{artist}</b> · comentarios
+              </span>
+              <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+            </button>
+          )}
         </div>
       </div>
+      {infoOpen && !isLive && (
+        <ArtistInfoModal onClose={() => setInfoOpen(false)} title={artist}>
+          {/* Me gusta y comentarios: los de la app (todos los ven) y, para mostrar, los de YouTube y Deezer */}
+          <SocialPanel item={ytIdOf(video) || video.id} ytId={ytIdOf(video) || undefined} artist={artist} />
+          {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
+          <ArtistAboutCard
+            artist={artist}
+            album={video.album}
+            className="mt-4"
+            onNavigate={(href: string) => {
+              setInfoOpen(false)
+              onNavigate?.(href)
+            }}
+          />
+        </ArtistInfoModal>
+      )}
       {lyricsOpen && !isLive && <LyricsSheet artist={artist} title={songTitle} onClose={() => setLyricsOpen(false)} />}
       {menuOpen && !isLive && (
         <TrackMenu video={video} artist={artist} title={songTitle} onClose={() => setMenuOpen(false)} onNavigate={onNavigate} />
       )}
+    </div>
+  )
+}
+
+/** Ventana de abajo con lo del artista: comentarios, biografía y disco (se cierra deslizando) */
+function ArtistInfoModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const swipe = useSwipeDown(onClose)
+  return (
+    <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={`Sobre ${title}`}>
+      <button className="absolute inset-0 bg-black/60" onClick={onClose} aria-label="Cerrar" />
+      <div style={swipe.style} className="relative w-full max-w-md max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-surface-1 border border-white/10">
+        <div {...swipe.dragProps} className="shrink-0 px-5 pt-3 pb-2">
+          <SheetHandle className="-mb-1" />
+          <div className="mt-2 flex items-center gap-3">
+            <p className="flex-1 min-w-0 truncate text-white font-bold font-display">Sobre {title}</p>
+            <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(env(safe-area-inset-bottom),20px)]">{children}</div>
+      </div>
     </div>
   )
 }

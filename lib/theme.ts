@@ -1,7 +1,7 @@
 // Tema de colores de la app (Configuración → Tema). Se guarda en el teléfono o computador y se
 // aplica antes de que se dibuje la página (SPLASH_SCRIPT), así no hay parpadeo de colores.
 
-export type ThemeId = 'original' | 'hifi' | 'esmeralda' | 'oceano' | 'ambar' | 'rosa'
+export type ThemeId = 'original' | 'hifi' | 'esmeralda' | 'oceano' | 'ambar' | 'rosa' | 'musgo' | 'acero' | 'hacker'
 
 export const THEMES: { id: ThemeId; name: string; desc: string; colors: [string, string, string] }[] = [
   { id: 'original', name: 'Original', desc: 'El color de cada app', colors: ['#8b5cf6', '#d63454', '#16181f'] },
@@ -10,6 +10,9 @@ export const THEMES: { id: ThemeId; name: string; desc: string; colors: [string,
   { id: 'oceano', name: 'Océano', desc: 'Azul profundo', colors: ['#38bdf8', '#6366f1', '#080d16'] },
   { id: 'ambar', name: 'Ámbar', desc: 'Dorado cálido', colors: ['#fbbf24', '#f97316', '#120e0a'] },
   { id: 'rosa', name: 'Rosa', desc: 'Rosa neón', colors: ['#f472b6', '#d946ef', '#0f0a0f'] },
+  { id: 'musgo', name: 'Musgo', desc: 'Verde opaco', colors: ['#7d9e81', '#606f4f', '#0e100e'] },
+  { id: 'acero', name: 'Acero', desc: 'Azul opaco', colors: ['#7a92ac', '#6a6f96', '#0d0f13'] },
+  { id: 'hacker', name: 'Hacker', desc: 'Negro y verde terminal', colors: ['#56a05e', '#2c7035', '#030503'] },
 ]
 
 const KEY = 'cpn-theme'

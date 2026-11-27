@@ -499,3 +499,128 @@ html[data-theme='rosa'] .cpn-keep {
   --play-glow-a: 236 72 153;
   --play-glow-b: 249 168 212;
 }
+
+/* ===== Temas opacos (sin brillo de neón) ===== */
+/* Musgo: verde apagado, sin brillo */
+html[data-theme='musgo'],
+html[data-theme='musgo'] .cpn-keep {
+  --bg: 14 16 14;
+  --surface-1: 24 27 24;
+  --surface-2: 34 38 34;
+  --acc-50: 240 245 240;
+  --acc-100: 225 235 226;
+  --acc-200: 196 214 198;
+  --acc-300: 160 186 163;
+  --acc-400: 125 158 129;
+  --acc-500: 96 132 101;
+  --acc-600: 78 110 83;
+  --acc-700: 63 90 68;
+  --acc-800: 52 74 56;
+  --acc-900: 43 61 47;
+  --acc-950: 24 34 26;
+  --acc2-50: 243 244 236;
+  --acc2-100: 230 233 219;
+  --acc2-200: 206 211 186;
+  --acc2-300: 176 184 150;
+  --acc2-400: 146 157 117;
+  --acc2-500: 118 131 90;
+  --acc2-600: 96 108 72;
+  --acc2-700: 77 87 58;
+  --acc2-800: 63 71 48;
+  --acc2-900: 52 59 41;
+  --acc2-950: 29 33 22;
+  --play-a: #a0baa3;
+  --play-b: #60845f;
+  --play-c: #3f5a44;
+  --play-glow-a: 96 132 101;
+  --play-glow-b: 160 186 163;
+}
+/* (sin resplandor: el botón de play y las sombras de color, apagados) */
+html[data-theme='musgo'] .cpn-play {
+  box-shadow: none !important;
+}
+html[data-theme='musgo'] .cpn-play svg {
+  filter: none;
+}
+/* Acero: azul grisáceo, sin brillo */
+html[data-theme='acero'],
+html[data-theme='acero'] .cpn-keep {
+  --bg: 13 15 19;
+  --surface-1: 23 27 33;
+  --surface-2: 33 38 46;
+  --acc-50: 240 244 248;
+  --acc-100: 225 232 240;
+  --acc-200: 196 208 222;
+  --acc-300: 158 177 198;
+  --acc-400: 122 146 172;
+  --acc-500: 94 120 148;
+  --acc-600: 77 99 124;
+  --acc-700: 63 81 102;
+  --acc-800: 52 67 84;
+  --acc-900: 43 55 69;
+  --acc-950: 25 32 41;
+  --acc2-50: 241 242 247;
+  --acc2-100: 226 228 239;
+  --acc2-200: 199 203 222;
+  --acc2-300: 164 170 199;
+  --acc2-400: 131 138 174;
+  --acc2-500: 105 111 150;
+  --acc2-600: 86 91 126;
+  --acc2-700: 70 74 104;
+  --acc2-800: 58 61 86;
+  --acc2-900: 48 51 71;
+  --acc2-950: 28 30 43;
+  --play-a: #9eb1c6;
+  --play-b: #5e7894;
+  --play-c: #3f5166;
+  --play-glow-a: 94 120 148;
+  --play-glow-b: 158 177 198;
+}
+/* (sin resplandor: el botón de play y las sombras de color, apagados) */
+html[data-theme='acero'] .cpn-play {
+  box-shadow: none !important;
+}
+html[data-theme='acero'] .cpn-play svg {
+  filter: none;
+}
+/* Hacker: negro con verde de terminal apagado */
+html[data-theme='hacker'],
+html[data-theme='hacker'] .cpn-keep {
+  --bg: 3 5 3;
+  --surface-1: 12 16 12;
+  --surface-2: 20 26 20;
+  --acc-50: 230 245 230;
+  --acc-100: 210 235 212;
+  --acc-200: 170 214 174;
+  --acc-300: 122 186 128;
+  --acc-400: 86 160 94;
+  --acc-500: 58 135 68;
+  --acc-600: 44 112 53;
+  --acc-700: 35 90 43;
+  --acc-800: 29 72 36;
+  --acc-900: 24 59 30;
+  --acc-950: 10 30 14;
+  --acc2-50: 230 245 230;
+  --acc2-100: 210 235 212;
+  --acc2-200: 170 214 174;
+  --acc2-300: 122 186 128;
+  --acc2-400: 86 160 94;
+  --acc2-500: 58 135 68;
+  --acc2-600: 44 112 53;
+  --acc2-700: 35 90 43;
+  --acc2-800: 29 72 36;
+  --acc2-900: 24 59 30;
+  --acc2-950: 10 30 14;
+  --play-a: #7aba80;
+  --play-b: #3a8744;
+  --play-c: #1d4d24;
+  --play-glow-a: 58 135 68;
+  --play-glow-b: 122 186 128;
+}
+/* (sin resplandor: el botón de play y las sombras de color, apagados) */
+html[data-theme='hacker'] .cpn-play {
+  box-shadow: none !important;
+}
+html[data-theme='hacker'] .cpn-play svg {
+  filter: none;
+}
