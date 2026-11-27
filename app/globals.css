@@ -501,46 +501,61 @@ html[data-theme='rosa'] .cpn-keep {
 }
 
 /* ===== Temas opacos (sin brillo de neón) ===== */
-/* Musgo: verde apagado, sin brillo */
+/* Verde (id «musgo»): negro y verde #1DB954, como los reproductores de música más conocidos.
+   Fondo #121212, tarjetas #181818 / #282828, acento verde */
 html[data-theme='musgo'],
 html[data-theme='musgo'] .cpn-keep {
-  --bg: 14 16 14;
-  --surface-1: 24 27 24;
-  --surface-2: 34 38 34;
-  --acc-50: 240 245 240;
-  --acc-100: 225 235 226;
-  --acc-200: 196 214 198;
-  --acc-300: 160 186 163;
-  --acc-400: 125 158 129;
-  --acc-500: 96 132 101;
-  --acc-600: 78 110 83;
-  --acc-700: 63 90 68;
-  --acc-800: 52 74 56;
-  --acc-900: 43 61 47;
-  --acc-950: 24 34 26;
-  --acc2-50: 243 244 236;
-  --acc2-100: 230 233 219;
-  --acc2-200: 206 211 186;
-  --acc2-300: 176 184 150;
-  --acc2-400: 146 157 117;
-  --acc2-500: 118 131 90;
-  --acc2-600: 96 108 72;
-  --acc2-700: 77 87 58;
-  --acc2-800: 63 71 48;
-  --acc2-900: 52 59 41;
-  --acc2-950: 29 33 22;
-  --play-a: #a0baa3;
-  --play-b: #60845f;
-  --play-c: #3f5a44;
-  --play-glow-a: 96 132 101;
-  --play-glow-b: 160 186 163;
+  --bg: 18 18 18;
+  --surface-1: 24 24 24;
+  --surface-2: 40 40 40;
+  --acc-50: 232 250 238;
+  --acc-100: 207 245 219;
+  --acc-200: 160 234 182;
+  --acc-300: 30 215 96;
+  --acc-400: 29 200 90;
+  --acc-500: 29 185 84;
+  --acc-600: 24 158 71;
+  --acc-700: 20 128 58;
+  --acc-800: 17 102 47;
+  --acc-900: 14 82 38;
+  --acc-950: 6 46 20;
+  --acc2-50: 232 250 238;
+  --acc2-100: 207 245 219;
+  --acc2-200: 160 234 182;
+  --acc2-300: 30 215 96;
+  --acc2-400: 30 215 96;
+  --acc2-500: 29 185 84;
+  --acc2-600: 24 158 71;
+  --acc2-700: 20 128 58;
+  --acc2-800: 17 102 47;
+  --acc2-900: 14 82 38;
+  --acc2-950: 6 46 20;
+  --play-a: #1db954;
+  --play-b: #1db954;
+  --play-c: #1db954;
+  --play-glow-a: 29 185 84;
+  --play-glow-b: 29 185 84;
 }
-/* (sin resplandor: el botón de play y las sombras de color, apagados) */
+/* Botón de play: verde lleno con el ícono negro, sin resplandor */
 html[data-theme='musgo'] .cpn-play {
-  box-shadow: none !important;
+  background: #1db954 !important;
+  border: 0 !important;
+  color: #000 !important;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45) !important;
+}
+html[data-theme='musgo'] .cpn-play:hover {
+  background: #1ed760 !important;
 }
 html[data-theme='musgo'] .cpn-play svg {
+  color: #000 !important;
+  stroke: #000 !important;
+  fill: #000 !important;
   filter: none;
+}
+/* Botones de color lleno: texto e íconos negros sobre el verde */
+html[data-theme='musgo'] :is(.bg-violet-400, .bg-violet-500, .bg-violet-600, [class~='bg-violet-500/90'], [class~='bg-violet-500/80']),
+html[data-theme='musgo'] :is(.bg-violet-400, .bg-violet-500, .bg-violet-600, [class~='bg-violet-500/90'], [class~='bg-violet-500/80']) :is(.text-white, svg) {
+  color: #000 !important;
 }
 /* Acero: azul grisáceo, sin brillo */
 html[data-theme='acero'],

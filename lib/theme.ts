@@ -10,7 +10,7 @@ export const THEMES: { id: ThemeId; name: string; desc: string; colors: [string,
   { id: 'oceano', name: 'Océano', desc: 'Azul profundo', colors: ['#38bdf8', '#6366f1', '#080d16'] },
   { id: 'ambar', name: 'Ámbar', desc: 'Dorado cálido', colors: ['#fbbf24', '#f97316', '#120e0a'] },
   { id: 'rosa', name: 'Rosa', desc: 'Rosa neón', colors: ['#f472b6', '#d946ef', '#0f0a0f'] },
-  { id: 'musgo', name: 'Musgo', desc: 'Verde opaco', colors: ['#7d9e81', '#606f4f', '#0e100e'] },
+  { id: 'musgo', name: 'Verde', desc: 'Negro y verde #1DB954', colors: ['#1db954', '#b3b3b3', '#121212'] },
   { id: 'acero', name: 'Acero', desc: 'Azul opaco', colors: ['#7a92ac', '#6a6f96', '#0d0f13'] },
   { id: 'hacker', name: 'Hacker', desc: 'Negro y verde terminal', colors: ['#56a05e', '#2c7035', '#030503'] },
 ]
