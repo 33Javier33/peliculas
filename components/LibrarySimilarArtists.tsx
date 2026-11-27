@@ -7,6 +7,7 @@ import type { CatalogArtist } from '@/lib/catalog'
 import { cachedJson } from '@/lib/client-cache'
 import { useMusicStore } from '@/store/musicStore'
 import { songArtist } from '@/lib/library-radio'
+import SectionSheet, { SectionTitle } from '@/components/SectionSheet'
 
 // En Música (en vez de Tendencias): artistas parecidos a los que más tienes en tu biblioteca,
 // agrupados por el artista que los recomienda ("Porque escuchas Soda Stereo").
@@ -29,6 +30,7 @@ export default function LibrarySimilarArtists() {
     return Array.from(count.values()).sort((a, b) => b.n - a.n)
   }, [saved, savedAlbums])
 
+  const [open, setOpen] = useState(false)
   const [groups, setGroups] = useState<{ because: string; artists: CatalogArtist[] }[] | null>(null)
   const seeds = top.slice(0, 5).map((a) => a.name).join('|')
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function LibrarySimilarArtists() {
     <section>
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="w-5 h-5 text-violet-400" />
-        <h2 className="text-white font-bold text-[22px] leading-7">Artistas similares a tu biblioteca</h2>
+        <SectionTitle onOpen={() => setOpen(true)}>Artistas similares a tu biblioteca</SectionTitle>
       </div>
       {top.length === 0 ? (
         <p className="text-slate-500 text-sm rounded-2xl border border-dashed border-white/10 p-4">
@@ -98,6 +100,36 @@ export default function LibrarySimilarArtists() {
             </div>
           ))}
         </div>
+      )}
+      {open && (
+        <SectionSheet title="Artistas similares a tu biblioteca" subtitle="Parecidos a los que más escuchas y guardas" onClose={() => setOpen(false)}>
+          {!groups?.length ? (
+            <p className="text-slate-400 text-sm">Dale ♥ a canciones o guarda álbumes: aquí aparecerán artistas parecidos a los que escuchas.</p>
+          ) : (
+            <div className="space-y-7">
+              {groups.map((g) => (
+                <div key={g.because}>
+                  <p className="text-slate-400 text-sm mb-3">
+                    Porque escuchas <span className="text-white font-semibold">{g.because}</span>
+                  </p>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-3 gap-y-5">
+                    {g.artists.map((a) => (
+                      <Link key={a.id} href={`/music/artist/${a.id}`} onClick={() => setOpen(false)} className="text-center group min-w-0">
+                        <span className="block aspect-square rounded-full overflow-hidden bg-surface-2 border border-white/10">
+                          {a.picture && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={a.picture} alt={a.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          )}
+                        </span>
+                        <span className="block text-white text-sm font-semibold mt-2 line-clamp-2 group-hover:text-violet-300">{a.name}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionSheet>
       )}
     </section>
   )

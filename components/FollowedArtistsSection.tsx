@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Users } from 'lucide-react'
+import { Users, ChevronRight } from 'lucide-react'
 import { useFollowStore } from '@/store/followStore'
 import type { CatalogAlbum } from '@/lib/catalog'
 import { readSession, writeSession } from '@/lib/session-cache'
+import SectionSheet, { SectionTitle } from '@/components/SectionSheet'
 
 // Artistas y grupos que sigues, con sus últimos lanzamientos (álbumes, EPs y sencillos).
 export default function FollowedArtistsSection({ showEmpty = false }: { showEmpty?: boolean }) {
@@ -14,6 +15,8 @@ export default function FollowedArtistsSection({ showEmpty = false }: { showEmpt
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   const [releases, setReleases] = useState<CatalogAlbum[]>([])
+  // Ventana con todo (al tocar el título)
+  const [sheet, setSheet] = useState<null | 'artists' | 'releases'>(null)
 
   const ids = artists.map((a) => a.id).join(',')
   useEffect(() => {
@@ -44,7 +47,9 @@ export default function FollowedArtistsSection({ showEmpty = false }: { showEmpt
 
   return (
     <section className="mb-10">
-      <h2 className="text-white font-bold text-[22px] leading-7 mb-4">Artistas que sigues</h2>
+      <SectionTitle onOpen={() => setSheet('artists')} className="mb-4">
+        Artistas que sigues
+      </SectionTitle>
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
         {artists.map((a) => (
           <Link key={a.id} href={`/music/artist/${a.id}`} className="shrink-0 w-20 text-center group">
@@ -58,7 +63,12 @@ export default function FollowedArtistsSection({ showEmpty = false }: { showEmpt
 
       {releases.length > 0 && (
         <>
-          <h3 className="text-white font-bold text-lg mt-6 mb-3">Novedades de tus artistas</h3>
+          <h3 className="text-white font-bold text-lg mt-6 mb-3">
+            <button onClick={() => setSheet('releases')} className="group inline-flex items-center gap-1 hover:text-violet-200">
+              Novedades de tus artistas
+              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-violet-300" />
+            </button>
+          </h3>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
             {releases.slice(0, 24).map((al) => (
               <Link key={al.id} href={`/music/album/${al.id}`} className="shrink-0 w-36 group">
@@ -73,6 +83,38 @@ export default function FollowedArtistsSection({ showEmpty = false }: { showEmpt
             ))}
           </div>
         </>
+      )}
+
+      {sheet === 'artists' && (
+        <SectionSheet title="Artistas que sigues" subtitle={`${artists.length} ${artists.length === 1 ? 'artista' : 'artistas'}`} onClose={() => setSheet(null)}>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-3 gap-y-5">
+            {artists.map((a) => (
+              <Link key={a.id} href={`/music/artist/${a.id}`} onClick={() => setSheet(null)} className="text-center group min-w-0">
+                <span className="relative block aspect-square rounded-full overflow-hidden bg-surface-2 border border-white/10 group-hover:border-violet-400">
+                  {a.picture && <Image src={a.picture} alt={a.name} fill sizes="120px" className="object-cover" />}
+                </span>
+                <span className="block text-slate-200 text-sm font-semibold mt-2 line-clamp-2 leading-tight group-hover:text-violet-300">{a.name}</span>
+              </Link>
+            ))}
+          </div>
+        </SectionSheet>
+      )}
+      {sheet === 'releases' && (
+        <SectionSheet title="Novedades de tus artistas" subtitle="Álbumes, EPs y sencillos recientes de los artistas que sigues" onClose={() => setSheet(null)}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-5">
+            {releases.map((al) => (
+              <Link key={al.id} href={`/music/album/${al.id}`} onClick={() => setSheet(null)} className="group min-w-0">
+                <span className="relative block aspect-square rounded-xl overflow-hidden bg-surface-2 border border-white/8">
+                  {al.cover && <Image src={al.cover} alt={al.title} fill sizes="(max-width: 640px) 45vw, 180px" className="object-cover group-hover:scale-105 transition-transform duration-500" />}
+                </span>
+                <span className="block text-white text-sm font-semibold leading-tight line-clamp-2 mt-1.5 group-hover:text-violet-300">{al.title}</span>
+                <span className="block text-slate-500 text-xs truncate">
+                  {[al.artist.name || artists.find((x) => x.id === al.artist.id)?.name, al.year, al.type === 'single' ? 'Sencillo' : al.type === 'ep' ? 'EP' : 'Álbum'].filter(Boolean).join(' · ')}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </SectionSheet>
       )}
     </section>
   )

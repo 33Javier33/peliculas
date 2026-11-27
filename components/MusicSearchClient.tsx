@@ -7,6 +7,7 @@ import AlbumCardActions from '@/components/AlbumCardActions'
 
 import { TrackStateOverlay } from '@/components/TrackState'
 import FollowedArtistsSection from '@/components/FollowedArtistsSection'
+import SectionSheet, { SectionTitle } from '@/components/SectionSheet'
 import ArchiveInlineResults from '@/components/ArchiveInlineResults'
 import ArchiveRadioSection from '@/components/ArchiveRadioSection'
 import ArchiveSearchSection from '@/components/ArchiveSearchSection'
@@ -35,6 +36,20 @@ const FOR_YOU_TTL_MS = 6 * 60 * 60 * 1000
 
 interface MusicSearchClientProps {
   initialVideos: MusicVideo[]
+}
+
+/** «hace 5 min», «hace 3 h», «ayer», «hace 4 días» o la fecha */
+function timeAgo(t?: number) {
+  if (!t) return ''
+  const m = Math.floor((Date.now() - t) / 60000)
+  if (m < 1) return 'ahora'
+  if (m < 60) return `hace ${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `hace ${h} h`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'ayer'
+  if (d < 30) return `hace ${d} días`
+  return new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' })
 }
 
 export default function MusicSearchClient({ initialVideos }: MusicSearchClientProps) {
@@ -117,6 +132,9 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
 
   const play = useMusicStore((s) => s.play)
   const recent = useMemo(() => history.slice(0, 6), [history])
+  // Ventana abierta con el contenido completo de una sección (al tocar su título o «Ver todo»)
+  const [sheet, setSheet] = useState<null | 'recent' | 'foryou'>(null)
+  const closeSheet = useCallback(() => setSheet(null), [])
   const carouselRef = useRef<HTMLDivElement>(null)
   const scrollCarousel = (dir: 1 | -1) =>
     carouselRef.current?.scrollBy({ left: dir * carouselRef.current.clientWidth * 0.8, behavior: 'smooth' })
@@ -476,13 +494,13 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
             {hasHydrated && recent.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-white font-bold text-[22px] leading-7">Escuchado recientemente</h2>
-                  <Link
-                    href="/music/library"
+                  <SectionTitle onOpen={() => setSheet('recent')}>Escuchado recientemente</SectionTitle>
+                  <button
+                    onClick={() => setSheet('recent')}
                     className="text-violet-300 hover:text-violet-200 text-xs font-bold uppercase tracking-[0.04em] font-display"
                   >
                     Ver todo
-                  </Link>
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
                   {recent.map((track, idx) => (
@@ -518,7 +536,7 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
               <section className="mb-10">
                 <div className="flex items-end justify-between gap-3 mb-4">
                   <div className="min-w-0">
-                    <h2 className="text-white font-bold text-[22px] leading-7">Hecho para ti</h2>
+                    <SectionTitle onOpen={() => setSheet('foryou')}>Hecho para ti</SectionTitle>
                     <p className="text-slate-400 text-sm truncate">
                       {forYouSubtitle ? `Según lo que escuchas: ${forYouSubtitle}` : 'Según lo que escuchas'}
                     </p>
@@ -576,6 +594,69 @@ export default function MusicSearchClient({ initialVideos }: MusicSearchClientPr
                       ))}
                 </div>
               </section>
+            )}
+
+            {/* Ventanas con todo lo de una sección */}
+            {sheet === 'recent' && (
+              <SectionSheet
+                title="Escuchado recientemente"
+                subtitle={`${history.length} ${history.length === 1 ? 'canción' : 'canciones'}, de la más reciente a la más antigua`}
+                onClose={closeSheet}
+                action={
+                  history.length > 0 && (
+                    <button onClick={() => play(history, 0)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white text-black px-3.5 py-2 text-xs font-bold">
+                      <Play className="w-3.5 h-3.5 fill-black" /> Reproducir
+                    </button>
+                  )
+                }
+              >
+                <ol className="divide-y divide-white/5">
+                  {history.map((track, idx) => (
+                    <li key={`${track.id}-${idx}`}>
+                      <button onClick={() => play(history, idx)} {...hoverWarm(track)} className="w-full flex items-center gap-3 py-2 text-left group">
+                        <span className="w-6 text-right text-slate-500 text-sm tabular-nums shrink-0">{idx + 1}</span>
+                        <span className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-2">
+                          {track.thumbnail && <Image src={track.thumbnail} alt="" fill sizes="48px" className="object-cover" />}
+                          <TrackStateOverlay id={track.id} size="sm" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-white text-sm font-semibold truncate group-hover:text-violet-300">{track.title.replace(/^[^-–]+[-–]\s*/, '') || track.title}</span>
+                          <span className="block text-slate-400 text-xs truncate">{track.artist || track.channelTitle}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-[11px] text-slate-500 leading-tight">
+                          {timeAgo(track.playedAt)}
+                          {track.plays > 1 && <span className="block">{track.plays} veces</span>}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </SectionSheet>
+            )}
+            {sheet === 'foryou' && forYou && (
+              <SectionSheet
+                title="Hecho para ti"
+                subtitle={forYouSubtitle ? `Según lo que escuchas: ${forYouSubtitle}` : 'Según lo que escuchas'}
+                onClose={closeSheet}
+                action={
+                  <button onClick={() => play(forYou.videos, 0)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white text-black px-3.5 py-2 text-xs font-bold">
+                    <Play className="w-3.5 h-3.5 fill-black" /> Reproducir
+                  </button>
+                }
+              >
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {forYou.videos.map((video, index) => (
+                    <button key={video.id} onClick={() => play(forYou.videos, index)} className="group text-left min-w-0">
+                      <span className="relative block aspect-video rounded-xl overflow-hidden bg-surface-2">
+                        {video.thumbnail && <Image src={video.thumbnail} alt="" fill sizes="(max-width: 640px) 45vw, 240px" className="object-cover group-hover:scale-105 transition-transform duration-500" />}
+                        <TrackStateOverlay id={video.id} />
+                      </span>
+                      <span className="block text-white text-sm font-semibold leading-tight line-clamp-2 mt-1.5 group-hover:text-violet-300">{video.title}</span>
+                      <span className="block text-slate-400 text-xs truncate">{video.channelTitle}</span>
+                    </button>
+                  ))}
+                </div>
+              </SectionSheet>
             )}
 
             {/* ===== Artistas similares a los de tu biblioteca (antes: Tendencias) ===== */}
