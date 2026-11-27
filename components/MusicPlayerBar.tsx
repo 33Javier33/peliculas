@@ -637,6 +637,15 @@ export default function MusicPlayerBar() {
     const tookOver = videoOwnsRef.current
     videoOwnsRef.current = false
     const el = playerRef.current as unknown as HTMLMediaElement | null
+    // La canción ya venía sonando en silencio a la par del video: se le sube el volumen y listo, sin
+    // cortes (no se vuelve a buscar el segundo)
+    if (tookOver && el && !el.paused && el.readyState >= 3 && Math.abs(el.currentTime - at) < 1.2) {
+      el.playbackRate = 1
+      el.muted = false
+      setInline(null)
+      if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
+      return
+    }
     if (!tookOver) {
       setInline(null)
       if (el) el.muted = false
@@ -709,6 +718,18 @@ export default function MusicPlayerBar() {
       if (!videoOwnsRef.current || isSeekingRef.current) return
       if (useMusicStore.getState().isPlaying) markSounding(inlineTimeRef.current)
       const el = playerRef.current as unknown as HTMLMediaElement | null
+      // La canción en silencio se mantiene pareja con el video (acelerando o frenando un poco; si se
+      // fue muy lejos, salta al segundo del video)
+      if (el && !el.paused && el.readyState >= 2 && inlineTimeRef.current > 0 && useAudioRef.current) {
+        if (document.visibilityState !== 'hidden') el.muted = true
+        const dv = el.currentTime - inlineTimeRef.current
+        if (Math.abs(dv) > 2) {
+          try {
+            el.currentTime = inlineTimeRef.current + 0.15
+          } catch {}
+          el.playbackRate = 1
+        } else el.playbackRate = Math.abs(dv) <= 0.12 ? 1 : dv < 0 ? 1.12 : 0.9
+      }
       const d = el && isFinite(el.duration) && el.duration > 0 ? el.duration : useMusicStore.getState().duration
       if (!d) return
       const f = Math.min(1, Math.max(0, inlineTimeRef.current / d))
@@ -733,7 +754,10 @@ export default function MusicPlayerBar() {
     const el = playerRef.current as unknown as HTMLMediaElement | null
     if (videoOwnsRef.current && el) {
       videoOwnsRef.current = false
-      if (at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
+      el.playbackRate = 1
+      // (si la canción venía pareja en silencio, no se busca el segundo: sigue sin corte)
+      const inSync = !el.paused && Math.abs(el.currentTime - at) < 1.2
+      if (!inSync && at > 0 && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at, el.duration - 1)
       el.muted = false
       if (useMusicStore.getState().isPlaying) el.play()?.catch?.(() => {})
     }
@@ -1663,7 +1687,11 @@ export default function MusicPlayerBar() {
     }
     // Suena el video del reproductor: play y pausa van al video (la canción sigue en pausa)
     if (videoOwnsRef.current) {
-      if (!el.paused) el.pause()
+      // (la canción sigue en silencio a la par del video, y se pausa con él)
+      if (isPlaying) {
+        el.muted = true
+        if (el.paused) el.play()?.catch?.(() => {})
+      } else if (!el.paused) el.pause()
       inlineCtlRef.current?.(isPlaying ? 'playVideo' : 'pauseVideo')
       return
     }
@@ -1915,6 +1943,8 @@ export default function MusicPlayerBar() {
   }, [])
 
   const handleEnded = useCallback(() => {
+    // Terminó la canción en silencio que acompaña al video: manda el video (que avisa al terminar)
+    if (videoOwnsRef.current) return
     const { queue: q, currentIndex: i, repeatMode } = useMusicStore.getState()
     // Una radio en vivo no "termina": si el servidor corta, se vuelve a conectar
     if (q[i]?.streamUrl) return reconnectLive()
@@ -2742,8 +2772,14 @@ export default function MusicPlayerBar() {
           // El video ya suena (parejo con la canción): la canción queda en pausa y el reproductor
           // sigue «sonando» (su play/pausa controla el video)
           videoOwnsRef.current = true
+          // La canción NO se pausa: sigue sonando en silencio, pareja con el video. Al bloquear el
+          // teléfono o volver a «Canción» solo se le sube el volumen (antes arrancaba de nuevo y
+          // se notaba un corte)
           const el = playerRef.current as unknown as HTMLMediaElement | null
-          el?.pause()
+          if (el) {
+            el.muted = true
+            if (el.paused && useAudioRef.current) el.play()?.catch?.(() => {})
+          }
           // Web: su audio queda guardado en el dispositivo (al bloquear sigue sin esperar internet)
           if (!isNativeApp() && inlineRef.current) cacheYtAudio(inlineRef.current.id)
           if (!useMusicStore.getState().isPlaying) useMusicStore.getState().setIsPlaying(true)
