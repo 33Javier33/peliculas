@@ -308,3 +308,92 @@ export async function getArtistArticle(name: string): Promise<ArtistArticle | nu
     sections: sections.filter((s) => s.title || s.paras.length),
   }
 }
+
+// ===== Acerca de la canción que suena (Wikipedia): cómo se hizo, en qué se inspira, la letra =====
+export interface SongInfo {
+  title: string
+  lang: 'es' | 'en'
+  url: string
+  image?: string
+  description?: string
+  /** Primeros párrafos del artículo */
+  intro: string[]
+  /** Secciones sobre su historia, composición, inspiración, letra o grabación */
+  sections: { title: string; paras: string[] }[]
+}
+
+const SONG = /canci[oó]n|sencillo|single|song|tema musical|balada|himno/i
+// Secciones que cuentan la historia de la canción (se omiten listas de formatos, posiciones, créditos…)
+const SONG_SECTIONS = /antecedente|background|historia|history|origen|origin|composici|composition|escritura|writing|inspira|significado|meaning|letra|lyric|tem[aá]tica|theme|grabaci|recording|producci|production|concepto|concept|lanzamiento|release|recepci|reception|legado|legacy|video|vídeo/i
+const SONG_SKIP = /posiciones|listas|charts|lista de canciones|track ?listing|personal|personnel|cr[eé]ditos|credits|formato|formats|referencias|references|enlaces|links|v[eé]ase|see also|notas|notes|certificaci|certification|versiones|covers|bibliograf/i
+
+/** Título limpio: sin «(2016 Remaster)», «(Official Video)», «[HD]», «feat. …», «- Remastered» */
+export function cleanSongTitle(t: string) {
+  return t
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\((?:[^)]*\b(?:remaster|remastered|official|video|audio|lyric|lyrics|live|en vivo|hd|4k|version|versión|mix|edit|visualizer|clip)\b[^)]*)\)/gi, ' ')
+    .replace(/\s[-–]\s.*\b(remaster(?:ed)?|official|video|audio|live|en vivo|version|versión)\b.*$/i, ' ')
+    .replace(/\s(?:feat\.?|ft\.?|featuring)\s.*$/i, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export async function getSongInfo(rawTitle: string, artist: string): Promise<SongInfo | null> {
+  const title = cleanSongTitle(rawTitle)
+  if (!title) return null
+  const t0 = norm(title)
+  const a = norm(artist)
+  const found = await find(
+    [
+      ['es', `${title} ${artist} canción`],
+      ['en', `${title} ${artist} song`],
+      ['en', `"${title}" ${artist}`],
+    ],
+    (t, s) => {
+      const text = norm(`${s.description ?? ''} ${s.extract}`)
+      return norm(t).includes(t0) && (!a || text.includes(a.split(' ')[0])) && SONG.test(`${s.description ?? ''} ${s.extract.slice(0, 400)}`)
+    }
+  )
+  if (!found) return null
+  const lang = found.lang
+  const params = new URLSearchParams({ action: 'query', titles: found.title, redirects: '1', prop: 'extracts', explaintext: '1', exsectionformat: 'wiki', format: 'json', formatversion: '2', origin: '*' })
+  const d = await wikiJson<{ query?: { pages?: { extract?: string }[] } }>(`${base(lang)}/w/api.php?${params}`).catch(() => null)
+  const raw = d?.query?.pages?.[0]?.extract || found.extract
+  const intro: string[] = []
+  const sections: { title: string; paras: string[] }[] = []
+  let cur: { title: string; paras: string[] } | null = null
+  let keep = false
+  let inIntro = true
+  for (const line of raw.split('\n')) {
+    const h = line.match(/^(={2,6})\s*(.+?)\s*\1\s*$/)
+    if (h) {
+      inIntro = false
+      const level = h[1].length
+      if (level === 2) keep = SONG_SECTIONS.test(h[2]) && !SONG_SKIP.test(h[2])
+      if (keep && !SONG_SKIP.test(h[2])) {
+        if (cur?.paras.length) sections.push(cur)
+        cur = { title: h[2], paras: [] }
+      } else if (level === 2) {
+        if (cur?.paras.length) sections.push(cur)
+        cur = null
+      }
+      continue
+    }
+    const t = line.trim()
+    if (!t) continue
+    if (inIntro) {
+      if (intro.length < 4) intro.push(t)
+    }
+    else if (cur && keep && cur.paras.length < 4) cur.paras.push(t)
+  }
+  if (cur?.paras.length) sections.push(cur)
+  return {
+    title: found.title,
+    lang,
+    url: found.url,
+    image: found.image,
+    description: found.description,
+    intro: intro.length ? intro : [found.extract],
+    sections: sections.slice(0, 5),
+  }
+}

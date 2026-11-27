@@ -14,6 +14,7 @@ import LyricsSheet from '@/components/LyricsSheet'
 import ArtistAboutCard from '@/components/ArtistAboutCard'
 import SongDownloadButton from '@/components/SongDownloadButton'
 import SocialPanel from '@/components/SocialPanel'
+import SongAboutCard from '@/components/SongAboutCard'
 import { useSwipeDown } from '@/lib/use-swipe-down'
 import SheetHandle from '@/components/SheetHandle'
 import { ytIdOf } from '@/lib/pip'
@@ -481,7 +482,7 @@ export default function NowPlayingSheet({
             </button>
             <button
               onClick={togglePlay}
-              className="w-20 h-20 rounded-full cpn-play bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgb(var(--acc-500)_/_0.55)] transition-colors"
+              className="w-20 h-20 rounded-full cpn-play cpn-play-main bg-violet-300 hover:bg-violet-200 text-violet-950 flex items-center justify-center shadow-[0_8px_32px_rgb(var(--acc-500)_/_0.55)] transition-colors"
               aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
             >
               {isAudioLoading && isPlaying ? (
@@ -594,7 +595,7 @@ export default function NowPlayingSheet({
             >
               <Info className="w-4 h-4 text-violet-300 shrink-0" />
               <span className="min-w-0 flex-1 truncate">
-                Sobre <b className="text-white font-semibold">{artist}</b> · comentarios
+                Sobre la canción, <b className="text-white font-semibold">{artist}</b> y comentarios
               </span>
               <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
             </button>
@@ -603,6 +604,8 @@ export default function NowPlayingSheet({
       </div>
       {infoOpen && !isLive && (
         <ArtistInfoModal onClose={() => setInfoOpen(false)} title={artist}>
+          {/* Acerca de esta canción: su historia, inspiración, letra o grabación */}
+          <SongAboutCard title={songTitle} artist={artist} className="mb-4" />
           {/* Me gusta y comentarios: los de la app (todos los ven) y, para mostrar, los de YouTube y Deezer */}
           <SocialPanel item={ytIdOf(video) || video.id} ytId={ytIdOf(video) || undefined} artist={artist} />
           {/* Sobre el artista (y el disco): Wikipedia y MusicBrainz, de cualquier canción */}
@@ -635,7 +638,7 @@ function ArtistInfoModal({ title, onClose, children }: { title: string; onClose:
         <div {...swipe.dragProps} className="shrink-0 px-5 pt-3 pb-2">
           <SheetHandle className="-mb-1" />
           <div className="mt-2 flex items-center gap-3">
-            <p className="flex-1 min-w-0 truncate text-white font-bold font-display">Sobre {title}</p>
+            <p className="flex-1 min-w-0 truncate text-white font-bold font-display">La canción y {title}</p>
             <button onClick={onClose} className="w-9 h-9 rounded-full bg-surface-2 flex items-center justify-center text-slate-300" aria-label="Cerrar">
               <X className="w-4 h-4" />
             </button>

@@ -639,3 +639,34 @@ html[data-theme='hacker'] .cpn-play {
 html[data-theme='hacker'] .cpn-play svg {
   filter: none;
 }
+
+/* ===== Botones de play de listas y tarjetas: solo el triángulo, del color del tema =====
+   (el círculo queda solo en el reproductor: el grande y la barra de abajo, .cpn-play-main) */
+html .cpn-play:not(.cpn-play-main),
+html[data-theme] .cpn-play:not(.cpn-play-main) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: rgb(var(--acc-500)) !important;
+}
+html .cpn-play:not(.cpn-play-main):hover,
+html[data-theme] .cpn-play:not(.cpn-play-main):hover {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: rgb(var(--acc-400)) !important;
+}
+html .cpn-play:not(.cpn-play-main) svg,
+html[data-theme] .cpn-play:not(.cpn-play-main) svg {
+  color: rgb(var(--acc-500)) !important;
+  stroke: rgb(var(--acc-500)) !important;
+  fill: rgb(var(--acc-500)) !important;
+  width: 1.6rem;
+  height: 1.6rem;
+  /* Sombra suave: se ve también sobre las portadas */
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.6));
+  transition: transform 0.15s ease;
+}
+html .cpn-play:not(.cpn-play-main):hover svg,
+html[data-theme] .cpn-play:not(.cpn-play-main):hover svg {
+  transform: scale(1.12);
+}
