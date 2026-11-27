@@ -13,8 +13,18 @@ import { getNative } from '@/lib/native'
 
 const build = (v: string | null | undefined) => Number(String(v ?? '').split('.').pop()) || 0
 
+type History = { build: number; date?: string; changes?: string[] }[]
+
+/** Todo lo nuevo desde la versión instalada (sin repetir), de lo más nuevo a lo más viejo */
+function changesSince(installedBuild: number, history?: History, fallback?: string[]): string[] {
+  const out: string[] = []
+  for (const h of history ?? []) if (h.build > installedBuild) for (const c of h.changes ?? []) if (!out.includes(c)) out.push(c)
+  return out.length ? out : (fallback ?? [])
+}
+
 export default function AppUpdateBanner() {
-  const [notice, setNotice] = useState<{ kind: 'update' | 'install'; latest?: string; notes?: string } | null>(null)
+  const [notice, setNotice] = useState<{ kind: 'update' | 'install'; latest?: string; notes?: string; changes?: string[] } | null>(null)
+  const [all, setAll] = useState(false)
 
   useEffect(() => {
     const native = getNative()
@@ -30,15 +40,17 @@ export default function AppUpdateBanner() {
     let cancelled = false
     fetch(`/api/apk/version${isMusicApp() ? '?app=music' : ''}`)
       .then((r) => r.json())
-      .then((d: { version?: string | null; notes?: string }) => {
+      .then((d: { version?: string | null; notes?: string; changes?: string[]; history?: History }) => {
         if (cancelled || !d.version) return
         if (native) {
           let installed = ''
           try {
             installed = native.version()
           } catch {}
+          // (PulsoMusic numera sus versiones 53 compilaciones más abajo)
+          const installedBuild = build(installed) + (isMusicApp() ? 53 : 0)
           if (build(d.version) > build(installed) && read('cpn-update-dismissed') !== d.version)
-            setNotice({ kind: 'update', latest: d.version, notes: d.notes })
+            setNotice({ kind: 'update', latest: d.version, notes: d.notes, changes: changesSince(installedBuild, d.history, d.changes) })
         } else if (!read('cpn-install-dismissed')) {
           setNotice({ kind: 'install', latest: d.version })
         }
@@ -68,8 +80,27 @@ export default function AppUpdateBanner() {
           {notice.kind === 'update' ? (
             <>
               <p className="text-white text-sm font-semibold">Hay una versión nueva de la app ({notice.latest})</p>
-              {notice.notes && <p className="text-slate-400 text-xs mt-0.5 line-clamp-2">{notice.notes}</p>}
-              <p className="text-slate-500 text-xs mt-0.5">Se instala encima de la que tienes: no pierdes nada.</p>
+              {notice.changes?.length ? (
+                <div className="mt-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-violet-300">Qué trae</p>
+                  <ul className={`mt-1 space-y-1 text-xs text-slate-300 ${all ? 'max-h-48 overflow-y-auto pr-1' : ''}`}>
+                    {(all ? notice.changes : notice.changes.slice(0, 3)).map((c) => (
+                      <li key={c} className="flex gap-1.5 leading-snug">
+                        <span className="text-violet-300 shrink-0">•</span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {notice.changes.length > 3 && (
+                    <button onClick={() => setAll(!all)} className="mt-1 text-[11px] font-semibold text-violet-300">
+                      {all ? 'Ver menos' : `Ver todas las novedades (${notice.changes.length})`}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                notice.notes && <p className="text-slate-400 text-xs mt-0.5 line-clamp-2">{notice.notes}</p>
+              )}
+              <p className="text-slate-500 text-xs mt-1">Se instala encima de la que tienes: no pierdes nada.</p>
             </>
           ) : (
             <>

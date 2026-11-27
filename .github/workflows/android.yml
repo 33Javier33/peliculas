@@ -133,29 +133,51 @@ jobs:
           if [ "$APP_COMMIT" = "$PREV_APP" ] && [ "$FORCE" != true ]; then echo "APP_CHANGED=false" >> "$GITHUB_ENV"; else echo "APP_CHANGED=true" >> "$GITHUB_ENV"; fi
           if [ "$WEAR_COMMIT" = "$PREV_WEAR" ] && [ "$FORCE" != true ]; then echo "WEAR_CHANGED=false" >> "$GITHUB_ENV"; else echo "WEAR_CHANGED=true" >> "$GITHUB_ENV"; fi
           echo "Teléfono: $PREV_APP → $APP_COMMIT · Reloj: $PREV_WEAR → $WEAR_COMMIT"
+          echo "PREV_APP=$PREV_APP" >> "$GITHUB_ENV"
+          echo "APP_COMMIT=$APP_COMMIT" >> "$GITHUB_ENV"
 
       # Versión publicada y qué trae: la página avisa a quien tenga una versión anterior
       - name: Datos de la versión
         env:
           NOTES: ${{ github.event.head_commit.message }}
         run: |
+          # Lo que trae: los cambios de la app del teléfono desde la versión anterior (sin las mezclas
+          # de ramas), y el historial de las últimas versiones (el aviso de actualizar muestra todo lo
+          # nuevo desde la versión que tiene instalada cada persona)
+          curl -sfL "https://github.com/${{ github.repository }}/releases/download/android-latest/version.json" -o prev-version.json || echo '{}' > prev-version.json
           python3 - <<'PY'
-          import json, os, datetime
-          notes = (os.environ.get('NOTES') or '').split('\n')[0].replace('APK: ', '').strip()
-          json.dump({
-            'version': '1.0.' + os.environ['GITHUB_RUN_NUMBER'],
-            'build': int(os.environ['GITHUB_RUN_NUMBER']),
-            'notes': notes,
-            'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
-          }, open('version.json', 'w'), ensure_ascii=False)
-          # PulsoMusic: su propia numeración (empezó en 1.0.1)
+          import json, os, datetime, subprocess
           n = int(os.environ['GITHUB_RUN_NUMBER'])
-          json.dump({
-            'version': '1.0.' + str(max(1, n - 53)),
-            'build': n,
-            'notes': notes,
-            'date': datetime.datetime.utcnow().strftime('%Y-%m-%d'),
-          }, open('version-music.json', 'w'), ensure_ascii=False)
+          prev, cur = os.environ.get('PREV_APP', ''), os.environ.get('APP_COMMIT', '')
+          paths = ['android/app', 'android/build.gradle.kts', 'android/gradle.properties']
+          def log(rng):
+            out = subprocess.run(['git', 'log', '--no-merges', '--format=%s', rng, '--'] + paths, capture_output=True, text=True)
+            return out.stdout if out.returncode == 0 else ''
+          text = log(f'{prev}..{cur}') if prev and cur and prev != cur else ''
+          if not text.strip():
+            text = log('-3')
+          changes, seen = [], set()
+          for line in text.splitlines():
+            line = line.replace('APK: ', '').strip()
+            if not line or line.lower().startswith(('merge', 'wip', 'fixup')) or line in seen:
+              continue
+            seen.add(line)
+            changes.append(line)
+          changes = changes[:12]
+          notes = changes[0] if changes else (os.environ.get('NOTES') or '').split('\n')[0].strip()
+          date = datetime.datetime.utcnow().strftime('%Y-%m-%d')
+          try:
+            history = json.load(open('prev-version.json')).get('history') or []
+          except Exception:
+            history = []
+          history = [h for h in history if h.get('build') != n]
+          if os.environ.get('APP_CHANGED') == 'true':
+            history = [{'build': n, 'date': date, 'changes': changes}] + history
+          history = history[:30]
+          base = {'build': n, 'notes': notes, 'changes': changes, 'date': date, 'history': history}
+          json.dump({'version': '1.0.' + str(n), **base}, open('version.json', 'w'), ensure_ascii=False)
+          # PulsoMusic: su propia numeración (empezó en 1.0.1)
+          json.dump({'version': '1.0.' + str(max(1, n - 53)), **base}, open('version-music.json', 'w'), ensure_ascii=False)
           PY
           # App del reloj: su propia versión (2.N, N = cambios del reloj), igual que en wear/build.gradle.kts
           python3 - <<'PY'

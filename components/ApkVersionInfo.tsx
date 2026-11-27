@@ -9,7 +9,7 @@ const build = (v: string | null | undefined) => Number(String(v ?? '').split('.'
 
 // Versión publicada del APK, qué trae y (dentro de la app) si la instalada está al día
 export default function ApkVersionInfo() {
-  const [latest, setLatest] = useState<{ version?: string | null; notes?: string; date?: string } | null>(null)
+  const [latest, setLatest] = useState<{ version?: string | null; notes?: string; date?: string; changes?: string[]; history?: { build: number; date?: string; changes?: string[] }[] } | null>(null)
   const [installed, setInstalled] = useState<string | null>(null)
   useEffect(() => {
     try {
@@ -28,7 +28,29 @@ export default function ApkVersionInfo() {
         <Sparkles className="w-4 h-4 text-violet-300" /> Última versión: {latest.version}
         {latest.date && <span className="text-slate-500 font-normal text-xs">· {latest.date}</span>}
       </p>
-      {latest.notes && <p className="text-slate-400 text-xs mt-1">Novedad: {latest.notes}</p>}
+      {latest.history?.length ? (
+        // Historial de novedades de las últimas versiones
+        <div className="mt-2 max-h-72 overflow-y-auto pr-1 space-y-3">
+          {latest.history.slice(0, 10).map((h) => (
+            <div key={h.build}>
+              <p className="text-xs font-semibold text-slate-300">
+                Versión {isMusicApp() ? `1.0.${Math.max(1, h.build - 53)}` : `1.0.${h.build}`}
+                {h.date && <span className="text-slate-500 font-normal"> · {h.date}</span>}
+              </p>
+              <ul className="mt-1 space-y-0.5 text-xs text-slate-400">
+                {(h.changes ?? []).map((c) => (
+                  <li key={c} className="flex gap-1.5">
+                    <span className="text-violet-300 shrink-0">•</span>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        latest.notes && <p className="text-slate-400 text-xs mt-1">Novedad: {latest.notes}</p>
+      )}
       {installed &&
         (upToDate ? (
           <p className="flex items-center gap-1.5 text-emerald-300 text-xs mt-2">
