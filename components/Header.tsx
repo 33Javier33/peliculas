@@ -37,12 +37,40 @@ export default function Header() {
             ? 'tv'
             : 'movies'
   // Etiqueta de la sección actual junto a la marca (como "INTERACTIVE · MUSIC")
+  // Páginas que no son de una sección (Configuración, Administración…) muestran su propio nombre
+  // (antes decían «Películas» por defecto)
+  const PAGE_LABELS: [string, string][] = [
+    ['/configuracion', 'Configuración'],
+    ['/admin', 'Administración'],
+    ['/novedades', 'Novedades'],
+    ['/estado', 'Estado'],
+    ['/app-android', 'App Android'],
+    ['/app-iphone', 'App iPhone'],
+    ['/app-reloj', 'Reloj'],
+    ['/app-music', 'PulsoMusic'],
+    ['/pulsomusic', 'PulsoMusic'],
+    ['/esferas', 'Esferas'],
+    ['/escuchar', 'Escuchar'],
+    ['/search', 'Búsqueda'],
+    ['/music/me-gusta', 'Tus me gusta'],
+    ['/music/comunidad', 'Comunidad'],
+    ['/music/convertir', 'Convertir'],
+    ['/music/bio', 'Historia'],
+    ['/music/artist', 'Artista'],
+    ['/music/archive-artist', 'Artista'],
+    ['/music/album', 'Álbum'],
+    ['/music/archive', 'Disco'],
+    ['/music/playlist', 'Playlist'],
+    ['/music/nts', 'NTS Radio'],
+    ['/movie', 'Película'],
+  ]
+  const pageLabel = PAGE_LABELS.find(([p]) => pathname === p || pathname.startsWith(p + '/'))?.[1]
   const sectionLabel =
     pathname === '/music/library'
       ? 'Biblioteca'
       : pathname === '/music/videos' || pathname === '/music/feed'
         ? 'Videos'
-      : { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
+      : pageLabel ?? { music: 'Music', cine: 'Videos', radio: 'Radio', tv: 'TV', movies: pathname === '/' ? 'Inicio' : 'Películas' }[section]
   const isMusicPlaying = useMusicStore((s) => s.hasHydrated && s.isVisible && s.isPlaying)
   // En la Biblioteca se busca en la Biblioteca (no se cambia de sección)
   const inLibrary = pathname === '/music/library'
