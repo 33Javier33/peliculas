@@ -101,6 +101,8 @@ export function reportError(where: string, err: unknown) {
     let msg = describe(err)
     msg = msg.trim().slice(0, 500)
     if (!msg || NOISE.test(msg)) return
+    // Un archivo externo que no cargó sin internet no es una falla de la app (se reintenta solo)
+    if (/^No se pudo cargar un recurso externo/.test(msg) && typeof navigator !== 'undefined' && navigator.onLine === false) return
     const key = 'cpn-uso-err'
     const seen = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, number>
     const sig = `${where}|${msg.slice(0, 120)}`

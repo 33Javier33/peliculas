@@ -10,7 +10,7 @@ const RULES: { test: RegExp; where?: RegExp; fix: Fix }[] = [
       causa:
         'Un archivo de otro sitio no se pudo cargar (por ejemplo el reproductor de YouTube, una carátula o la conexión en vivo entre dispositivos), casi siempre por falta de conexión o porque la red lo bloqueó. Los que dicen «[object Event]» son de antes: ahora el mensaje dice cuál archivo fue.',
       solucion:
-        'Si pasa de vez en cuando, nada: la app sigue funcionando y lo reintenta. Si se repite mucho con el mismo sitio, revisar ese servicio. Desde esta versión el aviso dice qué archivo y de qué sitio era.',
+        'Si pasa de vez en cuando, nada. Con el reproductor de YouTube (www.youtube.com/iframe_api) había una falla: después de no cargar una vez, no se volvía a intentar hasta reiniciar la app; ya está corregido (se reintenta con el siguiente video). Los que ocurren sin internet ya no se anotan. Si se repite mucho con internet, revisar ese sitio.',
       grave: false,
     },
   },

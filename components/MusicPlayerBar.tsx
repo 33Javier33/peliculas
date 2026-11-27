@@ -639,7 +639,7 @@ export default function MusicPlayerBar() {
     const el = playerRef.current as unknown as HTMLMediaElement | null
     // La canción ya venía sonando en silencio a la par del video: se le sube el volumen y listo, sin
     // cortes (no se vuelve a buscar el segundo)
-    if (tookOver && el && !el.paused && el.readyState >= 3 && Math.abs(el.currentTime - at) < 1.2) {
+    if (tookOver && el && !el.paused && el.readyState >= 3 && Math.abs(el.currentTime - inlineTimeRef.current) <= 0.08) {
       el.playbackRate = 1
       el.muted = false
       setInline(null)
@@ -652,7 +652,9 @@ export default function MusicPlayerBar() {
       if (el && wasPlaying && el.paused) el.play()?.catch?.(() => {})
       return
     }
-    if (el && at > 0) {
+    // (si la canción ya está en ese segundo —venía pareja en silencio— no se busca: buscar hace
+    // que vuelva a cargar y eso era el corte)
+    if (el && at > 0 && !(el.readyState >= 3 && Math.abs(el.currentTime - at) <= 0.3)) {
       const go = () => {
         if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(at + 0.1, el.duration - 1)
       }
@@ -723,12 +725,13 @@ export default function MusicPlayerBar() {
       if (el && !el.paused && el.readyState >= 2 && inlineTimeRef.current > 0 && useAudioRef.current) {
         if (document.visibilityState !== 'hidden') el.muted = true
         const dv = el.currentTime - inlineTimeRef.current
-        if (Math.abs(dv) > 2) {
+        const a = Math.abs(dv)
+        if (a > 1.5) {
           try {
-            el.currentTime = inlineTimeRef.current + 0.15
+            el.currentTime = inlineTimeRef.current + 0.1
           } catch {}
           el.playbackRate = 1
-        } else el.playbackRate = Math.abs(dv) <= 0.12 ? 1 : dv < 0 ? 1.12 : 0.9
+        } else el.playbackRate = a <= 0.04 ? 1 : a > 0.3 ? (dv < 0 ? 1.25 : 0.8) : dv < 0 ? 1.06 : 0.94
       }
       const d = el && isFinite(el.duration) && el.duration > 0 ? el.duration : useMusicStore.getState().duration
       if (!d) return
@@ -738,7 +741,7 @@ export default function MusicPlayerBar() {
         lastSave = Date.now()
         useMusicStore.getState().setPlayed(f)
       }
-    }, 250)
+    }, 100)
     return () => clearInterval(id)
   }, [inline])
 
