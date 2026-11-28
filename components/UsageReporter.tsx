@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useMusicStore } from '@/store/musicStore'
 import { useAccountStore } from '@/store/accountStore'
-import { pingDaily, reportPlay, reportError } from '@/lib/usage'
+import { pingDaily, reportPlay, reportError, reportConnection } from '@/lib/usage'
 import { getNative } from '@/lib/native'
 
 // Para el panel de administración: el dispositivo se usó hoy, qué canciones suenan y los errores.
@@ -13,6 +13,17 @@ export default function UsageReporter() {
     const t = setTimeout(() => pingDaily(!!token), 4000)
     return () => clearTimeout(t)
   }, [token])
+
+  // Conexiones: al abrir y al volver a la app (como mucho una cada 30 min por dispositivo)
+  useEffect(() => {
+    const t = setTimeout(reportConnection, 5000)
+    const onVis = () => document.visibilityState === 'visible' && reportConnection()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   useEffect(() => {
     // Canción que de verdad empezó a sonar

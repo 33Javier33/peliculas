@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ShieldCheck, Users, Smartphone, Music2, Bug, RefreshCw, Loader2, CheckCircle2, RotateCcw, Database, UserRound, LogOut, Play, Pause, Layers, ChevronDown, Globe, Info } from 'lucide-react'
+import { ShieldCheck, Users, Smartphone, Music2, Bug, RefreshCw, Loader2, CheckCircle2, RotateCcw, Database, UserRound, LogOut, Play, Pause, Layers, ChevronDown, Globe, Info, Clock } from 'lucide-react'
 import { callAccount } from '@/lib/account-sync'
 import { useMusicStore } from '@/store/musicStore'
 
@@ -102,9 +102,10 @@ type Err = {
   resuelto: string | null
   notaAnterior: string | null
 }
-type Song = { track: string; titulo: string; artista: string; veces: number; personas?: number; ultimaVez?: string }
-type Version = { app: string; version: string; dispositivos: number; ultimaVez: string; ultima: boolean }
-type Cuenta = { email: string; respaldo: number; dispositivos: number; apps: string[]; ultimaVez: number; desde?: string | null; canciones30?: number }
+type Song = { track: string; titulo: string; artista: string; veces: number; personas?: number; ultimaVez?: string; quienes?: { cuenta: string; dias: number }[] | null }
+type Version = { app: string; version: string; dispositivos: number; ultimaVez: string; ultima: boolean; quienes?: { cuenta: string; device: string; ultimaVez: string }[] | null }
+type Conexion = { at: string; cuenta: string; device: string; app: string; version: string }
+type Cuenta = { email: string; respaldo: number; dispositivos: number; apps: string[]; ultimaVez: number; desde?: string | null; canciones30?: number; conexiones30?: number; ultimaConexion?: string | null }
 type Data = {
   ok: boolean
   error?: string
@@ -118,6 +119,8 @@ type Data = {
   cuentas?: Cuenta[]
   canciones?: { semana: Song[]; mes: Song[] }
   errores?: Err[]
+  conexiones?: Conexion[]
+  porHora?: { hora: number; n: number }[]
 }
 
 const APP_NAME: Record<string, string> = { media: 'App PulsoMedia', music: 'App PulsoMusic', web: 'Web (navegador)' }
@@ -212,9 +215,41 @@ function DailyBars({ days }: { days: { dia: string; total: number; porApp: Recor
   )
 }
 
+/** Conexiones por hora del día (0 a 23 h) */
+function HourBars({ data }: { data: { hora: number; n: number }[] }) {
+  const byHour = Array.from({ length: 24 }, (_, h) => data.find((d) => d.hora === h)?.n ?? 0)
+  const max = Math.max(1, ...byHour)
+  const [sel, setSel] = useState<number | null>(null)
+  const peak = byHour.indexOf(Math.max(...byHour))
+  const h = sel ?? peak
+  return (
+    <div>
+      <p className="text-xs text-slate-300 h-5">
+        <b className="text-white">{String(h).padStart(2, '0')}:00–{String(h).padStart(2, '0')}:59</b>: {byHour[h]} {byHour[h] === 1 ? 'conexión' : 'conexiones'}
+        {sel == null && <span className="text-slate-500"> (la hora con más)</span>}
+      </p>
+      <div className="mt-1 flex items-end gap-[2px] h-20 border-b border-white/10" role="img" aria-label="Conexiones por hora del día" onMouseLeave={() => setSel(null)}>
+        {byHour.map((n, i) => (
+          <button key={i} type="button" onMouseEnter={() => setSel(i)} onFocus={() => setSel(i)} onClick={() => setSel(i)} aria-label={`${i} h: ${n}`} className="flex-1 h-full flex items-end group">
+            <span className={`w-full rounded-t-[4px] ${i === h ? 'bg-violet-300' : 'bg-violet-500/60 group-hover:bg-violet-400'}`} style={{ height: n ? `${Math.max(4, (n / max) * 100)}%` : '2px', opacity: n ? 1 : 0.35 }} />
+          </button>
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+        <span>0 h</span>
+        <span>6 h</span>
+        <span>12 h</span>
+        <span>18 h</span>
+        <span>23 h</span>
+      </div>
+    </div>
+  )
+}
+
 function SongList({ songs }: { songs: Song[] }) {
   const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
   const playing = useMusicStore((s) => s.isPlaying)
+  const [who, setWho] = useState<string | null>(null)
   const toVideo = (t: Song) => ({ id: t.track, title: t.artista ? `${t.artista} - ${t.titulo}` : t.titulo, channelTitle: t.artista, thumbnail: `https://i.ytimg.com/vi/${t.track}/hqdefault.jpg`, publishedAt: '', description: '' })
   const play = (i: number) => {
     const st = useMusicStore.getState()
@@ -226,7 +261,7 @@ function SongList({ songs }: { songs: Song[] }) {
     <div>
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] text-slate-400">
-          <b className="text-slate-300">Veces</b> = cuántas veces sonó · <b className="text-slate-300">Personas</b> = cuántos dispositivos distintos la escucharon
+          <b className="text-slate-300">Veces</b> = cuántas veces sonó · <b className="text-slate-300">Personas</b> = cuántos dispositivos distintos (toca el número para ver quiénes)
         </p>
         <button onClick={() => play(0)} className="shrink-0 inline-flex items-center gap-1 rounded-full bg-white text-black px-3 py-1 text-xs font-bold">
           <Play className="w-3.5 h-3.5 fill-black" /> Escuchar todas
@@ -244,7 +279,8 @@ function SongList({ songs }: { songs: Song[] }) {
         {songs.map((t, i) => {
           const on = currentId === t.track
           return (
-            <li key={t.track} className={`grid grid-cols-[1.75rem_2.5rem_minmax(0,1fr)_3rem_3.5rem] gap-x-2 items-center px-1 h-14 border-b border-white/5 ${on ? 'bg-white/5' : ''}`}>
+            <li key={t.track} className={`border-b border-white/5 ${on ? 'bg-white/5' : ''}`}>
+            <div className="grid grid-cols-[1.75rem_2.5rem_minmax(0,1fr)_3rem_3.5rem] gap-x-2 items-center px-1 h-14">
               <span className="text-right text-slate-500 text-sm tabular-nums">{i + 1}</span>
               <button onClick={() => play(i)} className="relative w-10 h-10 rounded overflow-hidden bg-surface-2 group" aria-label={on && playing ? `Pausar ${t.titulo}` : `Escuchar ${t.titulo}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -261,7 +297,28 @@ function SongList({ songs }: { songs: Song[] }) {
                 </span>
               </button>
               <span className="text-right text-sm text-slate-200 tabular-nums">{t.veces}</span>
-              <span className="text-right text-sm text-slate-400 tabular-nums">{t.personas ?? '—'}</span>
+              <button
+                onClick={() => setWho(who === t.track ? null : t.track)}
+                className="text-right text-sm text-violet-300 tabular-nums underline decoration-dotted underline-offset-2"
+                aria-label={`Quiénes escuchan ${t.titulo}`}
+              >
+                {t.personas ?? '—'}
+              </button>
+            </div>
+            {/* Quiénes la escuchan (correo o «disp.» si no tiene cuenta) y cuántos días */}
+            {who === t.track && (
+              <div className="px-3 pb-2 -mt-1 flex flex-wrap gap-1.5">
+                {(t.quienes ?? []).length ? (
+                  (t.quienes ?? []).map((q) => (
+                    <span key={q.cuenta} className="rounded-full bg-white/8 px-2 py-0.5 text-[11px] text-slate-200">
+                      {q.cuenta} <span className="text-slate-500">· {q.dias} {q.dias === 1 ? 'día' : 'días'}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-slate-500">Sin datos de quiénes (se empieza a contar desde el SQL v3)</span>
+                )}
+              </div>
+            )}
             </li>
           )
         })}
@@ -364,6 +421,8 @@ export default function AdminClient() {
   const [loading, setLoading] = useState(false)
   const [songsRange, setSongsRange] = useState<'semana' | 'mes'>('semana')
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [verOpen, setVerOpen] = useState<string | null>(null)
+  const [conFilter, setConFilter] = useState('')
   useEffect(() => {
     setSession(readAdmin())
     setMounted(true)
@@ -442,7 +501,7 @@ export default function AdminClient() {
           </p>
           <p className="mt-1 text-amber-100/80">
             Abre Supabase → SQL Editor, pega el contenido de <b>supabase-migrations.sql</b> (del repositorio) y ejecútalo
-            {s?.sqlViejo ? ' de nuevo (trae lo nuevo: detalle de errores, personas por canción y actividad por día)' : ' una vez'}. Después vuelve aquí y toca Actualizar.
+            {s?.sqlViejo ? ' de nuevo (trae lo nuevo: conexiones con fecha y hora, quiénes escuchan cada canción y quiénes tienen cada versión)' : ' una vez'}. Después vuelve aquí y toca Actualizar.
           </p>
         </div>
       )}
@@ -503,6 +562,63 @@ export default function AdminClient() {
           </Card>
 
           <Card
+            icon={<Clock className="w-5 h-5 text-violet-300" />}
+            title="Conexiones"
+            help="Cada vez que alguien abre la app o la web (o vuelve después de 30 min), con la fecha y hora exactas. Arriba, a qué horas del día se conecta la gente (hora de Chile, últimos 30 días)."
+          >
+            {!s.conexiones?.length ? (
+              <p className="text-slate-400 text-sm">Sin conexiones anotadas todavía (se empieza a contar desde el SQL v3).</p>
+            ) : (
+              <>
+                {!!s.porHora?.length && <HourBars data={s.porHora} />}
+                <div className="mt-4 flex items-center gap-2">
+                  <select
+                    value={conFilter}
+                    onChange={(e) => setConFilter(e.target.value)}
+                    aria-label="Filtrar por usuario"
+                    className="bg-surface-2 border border-white/10 rounded-full px-3 py-1.5 text-xs text-slate-200 focus:outline-none"
+                  >
+                    <option value="">Todos</option>
+                    <option value="-">Sin cuenta</option>
+                    {Array.from(new Set(s.conexiones.map((k) => k.cuenta).filter(Boolean))).map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-slate-500">Últimas {s.conexiones.length}</span>
+                </div>
+                <div className="mt-2 rounded-xl border border-white/8 overflow-hidden">
+                  <div className="max-h-72 overflow-auto">
+                    <table className="w-full text-xs min-w-[520px]">
+                      <thead className="bg-white/5 text-slate-400 sticky top-0">
+                        <tr>
+                          <th className="text-left font-semibold px-3 py-2">Fecha y hora</th>
+                          <th className="text-left font-semibold px-3 py-2">Usuario</th>
+                          <th className="text-left font-semibold px-3 py-2">Dónde</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {s.conexiones
+                          .filter((k) => !conFilter || (conFilter === '-' ? !k.cuenta : k.cuenta === conFilter))
+                          .map((k, i) => (
+                            <tr key={i} className="border-t border-white/5">
+                              <td className="px-3 py-1.5 text-slate-200 whitespace-nowrap">{exact(k.at)}</td>
+                              <td className="px-3 py-1.5 text-slate-300 break-all">{k.cuenta || <span className="text-slate-500">Sin cuenta · disp. {k.device.slice(0, 6)}</span>}</td>
+                              <td className="px-3 py-1.5 text-slate-400 whitespace-nowrap">
+                                {appName(k.app)} {k.version}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </Card>
+
+          <Card
             icon={<Layers className="w-5 h-5 text-violet-300" />}
             title="Versiones en uso"
             help="Qué versión tiene cada dispositivo (últimos 30 días). Las apps desactualizadas no reciben los arreglos del teléfono hasta que se actualizan; la web se actualiza sola."
@@ -520,16 +636,33 @@ export default function AdminClient() {
                     {versiones
                       .filter((v) => v.app === app)
                       .map((v) => (
-                        <li key={v.version} className="flex items-center gap-2 text-xs">
+                        <li key={v.version} className="text-xs">
+                        <button onClick={() => setVerOpen(verOpen === `${app}${v.version}` ? null : `${app}${v.version}`)} className="w-full flex items-center gap-2 text-left">
                           <span className="text-slate-200 tabular-nums">{v.version}</span>
                           {v.ultima ? (
                             <span className="rounded-full bg-emerald-500/15 text-emerald-300 px-1.5 py-px text-[10px] font-semibold">más nueva</span>
                           ) : app !== 'web' ? (
                             <span className="rounded-full bg-amber-500/15 text-amber-300 px-1.5 py-px text-[10px] font-semibold">desactualizada</span>
                           ) : null}
-                          <span className="ml-auto text-slate-400 tabular-nums">
+                          <span className="ml-auto text-slate-400 tabular-nums underline decoration-dotted underline-offset-2">
                             {v.dispositivos} disp. · {ago(v.ultimaVez)}
                           </span>
+                        </button>
+                        {/* Quiénes tienen esta versión */}
+                        {verOpen === `${app}${v.version}` && (
+                          <ul className="mt-1 mb-1 ml-2 pl-2 border-l border-white/10 space-y-0.5">
+                            {(v.quienes ?? []).length ? (
+                              (v.quienes ?? []).map((q) => (
+                                <li key={q.device} className="flex gap-2 text-[11px]">
+                                  <span className="text-slate-200 truncate">{q.cuenta || `Sin cuenta · disp. ${q.device.slice(0, 6)}`}</span>
+                                  <span className="ml-auto text-slate-500 shrink-0">{exact(q.ultimaVez)}</span>
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-[11px] text-slate-500">Sin detalle (ejecuta el SQL v3)</li>
+                            )}
+                          </ul>
+                        )}
                         </li>
                       ))}
                   </ul>
@@ -548,13 +681,15 @@ export default function AdminClient() {
             ) : (
               <div className="rounded-xl border border-white/8 overflow-hidden">
                 <div className="max-h-80 overflow-auto">
-                  <table className="w-full text-xs min-w-[620px]">
+                  <table className="w-full text-xs min-w-[860px]">
                     <thead className="bg-white/5 text-slate-400 sticky top-0">
                       <tr>
                         <th className="text-left font-semibold px-3 py-2">Correo</th>
                         <th className="text-left font-semibold px-3 py-2">Usa</th>
                         <th className="text-right font-semibold px-3 py-2">Dispositivos</th>
                         <th className="text-right font-semibold px-3 py-2">Canciones (30 días)</th>
+                        <th className="text-right font-semibold px-3 py-2">Conexiones (30 días)</th>
+                        <th className="text-right font-semibold px-3 py-2">Última conexión</th>
                         <th className="text-right font-semibold px-3 py-2">Último respaldo</th>
                         <th className="text-right font-semibold px-3 py-2">Última actividad</th>
                       </tr>
@@ -571,6 +706,8 @@ export default function AdminClient() {
                           <td className="px-3 py-2 text-slate-300">{c.apps.length ? c.apps.map((a) => appName(a).replace(/^App /, '')).join(', ') : '—'}</td>
                           <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{c.dispositivos}</td>
                           <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{c.canciones30 ?? '—'}</td>
+                          <td className="px-3 py-2 text-right text-slate-300 tabular-nums">{c.conexiones30 ?? '—'}</td>
+                          <td className="px-3 py-2 text-right text-slate-400 whitespace-nowrap">{c.ultimaConexion ? exact(c.ultimaConexion) : '—'}</td>
                           <td className="px-3 py-2 text-right text-slate-400" title={exact(c.respaldo)}>
                             {ago(c.respaldo)}
                           </td>

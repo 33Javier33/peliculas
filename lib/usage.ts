@@ -124,3 +124,15 @@ export function reportError(where: string, err: unknown) {
     })
   } catch {}
 }
+
+/** Se abrió la app o la web (o se volvió a ella después de 30 min): fecha y hora para el panel */
+export function reportConnection() {
+  try {
+    const last = Number(localStorage.getItem('cpn-uso-conexion')) || 0
+    if (Date.now() - last < 30 * 60 * 1000) return
+    localStorage.setItem('cpn-uso-conexion', String(Date.now()))
+  } catch {
+    return
+  }
+  rpc('uso_conexion', { p_device: device(), p_app: usageApp(), p_version: usageVersion(), p_email: email() })
+}

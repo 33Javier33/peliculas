@@ -70,7 +70,7 @@ async function summary(d: SupabaseClient) {
   const { resueltos: _r, ...rest } = r
   void _r
   // (Sin «diario» es el SQL de la primera versión: hay que volver a ejecutarlo)
-  return { ok: true, faltaSql: false, sqlViejo: !('diario' in r), ...rest, versiones, errores }
+  return { ok: true, faltaSql: false, sqlViejo: !('conexiones' in r), ...rest, versiones, errores }
 }
 
 export async function POST(request: NextRequest) {
