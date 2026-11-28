@@ -17,6 +17,8 @@ import { tvTakeVideo } from '@/lib/video-handoff'
 import VideoMenu from '@/components/VideoMenu'
 import { withoutBlocked, useBlockedVersion } from '@/store/blockStore'
 import { useRouter } from 'next/navigation'
+import { syncedVideoUrl } from '@/components/SyncedVideo'
+import { playVideoSynced } from '@/lib/play-video-synced'
 
 interface YoutubePlayerProps {
   videoId: string
@@ -80,7 +82,29 @@ let playersMounted = 0
  * puede ver insertado (el dueño lo bloqueó fuera de YouTube, restricción por país…),
  * cambia solo a una fuente alternativa (Piped/Invidious) con un <video> propio.
  */
-export default function YoutubePlayer({
+/**
+ * App de Android: los videos se ven «como YouTube Music»: suenan en el reproductor de la app (un
+ * solo sonido, que nunca se corta) y el reproductor grande muestra la imagen pegada a ese sonido.
+ * Al bloquear, salir o pasar a la canción no hay ningún corte. En el navegador (o si el teléfono no
+ * puede dar la imagen) se usa el reproductor de YouTube de siempre.
+ */
+export default function YoutubePlayer(props: YoutubePlayerProps & { noDelegate?: boolean }) {
+  const [delegate] = useState(() => !props.noDelegate && typeof window !== 'undefined' && isNativeApp() && !!syncedVideoUrl(props.videoId))
+  if (delegate) return <DelegateToPlayer {...props} />
+  return <YoutubePlayerInner {...props} />
+}
+
+function DelegateToPlayer({ videoId, title, channelTitle, list, onClose }: YoutubePlayerProps) {
+  useEffect(() => {
+    const l = (list ?? []).map((x) => ({ id: x.id, title: x.title, channel: x.channel ?? '' }))
+    const all = l.some((x) => x.id === videoId) ? l : [{ id: videoId, title, channel: channelTitle }, ...l]
+    playVideoSynced(all, Math.max(0, all.findIndex((x) => x.id === videoId)))
+    onClose()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
+}
+
+function YoutubePlayerInner({
   videoId,
   title,
   channelTitle,

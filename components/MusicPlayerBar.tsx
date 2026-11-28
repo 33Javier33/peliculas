@@ -633,6 +633,8 @@ export default function MusicPlayerBar() {
   }, [])
   /** La imagen del teléfono no cargó: el video de YouTube (con el traspaso de sonido de antes) */
   const nativeVideoFailed = useCallback(() => {
+    // (para el panel de administración: saber si la imagen del teléfono falla)
+    reportError('video', 'La imagen del video del teléfono no cargó: se usó el video de YouTube (con corte al bloquear)')
     setInline((cur) => (cur && cur.native ? { ...cur, native: false, start: (playerRef.current as unknown as HTMLMediaElement | null)?.currentTime ?? cur.start, key: Date.now() } : cur))
   }, [])
   // El video «solo imagen» se pega al audio de la canción
@@ -789,6 +791,11 @@ export default function MusicPlayerBar() {
     const startTime = el && isFinite(el.currentTime) ? el.currentTime : 0
     const id = ytIdOf(v)
     if (!id) return
+    // App de Android: el video en el reproductor grande, solo imagen pegada a la canción (sin cortes)
+    if (syncedVideoUrl(id) && useAudioRef.current && !castingMusicRef.current) {
+      window.dispatchEvent(new CustomEvent(SHOW_VIDEO_EVENT, { detail: id }))
+      return
+    }
     openedAtRef.current = startTime
     setVideoModal({ id, title: v.title, channelTitle: v.channelTitle, startTime })
   }, [])
@@ -2869,6 +2876,7 @@ export default function MusicPlayerBar() {
     <>
       {videoModal && (
         <YoutubePlayer
+          noDelegate
           key={videoModal.id}
           onTrackChange={followVideo}
           onNext={() => {
