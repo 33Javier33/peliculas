@@ -81,14 +81,16 @@ export default function SyncedVideo({
     // Pegado a la canción: si se corre, se corrige (saltos grandes con un salto; chicos acelerando o
     // frenando la imagen de a poco). La canción no se toca nunca.
     let seekingUntil = 0
-    // Lo que se escucha va detrás del «segundo» del audio (retraso del teléfono o del Bluetooth,
-    // más el ajuste de Configuración): la imagen se pega a lo que se escucha
+    // Ajuste de la persona (Configuración → Sincronía de los videos). El retraso del audio del
+    // teléfono NO se descuenta: Android ya lo considera al decir en qué segundo va la canción (al
+    // descontarlo de nuevo la imagen quedaba atrasada)
     let lag = videoLag()
     const onOffset = () => (lag = videoLag())
     window.addEventListener(AV_EVENT, onOffset)
-    const lagTimer = setTimeout(onOffset, 800)
-    // (se vuelve a medir cada tanto: al conectar o desconectar audífonos Bluetooth cambia)
-    const lagEvery = setInterval(onOffset, 5000)
+    // Cuánto tarda la imagen en reaparecer tras un salto (cargar y decodificar desde el cuadro
+    // clave): se mide en cada salto y el siguiente salta eso más adelante, para caer justo
+    let lead = 0.35
+    let measureAfterSeek = false
     const tick = setInterval(() => {
       const a = audioEl()
       if (!a || v.readyState < 1) return
@@ -98,27 +100,32 @@ export default function SyncedVideo({
         return
       }
       const now = performance.now()
-      if (now < seekingUntil) return
+      // Mientras busca o carga después de un salto, se espera (re-saltar lo atrasaba más)
+      if (v.seeking || (now < seekingUntil && v.readyState < 3)) return
       const target = Math.max(0, a.currentTime - lag)
       const d = v.currentTime - target
       const ad = Math.abs(d)
-      if (ad > 0.6 || v.paused) {
-        // (se adelanta un poco lo que tarda en mostrar el cuadro tras el salto)
+      if (measureAfterSeek && v.readyState >= 3 && !v.paused) {
+        // Lo que quedó corrido tras el salto corrige cuánto adelantar el próximo
+        measureAfterSeek = false
+        lead = Math.min(2, Math.max(0, lead - d))
+      }
+      if (ad > 0.35 || v.paused) {
         try {
-          v.currentTime = Math.max(0, target + 0.15)
+          v.currentTime = Math.max(0, target + lead)
         } catch {}
         v.playbackRate = 1
-        seekingUntil = now + 400
+        seekingUntil = now + 3000
+        measureAfterSeek = true
         if (v.paused) v.play()?.catch?.(() => {})
         return
       }
-      v.playbackRate = ad <= 0.03 ? 1 : ad > 0.2 ? (d < 0 ? 1.2 : 0.8) : d < 0 ? 1.05 : 0.95
-    }, 100)
+      // Diferencia chica: la imagen acelera o frena un poco hasta quedar justa
+      v.playbackRate = ad <= 0.02 ? 1 : ad > 0.15 ? (d < 0 ? 1.25 : 0.8) : d < 0 ? 1.08 : 0.92
+    }, 80)
     return () => {
       clearTimeout(giveUp)
       clearInterval(tick)
-      clearTimeout(lagTimer)
-      clearInterval(lagEvery)
       window.removeEventListener(AV_EVENT, onOffset)
       v.removeEventListener('error', fail)
       v.removeEventListener('loadeddata', onData)

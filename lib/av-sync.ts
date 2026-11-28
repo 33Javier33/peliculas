@@ -55,7 +55,11 @@ export function setUserOffsetMs(ms: number) {
   window.dispatchEvent(new Event(AV_EVENT))
 }
 
-/** Lo que la imagen va detrás del «segundo» del audio (segundos) */
+/**
+ * Lo que la imagen va detrás del «segundo» del audio (segundos): solo el ajuste de la persona.
+ * (El retraso del audio del teléfono ya lo considera Android al informar el segundo de la canción;
+ * descontarlo otra vez atrasaba la imagen)
+ */
 export function videoLag(): number {
-  return audioLatency() + userOffsetMs() / 1000
+  return userOffsetMs() / 1000
 }

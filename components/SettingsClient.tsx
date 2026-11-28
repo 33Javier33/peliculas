@@ -36,7 +36,7 @@ import ViewToggle from '@/components/ViewToggle'
 import { useHelpTips, setHelpTips } from '@/components/HelpTip'
 import { importSiblingLibrary, otherAppName } from '@/lib/sibling-library'
 import ShareAppButton from '@/components/ShareAppButton'
-import { audioLatency, userOffsetMs, setUserOffsetMs } from '@/lib/av-sync'
+import { userOffsetMs, setUserOffsetMs } from '@/lib/av-sync'
 import { THEMES, getTheme, setTheme, type ThemeId } from '@/lib/theme'
 
 // Configuración: todo lo que se puede ajustar en la app, en un solo lugar.
@@ -378,12 +378,8 @@ function ThemePicker() {
 /** Sincronía de los videos: cuánto se atrasa la imagen para ir pareja con lo que se escucha */
 function AvSyncRow() {
   const [off, setOff] = useState(0)
-  const [auto, setAuto] = useState(0)
   useEffect(() => {
     setOff(userOffsetMs())
-    setAuto(Math.round(audioLatency() * 1000))
-    const t = setTimeout(() => setAuto(Math.round(audioLatency() * 1000)), 800)
-    return () => clearTimeout(t)
   }, [])
   const change = (ms: number) => {
     setUserOffsetMs(ms)
@@ -393,7 +389,7 @@ function AvSyncRow() {
     <Row
       icon={<MonitorPlay className="w-4 h-4" />}
       title="Sincronía de los videos"
-      desc={`La imagen se atrasa ${auto + off} ms para ir pareja con lo que escuchas (${auto} ms del teléfono${off ? ` ${off > 0 ? '+' : '−'} ${Math.abs(off)} ms tuyos` : ''}). Si la imagen se adelanta al sonido toca +; si va atrasada, −`}
+      desc={`La imagen va pegada al sonido${off ? ` (con ${off > 0 ? '+' : '−'}${Math.abs(off)} ms tuyos)` : ''}. Si en tu teléfono o audífonos la imagen se adelanta al sonido toca +; si va atrasada, −`}
     >
       <div className="flex items-center gap-1 shrink-0">
         <button onClick={() => change(off - 50)} className="w-9 h-9 rounded-full bg-surface-2 text-white text-lg font-bold" aria-label="Imagen 50 ms antes">
