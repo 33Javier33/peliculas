@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Maximize2, PictureInPicture2, X } from 'lucide-react'
 import { getNative } from '@/lib/native'
+import { videoLag, AV_EVENT } from '@/lib/av-sync'
 
 /**
  * Video de la canción como en YouTube Music: el sonido es SIEMPRE el de la canción (nunca se pausa
@@ -80,6 +81,14 @@ export default function SyncedVideo({
     // Pegado a la canción: si se corre, se corrige (saltos grandes con un salto; chicos acelerando o
     // frenando la imagen de a poco). La canción no se toca nunca.
     let seekingUntil = 0
+    // Lo que se escucha va detrás del «segundo» del audio (retraso del teléfono o del Bluetooth,
+    // más el ajuste de Configuración): la imagen se pega a lo que se escucha
+    let lag = videoLag()
+    const onOffset = () => (lag = videoLag())
+    window.addEventListener(AV_EVENT, onOffset)
+    const lagTimer = setTimeout(onOffset, 800)
+    // (se vuelve a medir cada tanto: al conectar o desconectar audífonos Bluetooth cambia)
+    const lagEvery = setInterval(onOffset, 5000)
     const tick = setInterval(() => {
       const a = audioEl()
       if (!a || v.readyState < 1) return
@@ -90,12 +99,13 @@ export default function SyncedVideo({
       }
       const now = performance.now()
       if (now < seekingUntil) return
-      const d = v.currentTime - a.currentTime
+      const target = Math.max(0, a.currentTime - lag)
+      const d = v.currentTime - target
       const ad = Math.abs(d)
       if (ad > 0.6 || v.paused) {
         // (se adelanta un poco lo que tarda en mostrar el cuadro tras el salto)
         try {
-          v.currentTime = Math.max(0, a.currentTime + 0.15)
+          v.currentTime = Math.max(0, target + 0.15)
         } catch {}
         v.playbackRate = 1
         seekingUntil = now + 400
@@ -107,6 +117,9 @@ export default function SyncedVideo({
     return () => {
       clearTimeout(giveUp)
       clearInterval(tick)
+      clearTimeout(lagTimer)
+      clearInterval(lagEvery)
+      window.removeEventListener(AV_EVENT, onOffset)
       v.removeEventListener('error', fail)
       v.removeEventListener('loadeddata', onData)
     }

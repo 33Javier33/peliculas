@@ -22,7 +22,7 @@ import {
   ChevronRight,
   Info,
   Watch,
-  Users, AudioLines, HardDriveDownload, TvMinimalPlay, EyeOff, ShieldCheck } from 'lucide-react'
+  Users, AudioLines, HardDriveDownload, TvMinimalPlay, EyeOff, ShieldCheck, MonitorPlay } from 'lucide-react'
 import { useEqStore, EQ_PRESETS } from '@/store/eqStore'
 import { useMusicStore } from '@/store/musicStore'
 import { useBlockStore } from '@/store/blockStore'
@@ -36,6 +36,7 @@ import ViewToggle from '@/components/ViewToggle'
 import { useHelpTips, setHelpTips } from '@/components/HelpTip'
 import { importSiblingLibrary, otherAppName } from '@/lib/sibling-library'
 import ShareAppButton from '@/components/ShareAppButton'
+import { audioLatency, userOffsetMs, setUserOffsetMs } from '@/lib/av-sync'
 import { THEMES, getTheme, setTheme, type ThemeId } from '@/lib/theme'
 
 // Configuración: todo lo que se puede ajustar en la app, en un solo lugar.
@@ -153,6 +154,7 @@ export default function SettingsClient() {
           <button onClick={() => eq.setOpen(true)} className="w-full flex items-center gap-2 px-4 py-3 text-sm text-violet-300 font-semibold">
             Ajustar bandas y preajustes <ChevronRight className="w-4 h-4 ml-auto" />
           </button>
+          <AvSyncRow />
           <Row icon={<Sparkles className="w-4 h-4" />} title="Audio en alta calidad" desc="Al escuchar con internet: la mejor calidad disponible, también los originales de archive.org (FLAC, MP3 320). Gasta más datos">
             <Switch on={audioBoost} onChange={(v) => useMusicStore.getState().setAudioBoost(v)} label="Audio en alta calidad" />
           </Row>
@@ -370,6 +372,41 @@ function ThemePicker() {
         )
       })}
     </div>
+  )
+}
+
+/** Sincronía de los videos: cuánto se atrasa la imagen para ir pareja con lo que se escucha */
+function AvSyncRow() {
+  const [off, setOff] = useState(0)
+  const [auto, setAuto] = useState(0)
+  useEffect(() => {
+    setOff(userOffsetMs())
+    setAuto(Math.round(audioLatency() * 1000))
+    const t = setTimeout(() => setAuto(Math.round(audioLatency() * 1000)), 800)
+    return () => clearTimeout(t)
+  }, [])
+  const change = (ms: number) => {
+    setUserOffsetMs(ms)
+    setOff(userOffsetMs())
+  }
+  return (
+    <Row
+      icon={<MonitorPlay className="w-4 h-4" />}
+      title="Sincronía de los videos"
+      desc={`La imagen se atrasa ${auto + off} ms para ir pareja con lo que escuchas (${auto} ms del teléfono${off ? ` ${off > 0 ? '+' : '−'} ${Math.abs(off)} ms tuyos` : ''}). Si la imagen se adelanta al sonido toca +; si va atrasada, −`}
+    >
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={() => change(off - 50)} className="w-9 h-9 rounded-full bg-surface-2 text-white text-lg font-bold" aria-label="Imagen 50 ms antes">
+          −
+        </button>
+        <button onClick={() => change(0)} className="min-w-[3.25rem] h-9 px-2 rounded-full bg-surface-2 text-xs text-slate-200 tabular-nums" aria-label="Volver al automático">
+          {off ? `${off > 0 ? '+' : ''}${off}` : 'Auto'}
+        </button>
+        <button onClick={() => change(off + 50)} className="w-9 h-9 rounded-full bg-surface-2 text-white text-lg font-bold" aria-label="Imagen 50 ms después">
+          +
+        </button>
+      </div>
+    </Row>
   )
 }
 

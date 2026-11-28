@@ -97,6 +97,18 @@ class NativeBridge(private val context: Context) {
         return s
     }
 
+    /**
+     * Cuánto tarda el teléfono en hacer sonar el audio (ms), incluido el Bluetooth si está conectado
+     * (AudioManager.getOutputLatency, lo mismo que usan los reproductores de video). -1 si no se sabe.
+     * La imagen de los videos se atrasa eso para ir pareja con lo que se escucha.
+     */
+    @JavascriptInterface
+    fun audioLatencyMs(): Int = runCatching {
+        val am = context.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val m = android.media.AudioManager::class.java.getMethod("getOutputLatency", Int::class.javaPrimitiveType)
+        (m.invoke(am, android.media.AudioManager.STREAM_MUSIC) as Int).takeIf { it in 1..2000 } ?: -1
+    }.getOrDefault(-1)
+
     @JavascriptInterface
     fun inPip(): Boolean = MainActivity.pipOn
 
