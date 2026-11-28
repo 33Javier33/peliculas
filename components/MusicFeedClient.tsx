@@ -13,6 +13,7 @@ import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { playAudioAt } from '@/store/miniStore'
 import SyncedVideo, { syncedVideoUrl } from '@/components/SyncedVideo'
 import { isNativeApp } from '@/lib/native'
+import { readSession, writeSession } from '@/lib/session-cache'
 
 // Videos para ti, en la barra de menú: a pantalla completa y en vertical (como YouTube Music), con los
 // videos de tus artistas y de los parecidos. El que se ve suena; al terminar pasa solo al siguiente.
@@ -32,8 +33,13 @@ export default function MusicFeedClient() {
   useEffect(() => {
     if (!seed && mine.length) setSeed(mine)
   }, [mine, seed])
-  const [videos, setVideos] = useState<V[]>([])
-  const [loading, setLoading] = useState(true)
+  // La lista se guarda durante la visita: al volver a la app (aunque Android haya recargado la
+  // página) sigue la misma, no una nueva desde el principio
+  const [videos, setVideos] = useState<V[]>(() => (typeof window !== 'undefined' && readSession<V[]>('cpn-feed')) || [])
+  const [loading, setLoading] = useState(() => !(typeof window !== 'undefined' && readSession<V[]>('cpn-feed')?.length))
+  useEffect(() => {
+    if (videos.length) writeSession('cpn-feed', videos)
+  }, [videos])
   const [active, setActive] = useState(0)
   // Hasta qué video está permitido cargar (el siguiente se habilita a los 6 s del que se ve)
   const [preloaded, setPreloaded] = useState(0)
@@ -46,6 +52,24 @@ export default function MusicFeedClient() {
   // bloquear sin ningún corte) y cada video es solo la imagen, pegada a ese sonido
   const [native] = useState(() => typeof window !== 'undefined' && isNativeApp() && !!syncedVideoUrl('aaaaaaaaaaa'))
   const nativeRef = useRef(native)
+  const adoptedRef = useRef(false)
+  // Mientras la pantalla se mueve sola (siguiendo lo que suena) no se cambia la canción por los
+  // videos que pasan por el medio
+  const autoScrollUntil = useRef(0)
+  /** Lleva la pantalla al video [i] sin animación, reintentando hasta que quede (al recargar la
+   * página la pantalla aún no tiene su alto y el primer intento no se movía) */
+  const scrollToIndex = useCallback((i: number) => {
+    let n = 0
+    autoScrollUntil.current = performance.now() + 2500
+    const go = () => {
+      const el = boxRef.current
+      if (!el) return
+      const h = el.clientHeight
+      if (h > 0) el.scrollTo({ top: i * h })
+      if ((h === 0 || Math.round(el.scrollTop / h) !== i) && n++ < 40) requestAnimationFrame(go)
+    }
+    go()
+  }, [])
   // Al salir de la app (pantalla bloqueada, otra app) el sonido pasa al reproductor de abajo,
   // que sí sigue en segundo plano. Al volver, el video retoma en el mismo segundo.
   useEffect(() => {
@@ -82,12 +106,36 @@ export default function MusicFeedClient() {
 
   // App: el video que se ve suena en el reproductor de la app (con los del feed a continuación)
   const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
+  // (se espera a que la app cargue lo que estaba sonando antes de decidir qué video poner)
+  const hydrated = useMusicStore((s) => s.hasHydrated)
   useEffect(() => {
-    if (!native) return
+    if (!native || !hydrated) return
     const v = videos[active]
     if (!v) return
     const st = useMusicStore.getState()
-    if (st.queue[st.currentIndex]?.id === v.id) {
+    // Al abrir (o volver a) la sección con algo sonando: se sigue con ESO, en su video (antes se
+    // cortaba y se ponía el primero de la lista, como si se recargara)
+    if (!adoptedRef.current) {
+      adoptedRef.current = true
+      const cur = st.isVisible ? st.queue[st.currentIndex] : null
+      const curId = cur?.id.replace(/^yta-/, '') ?? ''
+      const idx0 = videos.findIndex((x) => x.id === curId)
+      // Lo que suena (o lo que quedó puesto de esta misma lista, aunque la app se haya recargado)
+      if (cur && (st.isPlaying || idx0 >= 0) && /^[A-Za-z0-9_-]{11}$/.test(curId)) {
+        const idx = idx0
+        if (idx >= 0) {
+          if (idx !== active) {
+            setActive(idx)
+            scrollToIndex(idx)
+          }
+          return
+        }
+        setVideos([{ id: curId, title: cur.title, channel: cur.channelTitle || '' }, ...videos.filter((x) => x.id !== curId)])
+        return
+      }
+    }
+    if (performance.now() < autoScrollUntil.current && st.queue[st.currentIndex]?.id.replace(/^yta-/, '') !== v.id) return
+    if (st.queue[st.currentIndex]?.id.replace(/^yta-/, '') === v.id) {
       if (!st.isPlaying) st.setIsPlaying(true)
       return
     }
@@ -95,20 +143,33 @@ export default function MusicFeedClient() {
     // (sin aleatorio: el orden es el del feed)
     st.play(items, active)
     st.setIsPlaying(true)
-  }, [native, active, videos]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [native, active, videos, hydrated]) // eslint-disable-line react-hooks/exhaustive-deps
   // Cuando la canción termina, el reproductor pasa a la siguiente: el feed baja a ese video
   useEffect(() => {
     if (!native || !currentId) return
-    const i = videos.findIndex((x) => x.id === currentId)
-    if (i >= 0 && i !== activeRef.current) {
+    const follow = (smooth: boolean) => {
+      const id = useMusicStore.getState().queue[useMusicStore.getState().currentIndex]?.id.replace(/^yta-/, '')
+      const i = videos.findIndex((x) => x.id === id)
       const el = boxRef.current
-      if (el) el.scrollTo({ top: i * el.clientHeight, behavior: 'smooth' })
+      if (i < 0 || !el) return
+      if (i !== activeRef.current) setActive(i)
+      if (smooth) {
+        autoScrollUntil.current = performance.now() + 1200
+        el.scrollTo({ top: i * el.clientHeight, behavior: 'smooth' })
+      } else scrollToIndex(i)
     }
-  }, [native, currentId]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (document.visibilityState === 'visible') follow(true)
+    // Escondida no se mueve la pantalla: al volver va directo al video que suena
+    const onVis = () => document.visibilityState === 'visible' && follow(false)
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [native, currentId, videos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cada visita elige otros artistas y otra búsqueda: la sección no sale siempre igual
   useEffect(() => {
     if (!seed) return
+    // (ya hay lista de esta visita: no se arma otra)
+    if (readSession<V[]>('cpn-feed')?.length) return setLoading(false)
     if (!seed.length) return setLoading(false)
     let alive = true
     const names = pickArtists(seed)
@@ -164,6 +225,8 @@ export default function MusicFeedClient() {
         ref={boxRef}
         className="h-full w-full overflow-y-scroll snap-y snap-mandatory overscroll-contain [scrollbar-width:none]"
         onScroll={(e) => {
+          // (mientras la pantalla se mueve sola hasta el video que suena, no cuenta como elegir otro)
+          if (performance.now() < autoScrollUntil.current) return
           const el = e.currentTarget
           const i = Math.round(el.scrollTop / el.clientHeight)
           if (i !== active) setActive(i)
