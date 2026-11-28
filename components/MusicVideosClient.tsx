@@ -2,7 +2,8 @@
 
 import { playVideoSynced } from '@/lib/play-video-synced'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Search, PlayCircle, Loader2, MonitorPlay } from 'lucide-react'
+import { Search, PlayCircle, Loader2, MonitorPlay, ChevronRight, Play } from 'lucide-react'
+import SectionSheet from '@/components/SectionSheet'
 import Link from 'next/link'
 import YoutubePlayer from '@/components/YoutubePlayer'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
@@ -45,6 +46,8 @@ export default function MusicVideosClient() {
   const [open, setOpen] = useState<V | null>(null)
   // De dónde se abrió el video (para que al terminar siga con los de esa misma fila)
   const [openList, setOpenList] = useState<V[]>([])
+  // Fila abierta en una ventana (al tocar su título)
+  const [sheetRow, setSheetRow] = useState<string | null>(null)
   const play = (v: V, list: V[]) => {
     // App de Android: como YouTube Music (un solo sonido; la imagen pegada a él, sin cortes al bloquear)
     if (playVideoSynced(list.length ? list : [v], Math.max(0, list.findIndex((x) => x.id === v.id)))) return
@@ -169,7 +172,13 @@ export default function MusicVideosClient() {
         {!submitted &&
           rowsShown.map((r) => (
             <section key={r.title} className="mt-6">
-              <h2 className="text-white font-bold text-lg font-display leading-tight">{r.title}</h2>
+              {/* Tocar el título abre todos los videos de la fila en una ventana */}
+              <h2 className="text-white font-bold text-lg font-display leading-tight">
+                <button onClick={() => setSheetRow(r.title)} className="group inline-flex items-center gap-1 text-left hover:text-violet-200">
+                  {r.title}
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-violet-300" />
+                </button>
+              </h2>
               <p className="text-slate-500 text-xs truncate mb-2">{r.sub}</p>
               <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
                 {r.items.slice(0, 12).map((v) => (
@@ -191,6 +200,54 @@ export default function MusicVideosClient() {
               </div>
             </section>
           ))}
+
+        {(() => {
+          const r = sheetRow ? rowsShown.find((x) => x.title === sheetRow) : null
+          if (!r) return null
+          return (
+            <SectionSheet
+              title={r.title}
+              subtitle={`${r.items.length} videos · ${r.sub}`}
+              onClose={() => setSheetRow(null)}
+              action={
+                <button
+                  onClick={() => {
+                    setSheetRow(null)
+                    play(r.items[0], r.items)
+                  }}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white text-black px-3.5 py-2 text-xs font-bold"
+                >
+                  <Play className="w-3.5 h-3.5 fill-black" /> Ver todos
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
+                {r.items.map((v) => (
+                  <div key={v.id} className="relative min-w-0">
+                    <VideoAudioDownload compact id={v.id} title={v.title} channelTitle={v.channel} className="absolute top-2 right-2 z-[1]" />
+                    <button
+                      onClick={() => {
+                        setSheetRow(null)
+                        play(v, r.items)
+                      }}
+                      className="w-full text-left group"
+                    >
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-2 border border-white/8">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/15">
+                          <PlayCircle className="w-12 h-12 text-white/90 drop-shadow" />
+                        </span>
+                      </div>
+                      <p className="text-white text-[15px] font-semibold leading-snug line-clamp-2 mt-2 group-hover:text-violet-300">{v.title}</p>
+                      <p className="text-slate-500 text-xs truncate">{v.channel}</p>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </SectionSheet>
+          )
+        })()}
 
         {mine.length > 0 && <h2 className="mt-8 text-white font-bold text-lg font-display">Explorar tus artistas</h2>}
         {mine.length > 0 && <p className="text-slate-500 text-xs">Tus artistas y, en fucsia, artistas parecidos a los de tu biblioteca</p>}
