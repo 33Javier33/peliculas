@@ -1,5 +1,7 @@
 'use client'
 
+import { playVideoSynced } from '@/lib/play-video-synced'
+import { isMusicVideo } from '@/lib/next-music-video'
 import { continueInMiniPlayer, continueAsSong } from '@/lib/video-handoff'
 import { useState, useCallback, useTransition, useRef, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -54,6 +56,8 @@ export default function CineClientPage({
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [results, setResults] = useState<YouTubeSearchItem[]>(initialItems)
+  const resultsRef = useRef(results)
+  resultsRef.current = results
   const [videoDetails, setVideoDetails] = useState<VideoDetails>(initialVideoDetails)
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(initialNextPageToken)
   const [isSearchMode, setIsSearchMode] = useState(false)
@@ -285,6 +289,15 @@ export default function CineClientPage({
 
   const openPlayer = useCallback(
     (videoId: string, title: string, channelTitle: string) => {
+      // Videos musicales en la app de Android: como YouTube Music (un solo sonido; la imagen pegada
+      // a él, sin cortes al bloquear). Películas y lo demás: el reproductor de siempre
+      if (isMusicVideo(title, channelTitle, 0)) {
+        const list = resultsRef.current
+          .map((it) => ({ id: it.id.videoId, title: decodeEntities(it.snippet.title), channel: decodeEntities(it.snippet.channelTitle) }))
+          .filter((x) => x.id && isMusicVideo(x.title, x.channel, 0))
+        const all = list.some((x) => x.id === videoId) ? list : [{ id: videoId, title, channel: channelTitle }, ...list]
+        if (playVideoSynced(all, Math.max(0, all.findIndex((x) => x.id === videoId)))) return
+      }
       setPlayer({ videoId, title, channelTitle })
     },
     []

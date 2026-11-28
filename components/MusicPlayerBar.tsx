@@ -63,6 +63,7 @@ import { tvSyncPos, nativeCast, nativeCastAvailable, nativeCastStop, nativeCastC
 import { useCastStore } from '@/components/CastButton'
 import InlineVideo from '@/components/InlineVideo'
 import SyncedVideo, { syncedVideoUrl } from '@/components/SyncedVideo'
+import { SHOW_VIDEO_EVENT } from '@/lib/play-video-synced'
 const ReactPlayer = dynamic(() => import('react-player'), { ssr: false }) as any
 
 // Candidatos de audio por video (compartido entre renders; las URLs duran horas)
@@ -2343,6 +2344,28 @@ export default function MusicPlayerBar() {
       window.removeEventListener(PIP_EVENT, onVis)
     }
   }, [backToSong, showInline])
+
+  // Un video tocado en Videos (app de Android): el reproductor grande lo muestra «solo imagen»
+  // pegado a su sonido apenas su audio está listo (ver lib/play-video-synced.ts)
+  const pendingVideoRef = useRef<string | null>(null)
+  const [videoAsk, setVideoAsk] = useState(0)
+  useEffect(() => {
+    const onShow = (e: Event) => {
+      pendingVideoRef.current = (e as CustomEvent<string>).detail
+      setVideoAsk((n) => n + 1)
+      openFull()
+    }
+    window.addEventListener(SHOW_VIDEO_EVENT, onShow)
+    return () => window.removeEventListener(SHOW_VIDEO_EVENT, onShow)
+  }, [openFull])
+  useEffect(() => {
+    const want = pendingVideoRef.current
+    if (!want || !currentId || !audioUrl) return
+    if (ytIdOf(currentVideo) !== want) return
+    pendingVideoRef.current = null
+    if (inlineRef.current?.id === want) return
+    showInline()
+  }, [currentId, audioUrl, videoAsk]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Abrir la pantalla completa cuando otra parte de la app lo pide (enlace compartido)
   const fullPlayerRequested = useMusicStore((s) => s.fullPlayerRequested)

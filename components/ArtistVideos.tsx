@@ -1,5 +1,6 @@
 'use client'
 
+import { playVideoSynced } from '@/lib/play-video-synced'
 import { useCallback, useEffect, useState } from 'react'
 import { PlayCircle } from 'lucide-react'
 import YoutubePlayer from '@/components/YoutubePlayer'
@@ -47,7 +48,14 @@ export default function ArtistVideos({ name }: { name: string }) {
           return (
             <div key={id} className="relative shrink-0 w-64">
             <VideoAudioDownload compact id={id} title={title} channelTitle={v.snippet.channelTitle} className="absolute top-2 right-2 z-[1]" />
-            <button onClick={() => setOpen({ id, title, channel: v.snippet.channelTitle })} className="w-full text-left group">
+            <button
+              onClick={() => {
+                // App de Android: como YouTube Music (un solo sonido; la imagen pegada a él)
+                if (playVideoSynced(list, Math.max(0, list.findIndex((x) => x.id === id)))) return
+                setOpen({ id, title, channel: v.snippet.channelTitle })
+              }}
+              className="w-full text-left group"
+            >
               <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-2 border border-white/8">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

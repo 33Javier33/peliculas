@@ -1,5 +1,6 @@
 'use client'
 
+import { playVideoSynced } from '@/lib/play-video-synced'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Search, PlayCircle, Loader2, MonitorPlay } from 'lucide-react'
 import Link from 'next/link'
@@ -45,6 +46,8 @@ export default function MusicVideosClient() {
   // De dónde se abrió el video (para que al terminar siga con los de esa misma fila)
   const [openList, setOpenList] = useState<V[]>([])
   const play = (v: V, list: V[]) => {
+    // App de Android: como YouTube Music (un solo sonido; la imagen pegada a él, sin cortes al bloquear)
+    if (playVideoSynced(list.length ? list : [v], Math.max(0, list.findIndex((x) => x.id === v.id)))) return
     setOpenList(list)
     setOpen(v)
   }
