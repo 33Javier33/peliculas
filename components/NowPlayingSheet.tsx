@@ -339,7 +339,7 @@ export default function NowPlayingSheet({
           {/* Portada: cuadrada y del tamaño que quepa (el resto del reproductor siempre a la vista) */}
           <div ref={coverBoxRef} className="mt-3 mb-3 flex-1 min-h-[96px] flex items-center justify-center">
             <div
-              className={`relative mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 ${inline ? 'w-full aspect-video' : 'aspect-square'}`}
+              className={`relative mx-auto rounded-2xl overflow-hidden bg-surface-2 shadow-[0_20px_60px_rgb(var(--acc-500)_/_0.35)] border border-white/10 ${inline ? 'w-full h-full' : 'aspect-square'}`}
               style={inline ? undefined : { width: coverSize || '100%', height: coverSize || undefined }}
             >
               {inline && inlineTimeRef && (
@@ -348,6 +348,7 @@ export default function NowPlayingSheet({
                     <SyncedVideo
                       key={`${inline.id}-${(inline as { key?: number }).key ?? 0}`}
                       videoId={inline.id}
+                      fit="cover"
                       onFail={() => onInlineNativeFail?.()}
                       onFloat={onInlineFloat}
                     />

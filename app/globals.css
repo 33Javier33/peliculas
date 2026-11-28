@@ -670,3 +670,8 @@ html .cpn-play:not(.cpn-play-main):hover svg,
 html[data-theme] .cpn-play:not(.cpn-play-main):hover svg {
   transform: scale(1.12);
 }
+
+/* Video «solo imagen» a pantalla completa: el video entero (en el reproductor llena el espacio) */
+[data-synced-video]:fullscreen video {
+  object-fit: contain !important;
+}

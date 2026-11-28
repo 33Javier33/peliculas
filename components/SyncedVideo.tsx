@@ -32,7 +32,10 @@ export default function SyncedVideo({
   onExpand,
   onFloat,
   onCloseFloat,
+  fit = 'contain',
 }: {
+  /** cover: llena todo el espacio (en el reproductor grande); contain: el video entero */
+  fit?: 'cover' | 'contain'
   videoId: string
   onFail: () => void
   onExpand?: () => void
@@ -112,13 +115,13 @@ export default function SyncedVideo({
   if (!src) return null
 
   return (
-    <div ref={boxRef} className="absolute inset-0 bg-black">
+    <div ref={boxRef} data-synced-video className="absolute inset-0 bg-black">
       {!ready && (
         <span className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="w-8 h-8 text-white/60 animate-spin" />
         </span>
       )}
-      <video ref={ref} src={src} muted playsInline preload="auto" className="absolute inset-0 w-full h-full object-contain" aria-label="Video de la canción" />
+      <video ref={ref} src={src} muted playsInline preload="auto" className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} aria-label="Video de la canción" />
       <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
         {onFloat && (
           <button onClick={onFloat} className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md text-white flex items-center justify-center" aria-label="Ventana flotante" title="Ventana flotante (sigue mientras usas la app)">
