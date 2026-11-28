@@ -11,6 +11,8 @@ import { withAppParam } from '@/lib/app-flavor'
 import { getNative } from '@/lib/native'
 import VideoAudioDownload from '@/components/VideoAudioDownload'
 import { playAudioAt } from '@/store/miniStore'
+import SyncedVideo, { syncedVideoUrl } from '@/components/SyncedVideo'
+import { isNativeApp } from '@/lib/native'
 
 // Videos para ti, en la barra de menú: a pantalla completa y en vertical (como YouTube Music), con los
 // videos de tus artistas y de los parecidos. El que se ve suena; al terminar pasa solo al siguiente.
@@ -40,10 +42,16 @@ export default function MusicFeedClient() {
   const activeRef = useRef(0)
   activeRef.current = active
   const live = useRef<{ v: V | null; t: number; playing: boolean; handed: boolean }>({ v: null, t: 0, playing: false, handed: false })
+  // App de Android: como YouTube Music. El sonido es SIEMPRE el reproductor de la app (que sigue al
+  // bloquear sin ningún corte) y cada video es solo la imagen, pegada a ese sonido
+  const [native] = useState(() => typeof window !== 'undefined' && isNativeApp() && !!syncedVideoUrl('aaaaaaaaaaa'))
+  const nativeRef = useRef(native)
   // Al salir de la app (pantalla bloqueada, otra app) el sonido pasa al reproductor de abajo,
   // que sí sigue en segundo plano. Al volver, el video retoma en el mismo segundo.
   useEffect(() => {
     const onVis = () => {
+      // (con el sonido en el reproductor de la app no hay nada que traspasar al bloquear)
+      if (nativeRef.current) return
       const L = live.current
       const frames = Array.from(document.querySelectorAll<HTMLIFrameElement>('.snap-y section iframe'))
       if (document.visibilityState === 'hidden') {
@@ -69,8 +77,34 @@ export default function MusicFeedClient() {
 
   // Al abrir el feed se pausa la música del reproductor (no pueden sonar dos cosas)
   useEffect(() => {
-    useMusicStore.getState().setIsPlaying(false)
+    if (!nativeRef.current) useMusicStore.getState().setIsPlaying(false)
   }, [])
+
+  // App: el video que se ve suena en el reproductor de la app (con los del feed a continuación)
+  const currentId = useMusicStore((s) => (s.isVisible ? s.queue[s.currentIndex]?.id : undefined))
+  useEffect(() => {
+    if (!native) return
+    const v = videos[active]
+    if (!v) return
+    const st = useMusicStore.getState()
+    if (st.queue[st.currentIndex]?.id === v.id) {
+      if (!st.isPlaying) st.setIsPlaying(true)
+      return
+    }
+    const items = videos.map(videoOf)
+    // (sin aleatorio: el orden es el del feed)
+    st.play(items, active)
+    st.setIsPlaying(true)
+  }, [native, active, videos]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Cuando la canción termina, el reproductor pasa a la siguiente: el feed baja a ese video
+  useEffect(() => {
+    if (!native || !currentId) return
+    const i = videos.findIndex((x) => x.id === currentId)
+    if (i >= 0 && i !== activeRef.current) {
+      const el = boxRef.current
+      if (el) el.scrollTo({ top: i * el.clientHeight, behavior: 'smooth' })
+    }
+  }, [native, currentId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cada visita elige otros artistas y otra búsqueda: la sección no sale siempre igual
   useEffect(() => {
@@ -149,6 +183,7 @@ export default function MusicFeedClient() {
               if (t != null) live.current.t = t
               if (p != null) live.current.playing = p
             }}
+            native={native}
             onEnded={() => goTo(i + 1)}
             onSong={() => {
               useMusicStore.getState().play([videoOf(v)], 0)
@@ -170,7 +205,10 @@ function FeedItem({
   onInfo,
   onEnded,
   onSong,
+  native = false,
 }: {
+  /** App: solo imagen, pegada al sonido del reproductor de la app */
+  native?: boolean
   v: V
   isActive: boolean
   mounted: boolean
@@ -193,6 +231,10 @@ function FeedItem({
   cb.current = { onAt, onEnded, isActive, onInfo }
 
   const post = (func: string, args: unknown[] = []) => frame.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func, args }), '*')
+  // App: pausa y play van al reproductor de la app (el sonido)
+  const appPlaying = useMusicStore((s) => s.isPlaying)
+  const [nativeFailed, setNativeFailed] = useState(false)
+  const asImage = native && !nativeFailed
 
   // Al ser el que se ve: suena y arranca (con sonido si ya se permite). El reproductor a veces ignora
   // una orden que llega antes de estar listo: se repite hasta que confirme que está sonando
@@ -269,7 +311,21 @@ function FeedItem({
       <div className="absolute inset-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-        {mounted && (
+        {asImage && isActive && (
+          <div className="absolute inset-0">
+            <SyncedVideo
+              videoId={v.id}
+              fit="cover"
+              bare
+              onFail={() => {
+                // Sin imagen del teléfono: el video de YouTube con su sonido (la canción se pausa)
+                useMusicStore.getState().setIsPlaying(false)
+                setNativeFailed(true)
+              }}
+            />
+          </div>
+        )}
+        {mounted && !asImage && (
           <iframe
             ref={frame}
             key={v.id}
@@ -289,21 +345,22 @@ function FeedItem({
       {/* Tocar: pausa o sigue */}
       <button
         className="absolute inset-0 z-10"
-        aria-label={paused ? 'Seguir el video' : 'Pausar el video'}
+        aria-label={(asImage ? !appPlaying : paused) ? 'Seguir el video' : 'Pausar el video'}
         onClick={() => {
           unlock()
+          if (asImage) return useMusicStore.getState().setIsPlaying(!appPlaying)
           post(paused ? 'playVideo' : 'pauseVideo')
           setPaused(!paused)
         }}
       />
-      {paused && isActive && !blocked && (
+      {(asImage ? !appPlaying : paused) && isActive && !blocked && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <span className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center">
             <Headphones className="w-7 h-7" />
           </span>
         </div>
       )}
-      {!loaded && mounted && !blocked && (
+      {!loaded && mounted && !blocked && !asImage && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <Loader2 className="w-7 h-7 animate-spin text-white/80" />
         </div>
