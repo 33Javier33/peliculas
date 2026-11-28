@@ -50,11 +50,15 @@ export const adoptMusic = () => {
 }
 
 /** Lo que dice la TV: si reproduce, en qué segundo va y cuánto dura (la barra del teléfono lo muestra) */
-export const tvSync = { playing: null as boolean | null, pos: 0, dur: 0 }
+export const tvSync = { playing: null as boolean | null, pos: 0, dur: 0, at: 0 }
 /** Segundo y duración de lo que suena en la TV (estimado entre avisos) */
-export const castPosition = () => ({ t: tvSync.pos, d: tvSync.dur })
+export const castPosition = () => {
+  // Entre avisos de la TV (cada ~1 s) se calcula con el reloj: la letra y la barra avanzan suaves
+  const t = tvSync.playing && tvSync.at ? tvSync.pos + (Date.now() - tvSync.at) / 1000 : tvSync.pos
+  return { t: tvSync.dur > 0 ? Math.min(t, tvSync.dur) : t, d: tvSync.dur }
+}
 /** Segundo en que va lo que suena en la TV */
-export const tvSyncPos = () => tvSync.pos
+export const tvSyncPos = () => castPosition().t
 
 export function nativeCast(m: NativeCastMedia) {
   const b = n()
@@ -116,7 +120,10 @@ if (typeof window !== 'undefined') {
       if (kind === 'music') useMusicStore.getState().setIsPlaying(true)
       st.setTvState('playing')
     }
-    if (typeof o.pos === 'number' && isFinite(o.pos)) tvSync.pos = o.pos
+    if (typeof o.pos === 'number' && isFinite(o.pos)) {
+      tvSync.pos = o.pos
+      tvSync.at = Date.now()
+    }
     if (typeof o.dur === 'number' && isFinite(o.dur) && o.dur > 0) tvSync.dur = o.dur
     // Solo avisa la posición: no cambia nada más
     if (o.state === 'progress') return

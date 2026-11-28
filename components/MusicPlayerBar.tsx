@@ -1747,10 +1747,22 @@ export default function MusicPlayerBar() {
     const w = window as unknown as { __cpnTime?: () => { t: number; d: number; paused: boolean }; __cpnSeek?: (sec: number) => void }
     // Ir a un segundo (al pasar la música de otro dispositivo)
     w.__cpnSeek = (sec: number) => {
+      // Transmitiendo: salta la TV (tocar una línea de la letra, por ejemplo)
+      if (castingMusicRef.current) {
+        tvSync.pos = Math.max(0, sec)
+        tvSync.at = Date.now()
+        nativeCastControl(`seek:${Math.max(0, sec)}`)
+        return
+      }
       const el = playerRef.current as unknown as HTMLMediaElement | null
       if (el && isFinite(el.duration) && el.duration > 0) el.currentTime = Math.min(Math.max(0, sec), el.duration - 0.5)
     }
     w.__cpnTime = () => {
+      // Transmitiendo a la TV: el segundo de la TV (la letra la sigue a ella, no al teléfono callado)
+      if (castingMusicRef.current) {
+        const c = castPosition()
+        return { t: c.t, d: c.d, paused: tvSync.playing === false }
+      }
       const el = playerRef.current as unknown as HTMLMediaElement | null
       return { t: el?.currentTime ?? 0, d: el && isFinite(el.duration) ? el.duration : 0, paused: !el || el.paused }
     }
@@ -2630,11 +2642,15 @@ export default function MusicPlayerBar() {
   castingMusicRef.current = castingMusic
   // Qué se manda a la TV: audio (canción) o video; se recuerda para los cambios de canción
   const castAsVideoRef = useRef(false)
-  const castTrack = useCallback((position = 0, asVideo = castAsVideoRef.current) => {
+  // Lo que eligió la persona (Canción o Video): vale para TODAS las que siguen. Si un video no llega
+  // a la TV, ese tema va como canción, pero el siguiente vuelve a ir como video
+  const castPreferVideoRef = useRef(false)
+  const castTrack = useCallback((position = 0, asVideo = castPreferVideoRef.current, remember = true) => {
     const st = useMusicStore.getState()
     const v = st.queue[st.currentIndex]
     if (!v) return
     castAsVideoRef.current = asVideo
+    if (remember) castPreferVideoRef.current = asVideo
     // La barra empieza de cero con el tema nuevo (no con la posición del anterior)
     tvSync.pos = 0
     tvSync.dur = 0
@@ -2657,7 +2673,8 @@ export default function MusicPlayerBar() {
       const st = useCastStore.getState().tvState
       if ((st !== 'loading' && st !== 'error') || !castAsVideoRef.current) return
       castAsVideoRef.current = false
-      castTrack(tvSyncPos(), false)
+      // (solo este tema: la elección de ver videos se mantiene para los que siguen)
+      castTrack(tvSyncPos(), false, false)
       setTvNotice('El video no llegó a la TV: sigue la música')
       window.setTimeout(() => setTvNotice(null), 6000)
     }, tvState === 'error' ? 300 : 30000)
@@ -2691,7 +2708,8 @@ export default function MusicPlayerBar() {
     if (castedIdRef.current === null) castedIdRef.current = currentId
     if (castedIdRef.current === currentId) return
     castedIdRef.current = currentId
-    castTrack(0, castAsVideoRef.current)
+    // La siguiente va como eligió la persona (video si estaba viendo videos)
+    castTrack(0, castPreferVideoRef.current, false)
   }, [castingMusic, currentId, castTrack])
   useEffect(() => {
     if (!castingMusic) castedIdRef.current = null
@@ -2703,11 +2721,35 @@ export default function MusicPlayerBar() {
       const st = useMusicStore.getState()
       castedIdRef.current = st.queue[st.currentIndex]?.id ?? null
       castAsVideoRef.current = d.video
+      castPreferVideoRef.current = d.video
       if (d.reload) castTrack(d.pos, d.video)
     }
     window.addEventListener('cpn-tv-take', take)
     return () => window.removeEventListener('cpn-tv-take', take)
   }, [castTrack])
+  // Se dejó de transmitir (desde el teléfono, la TV o se cortó): el teléfono sigue con la música
+  // desde el segundo en que iba la TV (antes quedaba en pausa)
+  useEffect(() => {
+    const onStopped = () => {
+      const pos = castPosition().t
+      const wasPlaying = tvSync.playing !== false
+      tvSync.playing = null
+      tvSync.pos = 0
+      castPreferVideoRef.current = false
+      const el = playerRef.current as unknown as HTMLMediaElement | null
+      if (!el) return
+      const seek = () => {
+        if (pos > 1 && isFinite(el.duration) && pos < el.duration - 1) el.currentTime = pos
+      }
+      if (el.readyState >= 1) seek()
+      else el.addEventListener('loadedmetadata', seek, { once: true })
+      if (!wasPlaying) return
+      useMusicStore.getState().setIsPlaying(true)
+      setTimeout(() => el.paused && el.play()?.catch?.(() => {}), 50)
+    }
+    window.addEventListener('cpn-cast-stopped', onStopped)
+    return () => window.removeEventListener('cpn-cast-stopped', onStopped)
+  }, [])
   useEffect(() => {
     const ended = () => castingMusicRef.current && useMusicStore.getState().playNext()
     window.addEventListener('cpn-cast-ended', ended)
